@@ -54,8 +54,8 @@ var DEFAULT_SETTINGS = {
   },
   customReplacements: [
     { searchText: ".", replaceText: "\u2024", onlyAtStart: false, enabled: true },
-    { searchText: "- [ ] ", replaceText: "\u2714\uFE0F", onlyAtStart: true, enabled: true },
-    { searchText: "- [x] ", replaceText: "\u2705", onlyAtStart: true, enabled: true }
+    { searchText: "- [ ] ", replaceText: "\u2714\uFE0F ", onlyAtStart: true, enabled: true },
+    { searchText: "- [x] ", replaceText: "\u2705 ", onlyAtStart: true, enabled: true }
   ],
   omitHtmlTags: true,
   enableIllegalCharReplacements: false,
