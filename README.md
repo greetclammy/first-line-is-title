@@ -2,7 +2,7 @@
 
 - This is an improved version of the [Auto Filename](https://github.com/rcsaquino/obsidian-auto-filename) plugin. 
 - This is a custom plugin that I don't yet plan on submiting to the Obsidian plugin gallery.
-- It's recommended that you back up your files before you use this plugin.
+- It's recommended that you back up your files before using this plugin.
 - I vide coded this plugin with Claude Sonnet 4.
 
 ## Demo
@@ -26,8 +26,41 @@ https://github.com/user-attachments/assets/31c57879-eff3-4615-b358-83b12c97ecb4
 5. ake sure that "Enable after installing the plugin" is checked.
 6. Click "Add Plugin" button.
 
+## New note template
 
+It's recommended to use this plugin with a new note template that puts the cursor in note body on note creation, configured in [Templater](https://github.com/SilentVoid13/Templater) settings.
 
+Here's the template that I use:
+
+<details>
+  <summary>Templater script</summary>
+
+  ```js
+---
+created: <% moment(tp.file.creation_date()).format("YYYY-MM-DDTHH:mmZ") %>
+tags: []
+---
+<%* 
+if (!(/^Untitled(\s\d+)?$/.test(tp.file.title))) { -%>
+<% tp.file.title %><% await tp.file.cursor() %>
+<%* } -%>
+<%*
+tp.hooks.on_all_templates_executed(async () => {
+  const leaf = app.workspace.activeLeaf;
+  leaf.setViewState({
+    type: "markdown",
+    state: {
+      mode: "source", 
+      source: false
+    }
+  });
+  await leaf.view.editor.focus();
+});
+-%>
+```
+  
+</details>
+  
 ## Alternative solutions
 
 1. [Auto Filename](https://github.com/rcsaquino/obsidian-auto-filename)
