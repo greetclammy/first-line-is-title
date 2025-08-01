@@ -1,0 +1,9 @@
+{
+  "id": "put-first-line-in-title",
+  "name": "First Line is Title",
+  "version": "1.0.0",
+  "minAppVersion": "0.15.0",
+  "description": "Automatically renames notes based on the first line of their content.",
+  "author": "Claude",
+  "isDesktopOnly": false
+}
