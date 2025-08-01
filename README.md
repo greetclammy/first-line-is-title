@@ -5,6 +5,10 @@
 - It's recommended that you back up your files before you use this plugin.
 - I vide coded this plugin with Claude Sonnet 4.
 
+## Demo
+
+https://github.com/user-attachments/assets/31c57879-eff3-4615-b358-83b12c97ecb4
+
 ## Settings page overview
 
 <details>
