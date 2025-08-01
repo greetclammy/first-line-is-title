@@ -1,0 +1,60 @@
+{
+  "excludedFolders": [
+    "一Attachments",
+    "一Bases",
+    "一Templates",
+    "Obsidian 🌋/Templater/Archive"
+  ],
+  "charCount": 100,
+  "checkInterval": 100,
+  "charReplacements": {
+    "slash": " ∕ ",
+    "colon": "։",
+    "pipe": "❘",
+    "hash": "＃",
+    "leftBracket": "〚",
+    "rightBracket": "〛",
+    "caret": "ˆ",
+    "dot": "․"
+  },
+  "charReplacementEnabled": {
+    "slash": true,
+    "colon": true,
+    "pipe": true,
+    "hash": true,
+    "leftBracket": true,
+    "rightBracket": true,
+    "caret": true,
+    "dot": false
+  },
+  "customReplacements": [
+    {
+      "searchText": ".",
+      "replaceText": "․",
+      "onlyAtStart": false,
+      "enabled": true
+    },
+    {
+      "searchText": "- [ ] ",
+      "replaceText": "✔️",
+      "onlyAtStart": true,
+      "enabled": true
+    },
+    {
+      "searchText": "- [x] ",
+      "replaceText": "✅",
+      "onlyAtStart": true,
+      "enabled": true
+    },
+    {
+      "searchText": "- [-] ",
+      "replaceText": "❌",
+      "onlyAtStart": true,
+      "enabled": true
+    }
+  ],
+  "omitHtmlTags": true,
+  "enableIllegalCharReplacements": true,
+  "enableCustomReplacements": true,
+  "renameOnFocus": true
+}
