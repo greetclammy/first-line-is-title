@@ -64,8 +64,8 @@ const DEFAULT_SETTINGS: PluginSettings = {
     },
     customReplacements: [
         { searchText: '.', replaceText: '․', onlyAtStart: false, enabled: true },
-        { searchText: '- [ ] ', replaceText: '✔️', onlyAtStart: true, enabled: true },
-        { searchText: '- [x] ', replaceText: '✅', onlyAtStart: true, enabled: true }
+        { searchText: '- [ ] ', replaceText: '✔️ ', onlyAtStart: true, enabled: true },
+        { searchText: '- [x] ', replaceText: '✅ ', onlyAtStart: true, enabled: true }
     ],
     omitHtmlTags: true,
     enableIllegalCharReplacements: false,
