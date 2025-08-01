@@ -5,18 +5,18 @@
 - It's recommended that you back up your files before using this plugin.
 - I vide coded this plugin with Claude Sonnet 4.
 
-## Demo
+## ▶️ Demo
 
 https://github.com/user-attachments/assets/31c57879-eff3-4615-b358-83b12c97ecb4
 
-## Settings page overview
+## ⚙️ Settings page overview
 
 <details>
   <summary>Screenshot</summary>
 <img width="1044" height="1315" alt="settings" src="https://github.com/user-attachments/assets/02798b46-17a3-48c7-8d9f-64298a743d63" />
 </details>
 
-## Installation
+## ✅ Installation
 
 1. Install the BRAT plugin from "Community plugins" page.
 2. Go to the BRAT settings.
@@ -26,7 +26,7 @@ https://github.com/user-attachments/assets/31c57879-eff3-4615-b358-83b12c97ecb4
 5. ake sure that "Enable after installing the plugin" is checked.
 6. Click "Add Plugin" button.
 
-## New note template
+## 📝 New note template
 
 It's recommended to use this plugin with a new note template that puts the cursor in note body on note creation, configured in [Templater](https://github.com/SilentVoid13/Templater) settings.
 
@@ -61,7 +61,7 @@ tp.hooks.on_all_templates_executed(async () => {
   
 </details>
   
-## Alternative solutions
+## 👀 Alternative solutions
 
 1. [Auto Filename](https://github.com/rcsaquino/obsidian-auto-filename)
 2. [File Title Updater](https://github.com/wenlzhang/obsidian-file-title-updater)
