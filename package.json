@@ -1,5 +1,5 @@
 {
-  "name": "put-first-line-in-title",
+  "name": "first-line-is-title",
   "version": "1.0.0",
   "description": "Automatically renames files based on the first line of their content.",
   "main": "main.js",
