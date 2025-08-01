@@ -5,9 +5,11 @@
 - It's recommended that you back up your files before you use this plugin.
 - I vide coded this plugin with Claude Sonnet 4.
 
+## Settings page overview
+
 <details>
-  <summary>Settings page overview</summary>
-<img width="1033" height="946" alt="settings" src="https://github.com/user-attachments/assets/d930fa12-b720-4b61-81bb-40c5defea7fd" />
+  <summary>Screenshot</summary>
+<img width="1044" height="1315" alt="settings" src="https://github.com/user-attachments/assets/02798b46-17a3-48c7-8d9f-64298a743d63" />
 </details>
 
 ## Installation
