@@ -32,3 +32,4 @@ https://github.com/user-attachments/assets/31c57879-eff3-4615-b358-83b12c97ecb4
 
 1. [Auto Filename](https://github.com/rcsaquino/obsidian-auto-filename)
 2. [File Title Updater](https://github.com/wenlzhang/obsidian-file-title-updater)
+3. [Obsidian Filename Heading Sync](https://github.com/dvcrn/obsidian-filename-heading-sync)
