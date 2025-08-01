@@ -18,13 +18,13 @@ https://github.com/user-attachments/assets/31c57879-eff3-4615-b358-83b12c97ecb4
 
 ## ✅ Installation
 
-1. Install the BRAT plugin from "Community plugins" page.
+1. Install the community plugin [BRAT](https://obsidian.md/plugins?id=obsidian42-brat).
 2. Go to the BRAT settings.
-3. Click "Add Beta Plugin" button.
+3. Press "Add Beta Plugin".
 3. Paste the following URL in the text field: https://github.com/greetclammy/first-line-is-title.
 4. Select the latest release.
-5. ake sure that "Enable after installing the plugin" is checked.
-6. Click "Add Plugin" button.
+5. Make sure that "Enable after installing the plugin" is checked.
+6. Press "Add Plugin".
 
 ## 📝 New note template
 
