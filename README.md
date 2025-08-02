@@ -61,7 +61,14 @@ tp.hooks.on_all_templates_executed(async () => {
 ```
   
 </details>
-  
+
+## 💡 Room for improvement
+
+Though I don't currently plan on working on this plugin further, a few potential improvements come to mind:
+
+1. Opiton to omit markdown syntax in title.
+2. Two-way-sync: sync title to first line.
+
 ## 👀 Alternative solutions
 
 1. [Auto Filename](https://github.com/rcsaquino/obsidian-auto-filename)
