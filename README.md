@@ -2,7 +2,7 @@
 
 This custom plugin for [Obsidian](https://obsidian.md/) dynamically copies the first line in note body to note title.
 
-- It's recommended that you back up your files before using this plugin.
+- **It's recommended that you back up your files before using this plugin.**
 - I don't yet plan on submiting this plugin to the Obsidian plugin gallery.
 - This is an improved version of the [Auto Filename](https://github.com/rcsaquino/obsidian-auto-filename) plugin. 
 
