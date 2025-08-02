@@ -73,8 +73,8 @@ tp.hooks.on_all_templates_executed(async () => {
 
 Feel free to share your thoughts about this plugin on:
 
-- [GitHub discussions](https://github.com/greetclammy/first-line-is-title/discussions)
 - [The Obsidian Forum](https://forum.obsidian.md/t/plugin-to-automatically-copy-first-line-in-note-to-note-title/103558)
 - [The Obsidian Members Group (OMG) Discord channel](https://discord.com/channels/686053708261228577/707816848615407697)
+- [GitHub discussions](https://github.com/greetclammy/first-line-is-title/discussions)
 
 Please ⭐️ this repository if you found the plugin helpful 😇
