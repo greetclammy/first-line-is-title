@@ -68,3 +68,13 @@ tp.hooks.on_all_templates_executed(async () => {
 1. [Auto Filename](https://github.com/rcsaquino/obsidian-auto-filename)
 2. [File Title Updater](https://github.com/wenlzhang/obsidian-file-title-updater)
 3. [Obsidian Filename Heading Sync](https://github.com/dvcrn/obsidian-filename-heading-sync)
+
+## 💬 Discuss
+
+Feel free to share your thoughts about this plugin on:
+
+- [GitHub discussions](https://github.com/greetclammy/first-line-is-title/discussions)
+- [The Obsidian Forum](https://forum.obsidian.md/t/plugin-to-automatically-copy-first-line-in-note-to-note-title/103558)
+- [The Obsidian Members Group (OMG) Discord channel](https://discord.com/channels/686053708261228577/707816848615407697)
+
+Please ⭐️ this repository if you found the plugin helpful 😇
