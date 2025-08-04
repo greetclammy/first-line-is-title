@@ -111,6 +111,7 @@ PRs welcome.
 12. Add buttons to reorder custom rules.
 	- Custom replacements are applied sequentially in the order they appear in the array: each replacement operates on the output of the previous replacement.
 	- Source of inspiration: settings for custom regex replacements in Linter.
+13. Collapse illegal char and custom replacement sections when they are toggled OFF.
 
 </details>
 
