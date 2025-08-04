@@ -77,7 +77,7 @@ For the times when you want to force the plugin to update the title, I recommend
 <img width="580" height="428" alt="Screenshot 2025-08-04 at 15 18 09" src="https://github.com/user-attachments/assets/de3f9062-045d-4f6b-9767-a8f023d4d0b6" />
 </details>
 
-This is super useful if you already use Ctrl-Cmd-S to trigger [Linter](https://obsidian.md/plugins?id=obsidian-linter).
+This is super useful if you already use Ctrl/Cmd-S to trigger [Linter](https://obsidian.md/plugins?id=obsidian-linter).
 
 ## 🔨 Room for improvement
 
