@@ -123,4 +123,8 @@ Feel free to share your thoughts about this plugin on:
 
 Or open an issue!
 
+## 👨‍💻 What else I made
+
+- [Adapt to Current View](https://github.com/greetclammy/adapt-to-current-view/)
+
 Please ⭐️ this repository if you found the plugin helpful 😇
