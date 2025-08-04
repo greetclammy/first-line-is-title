@@ -102,6 +102,7 @@ PRs welcome.
 7. Replace the "Remove" button with [trash-2](https://lucide.dev/icons/trash-2).
 8. Replace "Restore defaults" with [rotate-ccw](https://lucide.dev/icons/rotate-ccw) next to each replacement character.
 9. Add option not exclude subfolders of the excluded folders.
+10. Add "Match whole line only" toggle to each custom replacement.
 
 
 ## 👀 Alternative solutions
