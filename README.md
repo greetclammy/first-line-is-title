@@ -97,6 +97,8 @@ Though I don't currently plan on working on this plugin further, some potential 
 11. Exclude folders via a folder picker instead of a text field.
 12. Add an "Excluded files" section to the settings.
 
+PRs welcome.
+
 ## 👀 Alternative solutions
 
 1. [Auto Filename](https://github.com/rcsaquino/obsidian-auto-filename)
