@@ -89,6 +89,7 @@ PRs welcome.
 2. Extend the illegal character mapping functionality to vault search and the Quick switcher.
    - For example, if `:` (regular colon) is replaced by `։` (replacement character) in file names, searching for `:` (regular) in vault search or the Quick switcher should automatically map to and match `։` (alt).
 3. Add option to disable renaming file or folder in file and folder context menu.
+4. Submit to the Obsidian plugin gallery.
 
 **Settings:**
 
