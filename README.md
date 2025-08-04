@@ -107,7 +107,7 @@ PRs welcome.
    - Currently, if "Rename on focus" is toggled ON, the file gets renamed when it gets focused, not when it gets opened. E.g. if you open a file in a new tab without switching to it (if such option is enabled in Obsidian settings > Editor).
 7. Replace the "Remove" button with [trash-2](https://lucide.dev/icons/trash-2).
 8. Replace "Restore defaults" with [rotate-ccw](https://lucide.dev/icons/rotate-ccw) next to each replacement character.
-9. Add option not exclude subfolders of the excluded folders.
+9. Add option not to exclude subfolders of the excluded folders.
 10. Replace "Match at line start only" toggle with a checkmark.
 11. Add "Match whole line only" checkmark to each custom replacement.
 12. Add buttons to reorder custom rules.
