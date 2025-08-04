@@ -74,6 +74,8 @@ Though I don't currently plan on working on this plugin further, a few potential
 6. Add option to disable renaming file or folder in file and folder context menu.
 7. Add option to rename file every time it gets opened (even if not focused).
    - Currently, if "Rename on focus" is toggled ON, the file gets renamed when it gets focused, not when it gets opened. E.g. if you open a file in a new tab without switching to it (if such option is enabled in Obsidian settings > Editor).
+8. Replace the "Remove" button with the Lucide trash icon.
+9. Replace "Restore defaults" with [rotate-ccw](https://lucide.dev/icons/rotate-ccw) icon for each option.
 
 ## 👀 Alternative solutions
 
