@@ -112,6 +112,7 @@ PRs welcome.
 	- Custom replacements are applied sequentially in the order they appear in the array: each replacement operates on the output of the previous replacement.
 	- Source of inspiration: settings for custom regex replacements in Linter.
 13. Collapse illegal char and custom replacement sections when they are toggled OFF.
+14. Add option for empty files to retain their title rather than get renamed to `Untitled`.
 
 </details>
 
