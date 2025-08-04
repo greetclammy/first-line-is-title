@@ -81,23 +81,28 @@ This is super useful if you already use Ctrl-Cmd-S to trigger [Linter](https://o
 
 ## 🔨 Room for improvement
 
-Though I don't currently plan on working on this plugin further, some potential improvements come to mind:
-
-1. Opiton to omit markdown syntax in title.
-2. Two-way-sync: also sync title → first line.
-3. Create custom CSS to make replacements for illegal characters appear the same as illegal characters—anywhere you can come across a note title.
-4. Extend the illegal character mapping functionality to vault search and the Quick switcher.
-   - For example, if `:` (regular colon) is replaced by `։` (replacement character) in file names, searching for `:` (regular) in vault search or the Quick switcher should automatically map to and match `։` (alt).
-6. Add option to disable renaming file or folder in file and folder context menu.
-7. Add option to rename file every time it gets opened (even if not focused).
-   - Currently, if "Rename on focus" is toggled ON, the file gets renamed when it gets focused, not when it gets opened. E.g. if you open a file in a new tab without switching to it (if such option is enabled in Obsidian settings > Editor).
-8. Replace the "Remove" button with [trash-2](https://lucide.dev/icons/trash-2).
-9. Replace "Restore defaults" with [rotate-ccw](https://lucide.dev/icons/rotate-ccw) next to each replacement character.
-10. Add regex support to custom text replacements.
-11. Exclude folders via a folder picker instead of a text field.
-12. Add an "Excluded files" section to the settings.
+Though I don't currently plan on working on this plugin further, some potential improvements come to mind.
 
 PRs welcome.
+
+1. Create custom CSS to make replacements for illegal characters appear the same as illegal characters—anywhere you can come across a note title.
+2. Extend the illegal character mapping functionality to vault search and the Quick switcher.
+   - For example, if `:` (regular colon) is replaced by `։` (replacement character) in file names, searching for `:` (regular) in vault search or the Quick switcher should automatically map to and match `։` (alt).
+3. Add option to disable renaming file or folder in file and folder context menu.
+
+**Settings:**
+
+1. Add opiton to omit markdown syntax in title.
+2. Add two-way-sync option: also sync title → first line.
+3. Exclude folders via a folder picker instead of a text field.
+4. Add regex support to custom text replacements.
+5. Add an "Excluded files" section to the settings.
+6. Add option to rename file every time it gets opened (even if not focused).
+   - Currently, if "Rename on focus" is toggled ON, the file gets renamed when it gets focused, not when it gets opened. E.g. if you open a file in a new tab without switching to it (if such option is enabled in Obsidian settings > Editor).
+7. Replace the "Remove" button with [trash-2](https://lucide.dev/icons/trash-2).
+8. Replace "Restore defaults" with [rotate-ccw](https://lucide.dev/icons/rotate-ccw) next to each replacement character.
+9. Add option not exclude subfolders of the excluded folders.
+
 
 ## 👀 Alternative solutions
 
@@ -112,5 +117,7 @@ Feel free to share your thoughts about this plugin on:
 - [The Obsidian Forum](https://forum.obsidian.md/t/plugin-to-automatically-copy-first-line-in-note-to-note-title/103558)
 - [The Obsidian Members Group (OMG) Discord channel](https://discord.com/channels/686053708261228577/707816848615407697)
 - [GitHub discussions](https://github.com/greetclammy/first-line-is-title/discussions)
+
+Or open an issue!
 
 Please ⭐️ this repository if you found the plugin helpful 😇
