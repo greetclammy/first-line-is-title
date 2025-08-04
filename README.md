@@ -91,7 +91,7 @@ PRs welcome.
 1. Create custom CSS to make replacements for illegal characters appear the same as illegal characters—anywhere you can come across a note title.
 2. Extend the illegal character mapping functionality to vault search and the Quick switcher.
    - For example, if `:` (regular colon) is replaced by `։` (replacement character) in file names, searching for `:` (regular) in vault search or the Quick switcher should automatically map to and match `։` (alt).
-3. Add option to disable renaming file or folder in file and folder context menu.
+3. Add option to exclude a file or folder in file/folder context menu.
 4. Submit to the Obsidian plugin gallery.
 
 **Settings:**
@@ -108,6 +108,9 @@ PRs welcome.
 9. Add option not exclude subfolders of the excluded folders.
 10. Replace "Match at line start only" toggle with a checkmark.
 11. Add "Match whole line only" checkmark to each custom replacement.
+12. Add buttons to reorder custom rules. 
+- Custom replacements are applied sequentially in the order they appear in the array: each replacement operates on the output of the previous replacement.
+- Source of inspiration: settings for custom regex replacements in Linter.
 
 </details>
 
