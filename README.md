@@ -94,6 +94,7 @@ Though I don't currently plan on working on this plugin further, some potential 
 8. Replace the "Remove" button with the Lucide trash icon.
 9. Replace "Restore defaults" with [rotate-ccw](https://lucide.dev/icons/rotate-ccw) icon for each option.
 10. Add regex support to custom text replacements.
+11. Exclude folders via a folder picker instead of a text field.
 
 ## 👀 Alternative solutions
 
