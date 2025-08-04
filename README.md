@@ -4,7 +4,7 @@ This custom plugin for [Obsidian](https://obsidian.md/) dynamically copies the f
 
 - **It's recommended that you back up your files before using this plugin.**
 - I don't yet plan on submitting this plugin to the Obsidian plugin gallery.
-- This is an improved version of the [Auto Filename](https://github.com/rcsaquino/obsidian-auto-filename) plugin. 
+- This is an improved version of the [Auto Filename](https://obsidian.md/plugins?id=auto-filename) plugin. 
 
 ## ▶️ Demo
 
@@ -31,7 +31,7 @@ https://github.com/user-attachments/assets/31c57879-eff3-4615-b358-83b12c97ecb4
 
 ### New note template
 
-It's recommended to use this plugin with a new note template that puts the cursor in note body on note creation, configured in [Templater](https://github.com/SilentVoid13/Templater) settings.
+It's recommended to use this plugin with a new note template that puts the cursor in note body on note creation, configured in [Templater](https://obsidian.md/plugins?id=templater-obsidian) settings.
 
 Here's the template that I use:
 
@@ -117,9 +117,9 @@ PRs welcome.
 
 ## 👀 Alternative solutions
 
-1. [Auto Filename](https://github.com/rcsaquino/obsidian-auto-filename)
-2. [File Title Updater](https://github.com/wenlzhang/obsidian-file-title-updater)
-3. [Obsidian Filename Heading Sync](https://github.com/dvcrn/obsidian-filename-heading-sync)
+1. [Auto Filename](https://obsidian.md/plugins?id=auto-filename)
+2. [File Title Updater](https://obsidian.md/plugins?id=file-title-updater)
+3. [Filename Heading Sync](https://obsidian.md/plugins?id=obsidian-filename-heading-sync)
 
 ## 💬 Discuss
 
