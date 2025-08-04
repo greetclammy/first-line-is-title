@@ -85,6 +85,9 @@ Though I don't currently plan on working on this plugin further, some potential 
 
 PRs welcome.
 
+<details>
+  <summary>Expand</summary>
+
 1. Create custom CSS to make replacements for illegal characters appear the same as illegal characters—anywhere you can come across a note title.
 2. Extend the illegal character mapping functionality to vault search and the Quick switcher.
    - For example, if `:` (regular colon) is replaced by `։` (replacement character) in file names, searching for `:` (regular) in vault search or the Quick switcher should automatically map to and match `։` (alt).
@@ -106,6 +109,7 @@ PRs welcome.
 10. Replace "Match at line start only" toggle with a checkmark.
 11. Add "Match whole line only" checkmark to each custom replacement.
 
+</details>
 
 ## 👀 Alternative solutions
 
