@@ -70,10 +70,10 @@ Though I don't currently plan on working on this plugin further, a few potential
 2. Two-way-sync: also sync title → first line.
 3. Create custom CSS to make replacements for illegal characters appear the same as illegal characters—anywhere you can come across a note title.
 4. Extend the illegal character mapping functionality to vault search and the Quick switcher.
-  1. For example, if `:` (regular colon) is replaced by `։` (replacement character) in file names, searching for `:` (regular) in vault search or the Quick switcher should automatically map to and match `։` (alt).
+   - For example, if `:` (regular colon) is replaced by `։` (replacement character) in file names, searching for `:` (regular) in vault search or the Quick switcher should automatically map to and match `։` (alt).
 6. Add option to disable renaming file or folder in file and folder context menu.
 7. Add option to rename file every time it gets opened (even if not focused).
-  1. Currently, if "Rename on focus" is toggled ON, the file gets renamed when it gets focused, not when it gets opened. E.g. if you open a file in a new tab without switching to it (if such option is enabled in Obsidian settings > Editor).
+   - Currently, if "Rename on focus" is toggled ON, the file gets renamed when it gets focused, not when it gets opened. E.g. if you open a file in a new tab without switching to it (if such option is enabled in Obsidian settings > Editor).
 
 ## 👀 Alternative solutions
 
