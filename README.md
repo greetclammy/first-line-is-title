@@ -64,7 +64,7 @@ tp.hooks.on_all_templates_executed(async () => {
 
 ## 💡 Room for improvement
 
-Though I don't currently plan on working on this plugin further, a few potential improvements come to mind:
+Though I don't currently plan on working on this plugin further, some potential improvements come to mind:
 
 1. Opiton to omit markdown syntax in title.
 2. Two-way-sync: also sync title → first line.
@@ -76,6 +76,7 @@ Though I don't currently plan on working on this plugin further, a few potential
    - Currently, if "Rename on focus" is toggled ON, the file gets renamed when it gets focused, not when it gets opened. E.g. if you open a file in a new tab without switching to it (if such option is enabled in Obsidian settings > Editor).
 8. Replace the "Remove" button with the Lucide trash icon.
 9. Replace "Restore defaults" with [rotate-ccw](https://lucide.dev/icons/rotate-ccw) icon for each option.
+10. Add regex support to custom text replacements.
 
 ## 👀 Alternative solutions
 
