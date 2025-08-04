@@ -89,10 +89,12 @@ PRs welcome.
   <summary>Expand</summary>
 
 1. Create custom CSS to make replacements for illegal characters appear the same as illegal characters—anywhere you can come across a note title.
-2. Extend the illegal character mapping functionality to vault search and the Quick switcher.
+	- Unsure if feasible.
+3. Extend the illegal character mapping functionality to vault search and the Quick switcher.
    - For example, if `:` (regular colon) is replaced by `։` (replacement character) in file names, searching for `:` (regular) in vault search or the Quick switcher should automatically map to and match `։` (alt).
-3. Add option to exclude a file or folder in file/folder context menu.
-4. Submit to the Obsidian plugin gallery.
+	- Unsure if feasible.
+4. Add option to exclude a file or folder in file/folder context menu.
+5. Submit to the Obsidian plugin gallery.
 
 **Settings:**
 
