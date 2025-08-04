@@ -108,9 +108,9 @@ PRs welcome.
 9. Add option not exclude subfolders of the excluded folders.
 10. Replace "Match at line start only" toggle with a checkmark.
 11. Add "Match whole line only" checkmark to each custom replacement.
-12. Add buttons to reorder custom rules. 
-  - Custom replacements are applied sequentially in the order they appear in the array: each replacement operates on the output of the previous replacement.
-  - Source of inspiration: settings for custom regex replacements in Linter.
+12. Add buttons to reorder custom rules.
+	- Custom replacements are applied sequentially in the order they appear in the array: each replacement operates on the output of the previous replacement.
+	- Source of inspiration: settings for custom regex replacements in Linter.
 
 </details>
 
