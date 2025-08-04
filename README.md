@@ -27,7 +27,21 @@ https://github.com/user-attachments/assets/31c57879-eff3-4615-b358-83b12c97ecb4
 5. Make sure that "Enable after installing the plugin" is checked.
 6. Press "Add Plugin".
 
-## 📝 New note template
+## 💡 Tips
+
+### Commands
+
+This plugin adds two Command palette commmands:
+
+<img width="732" height="200" alt="Screenshot 2025-08-04 at 15 16 40" src="https://github.com/user-attachments/assets/934db3a9-31fe-4ce6-826a-13b51e1ce6e6" />
+
+For the times when you want to force the plugin to update the title, I recommend to create the following macro with [Commander](https://obsidian.md/plugins?id=cmdr) and bind it to Ctrl/Cmd-S:
+
+<img width="580" height="428" alt="Screenshot 2025-08-04 at 15 18 09" src="https://github.com/user-attachments/assets/de3f9062-045d-4f6b-9767-a8f023d4d0b6" />
+
+This is super useful if you already use Ctrl-Cmd-S to trigger [Linter](https://obsidian.md/plugins?id=obsidian-linter).
+
+### New note template
 
 It's recommended to use this plugin with a new note template that puts the cursor in note body on note creation, configured in [Templater](https://github.com/SilentVoid13/Templater) settings.
 
@@ -62,7 +76,7 @@ tp.hooks.on_all_templates_executed(async () => {
   
 </details>
 
-## 💡 Room for improvement
+## 🔨 Room for improvement
 
 Though I don't currently plan on working on this plugin further, some potential improvements come to mind:
 
