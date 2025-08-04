@@ -95,6 +95,7 @@ Though I don't currently plan on working on this plugin further, some potential 
 9. Replace "Restore defaults" with [rotate-ccw](https://lucide.dev/icons/rotate-ccw) next to each replacement character.
 10. Add regex support to custom text replacements.
 11. Exclude folders via a folder picker instead of a text field.
+12. Add an "Excluded files" section to the settings.
 
 ## 👀 Alternative solutions
 
