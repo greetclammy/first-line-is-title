@@ -4,7 +4,6 @@ This custom plugin for [Obsidian](https://obsidian.md/) dynamically copies the f
 
 - **It's recommended that you back up your files before using this plugin.**
 - I don't yet plan on submitting this plugin to the Obsidian plugin gallery.
-- This is an improved version of the [Auto Filename](https://obsidian.md/plugins?id=auto-filename) plugin. 
 
 ## ▶️ Demo
 
@@ -98,6 +97,10 @@ Feel free to share your thoughts about this plugin on:
 - [GitHub discussions](https://github.com/greetclammy/first-line-is-title/discussions)
 
 Or open an issue!
+
+## 🙏 Acknowledgements
+
+- This plugin builds on [Auto Filename](https://obsidian.md/plugins?id=auto-filename) and employs some of its code.
 
 ## 👨‍💻 What else I made
 
