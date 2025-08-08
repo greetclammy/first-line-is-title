@@ -45,19 +45,25 @@ tags: []
 ---
 <%* 
 if (!(/^Untitled(\s\d+)?$/.test(tp.file.title))) { -%>
-<% tp.file.title %><% await tp.file.cursor() %>
-<%* } -%>
+<% tp.file.title %><%* 
+  const leaf = app.workspace.activeLeaf;
+  if (leaf && leaf.view.getViewType() !== "canvas") { 
+    await tp.file.cursor();
+  }
+} -%>
 <%*
 tp.hooks.on_all_templates_executed(async () => {
   const leaf = app.workspace.activeLeaf;
-  leaf.setViewState({
-    type: "markdown",
-    state: {
-      mode: "source", 
-      source: false
-    }
-  });
-  await leaf.view.editor.focus();
+  if (leaf && leaf.view.getViewType() !== "canvas") {
+    leaf.setViewState({
+      type: "markdown",
+      state: {
+        mode: "source", 
+        source: false
+      }
+    });
+    await leaf.view.editor?.focus();
+  }
 });
 -%>
 ```
