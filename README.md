@@ -19,12 +19,13 @@ https://github.com/user-attachments/assets/31c57879-eff3-4615-b358-83b12c97ecb4
 
 ## ✅ Installation
 
-1. Install the community plugin [BRAT](https://obsidian.md/plugins?id=obsidian42-brat).
-2. Go to the BRAT settings.
-3. Press "Add Beta Plugin".
-3. Paste the following URL in the text field: https://github.com/greetclammy/first-line-is-title.
+Untill this plugin is made availiable in the plugin gallery, it can be insalled via the community plugin [BRAT](https://obsidian.md/plugins?id=obsidian42-brat):
+
+1. Open BRAT settings.
+2. Press "Add Beta Plugin".
+3. Paste this URL in the text field: https://github.com/greetclammy/adapt-to-current-view.
 4. Select the latest release.
-5. Make sure that "Enable after installing the plugin" is checked.
+5. Check "Enable after installing the plugin".
 6. Press "Add Plugin".
 
 ## 💡 Tips
