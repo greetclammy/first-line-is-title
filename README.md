@@ -2,7 +2,7 @@
 
 Dynamically copies the first line in note body to note title.
 
-**It's recommended that you back up your files before using this plugin.**
+**⚠️ It's recommended that you back up your files before using this plugin.**
 
 ## ▶️ Demo
 
