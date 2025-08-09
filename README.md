@@ -23,7 +23,7 @@ Untill this plugin is made availiable in the plugin gallery, it can be insalled 
 
 1. Open BRAT settings.
 2. Press "Add Beta Plugin".
-3. Paste this URL in the text field: https://github.com/greetclammy/adapt-to-current-view.
+3. Paste this URL in the text field: https://github.com/greetclammy/first-line-is-title.
 4. Select the latest release.
 5. Check "Enable after installing the plugin".
 6. Press "Add Plugin".
