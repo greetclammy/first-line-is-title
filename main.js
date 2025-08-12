@@ -31,43 +31,53 @@ var import_obsidian = require("obsidian");
 var DEFAULT_SETTINGS = {
   excludedFolders: [],
   charCount: 100,
-  checkInterval: 500,
+  osPreset: "macOS",
   charReplacements: {
     slash: " \u2215 ",
     colon: "\u0589",
+    asterisk: "\u2217",
+    question: "\uFE56",
+    lessThan: "\u2039",
+    greaterThan: "\u203A",
+    quote: "\uFF02",
     pipe: "\u2758",
     hash: "\uFF03",
     leftBracket: "\u301A",
     rightBracket: "\u301B",
-    caret: "\u02C6",
-    dot: "\u2024"
+    caret: "\u02C6"
   },
   charReplacementEnabled: {
-    slash: true,
-    colon: true,
-    pipe: true,
-    hash: true,
-    leftBracket: true,
-    rightBracket: true,
-    caret: true,
-    dot: false
+    slash: false,
+    colon: false,
+    asterisk: false,
+    question: false,
+    lessThan: false,
+    greaterThan: false,
+    quote: false,
+    pipe: false,
+    hash: false,
+    leftBracket: false,
+    rightBracket: false,
+    caret: false
   },
   customReplacements: [
-    { searchText: ".", replaceText: "\u2024", onlyAtStart: false, enabled: true },
-    { searchText: "- [ ] ", replaceText: "\u2714\uFE0F ", onlyAtStart: true, enabled: true },
-    { searchText: "- [x] ", replaceText: "\u2705 ", onlyAtStart: true, enabled: true }
+    { searchText: ".", replaceText: "\u2024", onlyAtStart: false, onlyWholeLine: false, enabled: true },
+    { searchText: "- [ ] ", replaceText: "\u2714\uFE0F ", onlyAtStart: true, onlyWholeLine: false, enabled: true },
+    { searchText: "- [x] ", replaceText: "\u2705 ", onlyAtStart: true, onlyWholeLine: false, enabled: true }
   ],
   omitHtmlTags: true,
-  enableIllegalCharReplacements: false,
+  enableForbiddenCharReplacements: false,
   enableCustomReplacements: false,
-  renameOnFocus: true
+  renameOnFocus: true,
+  renameOnSave: false
 };
-var renamedFileCount = 0;
-var tempNewPaths = [];
-var onTimeout = true;
-var timeout;
-var previousFile;
-var previousContent = /* @__PURE__ */ new Map();
+var OS_FORBIDDEN_CHARS = {
+  "macOS": ["/", ":", "|", "#", "[", "]", "^"],
+  "Windows": ["/", ":", "|", "#", "[", "]", "^", "*", "?", "<", ">", '"', "\\"],
+  "Linux": ["/", "#"]
+};
+var MAX_CACHE_SIZE = 1e3;
+var MAX_TEMP_PATHS = 500;
 function inExcludedFolder(file, settings) {
   var _a;
   if (settings.excludedFolders.length === 0) return false;
@@ -124,7 +134,11 @@ function extractTitle(line, settings) {
     for (const replacement of settings.customReplacements) {
       if (replacement.searchText === "" || !replacement.enabled) continue;
       let tempLine = line;
-      if (replacement.onlyAtStart) {
+      if (replacement.onlyWholeLine) {
+        if (line.trim() === replacement.searchText.trim()) {
+          tempLine = replacement.replaceText;
+        }
+      } else if (replacement.onlyAtStart) {
         if (tempLine.startsWith(replacement.searchText)) {
           tempLine = replacement.replaceText + tempLine.slice(replacement.searchText.length);
         }
@@ -189,20 +203,27 @@ var RenameAllFilesModal = class extends import_obsidian.Modal {
         filesToRename.push(file);
       }
     });
-    renamedFileCount = 0;
-    tempNewPaths = [];
+    this.plugin.renamedFileCount = 0;
+    this.plugin.tempNewPaths = [];
     const pleaseWaitNotice = new import_obsidian.Notice(`Renaming files, please wait...`, 0);
     try {
-      await Promise.all(
-        filesToRename.map(
-          (file) => this.plugin.renameFile(file, true)
-        )
-      );
+      const errors = [];
+      for (const file of filesToRename) {
+        try {
+          await this.plugin.renameFile(file, true);
+        } catch (error) {
+          errors.push(`Failed to rename ${file.path}: ${error}`);
+        }
+      }
+      if (errors.length > 0) {
+        new import_obsidian.Notice(`Completed with ${errors.length} errors. Check console for details.`, 5e3);
+        console.error("Rename errors:", errors);
+      }
     } finally {
       pleaseWaitNotice.hide();
       new import_obsidian.Notice(
-        `Renamed ${renamedFileCount}/${filesToRename.length} files.`,
-        0
+        `Renamed ${this.plugin.renamedFileCount}/${filesToRename.length} files.`,
+        5e3
       );
     }
   }
@@ -212,55 +233,67 @@ var RenameAllFilesModal = class extends import_obsidian.Modal {
   }
 };
 var FirstLineIsTitle = class extends import_obsidian.Plugin {
+  constructor() {
+    super(...arguments);
+    // Instance variables instead of global
+    this.renamedFileCount = 0;
+    this.tempNewPaths = [];
+    this.previousContent = /* @__PURE__ */ new Map();
+    this.cacheCleanupInterval = null;
+  }
   cleanupStaleCache() {
-    tempNewPaths = tempNewPaths.filter((path) => {
+    this.tempNewPaths = this.tempNewPaths.filter((path) => {
       return this.app.vault.getAbstractFileByPath(path) !== null;
     });
-    for (const [path, content] of previousContent) {
+    if (this.tempNewPaths.length > MAX_TEMP_PATHS) {
+      this.tempNewPaths = this.tempNewPaths.slice(-MAX_TEMP_PATHS);
+    }
+    const entriesToDelete = [];
+    for (const [path, content] of this.previousContent) {
       if (!this.app.vault.getAbstractFileByPath(path)) {
-        previousContent.delete(path);
+        entriesToDelete.push(path);
       }
+    }
+    for (const path of entriesToDelete) {
+      this.previousContent.delete(path);
+    }
+    if (this.previousContent.size > MAX_CACHE_SIZE) {
+      const entriesToKeep = Array.from(this.previousContent.entries()).slice(-MAX_CACHE_SIZE);
+      this.previousContent = new Map(entriesToKeep);
     }
   }
   async renameFile(file, noDelay = false) {
     var _a, _b, _c, _d;
     if (inExcludedFolder(file, this.settings)) return;
     if (file.extension !== "md") return;
-    if (noDelay === false) {
-      if (onTimeout) {
-        if (previousFile == file.path) {
-          clearTimeout(timeout);
-        }
-        previousFile = file.path;
-        timeout = setTimeout(() => {
-          onTimeout = false;
-          this.renameFile(file);
-        }, this.settings.checkInterval);
-        return;
-      }
-      onTimeout = true;
-    } else {
-      if (!tempNewPaths.length || tempNewPaths.length < 10) {
-        tempNewPaths = [];
+    if (!noDelay) {
+      if (!this.tempNewPaths.length || this.tempNewPaths.length < 10) {
+        this.tempNewPaths = [];
       }
     }
     this.cleanupStaleCache();
-    let content = await this.app.vault.cachedRead(file);
+    let content;
+    try {
+      content = await this.app.vault.cachedRead(file);
+    } catch (error) {
+      console.error(`Failed to read file ${file.path}:`, error);
+      throw new Error(`Failed to read file: ${error.message}`);
+    }
     if (content.startsWith("---")) {
       let index = content.indexOf("---", 3);
       if (index != -1) content = content.slice(index + 3).trimStart();
     }
     const currentName = file.basename;
     let firstLine = content.split("\n")[0];
-    const previousFileContent = previousContent.get(file.path);
+    const previousFileContent = this.previousContent.get(file.path);
     if (content.trim() === "" && previousFileContent && previousFileContent.trim() !== "") {
       const parentPath2 = ((_a = file.parent) == null ? void 0 : _a.path) === "/" ? "" : ((_b = file.parent) == null ? void 0 : _b.path) + "/";
       let newPath2 = `${parentPath2}Untitled.md`;
       let counter2 = 0;
       let fileExists2 = this.app.vault.getAbstractFileByPath(newPath2) != null;
-      while (fileExists2 || tempNewPaths.includes(newPath2)) {
+      while (fileExists2 || this.tempNewPaths.includes(newPath2)) {
         if (file.path == newPath2) {
-          previousContent.set(file.path, content);
+          this.previousContent.set(file.path, content);
           return;
         }
         counter2 += 1;
@@ -268,14 +301,19 @@ var FirstLineIsTitle = class extends import_obsidian.Plugin {
         fileExists2 = this.app.vault.getAbstractFileByPath(newPath2) != null;
       }
       if (noDelay) {
-        tempNewPaths.push(newPath2);
+        this.tempNewPaths.push(newPath2);
       }
-      await this.app.fileManager.renameFile(file, newPath2);
-      renamedFileCount += 1;
-      previousContent.set(file.path, content);
+      try {
+        await this.app.fileManager.renameFile(file, newPath2);
+        this.renamedFileCount += 1;
+      } catch (error) {
+        console.error(`Failed to rename file ${file.path} to ${newPath2}:`, error);
+        throw new Error(`Failed to rename file: ${error.message}`);
+      }
+      this.previousContent.set(file.path, content);
       return;
     }
-    previousContent.set(file.path, content);
+    this.previousContent.set(file.path, content);
     if (firstLine === "") {
       return;
     }
@@ -296,7 +334,7 @@ var FirstLineIsTitle = class extends import_obsidian.Plugin {
       }
     }
     if (isSelfReferencing) {
-      new import_obsidian.Notice("File not renamed - first line references current filename", 0);
+      new import_obsidian.Notice("File not renamed - first line references current filename", 3e3);
       return;
     }
     content = extractTitle(firstLine, this.settings);
@@ -308,10 +346,16 @@ var FirstLineIsTitle = class extends import_obsidian.Plugin {
       "[": this.settings.charReplacements.leftBracket,
       "]": this.settings.charReplacements.rightBracket,
       "^": this.settings.charReplacements.caret,
-      ".": this.settings.charReplacements.dot
+      "*": this.settings.charReplacements.asterisk,
+      "?": this.settings.charReplacements.question,
+      "<": this.settings.charReplacements.lessThan,
+      ">": this.settings.charReplacements.greaterThan,
+      '"': this.settings.charReplacements.quote,
+      "\\": this.settings.charReplacements.slash
+      // Use slash replacement for backslash
     };
-    const illegalChars = Object.keys(charMap).join("");
-    const illegalNames = [
+    const forbiddenChars = OS_FORBIDDEN_CHARS[this.settings.osPreset].join("");
+    const forbiddenNames = [
       "CON",
       "PRN",
       "AUX",
@@ -345,43 +389,56 @@ var FirstLineIsTitle = class extends import_obsidian.Plugin {
         break;
       }
       let char = content[i];
-      if (illegalChars.includes(char)) {
+      if (forbiddenChars.includes(char) || char === "\\") {
         let shouldReplace = false;
         let replacement = "";
-        if (this.settings.enableIllegalCharReplacements) {
+        if (this.settings.enableForbiddenCharReplacements) {
+          let settingKey = null;
           switch (char) {
             case "/":
-              shouldReplace = this.settings.charReplacementEnabled.slash;
-              replacement = this.settings.charReplacements.slash;
+              settingKey = "slash";
               break;
+            case "\\":
+              settingKey = "slash";
+              break;
+            // Treat backslash as slash
             case ":":
-              shouldReplace = this.settings.charReplacementEnabled.colon;
-              replacement = this.settings.charReplacements.colon;
+              settingKey = "colon";
               break;
             case "|":
-              shouldReplace = this.settings.charReplacementEnabled.pipe;
-              replacement = this.settings.charReplacements.pipe;
+              settingKey = "pipe";
               break;
             case "#":
-              shouldReplace = this.settings.charReplacementEnabled.hash;
-              replacement = this.settings.charReplacements.hash;
+              settingKey = "hash";
               break;
             case "[":
-              shouldReplace = this.settings.charReplacementEnabled.leftBracket;
-              replacement = this.settings.charReplacements.leftBracket;
+              settingKey = "leftBracket";
               break;
             case "]":
-              shouldReplace = this.settings.charReplacementEnabled.rightBracket;
-              replacement = this.settings.charReplacements.rightBracket;
+              settingKey = "rightBracket";
               break;
             case "^":
-              shouldReplace = this.settings.charReplacementEnabled.caret;
-              replacement = this.settings.charReplacements.caret;
+              settingKey = "caret";
               break;
-            case ".":
-              shouldReplace = this.settings.charReplacementEnabled.dot;
-              replacement = this.settings.charReplacements.dot;
+            case "*":
+              settingKey = "asterisk";
               break;
+            case "?":
+              settingKey = "question";
+              break;
+            case "<":
+              settingKey = "lessThan";
+              break;
+            case ">":
+              settingKey = "greaterThan";
+              break;
+            case '"':
+              settingKey = "quote";
+              break;
+          }
+          if (settingKey && this.settings.charReplacementEnabled[settingKey]) {
+            shouldReplace = true;
+            replacement = charMap[char] || "";
           }
         }
         if (shouldReplace && replacement !== "") {
@@ -395,25 +452,31 @@ var FirstLineIsTitle = class extends import_obsidian.Plugin {
     while (newFileName[0] == ".") {
       newFileName = newFileName.slice(1);
     }
-    const isIllegalName = newFileName === "" || illegalNames.includes(newFileName.toUpperCase());
-    if (isIllegalName) newFileName = "Untitled";
+    const isForbiddenName = newFileName === "" || forbiddenNames.includes(newFileName.toUpperCase());
+    if (isForbiddenName) newFileName = "Untitled";
     const parentPath = ((_c = file.parent) == null ? void 0 : _c.path) === "/" ? "" : ((_d = file.parent) == null ? void 0 : _d.path) + "/";
     let newPath = `${parentPath}${newFileName}.md`;
     let counter = 0;
     let fileExists = this.app.vault.getAbstractFileByPath(newPath) != null;
-    while (fileExists || tempNewPaths.includes(newPath)) {
+    while (fileExists || this.tempNewPaths.includes(newPath)) {
       if (file.path == newPath) return;
       counter += 1;
       newPath = `${parentPath}${newFileName} ${counter}.md`;
       fileExists = this.app.vault.getAbstractFileByPath(newPath) != null;
     }
     if (noDelay) {
-      tempNewPaths.push(newPath);
+      this.tempNewPaths.push(newPath);
     }
-    await this.app.fileManager.renameFile(file, newPath);
-    renamedFileCount += 1;
+    try {
+      await this.app.fileManager.renameFile(file, newPath);
+      this.renamedFileCount += 1;
+    } catch (error) {
+      console.error(`Failed to rename file ${file.path} to ${newPath}:`, error);
+      throw new Error(`Failed to rename file: ${error.message}`);
+    }
   }
   async onload() {
+    var _a, _b;
     await this.loadSettings();
     this.addSettingTab(new FirstLineIsTitleSettings(this.app, this));
     this.addCommand({
@@ -422,7 +485,12 @@ var FirstLineIsTitle = class extends import_obsidian.Plugin {
       callback: async () => {
         const activeFile = this.app.workspace.getActiveFile();
         if (activeFile && activeFile.extension === "md") {
-          await this.renameFile(activeFile, true);
+          try {
+            await this.renameFile(activeFile, true);
+            new import_obsidian.Notice(`Renamed ${activeFile.basename}`, 3e3);
+          } catch (error) {
+            new import_obsidian.Notice(`Failed to rename: ${error.message}`, 5e3);
+          }
         }
       }
     });
@@ -436,44 +504,76 @@ var FirstLineIsTitle = class extends import_obsidian.Plugin {
     this.registerEvent(
       this.app.vault.on("modify", (abstractFile) => {
         if (abstractFile instanceof import_obsidian.TFile && abstractFile.extension === "md") {
-          const noDelay = this.settings.checkInterval === 0;
-          this.renameFile(abstractFile, noDelay);
+          console.log(`First Line is Title: modify event for ${abstractFile.path}`);
+          this.renameFile(abstractFile).catch((error) => {
+            console.error(`Error during auto-rename of ${abstractFile.path}:`, error);
+          });
         }
       })
     );
     this.registerEvent(
       this.app.workspace.on("active-leaf-change", (leaf) => {
         if (this.settings.renameOnFocus && leaf && leaf.view && leaf.view.file && leaf.view.file instanceof import_obsidian.TFile && leaf.view.file.extension === "md") {
-          this.renameFile(leaf.view.file, true);
+          this.renameFile(leaf.view.file, true).catch((error) => {
+            var _a2;
+            console.error(`Error during focus rename of ${(_a2 = leaf.view.file) == null ? void 0 : _a2.path}:`, error);
+          });
         }
       })
     );
+    const saveCommandDefinition = (_b = (_a = this.app.commands) == null ? void 0 : _a.commands) == null ? void 0 : _b["editor:save-file"];
+    if (saveCommandDefinition == null ? void 0 : saveCommandDefinition.checkCallback) {
+      const originalSaveCallback = saveCommandDefinition.checkCallback;
+      saveCommandDefinition.checkCallback = (checking) => {
+        if (checking) {
+          return originalSaveCallback(checking);
+        } else {
+          originalSaveCallback(checking);
+          if (this.settings.renameOnSave) {
+            const activeFile = this.app.workspace.getActiveFile();
+            if (activeFile && activeFile.extension === "md" && !inExcludedFolder(activeFile, this.settings)) {
+              this.renameFile(activeFile, true).catch((error) => {
+                console.error(`Error during save rename of ${activeFile.path}:`, error);
+              });
+            }
+          }
+        }
+      };
+    }
     this.registerEvent(
       this.app.vault.on("delete", (abstractFile) => {
         if (abstractFile instanceof import_obsidian.TFile) {
-          const index = tempNewPaths.indexOf(abstractFile.path);
+          const index = this.tempNewPaths.indexOf(abstractFile.path);
           if (index > -1) {
-            tempNewPaths.splice(index, 1);
+            this.tempNewPaths.splice(index, 1);
           }
-          previousContent.delete(abstractFile.path);
+          this.previousContent.delete(abstractFile.path);
         }
       })
     );
     this.registerEvent(
       this.app.vault.on("rename", (abstractFile, oldPath) => {
         if (abstractFile instanceof import_obsidian.TFile) {
-          const index = tempNewPaths.indexOf(oldPath);
+          const index = this.tempNewPaths.indexOf(oldPath);
           if (index > -1) {
-            tempNewPaths[index] = abstractFile.path;
+            this.tempNewPaths[index] = abstractFile.path;
           }
-          const oldContent = previousContent.get(oldPath);
+          const oldContent = this.previousContent.get(oldPath);
           if (oldContent !== void 0) {
-            previousContent.delete(oldPath);
-            previousContent.set(abstractFile.path, oldContent);
+            this.previousContent.delete(oldPath);
+            this.previousContent.set(abstractFile.path, oldContent);
           }
         }
       })
     );
+    this.cacheCleanupInterval = setInterval(() => {
+      this.cleanupStaleCache();
+    }, 6e4);
+  }
+  onunload() {
+    if (this.cacheCleanupInterval) {
+      clearInterval(this.cacheCleanupInterval);
+    }
   }
   async loadSettings() {
     this.settings = Object.assign(
@@ -503,25 +603,15 @@ var FirstLineIsTitleSettings = class extends import_obsidian.PluginSettingTab {
       text.inputEl.cols = 28;
       text.inputEl.rows = 4;
     });
-    new import_obsidian.Setting(this.containerEl).setName("Character count").setDesc("The maximum number of characters to put in title. Enter a value from 10 to 200. Default: 100.").addText(
+    new import_obsidian.Setting(this.containerEl).setName("Character count").setDesc("The maximum number of characters to put in title. Enter a value from 10 to 255. Default: 100.").addText(
       (text) => text.setPlaceholder("100").setValue(String(this.plugin.settings.charCount)).onChange(async (value) => {
         if (value === "") {
           this.plugin.settings.charCount = DEFAULT_SETTINGS.charCount;
         } else {
           const numVal = Number(value);
-          if (numVal >= 10 && numVal <= 200) {
+          if (numVal >= 10 && numVal <= 255) {
             this.plugin.settings.charCount = numVal;
           }
-        }
-        await this.plugin.saveSettings();
-      })
-    );
-    new import_obsidian.Setting(this.containerEl).setName("Check interval").setDesc("Interval in milliseconds of how often to rename files while editing. Increase if there's performance issues. Default: 500.").addText(
-      (text) => text.setPlaceholder("500").setValue(String(this.plugin.settings.checkInterval)).onChange(async (value) => {
-        if (value === "") {
-          this.plugin.settings.checkInterval = DEFAULT_SETTINGS.checkInterval;
-        } else if (!isNaN(Number(value))) {
-          this.plugin.settings.checkInterval = Number(value);
         }
         await this.plugin.saveSettings();
       })
@@ -538,6 +628,12 @@ var FirstLineIsTitleSettings = class extends import_obsidian.PluginSettingTab {
         await this.plugin.saveSettings();
       })
     );
+    new import_obsidian.Setting(this.containerEl).setName("Rename on save").setDesc("Automatically rename files when saving (Ctrl/Cmd+S).").addToggle(
+      (toggle) => toggle.setValue(this.plugin.settings.renameOnSave).onChange(async (value) => {
+        this.plugin.settings.renameOnSave = value;
+        await this.plugin.saveSettings();
+      })
+    );
     new import_obsidian.Setting(this.containerEl).setName("Rename all files").setDesc("Rename all files except those in excluded folders. Can also be run from the Command palette.").addButton(
       (button) => button.setButtonText("Rename").onClick(() => {
         new RenameAllFilesModal(this.app, this.plugin).open();
@@ -549,96 +645,175 @@ var FirstLineIsTitleSettings = class extends import_obsidian.PluginSettingTab {
     charHeaderContainer.style.justifyContent = "space-between";
     charHeaderContainer.style.alignItems = "center";
     charHeaderContainer.style.marginBottom = "10px";
-    const charHeader = charHeaderContainer.createEl("h3", { text: "Illegal character replacements" });
+    const charHeader = charHeaderContainer.createEl("h3", { text: "Forbidden character replacements" });
     charHeader.style.margin = "0";
     const headerToggleSetting = new import_obsidian.Setting(document.createElement("div"));
     headerToggleSetting.addToggle((toggle) => {
-      toggle.setValue(this.plugin.settings.enableIllegalCharReplacements).onChange(async (value) => {
-        this.plugin.settings.enableIllegalCharReplacements = value;
+      toggle.setValue(this.plugin.settings.enableForbiddenCharReplacements).onChange(async (value) => {
+        this.plugin.settings.enableForbiddenCharReplacements = value;
         await this.plugin.saveSettings();
         updateCharacterReplacementUI();
       });
       charHeaderContainer.appendChild(toggle.toggleEl);
     });
-    const charDescEl = this.containerEl.createEl("div", {
-      text: "Define replacements for illegal filename characters. Whitespace preserved.",
-      cls: "setting-item-description"
-    });
-    this.containerEl.createEl("br");
-    const charSettings = [
-      { key: "slash", name: "Slash /", char: "/" },
-      { key: "colon", name: "Colon :", char: ":" },
-      { key: "pipe", name: "Pipe |", char: "|" },
-      { key: "hash", name: "Hash #", char: "#" },
-      { key: "leftBracket", name: "Left bracket [", char: "[" },
-      { key: "rightBracket", name: "Right bracket ]", char: "]" },
-      { key: "caret", name: "Caret ^", char: "^" }
-    ];
-    const updateCharacterReplacementUI = () => {
-      const isEnabled = this.plugin.settings.enableIllegalCharReplacements;
-      charDescEl.style.opacity = isEnabled ? "1" : "0.5";
-      const charSettingsEls = this.containerEl.querySelectorAll(".char-replacement-setting");
-      charSettingsEls.forEach((el) => {
-        el.style.opacity = isEnabled ? "1" : "0.5";
-        el.style.pointerEvents = isEnabled ? "auto" : "none";
-        const inputs = el.querySelectorAll('input[type="text"]');
-        const toggles = el.querySelectorAll('.checkbox-container, input[type="checkbox"], .clickable-icon');
-        inputs.forEach((input) => input.disabled = !isEnabled);
-        toggles.forEach((toggle) => {
-          toggle.style.pointerEvents = isEnabled ? "auto" : "none";
-          if (toggle instanceof HTMLInputElement) {
-            toggle.disabled = !isEnabled;
-          }
-        });
-      });
-    };
-    charSettings.forEach((setting, index) => {
-      const rowEl = this.containerEl.createEl("div", { cls: "char-replacement-setting" });
-      rowEl.style.display = "flex";
-      rowEl.style.alignItems = "center";
-      rowEl.style.padding = "8px 0";
-      if (index < charSettings.length - 1) {
-        rowEl.style.borderBottom = "1px solid var(--background-modifier-border)";
+    const charDescEl = this.containerEl.createEl("div", { cls: "setting-item-description" });
+    const updateCharDescriptionContent = () => {
+      const isEnabled = this.plugin.settings.enableForbiddenCharReplacements;
+      if (isEnabled) {
+        charDescEl.setText("Define replacements for forbidden filename characters. Whitespace preserved.");
+      } else {
+        charDescEl.setText("Define replacements for forbidden filename characters.");
       }
-      const toggleSetting = new import_obsidian.Setting(document.createElement("div"));
-      toggleSetting.addToggle((toggle) => {
-        toggle.setValue(this.plugin.settings.charReplacementEnabled[setting.key]).onChange(async (value) => {
-          this.plugin.settings.charReplacementEnabled[setting.key] = value;
+    };
+    updateCharDescriptionContent();
+    this.containerEl.createEl("br");
+    const charSettingsContainer = this.containerEl.createDiv();
+    const updateCharacterReplacementUI = () => {
+      const isEnabled = this.plugin.settings.enableForbiddenCharReplacements;
+      charDescEl.style.opacity = isEnabled ? "1" : "0.5";
+      updateCharDescriptionContent();
+      charSettingsContainer.style.display = isEnabled ? "block" : "none";
+      const restoreButton = this.containerEl.querySelector(".restore-defaults-button");
+      if (restoreButton) {
+        restoreButton.style.display = isEnabled ? "block" : "none";
+      }
+    };
+    const updateCharacterSettings = () => {
+      charSettingsContainer.empty();
+      const primaryCharSettings = [
+        { key: "leftBracket", name: "Left bracket [", char: "[" },
+        { key: "rightBracket", name: "Right bracket ]", char: "]" },
+        { key: "hash", name: "Hash #", char: "#" },
+        { key: "caret", name: "Caret ^", char: "^" },
+        { key: "pipe", name: "Pipe |", char: "|" },
+        { key: "slash", name: "Slash /", char: "/" },
+        { key: "colon", name: "Colon :", char: ":" }
+      ];
+      const windowsAndroidChars = [
+        { key: "asterisk", name: "Asterisk *", char: "*" },
+        { key: "quote", name: 'Quote "', char: '"' },
+        { key: "lessThan", name: "Less than <", char: "<" },
+        { key: "greaterThan", name: "Greater than >", char: ">" },
+        { key: "question", name: "Question mark ?", char: "?" }
+      ];
+      const allOSesHeader = charSettingsContainer.createEl("div", { cls: "char-replacement-section-header" });
+      allOSesHeader.style.marginBottom = "10px";
+      const allOSesTitle = allOSesHeader.createEl("h4", { text: "All OSes" });
+      allOSesTitle.style.margin = "0";
+      allOSesTitle.style.fontSize = "1.1em";
+      allOSesTitle.style.fontWeight = "bold";
+      const allOSesDescContainer = charSettingsContainer.createEl("div");
+      const allOSesDesc = allOSesDescContainer.createEl("div", {
+        text: "The following characters are forbidden in filenames on all OSes.",
+        cls: "setting-item-description"
+      });
+      allOSesDesc.style.marginBottom = "10px";
+      primaryCharSettings.forEach((setting, index) => {
+        const rowEl = charSettingsContainer.createEl("div", { cls: "char-replacement-setting" });
+        rowEl.style.display = "flex";
+        rowEl.style.alignItems = "center";
+        rowEl.style.padding = "8px 0";
+        if (index < primaryCharSettings.length - 1) {
+          rowEl.style.borderBottom = "1px solid var(--background-modifier-border)";
+        }
+        const toggleSetting = new import_obsidian.Setting(document.createElement("div"));
+        toggleSetting.addToggle((toggle) => {
+          toggle.setValue(this.plugin.settings.charReplacementEnabled[setting.key]).onChange(async (value) => {
+            this.plugin.settings.charReplacementEnabled[setting.key] = value;
+            await this.plugin.saveSettings();
+          });
+          toggle.toggleEl.style.margin = "0";
+          rowEl.appendChild(toggle.toggleEl);
+        });
+        const nameLabel = rowEl.createEl("span", { text: setting.name });
+        nameLabel.style.marginLeft = "8px";
+        nameLabel.style.minWidth = "120px";
+        nameLabel.style.flexGrow = "1";
+        const textInput = rowEl.createEl("input", { type: "text" });
+        textInput.placeholder = "Replace with";
+        textInput.value = this.plugin.settings.charReplacements[setting.key];
+        textInput.style.width = "200px";
+        textInput.setAttribute("data-setting-key", setting.key);
+        textInput.addEventListener("input", async (e) => {
+          this.plugin.settings.charReplacements[setting.key] = e.target.value;
           await this.plugin.saveSettings();
         });
+      });
+      const windowsAndroidHeader = charSettingsContainer.createEl("div", { cls: "char-replacement-section-header" });
+      windowsAndroidHeader.style.marginTop = "20px";
+      windowsAndroidHeader.style.marginBottom = "10px";
+      windowsAndroidHeader.style.paddingTop = "15px";
+      windowsAndroidHeader.style.borderTop = "2px solid var(--background-modifier-border)";
+      windowsAndroidHeader.style.display = "flex";
+      windowsAndroidHeader.style.alignItems = "center";
+      windowsAndroidHeader.style.gap = "10px";
+      const sectionTitle = windowsAndroidHeader.createEl("h4", { text: "Windows/Android" });
+      sectionTitle.style.margin = "0";
+      sectionTitle.style.fontSize = "1.1em";
+      sectionTitle.style.fontWeight = "bold";
+      const windowsAndroidToggleSetting = new import_obsidian.Setting(document.createElement("div"));
+      windowsAndroidToggleSetting.addToggle((toggle) => {
+        const windowsAndroidEnabled = windowsAndroidChars.every(
+          (setting) => this.plugin.settings.charReplacementEnabled[setting.key]
+        );
+        toggle.setValue(windowsAndroidEnabled).onChange(async (value) => {
+          windowsAndroidChars.forEach((setting) => {
+            this.plugin.settings.charReplacementEnabled[setting.key] = value;
+          });
+          await this.plugin.saveSettings();
+          updateCharacterSettings();
+        });
         toggle.toggleEl.style.margin = "0";
-        rowEl.appendChild(toggle.toggleEl);
+        windowsAndroidHeader.appendChild(toggle.toggleEl);
       });
-      const nameLabel = rowEl.createEl("span", { text: setting.name });
-      nameLabel.style.marginLeft = "8px";
-      nameLabel.style.minWidth = "120px";
-      nameLabel.style.flexGrow = "1";
-      const textInput = rowEl.createEl("input", { type: "text" });
-      textInput.placeholder = "Replace with";
-      textInput.value = this.plugin.settings.charReplacements[setting.key];
-      textInput.style.width = "200px";
-      textInput.setAttribute("data-setting-key", setting.key);
-      textInput.addEventListener("input", async (e) => {
-        this.plugin.settings.charReplacements[setting.key] = e.target.value;
-        await this.plugin.saveSettings();
+      const sectionDescContainer = charSettingsContainer.createEl("div");
+      const sectionDesc = sectionDescContainer.createEl("div", {
+        text: "The following characters are forbidden in filenames on Windows and Android only.",
+        cls: "setting-item-description"
       });
-    });
-    updateCharacterReplacementUI();
+      sectionDesc.style.marginBottom = "10px";
+      windowsAndroidChars.forEach((setting, index) => {
+        const rowEl = charSettingsContainer.createEl("div", { cls: "char-replacement-setting" });
+        rowEl.style.display = "flex";
+        rowEl.style.alignItems = "center";
+        rowEl.style.padding = "8px 0";
+        if (index < windowsAndroidChars.length - 1) {
+          rowEl.style.borderBottom = "1px solid var(--background-modifier-border)";
+        }
+        const toggleSetting = new import_obsidian.Setting(document.createElement("div"));
+        toggleSetting.addToggle((toggle) => {
+          toggle.setValue(this.plugin.settings.charReplacementEnabled[setting.key]).onChange(async (value) => {
+            this.plugin.settings.charReplacementEnabled[setting.key] = value;
+            await this.plugin.saveSettings();
+          });
+          toggle.toggleEl.style.margin = "0";
+          rowEl.appendChild(toggle.toggleEl);
+        });
+        const nameLabel = rowEl.createEl("span", { text: setting.name });
+        nameLabel.style.marginLeft = "8px";
+        nameLabel.style.minWidth = "120px";
+        nameLabel.style.flexGrow = "1";
+        const textInput = rowEl.createEl("input", { type: "text" });
+        textInput.placeholder = "Replace with";
+        textInput.value = this.plugin.settings.charReplacements[setting.key];
+        textInput.style.width = "200px";
+        textInput.setAttribute("data-setting-key", setting.key);
+        textInput.addEventListener("input", async (e) => {
+          this.plugin.settings.charReplacements[setting.key] = e.target.value;
+          await this.plugin.saveSettings();
+        });
+      });
+      updateCharacterReplacementUI();
+    };
+    updateCharacterSettings();
     const restoreDefaultsSetting = new import_obsidian.Setting(this.containerEl).addButton(
       (button) => button.setButtonText("Restore defaults").onClick(async () => {
         this.plugin.settings.charReplacements = { ...DEFAULT_SETTINGS.charReplacements };
         await this.plugin.saveSettings();
-        charSettings.forEach((setting) => {
-          const textInput = this.containerEl.querySelector(`input[data-setting-key="${setting.key}"]`);
-          if (textInput) {
-            textInput.value = this.plugin.settings.charReplacements[setting.key];
-          }
-        });
+        updateCharacterSettings();
       })
     );
     restoreDefaultsSetting.settingEl.addClass("restore-defaults-button");
-    restoreDefaultsSetting.settingEl.style.opacity = this.plugin.settings.enableIllegalCharReplacements ? "1" : "0.5";
-    restoreDefaultsSetting.settingEl.style.pointerEvents = this.plugin.settings.enableIllegalCharReplacements ? "auto" : "none";
     this.containerEl.createEl("br");
     const customHeaderContainer = this.containerEl.createEl("div", { cls: "setting-item" });
     customHeaderContainer.style.display = "flex";
@@ -657,44 +832,91 @@ var FirstLineIsTitleSettings = class extends import_obsidian.PluginSettingTab {
       customHeaderContainer.appendChild(toggle.toggleEl);
     });
     const customDescEl = this.containerEl.createEl("div", { cls: "setting-item-description" });
-    customDescEl.innerHTML = "Define custom text replacements. Whitespace preserved.<br><br>Leave <em>Replace with</em> blank to omit text entirely. If <em>Replace with</em> is blank and <em>Text to replace</em> matches whole line, put <em>Untitled</em> in title.";
+    const updateCustomDescriptionContent = () => {
+      const isEnabled = this.plugin.settings.enableCustomReplacements;
+      if (isEnabled) {
+        customDescEl.innerHTML = `
+                    Define custom text replacements.<br><br>
+                    <ul style="margin: 0; padding-left: 20px;">
+                        <li>Rules are applied sequentially from top to bottom.</li>
+                        <li>Whitespace preserved.</li>
+                        <li>Leave <em>Replace with</em> blank to omit text entirely.</li>
+                        <li>If <em>Replace with</em> is blank and <em>Text to replace</em> matches whole line, the filename becomes <em>Untitled</em>.</li>
+                    </ul>
+                `;
+      } else {
+        customDescEl.innerHTML = "Define custom text replacements.";
+      }
+    };
+    updateCustomDescriptionContent();
     this.containerEl.createEl("br");
     const updateCustomReplacementUI = () => {
       const isEnabled = this.plugin.settings.enableCustomReplacements;
       customDescEl.style.opacity = isEnabled ? "1" : "0.5";
-      const customSettingsEls = this.containerEl.querySelectorAll(".custom-replacement-setting");
+      updateCustomDescriptionContent();
+      const customSettingsEls = this.containerEl.querySelectorAll(".custom-replacement-setting, .custom-replacement-header, .add-replacement-button");
       customSettingsEls.forEach((el) => {
-        el.style.opacity = isEnabled ? "1" : "0.5";
-        el.style.pointerEvents = isEnabled ? "auto" : "none";
-        const inputs = el.querySelectorAll('input[type="text"]');
-        const toggles = el.querySelectorAll('.checkbox-container, input[type="checkbox"], .clickable-icon');
-        const buttons = el.querySelectorAll("button");
-        inputs.forEach((input) => input.disabled = !isEnabled);
-        toggles.forEach((toggle) => {
-          toggle.style.pointerEvents = isEnabled ? "auto" : "none";
-          if (toggle instanceof HTMLInputElement) {
-            toggle.disabled = !isEnabled;
-          }
-        });
-        buttons.forEach((button) => button.disabled = !isEnabled);
+        el.style.display = isEnabled ? "flex" : "none";
       });
-      const addButton = this.containerEl.querySelector(".add-replacement-button button");
-      if (addButton) {
-        addButton.disabled = !isEnabled;
-        addButton.parentElement.style.opacity = isEnabled ? "1" : "0.5";
-      }
     };
     const renderCustomReplacements = () => {
-      const existingCustomSettings = this.containerEl.querySelectorAll(".custom-replacement-setting");
+      const existingCustomSettings = this.containerEl.querySelectorAll(".custom-replacement-setting, .custom-replacement-header");
       existingCustomSettings.forEach((el) => el.remove());
       const existingAddButton = this.containerEl.querySelector(".add-replacement-button");
       if (existingAddButton) existingAddButton.remove();
+      const headerRow = this.containerEl.createEl("div", { cls: "custom-replacement-header" });
+      headerRow.style.display = "flex";
+      headerRow.style.alignItems = "center";
+      headerRow.style.padding = "8px 0";
+      headerRow.style.borderBottom = "2px solid var(--background-modifier-border)";
+      headerRow.style.fontWeight = "bold";
+      headerRow.style.fontSize = "0.9em";
+      headerRow.style.gap = "8px";
+      const enableHeader = headerRow.createDiv();
+      enableHeader.textContent = "Enable";
+      enableHeader.style.width = "60px";
+      enableHeader.style.minWidth = "60px";
+      enableHeader.style.textAlign = "left";
+      const textToReplaceHeader = headerRow.createDiv();
+      textToReplaceHeader.textContent = "Text to replace";
+      textToReplaceHeader.style.flex = "1";
+      textToReplaceHeader.style.textAlign = "left";
+      const replaceWithHeader = headerRow.createDiv();
+      replaceWithHeader.textContent = "Replace with";
+      replaceWithHeader.style.flex = "1";
+      replaceWithHeader.style.textAlign = "left";
+      const startOnlyHeader = headerRow.createDiv();
+      startOnlyHeader.style.width = "85px";
+      startOnlyHeader.style.minWidth = "85px";
+      startOnlyHeader.style.textAlign = "left";
+      startOnlyHeader.style.lineHeight = "1.2";
+      const startLine1 = startOnlyHeader.createDiv();
+      startLine1.textContent = "Match at line";
+      const startLine2 = startOnlyHeader.createDiv();
+      startLine2.textContent = "start only";
+      const wholeLineHeader = headerRow.createDiv();
+      wholeLineHeader.style.width = "85px";
+      wholeLineHeader.style.minWidth = "85px";
+      wholeLineHeader.style.textAlign = "left";
+      wholeLineHeader.style.lineHeight = "1.2";
+      const wholeLine1 = wholeLineHeader.createDiv();
+      wholeLine1.textContent = "Match whole";
+      const wholeLine2 = wholeLineHeader.createDiv();
+      wholeLine2.textContent = "line only";
+      const actionsHeader = headerRow.createDiv();
+      actionsHeader.textContent = "";
+      actionsHeader.style.width = "80px";
+      actionsHeader.style.minWidth = "80px";
       this.plugin.settings.customReplacements.forEach((replacement, index) => {
         const rowEl = this.containerEl.createEl("div", { cls: "custom-replacement-setting" });
         rowEl.style.display = "flex";
         rowEl.style.alignItems = "center";
         rowEl.style.padding = "8px 0";
         rowEl.style.borderBottom = "1px solid var(--background-modifier-border)";
+        rowEl.style.gap = "8px";
+        const toggleContainer = rowEl.createDiv();
+        toggleContainer.style.width = "60px";
+        toggleContainer.style.minWidth = "60px";
         const individualToggleSetting = new import_obsidian.Setting(document.createElement("div"));
         individualToggleSetting.addToggle((toggle) => {
           toggle.setValue(replacement.enabled).onChange(async (value) => {
@@ -702,13 +924,12 @@ var FirstLineIsTitleSettings = class extends import_obsidian.PluginSettingTab {
             await this.plugin.saveSettings();
           });
           toggle.toggleEl.style.margin = "0";
-          rowEl.appendChild(toggle.toggleEl);
+          toggleContainer.appendChild(toggle.toggleEl);
         });
         const input1 = rowEl.createEl("input", { type: "text" });
         input1.placeholder = "Text to replace";
         input1.value = replacement.searchText;
-        input1.style.width = "30%";
-        input1.style.marginLeft = "8px";
+        input1.style.flex = "1";
         input1.addEventListener("input", async (e) => {
           this.plugin.settings.customReplacements[index].searchText = e.target.value;
           await this.plugin.saveSettings();
@@ -716,31 +937,112 @@ var FirstLineIsTitleSettings = class extends import_obsidian.PluginSettingTab {
         const input2 = rowEl.createEl("input", { type: "text" });
         input2.placeholder = "Replace with";
         input2.value = replacement.replaceText;
-        input2.style.width = "30%";
-        input2.style.marginLeft = "8px";
+        input2.style.flex = "1";
         input2.addEventListener("input", async (e) => {
           this.plugin.settings.customReplacements[index].replaceText = e.target.value;
           await this.plugin.saveSettings();
         });
-        const toggleSetting = new import_obsidian.Setting(document.createElement("div"));
-        toggleSetting.addToggle((toggle) => {
+        const startToggleContainer = rowEl.createDiv();
+        startToggleContainer.style.width = "85px";
+        startToggleContainer.style.minWidth = "85px";
+        startToggleContainer.style.display = "flex";
+        startToggleContainer.style.justifyContent = "left";
+        const startToggleSetting = new import_obsidian.Setting(document.createElement("div"));
+        startToggleSetting.addToggle((toggle) => {
           toggle.setValue(replacement.onlyAtStart).onChange(async (value) => {
             this.plugin.settings.customReplacements[index].onlyAtStart = value;
+            if (value) {
+              this.plugin.settings.customReplacements[index].onlyWholeLine = false;
+            }
             await this.plugin.saveSettings();
+            renderCustomReplacements();
           });
-          const toggleEl = toggle.toggleEl;
-          toggleEl.style.margin = "0";
-          toggleEl.style.marginLeft = "8px";
-          rowEl.appendChild(toggleEl);
+          toggle.toggleEl.style.margin = "0";
+          if (replacement.onlyWholeLine) {
+            toggle.setDisabled(true);
+            toggle.toggleEl.style.opacity = "0.5";
+            toggle.toggleEl.style.pointerEvents = "none";
+          }
+          startToggleContainer.appendChild(toggle.toggleEl);
         });
-        const toggleLabel = rowEl.createEl("span", { text: "Match at line start only" });
-        toggleLabel.style.fontSize = "0.9em";
-        toggleLabel.style.whiteSpace = "nowrap";
-        toggleLabel.style.marginLeft = "8px";
-        const removeButton = rowEl.createEl("button", { text: "Remove" });
-        removeButton.addClass("mod-warning");
-        removeButton.style.marginLeft = "16px";
-        removeButton.addEventListener("click", async () => {
+        const wholeToggleContainer = rowEl.createDiv();
+        wholeToggleContainer.style.width = "85px";
+        wholeToggleContainer.style.minWidth = "85px";
+        wholeToggleContainer.style.display = "flex";
+        wholeToggleContainer.style.justifyContent = "left";
+        const wholeToggleSetting = new import_obsidian.Setting(document.createElement("div"));
+        wholeToggleSetting.addToggle((toggle) => {
+          toggle.setValue(replacement.onlyWholeLine).onChange(async (value) => {
+            this.plugin.settings.customReplacements[index].onlyWholeLine = value;
+            if (value) {
+              this.plugin.settings.customReplacements[index].onlyAtStart = false;
+            }
+            await this.plugin.saveSettings();
+            renderCustomReplacements();
+          });
+          toggle.toggleEl.style.margin = "0";
+          if (replacement.onlyAtStart) {
+            toggle.setDisabled(true);
+            toggle.toggleEl.style.opacity = "0.5";
+            toggle.toggleEl.style.pointerEvents = "none";
+          }
+          wholeToggleContainer.appendChild(toggle.toggleEl);
+        });
+        const buttonContainer = rowEl.createDiv();
+        buttonContainer.style.width = "80px";
+        buttonContainer.style.minWidth = "80px";
+        buttonContainer.style.display = "flex";
+        buttonContainer.style.gap = "4px";
+        buttonContainer.style.alignItems = "center";
+        const upButton = buttonContainer.createEl("button", {
+          cls: "clickable-icon",
+          attr: { "aria-label": "Move up" }
+        });
+        upButton.style.padding = "4px";
+        upButton.style.background = "transparent";
+        upButton.style.border = "none";
+        upButton.style.cursor = index === 0 ? "not-allowed" : "pointer";
+        upButton.style.opacity = index === 0 ? "0.5" : "1";
+        (0, import_obsidian.setIcon)(upButton, "chevron-up");
+        if (index > 0) {
+          upButton.addEventListener("click", async () => {
+            const temp = this.plugin.settings.customReplacements[index];
+            this.plugin.settings.customReplacements[index] = this.plugin.settings.customReplacements[index - 1];
+            this.plugin.settings.customReplacements[index - 1] = temp;
+            await this.plugin.saveSettings();
+            renderCustomReplacements();
+          });
+        }
+        const downButton = buttonContainer.createEl("button", {
+          cls: "clickable-icon",
+          attr: { "aria-label": "Move down" }
+        });
+        downButton.style.padding = "4px";
+        downButton.style.background = "transparent";
+        downButton.style.border = "none";
+        downButton.style.cursor = index === this.plugin.settings.customReplacements.length - 1 ? "not-allowed" : "pointer";
+        downButton.style.opacity = index === this.plugin.settings.customReplacements.length - 1 ? "0.5" : "1";
+        (0, import_obsidian.setIcon)(downButton, "chevron-down");
+        if (index < this.plugin.settings.customReplacements.length - 1) {
+          downButton.addEventListener("click", async () => {
+            const temp = this.plugin.settings.customReplacements[index];
+            this.plugin.settings.customReplacements[index] = this.plugin.settings.customReplacements[index + 1];
+            this.plugin.settings.customReplacements[index + 1] = temp;
+            await this.plugin.saveSettings();
+            renderCustomReplacements();
+          });
+        }
+        const deleteButton = buttonContainer.createEl("button", {
+          cls: "clickable-icon",
+          attr: { "aria-label": "Delete" }
+        });
+        deleteButton.style.padding = "4px";
+        deleteButton.style.background = "transparent";
+        deleteButton.style.border = "none";
+        deleteButton.style.cursor = "pointer";
+        deleteButton.style.color = "var(--text-error)";
+        (0, import_obsidian.setIcon)(deleteButton, "trash-2");
+        deleteButton.addEventListener("click", async () => {
           this.plugin.settings.customReplacements.splice(index, 1);
           await this.plugin.saveSettings();
           renderCustomReplacements();
@@ -752,6 +1054,7 @@ var FirstLineIsTitleSettings = class extends import_obsidian.PluginSettingTab {
             searchText: "",
             replaceText: "",
             onlyAtStart: false,
+            onlyWholeLine: false,
             enabled: true
           });
           await this.plugin.saveSettings();
