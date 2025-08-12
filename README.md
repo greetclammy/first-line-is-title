@@ -1,6 +1,8 @@
 # First Line is Title
 
-Dynamically copies the first line in note body to note title.
+Automatically puts the note's first line in title.
+
+Can replace forbidden characters with alternatives. Supports custom replacemet rules.
 
 **⚠️ It's recommended that you back up your files before using this plugin.**
 
