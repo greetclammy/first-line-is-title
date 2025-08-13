@@ -1037,9 +1037,9 @@ class FirstLineIsTitleSettings extends PluginSettingTab {
         const updateCharDescriptionContent = () => {
             const isEnabled = this.plugin.settings.enableForbiddenCharReplacements;
             if (isEnabled) {
-                charDescEl.setText("Define replacements for forbidden filename characters. Characters are omitted if disabled.");
+                charDescEl.setText("Define replacements for forbidden filename characters. Characters are omitted entirely if disabled.");
             } else {
-                charDescEl.setText("Define replacements for forbidden filename characters. Characters are omitted if disabled.");
+                charDescEl.setText("Define replacements for forbidden filename characters. Characters are omitted entirely if disabled.");
             }
         };
         
