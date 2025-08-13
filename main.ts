@@ -205,6 +205,7 @@ interface PluginSettings {
         leftBracket: string;
         rightBracket: string;
         caret: string;
+        backslash: string;
     };
     charReplacementEnabled: {
         slash: boolean;
@@ -219,13 +220,13 @@ interface PluginSettings {
         leftBracket: boolean;
         rightBracket: boolean;
         caret: boolean;
+        backslash: boolean;
     };
     customReplacements: CustomReplacement[];
     omitHtmlTags: boolean;
     enableForbiddenCharReplacements: boolean;
     enableCustomReplacements: boolean;
     renameOnFocus: boolean;
-    renameOnSave: boolean;
     windowsAndroidEnabled: boolean;
     hasEnabledForbiddenChars: boolean;
     hasEnabledWindowsAndroid: boolean;
@@ -247,7 +248,8 @@ const DEFAULT_SETTINGS: PluginSettings = {
         hash: '＃',
         leftBracket: '〚',
         rightBracket: '〛',
-        caret: 'ˆ'
+        caret: 'ˆ',
+        backslash: '⧵'
     },
     charReplacementEnabled: {
         slash: false,
@@ -261,7 +263,8 @@ const DEFAULT_SETTINGS: PluginSettings = {
         hash: false,
         leftBracket: false,
         rightBracket: false,
-        caret: false
+        caret: false,
+        backslash: false
     },
     customReplacements: [
         { searchText: '.', replaceText: '․', onlyAtStart: false, onlyWholeLine: false, enabled: true },
@@ -272,17 +275,19 @@ const DEFAULT_SETTINGS: PluginSettings = {
     enableForbiddenCharReplacements: false,
     enableCustomReplacements: false,
     renameOnFocus: false,
-    renameOnSave: false,
     windowsAndroidEnabled: false,
     hasEnabledForbiddenChars: false,
     hasEnabledWindowsAndroid: false
 };
 
 // OS-specific forbidden characters
+const UNIVERSAL_FORBIDDEN_CHARS = ['/', ':', '|', String.fromCharCode(92), '#', '[', ']', '^'];
+const WINDOWS_ANDROID_CHARS = ['*', '?', '<', '>', '"'];
+
 const OS_FORBIDDEN_CHARS: Record<OSPreset, string[]> = {
-    'macOS': ['/', ':', '|', '#', '[', ']', '^'],
-    'Windows': ['/', ':', '|', '#', '[', ']', '^', '*', '?', '<', '>', '"', '\\'],
-    'Linux': ['/', '#']
+    'macOS': UNIVERSAL_FORBIDDEN_CHARS,
+    'Windows': [...UNIVERSAL_FORBIDDEN_CHARS, ...WINDOWS_ANDROID_CHARS],
+    'Linux': UNIVERSAL_FORBIDDEN_CHARS
 };
 
 // Maximum number of entries to keep in cache
@@ -296,7 +301,7 @@ function detectOS(): OSPreset {
         // On mobile, use user agent detection
         const userAgent = navigator.userAgent.toLowerCase();
         if (userAgent.includes('android')) {
-            return 'Linux'; // Android uses Linux-like paths
+            return 'Linux'; // Android uses Linux-like paths but needs same char restrictions as macOS
         } else if (userAgent.includes('iphone') || userAgent.includes('ipad')) {
             return 'macOS'; // iOS uses macOS-like paths
         }
@@ -333,15 +338,21 @@ function extractTitle(line: string, settings: PluginSettings): string {
     // Check if original line (after trim) starts with valid heading - before any processing
     const isValidHeading = /^#{1,6}\s/.test(line);
 
-    // Handle escaped characters - replace them with unique placeholders
+    // Handle escaped characters based on backslash replacement setting
     const escapeMap = new Map<string, string>();
     let escapeCounter = 0;
     
-    line = line.replace(/\\(.)/g, (match, char) => {
-        const placeholder = `__ESCAPED_${escapeCounter++}__`;
-        escapeMap.set(placeholder, char);
-        return placeholder;
-    });
+    const backslashReplacementEnabled = settings.enableForbiddenCharReplacements && settings.charReplacementEnabled.backslash;
+    
+    if (!backslashReplacementEnabled) {
+        // Backslash disabled: use as escape character, omit from output
+        line = line.replace(/\\(.)/g, (match, char) => {
+            const placeholder = `__ESCAPED_${escapeCounter++}__`;
+            escapeMap.set(placeholder, char);
+            return placeholder;
+        });
+    }
+    // If backslash replacement enabled: treat \ as regular character, no escaping
 
     // Remove comment syntax %% %% (only matching pairs)
     line = line.replace(/%%.*?%%/g, (match) => {
@@ -430,9 +441,11 @@ function extractTitle(line: string, settings: PluginSettings): string {
     const markdownLinkRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
     line = line.replace(markdownLinkRegex, (_, title) => title);
 
-    // Restore escaped characters (remove escape, keep character)
-    for (const [placeholder, char] of escapeMap) {
-        line = line.replace(placeholder, char);
+    // Restore escaped characters (remove escape, keep character) - only if escaping was used
+    if (!backslashReplacementEnabled) {
+        for (const [placeholder, char] of escapeMap) {
+            line = line.replace(placeholder, char);
+        }
     }
 
     return line;
@@ -665,13 +678,13 @@ export default class FirstLineIsTitle extends Plugin {
             '<': this.settings.charReplacements.lessThan,
             '>': this.settings.charReplacements.greaterThan,
             '"': this.settings.charReplacements.quote,
-            '\\': this.settings.charReplacements.slash // Use slash replacement for backslash
+            [String.fromCharCode(92)]: this.settings.charReplacements.backslash
         };
 
-        // Get forbidden chars based on OS preset and Windows/Android setting
-        const osForbiddenChars = OS_FORBIDDEN_CHARS[this.settings.osPreset];
-        const windowsAndroidChars = ['*', '?', '<', '>', '"'];
-        const allForbiddenChars = [...osForbiddenChars];
+        // Get forbidden chars - universal chars are always forbidden
+        const universalForbiddenChars = UNIVERSAL_FORBIDDEN_CHARS;
+        const windowsAndroidChars = WINDOWS_ANDROID_CHARS;
+        const allForbiddenChars = [...universalForbiddenChars];
         if (this.settings.windowsAndroidEnabled) {
             allForbiddenChars.push(...windowsAndroidChars);
         }
@@ -691,7 +704,7 @@ export default class FirstLineIsTitle extends Plugin {
             }
             let char = content[i];
 
-            if (forbiddenChars.includes(char) || char === '\\') {
+            if (forbiddenChars.includes(char)) {
                 let shouldReplace = false;
                 let replacement = '';
                 
@@ -701,7 +714,7 @@ export default class FirstLineIsTitle extends Plugin {
                     let settingKey: keyof typeof this.settings.charReplacementEnabled | null = null;
                     switch (char) {
                         case '/': settingKey = 'slash'; break;
-                        case '\\': settingKey = 'slash'; break; // Treat backslash as slash
+                        case String.fromCharCode(92): settingKey = 'backslash'; break;
                         case ':': settingKey = 'colon'; break;
                         case '|': settingKey = 'pipe'; break;
                         case '#': settingKey = 'hash'; break;
@@ -730,7 +743,7 @@ export default class FirstLineIsTitle extends Plugin {
                 if (shouldReplace && replacement !== '') {
                     newFileName += replacement;
                 }
-                // If master toggle is off, individual toggle is off, or replacement is empty, omit the character
+                // If master toggle is off, individual toggle is off, or replacement is empty, omit the character (continue to next char)
             } else {
                 newFileName += char;
             }
@@ -834,43 +847,6 @@ export default class FirstLineIsTitle extends Plugin {
                 }
             })
         );
-
-        // Hook into the save command following Linter plugin's successful implementation
-        const saveCommandDefinition = (this.app as any).commands?.commands?.['editor:save-file'];
-        
-        if (saveCommandDefinition && typeof saveCommandDefinition.checkCallback === 'function') {
-            const originalCheckCallback = saveCommandDefinition.checkCallback;
-            
-            saveCommandDefinition.checkCallback = (checking: boolean) => {
-                if (checking) {
-                    return originalCheckCallback.call(this, checking);
-                } else {
-                    // Call original with proper context
-                    originalCheckCallback.call(this, checking);
-                    
-                    if (this.settings.renameOnSave) {
-                        const activeFile = this.app.workspace.getActiveFile();
-                        if (activeFile && activeFile.extension === 'md' && !inExcludedFolder(activeFile, this.settings)) {
-                            // Increased delay for Windows file system
-                            setTimeout(() => {
-                                this.renameFile(activeFile, true).catch(error => {
-                                    console.error(`Error during save rename of ${activeFile.path}:`, error);
-                                });
-                            }, 200);
-                        }
-                    }
-                    
-                    // Don't return anything to match Linter's pattern
-                }
-            };
-            
-            // Store original function for cleanup on unload
-            this.register(() => {
-                if (saveCommandDefinition) {
-                    saveCommandDefinition.checkCallback = originalCheckCallback;
-                }
-            });
-        }
 
         // Listen for file deletion events to clean up cache
         this.registerEvent(
@@ -1007,18 +983,6 @@ class FirstLineIsTitleSettings extends PluginSettingTab {
             );
 
         new Setting(this.containerEl)
-            .setName("Rename on save")
-            .setDesc("Automatically rename files when saving (Ctrl/Cmd+S).")
-            .addToggle((toggle) =>
-                toggle
-                    .setValue(this.plugin.settings.renameOnSave)
-                    .onChange(async (value) => {
-                        this.plugin.settings.renameOnSave = value;
-                        await this.plugin.saveSettings();
-                    })
-            );
-
-        new Setting(this.containerEl)
             .setName("Rename all files")
             .setDesc("Rename all files except those in excluded folders. Can also be run from the Command palette.")
             .addButton((button) =>
@@ -1124,7 +1088,8 @@ class FirstLineIsTitleSettings extends PluginSettingTab {
                 { key: 'hash', name: 'Hash #', char: '#' },
                 { key: 'caret', name: 'Caret ^', char: '^' },
                 { key: 'pipe', name: 'Pipe |', char: '|' },
-                { key: 'slash', name: 'Slash /', char: '/' },
+                { key: 'backslash', name: 'Backslash \\', char: String.fromCharCode(92) },
+                { key: 'slash', name: 'Forward slash /', char: '/' },
                 { key: 'colon', name: 'Colon :', char: ':' }
             ];
             
