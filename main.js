@@ -220,7 +220,8 @@ var DEFAULT_SETTINGS = {
     hash: "\uFF03",
     leftBracket: "\u301A",
     rightBracket: "\u301B",
-    caret: "\u02C6"
+    caret: "\u02C6",
+    backslash: "\u29F5"
   },
   charReplacementEnabled: {
     slash: false,
@@ -234,7 +235,8 @@ var DEFAULT_SETTINGS = {
     hash: false,
     leftBracket: false,
     rightBracket: false,
-    caret: false
+    caret: false,
+    backslash: false
   },
   customReplacements: [
     { searchText: ".", replaceText: "\u2024", onlyAtStart: false, onlyWholeLine: false, enabled: true },
@@ -245,15 +247,16 @@ var DEFAULT_SETTINGS = {
   enableForbiddenCharReplacements: false,
   enableCustomReplacements: false,
   renameOnFocus: false,
-  renameOnSave: false,
   windowsAndroidEnabled: false,
   hasEnabledForbiddenChars: false,
   hasEnabledWindowsAndroid: false
 };
+var UNIVERSAL_FORBIDDEN_CHARS = ["/", ":", "|", String.fromCharCode(92), "#", "[", "]", "^"];
+var WINDOWS_ANDROID_CHARS = ["*", "?", "<", ">", '"'];
 var OS_FORBIDDEN_CHARS = {
-  "macOS": ["/", ":", "|", "#", "[", "]", "^"],
-  "Windows": ["/", ":", "|", "#", "[", "]", "^", "*", "?", "<", ">", '"', "\\"],
-  "Linux": ["/", "#"]
+  "macOS": UNIVERSAL_FORBIDDEN_CHARS,
+  "Windows": [...UNIVERSAL_FORBIDDEN_CHARS, ...WINDOWS_ANDROID_CHARS],
+  "Linux": UNIVERSAL_FORBIDDEN_CHARS
 };
 var MAX_CACHE_SIZE = 1e3;
 var MAX_TEMP_PATHS = 500;
@@ -293,11 +296,14 @@ function extractTitle(line, settings) {
   const isValidHeading = /^#{1,6}\s/.test(line);
   const escapeMap = /* @__PURE__ */ new Map();
   let escapeCounter = 0;
-  line = line.replace(/\\(.)/g, (match, char) => {
-    const placeholder = `__ESCAPED_${escapeCounter++}__`;
-    escapeMap.set(placeholder, char);
-    return placeholder;
-  });
+  const backslashReplacementEnabled = settings.enableForbiddenCharReplacements && settings.charReplacementEnabled.backslash;
+  if (!backslashReplacementEnabled) {
+    line = line.replace(/\\(.)/g, (match, char) => {
+      const placeholder = `__ESCAPED_${escapeCounter++}__`;
+      escapeMap.set(placeholder, char);
+      return placeholder;
+    });
+  }
   line = line.replace(/%%.*?%%/g, (match) => {
     return match.slice(2, -2);
   });
@@ -362,8 +368,10 @@ function extractTitle(line, settings) {
   }
   const markdownLinkRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
   line = line.replace(markdownLinkRegex, (_, title) => title);
-  for (const [placeholder, char] of escapeMap) {
-    line = line.replace(placeholder, char);
+  if (!backslashReplacementEnabled) {
+    for (const [placeholder, char] of escapeMap) {
+      line = line.replace(placeholder, char);
+    }
   }
   return line;
 }
@@ -544,12 +552,11 @@ var FirstLineIsTitle = class extends import_obsidian.Plugin {
       "<": this.settings.charReplacements.lessThan,
       ">": this.settings.charReplacements.greaterThan,
       '"': this.settings.charReplacements.quote,
-      "\\": this.settings.charReplacements.slash
-      // Use slash replacement for backslash
+      [String.fromCharCode(92)]: this.settings.charReplacements.backslash
     };
-    const osForbiddenChars = OS_FORBIDDEN_CHARS[this.settings.osPreset];
-    const windowsAndroidChars = ["*", "?", "<", ">", '"'];
-    const allForbiddenChars = [...osForbiddenChars];
+    const universalForbiddenChars = UNIVERSAL_FORBIDDEN_CHARS;
+    const windowsAndroidChars = WINDOWS_ANDROID_CHARS;
+    const allForbiddenChars = [...universalForbiddenChars];
     if (this.settings.windowsAndroidEnabled) {
       allForbiddenChars.push(...windowsAndroidChars);
     }
@@ -588,7 +595,7 @@ var FirstLineIsTitle = class extends import_obsidian.Plugin {
         break;
       }
       let char = content[i];
-      if (forbiddenChars.includes(char) || char === "\\") {
+      if (forbiddenChars.includes(char)) {
         let shouldReplace = false;
         let replacement = "";
         if (this.settings.enableForbiddenCharReplacements) {
@@ -597,10 +604,9 @@ var FirstLineIsTitle = class extends import_obsidian.Plugin {
             case "/":
               settingKey = "slash";
               break;
-            case "\\":
-              settingKey = "slash";
+            case String.fromCharCode(92):
+              settingKey = "backslash";
               break;
-            // Treat backslash as slash
             case ":":
               settingKey = "colon";
               break;
@@ -677,7 +683,6 @@ var FirstLineIsTitle = class extends import_obsidian.Plugin {
     }
   }
   async onload() {
-    var _a, _b;
     await this.loadSettings();
     this.settings.osPreset = detectOS();
     await this.saveSettings();
@@ -720,38 +725,12 @@ var FirstLineIsTitle = class extends import_obsidian.Plugin {
       this.app.workspace.on("active-leaf-change", (leaf) => {
         if (this.settings.renameOnFocus && leaf && leaf.view && leaf.view.file && leaf.view.file instanceof import_obsidian.TFile && leaf.view.file.extension === "md") {
           this.renameFile(leaf.view.file, true).catch((error) => {
-            var _a2;
-            console.error(`Error during focus rename of ${(_a2 = leaf.view.file) == null ? void 0 : _a2.path}:`, error);
+            var _a;
+            console.error(`Error during focus rename of ${(_a = leaf.view.file) == null ? void 0 : _a.path}:`, error);
           });
         }
       })
     );
-    const saveCommandDefinition = (_b = (_a = this.app.commands) == null ? void 0 : _a.commands) == null ? void 0 : _b["editor:save-file"];
-    if (saveCommandDefinition && typeof saveCommandDefinition.checkCallback === "function") {
-      const originalCheckCallback = saveCommandDefinition.checkCallback;
-      saveCommandDefinition.checkCallback = (checking) => {
-        if (checking) {
-          return originalCheckCallback.call(this, checking);
-        } else {
-          originalCheckCallback.call(this, checking);
-          if (this.settings.renameOnSave) {
-            const activeFile = this.app.workspace.getActiveFile();
-            if (activeFile && activeFile.extension === "md" && !inExcludedFolder(activeFile, this.settings)) {
-              setTimeout(() => {
-                this.renameFile(activeFile, true).catch((error) => {
-                  console.error(`Error during save rename of ${activeFile.path}:`, error);
-                });
-              }, 200);
-            }
-          }
-        }
-      };
-      this.register(() => {
-        if (saveCommandDefinition) {
-          saveCommandDefinition.checkCallback = originalCheckCallback;
-        }
-      });
-    }
     this.registerEvent(
       this.app.vault.on("delete", (abstractFile) => {
         if (abstractFile instanceof import_obsidian.TFile) {
@@ -840,12 +819,6 @@ var FirstLineIsTitleSettings = class extends import_obsidian.PluginSettingTab {
         await this.plugin.saveSettings();
       })
     );
-    new import_obsidian.Setting(this.containerEl).setName("Rename on save").setDesc("Automatically rename files when saving (Ctrl/Cmd+S).").addToggle(
-      (toggle) => toggle.setValue(this.plugin.settings.renameOnSave).onChange(async (value) => {
-        this.plugin.settings.renameOnSave = value;
-        await this.plugin.saveSettings();
-      })
-    );
     new import_obsidian.Setting(this.containerEl).setName("Rename all files").setDesc("Rename all files except those in excluded folders. Can also be run from the Command palette.").addButton(
       (button) => button.setButtonText("Rename").onClick(() => {
         new RenameAllFilesModal(this.app, this.plugin).open();
@@ -922,7 +895,8 @@ var FirstLineIsTitleSettings = class extends import_obsidian.PluginSettingTab {
         { key: "hash", name: "Hash #", char: "#" },
         { key: "caret", name: "Caret ^", char: "^" },
         { key: "pipe", name: "Pipe |", char: "|" },
-        { key: "slash", name: "Slash /", char: "/" },
+        { key: "backslash", name: "Backslash \\", char: String.fromCharCode(92) },
+        { key: "slash", name: "Forward slash /", char: "/" },
         { key: "colon", name: "Colon :", char: ":" }
       ];
       const windowsAndroidChars = [
