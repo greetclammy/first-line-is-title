@@ -114,4 +114,4 @@ This plugin builds on [Auto Filename](https://obsidian.md/plugins?id=auto-filena
 
 - [Adapt to Current View](https://github.com/greetclammy/adapt-to-current-view/)
 
-Please ⭐️ this plugin's GitHub repository if you found the plugin helpful 😇
+Please ⭐️ the GitHub repository if you found the plugin helpful 😇
