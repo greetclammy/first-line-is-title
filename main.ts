@@ -48,6 +48,9 @@ interface PluginSettings {
     enableCustomReplacements: boolean;
     renameOnFocus: boolean;
     renameOnSave: boolean;
+    windowsAndroidEnabled: boolean;
+    hasEnabledForbiddenChars: boolean;
+    hasEnabledWindowsAndroid: boolean;
 }
 
 const DEFAULT_SETTINGS: PluginSettings = {
@@ -87,11 +90,14 @@ const DEFAULT_SETTINGS: PluginSettings = {
         { searchText: '- [ ] ', replaceText: '✔️ ', onlyAtStart: true, onlyWholeLine: false, enabled: true },
         { searchText: '- [x] ', replaceText: '✅ ', onlyAtStart: true, onlyWholeLine: false, enabled: true }
     ],
-    omitHtmlTags: true,
+    omitHtmlTags: false,
     enableForbiddenCharReplacements: false,
     enableCustomReplacements: false,
-    renameOnFocus: true,
-    renameOnSave: false
+    renameOnFocus: false,
+    renameOnSave: false,
+    windowsAndroidEnabled: false,
+    hasEnabledForbiddenChars: false,
+    hasEnabledWindowsAndroid: false
 };
 
 // OS-specific forbidden characters
@@ -466,8 +472,14 @@ export default class FirstLineIsTitle extends Plugin {
             '\\': this.settings.charReplacements.slash // Use slash replacement for backslash
         };
 
-        // Get forbidden chars based on OS preset
-        const forbiddenChars = OS_FORBIDDEN_CHARS[this.settings.osPreset].join('');
+        // Get forbidden chars based on OS preset and Windows/Android setting
+        const osForbiddenChars = OS_FORBIDDEN_CHARS[this.settings.osPreset];
+        const windowsAndroidChars = ['*', '?', '<', '>', '"'];
+        const allForbiddenChars = [...osForbiddenChars];
+        if (this.settings.windowsAndroidEnabled) {
+            allForbiddenChars.push(...windowsAndroidChars);
+        }
+        const forbiddenChars = [...new Set(allForbiddenChars)].join('');
         const forbiddenNames: string[] = [
             "CON", "PRN", "AUX", "NUL",
             "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9", "COM0",
@@ -507,7 +519,13 @@ export default class FirstLineIsTitle extends Plugin {
                         case '"': settingKey = 'quote'; break;
                     }
                     
-                    if (settingKey && this.settings.charReplacementEnabled[settingKey]) {
+                    // For Windows/Android chars, also check if that toggle is enabled
+                    const isWindowsAndroidChar = ['*', '?', '<', '>', '"'].includes(char);
+                    const canReplace = isWindowsAndroidChar ? 
+                        (this.settings.windowsAndroidEnabled && settingKey && this.settings.charReplacementEnabled[settingKey]) :
+                        (settingKey && this.settings.charReplacementEnabled[settingKey]);
+                    
+                    if (canReplace) {
                         shouldReplace = true;
                         replacement = charMap[char] || '';
                     }
@@ -594,7 +612,6 @@ export default class FirstLineIsTitle extends Plugin {
         this.registerEvent(
             this.app.vault.on("modify", (abstractFile) => {
                 if (abstractFile instanceof TFile && abstractFile.extension === 'md') {
-                    console.log(`First Line is Title: modify event for ${abstractFile.path}`);
                     this.renameFile(abstractFile).catch(error => {
                         console.error(`Error during auto-rename of ${abstractFile.path}:`, error);
                     });
@@ -806,6 +823,16 @@ class FirstLineIsTitleSettings extends PluginSettingTab {
             toggle.setValue(this.plugin.settings.enableForbiddenCharReplacements)
                 .onChange(async (value) => {
                     this.plugin.settings.enableForbiddenCharReplacements = value;
+                    
+                    // On first enable, turn on all All OSes options
+                    if (value && !this.plugin.settings.hasEnabledForbiddenChars) {
+                        const allOSesKeys = ['leftBracket', 'rightBracket', 'hash', 'caret', 'pipe', 'slash', 'colon'];
+                        allOSesKeys.forEach(key => {
+                            this.plugin.settings.charReplacementEnabled[key as keyof typeof this.plugin.settings.charReplacementEnabled] = true;
+                        });
+                        this.plugin.settings.hasEnabledForbiddenChars = true;
+                    }
+                    
                     await this.plugin.saveSettings();
                     updateCharacterReplacementUI();
                 });
@@ -940,14 +967,18 @@ class FirstLineIsTitleSettings extends PluginSettingTab {
             // Add toggle for Windows/Android
             const windowsAndroidToggleSetting = new Setting(document.createElement('div'));
             windowsAndroidToggleSetting.addToggle((toggle) => {
-                const windowsAndroidEnabled = windowsAndroidChars.every(setting => 
-                    this.plugin.settings.charReplacementEnabled[setting.key]
-                );
-                toggle.setValue(windowsAndroidEnabled)
+                toggle.setValue(this.plugin.settings.windowsAndroidEnabled)
                     .onChange(async (value) => {
-                        windowsAndroidChars.forEach(setting => {
-                            this.plugin.settings.charReplacementEnabled[setting.key] = value;
-                        });
+                        this.plugin.settings.windowsAndroidEnabled = value;
+                        
+                        // On first enable, turn on all Windows/Android options
+                        if (value && !this.plugin.settings.hasEnabledWindowsAndroid) {
+                            windowsAndroidChars.forEach(setting => {
+                                this.plugin.settings.charReplacementEnabled[setting.key] = true;
+                            });
+                            this.plugin.settings.hasEnabledWindowsAndroid = true;
+                        }
+                        
                         await this.plugin.saveSettings();
                         updateCharacterSettings();
                     });
@@ -972,6 +1003,13 @@ class FirstLineIsTitleSettings extends PluginSettingTab {
                     rowEl.style.borderBottom = "1px solid var(--background-modifier-border)";
                 }
                 
+                // Apply disabled state based on Windows/Android toggle
+                const isDisabled = !this.plugin.settings.windowsAndroidEnabled;
+                if (isDisabled) {
+                    rowEl.style.opacity = "0.5";
+                    rowEl.style.pointerEvents = "none";
+                }
+                
                 const toggleSetting = new Setting(document.createElement('div'));
                 toggleSetting.addToggle((toggle) => {
                     toggle.setValue(this.plugin.settings.charReplacementEnabled[setting.key])
@@ -980,6 +1018,9 @@ class FirstLineIsTitleSettings extends PluginSettingTab {
                             await this.plugin.saveSettings();
                         });
                     toggle.toggleEl.style.margin = "0";
+                    if (isDisabled) {
+                        toggle.setDisabled(true);
+                    }
                     rowEl.appendChild(toggle.toggleEl);
                 });
                 
@@ -993,6 +1034,7 @@ class FirstLineIsTitleSettings extends PluginSettingTab {
                 textInput.value = this.plugin.settings.charReplacements[setting.key];
                 textInput.style.width = "200px";
                 textInput.setAttribute('data-setting-key', setting.key);
+                textInput.disabled = isDisabled;
                 textInput.addEventListener('input', async (e) => {
                     this.plugin.settings.charReplacements[setting.key] = (e.target as HTMLInputElement).value;
                     await this.plugin.saveSettings();
