@@ -65,11 +65,14 @@ var DEFAULT_SETTINGS = {
     { searchText: "- [ ] ", replaceText: "\u2714\uFE0F ", onlyAtStart: true, onlyWholeLine: false, enabled: true },
     { searchText: "- [x] ", replaceText: "\u2705 ", onlyAtStart: true, onlyWholeLine: false, enabled: true }
   ],
-  omitHtmlTags: true,
+  omitHtmlTags: false,
   enableForbiddenCharReplacements: false,
   enableCustomReplacements: false,
-  renameOnFocus: true,
-  renameOnSave: false
+  renameOnFocus: false,
+  renameOnSave: false,
+  windowsAndroidEnabled: false,
+  hasEnabledForbiddenChars: false,
+  hasEnabledWindowsAndroid: false
 };
 var OS_FORBIDDEN_CHARS = {
   "macOS": ["/", ":", "|", "#", "[", "]", "^"],
@@ -354,7 +357,13 @@ var FirstLineIsTitle = class extends import_obsidian.Plugin {
       "\\": this.settings.charReplacements.slash
       // Use slash replacement for backslash
     };
-    const forbiddenChars = OS_FORBIDDEN_CHARS[this.settings.osPreset].join("");
+    const osForbiddenChars = OS_FORBIDDEN_CHARS[this.settings.osPreset];
+    const windowsAndroidChars = ["*", "?", "<", ">", '"'];
+    const allForbiddenChars = [...osForbiddenChars];
+    if (this.settings.windowsAndroidEnabled) {
+      allForbiddenChars.push(...windowsAndroidChars);
+    }
+    const forbiddenChars = [...new Set(allForbiddenChars)].join("");
     const forbiddenNames = [
       "CON",
       "PRN",
@@ -436,7 +445,9 @@ var FirstLineIsTitle = class extends import_obsidian.Plugin {
               settingKey = "quote";
               break;
           }
-          if (settingKey && this.settings.charReplacementEnabled[settingKey]) {
+          const isWindowsAndroidChar = ["*", "?", "<", ">", '"'].includes(char);
+          const canReplace = isWindowsAndroidChar ? this.settings.windowsAndroidEnabled && settingKey && this.settings.charReplacementEnabled[settingKey] : settingKey && this.settings.charReplacementEnabled[settingKey];
+          if (canReplace) {
             shouldReplace = true;
             replacement = charMap[char] || "";
           }
@@ -651,6 +662,13 @@ var FirstLineIsTitleSettings = class extends import_obsidian.PluginSettingTab {
     headerToggleSetting.addToggle((toggle) => {
       toggle.setValue(this.plugin.settings.enableForbiddenCharReplacements).onChange(async (value) => {
         this.plugin.settings.enableForbiddenCharReplacements = value;
+        if (value && !this.plugin.settings.hasEnabledForbiddenChars) {
+          const allOSesKeys = ["leftBracket", "rightBracket", "hash", "caret", "pipe", "slash", "colon"];
+          allOSesKeys.forEach((key) => {
+            this.plugin.settings.charReplacementEnabled[key] = true;
+          });
+          this.plugin.settings.hasEnabledForbiddenChars = true;
+        }
         await this.plugin.saveSettings();
         updateCharacterReplacementUI();
       });
@@ -753,13 +771,14 @@ var FirstLineIsTitleSettings = class extends import_obsidian.PluginSettingTab {
       sectionTitle.style.fontWeight = "bold";
       const windowsAndroidToggleSetting = new import_obsidian.Setting(document.createElement("div"));
       windowsAndroidToggleSetting.addToggle((toggle) => {
-        const windowsAndroidEnabled = windowsAndroidChars.every(
-          (setting) => this.plugin.settings.charReplacementEnabled[setting.key]
-        );
-        toggle.setValue(windowsAndroidEnabled).onChange(async (value) => {
-          windowsAndroidChars.forEach((setting) => {
-            this.plugin.settings.charReplacementEnabled[setting.key] = value;
-          });
+        toggle.setValue(this.plugin.settings.windowsAndroidEnabled).onChange(async (value) => {
+          this.plugin.settings.windowsAndroidEnabled = value;
+          if (value && !this.plugin.settings.hasEnabledWindowsAndroid) {
+            windowsAndroidChars.forEach((setting) => {
+              this.plugin.settings.charReplacementEnabled[setting.key] = true;
+            });
+            this.plugin.settings.hasEnabledWindowsAndroid = true;
+          }
           await this.plugin.saveSettings();
           updateCharacterSettings();
         });
@@ -780,6 +799,11 @@ var FirstLineIsTitleSettings = class extends import_obsidian.PluginSettingTab {
         if (index < windowsAndroidChars.length - 1) {
           rowEl.style.borderBottom = "1px solid var(--background-modifier-border)";
         }
+        const isDisabled = !this.plugin.settings.windowsAndroidEnabled;
+        if (isDisabled) {
+          rowEl.style.opacity = "0.5";
+          rowEl.style.pointerEvents = "none";
+        }
         const toggleSetting = new import_obsidian.Setting(document.createElement("div"));
         toggleSetting.addToggle((toggle) => {
           toggle.setValue(this.plugin.settings.charReplacementEnabled[setting.key]).onChange(async (value) => {
@@ -787,6 +811,9 @@ var FirstLineIsTitleSettings = class extends import_obsidian.PluginSettingTab {
             await this.plugin.saveSettings();
           });
           toggle.toggleEl.style.margin = "0";
+          if (isDisabled) {
+            toggle.setDisabled(true);
+          }
           rowEl.appendChild(toggle.toggleEl);
         });
         const nameLabel = rowEl.createEl("span", { text: setting.name });
@@ -798,6 +825,7 @@ var FirstLineIsTitleSettings = class extends import_obsidian.PluginSettingTab {
         textInput.value = this.plugin.settings.charReplacements[setting.key];
         textInput.style.width = "200px";
         textInput.setAttribute("data-setting-key", setting.key);
+        textInput.disabled = isDisabled;
         textInput.addEventListener("input", async (e) => {
           this.plugin.settings.charReplacements[setting.key] = e.target.value;
           await this.plugin.saveSettings();
