@@ -291,6 +291,20 @@ const MAX_TEMP_PATHS = 500;
 
 // OS detection function
 function detectOS(): OSPreset {
+    // Check if we're on mobile (Android/iOS)
+    if (typeof process === 'undefined' || !process.platform) {
+        // On mobile, use user agent detection
+        const userAgent = navigator.userAgent.toLowerCase();
+        if (userAgent.includes('android')) {
+            return 'Linux'; // Android uses Linux-like paths
+        } else if (userAgent.includes('iphone') || userAgent.includes('ipad')) {
+            return 'macOS'; // iOS uses macOS-like paths
+        }
+        // Default for unknown mobile
+        return 'Linux';
+    }
+    
+    // Desktop detection using process.platform
     switch (process.platform) {
         case 'darwin': return 'macOS';
         case 'win32': return 'Windows';
@@ -821,25 +835,41 @@ export default class FirstLineIsTitle extends Plugin {
             })
         );
 
-        // Fixed save event handler using proper Obsidian save command hook
-        const saveCommandDefinition = this.app.commands?.commands?.['editor:save-file'];
-        if (saveCommandDefinition?.checkCallback) {
-            const originalSaveCallback = saveCommandDefinition.checkCallback;
+        // Hook into the save command following Linter plugin's successful implementation
+        const saveCommandDefinition = (this.app as any).commands?.commands?.['editor:save-file'];
+        
+        if (saveCommandDefinition && typeof saveCommandDefinition.checkCallback === 'function') {
+            const originalCheckCallback = saveCommandDefinition.checkCallback;
+            
             saveCommandDefinition.checkCallback = (checking: boolean) => {
                 if (checking) {
-                    return originalSaveCallback(checking);
+                    return originalCheckCallback.call(this, checking);
                 } else {
-                    originalSaveCallback(checking);
+                    // Call original with proper context
+                    originalCheckCallback.call(this, checking);
+                    
                     if (this.settings.renameOnSave) {
                         const activeFile = this.app.workspace.getActiveFile();
                         if (activeFile && activeFile.extension === 'md' && !inExcludedFolder(activeFile, this.settings)) {
-                            this.renameFile(activeFile, true).catch(error => {
-                                console.error(`Error during save rename of ${activeFile.path}:`, error);
-                            });
+                            // Increased delay for Windows file system
+                            setTimeout(() => {
+                                this.renameFile(activeFile, true).catch(error => {
+                                    console.error(`Error during save rename of ${activeFile.path}:`, error);
+                                });
+                            }, 200);
                         }
                     }
+                    
+                    // Don't return anything to match Linter's pattern
                 }
             };
+            
+            // Store original function for cleanup on unload
+            this.register(() => {
+                if (saveCommandDefinition) {
+                    saveCommandDefinition.checkCallback = originalCheckCallback;
+                }
+            });
         }
 
         // Listen for file deletion events to clean up cache
@@ -1032,6 +1062,7 @@ class FirstLineIsTitleSettings extends PluginSettingTab {
                     }
                     
                     await this.plugin.saveSettings();
+                    updateCharacterSettings(); // Rebuild to show new toggle states
                     updateCharacterReplacementUI();
                 });
             charHeaderContainer.appendChild(toggle.toggleEl);
@@ -1042,9 +1073,9 @@ class FirstLineIsTitleSettings extends PluginSettingTab {
         const updateCharDescriptionContent = () => {
             const isEnabled = this.plugin.settings.enableForbiddenCharReplacements;
             if (isEnabled) {
-                charDescEl.setText("Define replacements for forbidden filename characters. Whitespace preserved.");
+                charDescEl.setText("Define replacements for forbidden filename characters. Characters are omitted if disabled.");
             } else {
-                charDescEl.setText("Define replacements for forbidden filename characters.");
+                charDescEl.setText("Define replacements for forbidden filename characters. Characters are omitted if disabled.");
             }
         };
         
@@ -1112,7 +1143,7 @@ class FirstLineIsTitleSettings extends PluginSettingTab {
             
             const allOSesDescContainer = charSettingsContainer.createEl('div');
             const allOSesDesc = allOSesDescContainer.createEl('div', { 
-                text: 'The following characters are forbidden in Obsidian filenames on all OSes.',
+                text: 'The following characters are forbidden in Obsidian filenames on all OSes. Whitespace preserved.',
                 cls: 'setting-item-description'
             });
             allOSesDesc.style.marginBottom = "10px";
@@ -1174,7 +1205,7 @@ class FirstLineIsTitleSettings extends PluginSettingTab {
             
             const sectionDescContainer = charSettingsContainer.createEl('div');
             const sectionDesc = sectionDescContainer.createEl('div', { 
-                text: 'The following characters are forbidden in Obsidian filenames on Windows and Android only.',
+                text: 'The following characters are forbidden in Obsidian filenames on Windows and Android only. Whitespace preserved.',
                 cls: 'setting-item-description'
             });
             sectionDesc.style.marginBottom = "10px";

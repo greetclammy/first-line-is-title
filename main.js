@@ -258,6 +258,15 @@ var OS_FORBIDDEN_CHARS = {
 var MAX_CACHE_SIZE = 1e3;
 var MAX_TEMP_PATHS = 500;
 function detectOS() {
+  if (typeof process === "undefined" || !process.platform) {
+    const userAgent = navigator.userAgent.toLowerCase();
+    if (userAgent.includes("android")) {
+      return "Linux";
+    } else if (userAgent.includes("iphone") || userAgent.includes("ipad")) {
+      return "macOS";
+    }
+    return "Linux";
+  }
   switch (process.platform) {
     case "darwin":
       return "macOS";
@@ -718,23 +727,30 @@ var FirstLineIsTitle = class extends import_obsidian.Plugin {
       })
     );
     const saveCommandDefinition = (_b = (_a = this.app.commands) == null ? void 0 : _a.commands) == null ? void 0 : _b["editor:save-file"];
-    if (saveCommandDefinition == null ? void 0 : saveCommandDefinition.checkCallback) {
-      const originalSaveCallback = saveCommandDefinition.checkCallback;
+    if (saveCommandDefinition && typeof saveCommandDefinition.checkCallback === "function") {
+      const originalCheckCallback = saveCommandDefinition.checkCallback;
       saveCommandDefinition.checkCallback = (checking) => {
         if (checking) {
-          return originalSaveCallback(checking);
+          return originalCheckCallback.call(this, checking);
         } else {
-          originalSaveCallback(checking);
+          originalCheckCallback.call(this, checking);
           if (this.settings.renameOnSave) {
             const activeFile = this.app.workspace.getActiveFile();
             if (activeFile && activeFile.extension === "md" && !inExcludedFolder(activeFile, this.settings)) {
-              this.renameFile(activeFile, true).catch((error) => {
-                console.error(`Error during save rename of ${activeFile.path}:`, error);
-              });
+              setTimeout(() => {
+                this.renameFile(activeFile, true).catch((error) => {
+                  console.error(`Error during save rename of ${activeFile.path}:`, error);
+                });
+              }, 200);
             }
           }
         }
       };
+      this.register(() => {
+        if (saveCommandDefinition) {
+          saveCommandDefinition.checkCallback = originalCheckCallback;
+        }
+      });
     }
     this.registerEvent(
       this.app.vault.on("delete", (abstractFile) => {
@@ -859,6 +875,7 @@ var FirstLineIsTitleSettings = class extends import_obsidian.PluginSettingTab {
           }
         }
         await this.plugin.saveSettings();
+        updateCharacterSettings();
         updateCharacterReplacementUI();
       });
       charHeaderContainer.appendChild(toggle.toggleEl);
@@ -867,9 +884,9 @@ var FirstLineIsTitleSettings = class extends import_obsidian.PluginSettingTab {
     const updateCharDescriptionContent = () => {
       const isEnabled = this.plugin.settings.enableForbiddenCharReplacements;
       if (isEnabled) {
-        charDescEl.setText("Define replacements for forbidden filename characters. Whitespace preserved.");
+        charDescEl.setText("Define replacements for forbidden filename characters. Characters are omitted if disabled.");
       } else {
-        charDescEl.setText("Define replacements for forbidden filename characters.");
+        charDescEl.setText("Define replacements for forbidden filename characters. Characters are omitted if disabled.");
       }
     };
     updateCharDescriptionContent();
@@ -919,7 +936,7 @@ var FirstLineIsTitleSettings = class extends import_obsidian.PluginSettingTab {
       const allOSesTitle = allOSesHeader.createEl("h4", { text: "All OSes", cls: "flit-section-title" });
       const allOSesDescContainer = charSettingsContainer.createEl("div");
       const allOSesDesc = allOSesDescContainer.createEl("div", {
-        text: "The following characters are forbidden in Obsidian filenames on all OSes.",
+        text: "The following characters are forbidden in Obsidian filenames on all OSes. Whitespace preserved.",
         cls: "setting-item-description"
       });
       allOSesDesc.style.marginBottom = "10px";
@@ -964,7 +981,7 @@ var FirstLineIsTitleSettings = class extends import_obsidian.PluginSettingTab {
       });
       const sectionDescContainer = charSettingsContainer.createEl("div");
       const sectionDesc = sectionDescContainer.createEl("div", {
-        text: "The following characters are forbidden in Obsidian filenames on Windows and Android only.",
+        text: "The following characters are forbidden in Obsidian filenames on Windows and Android only. Whitespace preserved.",
         cls: "setting-item-description"
       });
       sectionDesc.style.marginBottom = "10px";
