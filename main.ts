@@ -187,6 +187,7 @@ interface CustomReplacement {
 }
 
 type OSPreset = 'macOS' | 'Windows' | 'Linux';
+type NotificationMode = 'Always' | 'On title change' | 'Never';
 
 interface PluginSettings {
     excludedFolders: string[];
@@ -227,6 +228,8 @@ interface PluginSettings {
     enableForbiddenCharReplacements: boolean;
     enableCustomReplacements: boolean;
     renameOnFocus: boolean;
+    renameAutomatically: boolean;
+    manualNotificationMode: NotificationMode;
     windowsAndroidEnabled: boolean;
     hasEnabledForbiddenChars: boolean;
     hasEnabledWindowsAndroid: boolean;
@@ -275,6 +278,8 @@ const DEFAULT_SETTINGS: PluginSettings = {
     enableForbiddenCharReplacements: false,
     enableCustomReplacements: false,
     renameOnFocus: false,
+    renameAutomatically: true,
+    manualNotificationMode: 'On title change',
     windowsAndroidEnabled: false,
     hasEnabledForbiddenChars: false,
     hasEnabledWindowsAndroid: false
@@ -563,9 +568,9 @@ export default class FirstLineIsTitle extends Plugin {
         }
     }
 
-    async renameFile(file: TFile, noDelay = false): Promise<void> {
-        if (inExcludedFolder(file, this.settings)) return;
-        if (file.extension !== 'md') return;
+    async renameFile(file: TFile, noDelay = false): Promise<boolean> {
+        if (inExcludedFolder(file, this.settings)) return false;
+        if (file.extension !== 'md') return false;
 
         if (!noDelay) {
             // Clear tempNewPaths for individual file operations (not bulk)
@@ -605,7 +610,7 @@ export default class FirstLineIsTitle extends Plugin {
             while (fileExists || this.tempNewPaths.includes(newPath)) {
                 if (file.path == newPath) {
                     this.previousContent.set(file.path, content);
-                    return;
+                    return false;
                 }
                 counter += 1;
                 newPath = `${parentPath}Untitled ${counter}.md`;
@@ -625,14 +630,14 @@ export default class FirstLineIsTitle extends Plugin {
             }
             
             this.previousContent.set(file.path, content);
-            return;
+            return true;
         }
 
         // Store current content for next check
         this.previousContent.set(file.path, content);
 
         if (firstLine === '') {
-            return;
+            return false;
         }
 
         // Check for self-reference before any processing
@@ -660,7 +665,7 @@ export default class FirstLineIsTitle extends Plugin {
 
         if (isSelfReferencing) {
             new Notice("File not renamed - first line references current filename", 3000);
-            return;
+            return false;
         }
 
         content = extractTitle(firstLine, this.settings);
@@ -771,7 +776,7 @@ export default class FirstLineIsTitle extends Plugin {
         let fileExists: boolean =
             this.app.vault.getAbstractFileByPath(newPath) != null;
         while (fileExists || this.tempNewPaths.includes(newPath)) {
-            if (file.path == newPath) return;
+            if (file.path == newPath) return false;
             counter += 1;
             newPath = `${parentPath}${newFileName} ${counter}.md`;
             fileExists = this.app.vault.getAbstractFileByPath(newPath) != null;
@@ -784,6 +789,7 @@ export default class FirstLineIsTitle extends Plugin {
         try {
             await this.app.fileManager.renameFile(file, newPath);
             this.renamedFileCount += 1;
+            return true;
         } catch (error) {
             console.error(`Failed to rename file ${file.path} to ${newPath}:`, error);
             throw new Error(`Failed to rename file: ${error.message}`);
@@ -811,8 +817,16 @@ export default class FirstLineIsTitle extends Plugin {
                 const activeFile = this.app.workspace.getActiveFile();
                 if (activeFile && activeFile.extension === 'md') {
                     try {
-                        await this.renameFile(activeFile, true);
-                        new Notice(`Renamed ${activeFile.basename}`, 3000);
+                        const wasRenamed = await this.renameFile(activeFile, true);
+                        
+                        // Show notification based on setting
+                        if (this.settings.manualNotificationMode === 'Always') {
+                            const message = wasRenamed ? `Renamed ${activeFile.basename}` : `Title unchanged`;
+                            new Notice(message, 3000);
+                        } else if (this.settings.manualNotificationMode === 'On title change' && wasRenamed) {
+                            new Notice(`Renamed ${activeFile.basename}`, 3000);
+                        }
+                        // 'Never' shows no notification
                     } catch (error) {
                         new Notice(`Failed to rename: ${error.message}`, 5000);
                     }
@@ -830,7 +844,7 @@ export default class FirstLineIsTitle extends Plugin {
 
         this.registerEvent(
             this.app.vault.on("modify", (abstractFile) => {
-                if (abstractFile instanceof TFile && abstractFile.extension === 'md') {
+                if (this.settings.renameAutomatically && abstractFile instanceof TFile && abstractFile.extension === 'md') {
                     this.renameFile(abstractFile).catch(error => {
                         console.error(`Error during auto-rename of ${abstractFile.path}:`, error);
                     });
@@ -840,7 +854,7 @@ export default class FirstLineIsTitle extends Plugin {
 
         this.registerEvent(
             this.app.workspace.on("active-leaf-change", (leaf) => {
-                if (this.settings.renameOnFocus && leaf && leaf.view && leaf.view.file && leaf.view.file instanceof TFile && leaf.view.file.extension === 'md') {
+                if (this.settings.renameAutomatically && this.settings.renameOnFocus && leaf && leaf.view && leaf.view.file && leaf.view.file instanceof TFile && leaf.view.file.extension === 'md') {
                     this.renameFile(leaf.view.file, true).catch(error => {
                         console.error(`Error during focus rename of ${leaf.view.file?.path}:`, error);
                     });
@@ -922,6 +936,18 @@ class FirstLineIsTitleSettings extends PluginSettingTab {
         this.containerEl.empty();
 
         new Setting(this.containerEl)
+            .setName("Rename automatically")
+            .setDesc("Renames files automatically when the first line changes. If disabled, files will only be renamed when invoking a command manually.")
+            .addToggle((toggle) =>
+                toggle
+                    .setValue(this.plugin.settings.renameAutomatically)
+                    .onChange(async (value) => {
+                        this.plugin.settings.renameAutomatically = value;
+                        await this.plugin.saveSettings();
+                    })
+            );
+
+        new Setting(this.containerEl)
             .setName("Exclude folders")
             .setDesc(
                 "Folder paths to exclude from auto-renaming. Includes all subfolders. Separate by newline. Case-sensitive."
@@ -978,6 +1004,21 @@ class FirstLineIsTitleSettings extends PluginSettingTab {
                     .setValue(this.plugin.settings.renameOnFocus)
                     .onChange(async (value) => {
                         this.plugin.settings.renameOnFocus = value;
+                        await this.plugin.saveSettings();
+                    })
+            );
+
+        new Setting(this.containerEl)
+            .setName("Show notification when renaming manually")
+            .setDesc("Controls when to show notifications for the 'Rename current file' command.")
+            .addDropdown((dropdown) =>
+                dropdown
+                    .addOption('Always', 'Always')
+                    .addOption('On title change', 'On title change')
+                    .addOption('Never', 'Never')
+                    .setValue(this.plugin.settings.manualNotificationMode)
+                    .onChange(async (value: NotificationMode) => {
+                        this.plugin.settings.manualNotificationMode = value;
                         await this.plugin.saveSettings();
                     })
             );

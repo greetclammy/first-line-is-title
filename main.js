@@ -247,6 +247,8 @@ var DEFAULT_SETTINGS = {
   enableForbiddenCharReplacements: false,
   enableCustomReplacements: false,
   renameOnFocus: false,
+  renameAutomatically: true,
+  manualNotificationMode: "On title change",
   windowsAndroidEnabled: false,
   hasEnabledForbiddenChars: false,
   hasEnabledWindowsAndroid: false
@@ -465,8 +467,8 @@ var FirstLineIsTitle = class extends import_obsidian.Plugin {
   }
   async renameFile(file, noDelay = false) {
     var _a, _b, _c, _d;
-    if (inExcludedFolder(file, this.settings)) return;
-    if (file.extension !== "md") return;
+    if (inExcludedFolder(file, this.settings)) return false;
+    if (file.extension !== "md") return false;
     if (!noDelay) {
       if (!this.tempNewPaths.length || this.tempNewPaths.length < 10) {
         this.tempNewPaths = [];
@@ -495,7 +497,7 @@ var FirstLineIsTitle = class extends import_obsidian.Plugin {
       while (fileExists2 || this.tempNewPaths.includes(newPath2)) {
         if (file.path == newPath2) {
           this.previousContent.set(file.path, content);
-          return;
+          return false;
         }
         counter2 += 1;
         newPath2 = `${parentPath2}Untitled ${counter2}.md`;
@@ -512,11 +514,11 @@ var FirstLineIsTitle = class extends import_obsidian.Plugin {
         throw new Error(`Failed to rename file: ${error.message}`);
       }
       this.previousContent.set(file.path, content);
-      return;
+      return true;
     }
     this.previousContent.set(file.path, content);
     if (firstLine === "") {
-      return;
+      return false;
     }
     const escapedName = currentName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     const wikiLinkRegex = new RegExp(`\\[\\[${escapedName}(\\|.*?)?\\]\\]`);
@@ -536,7 +538,7 @@ var FirstLineIsTitle = class extends import_obsidian.Plugin {
     }
     if (isSelfReferencing) {
       new import_obsidian.Notice("File not renamed - first line references current filename", 3e3);
-      return;
+      return false;
     }
     content = extractTitle(firstLine, this.settings);
     const charMap = {
@@ -666,7 +668,7 @@ var FirstLineIsTitle = class extends import_obsidian.Plugin {
     let counter = 0;
     let fileExists = this.app.vault.getAbstractFileByPath(newPath) != null;
     while (fileExists || this.tempNewPaths.includes(newPath)) {
-      if (file.path == newPath) return;
+      if (file.path == newPath) return false;
       counter += 1;
       newPath = `${parentPath}${newFileName} ${counter}.md`;
       fileExists = this.app.vault.getAbstractFileByPath(newPath) != null;
@@ -677,6 +679,7 @@ var FirstLineIsTitle = class extends import_obsidian.Plugin {
     try {
       await this.app.fileManager.renameFile(file, newPath);
       this.renamedFileCount += 1;
+      return true;
     } catch (error) {
       console.error(`Failed to rename file ${file.path} to ${newPath}:`, error);
       throw new Error(`Failed to rename file: ${error.message}`);
@@ -697,8 +700,13 @@ var FirstLineIsTitle = class extends import_obsidian.Plugin {
         const activeFile = this.app.workspace.getActiveFile();
         if (activeFile && activeFile.extension === "md") {
           try {
-            await this.renameFile(activeFile, true);
-            new import_obsidian.Notice(`Renamed ${activeFile.basename}`, 3e3);
+            const wasRenamed = await this.renameFile(activeFile, true);
+            if (this.settings.manualNotificationMode === "Always") {
+              const message = wasRenamed ? `Renamed ${activeFile.basename}` : `Title unchanged`;
+              new import_obsidian.Notice(message, 3e3);
+            } else if (this.settings.manualNotificationMode === "On title change" && wasRenamed) {
+              new import_obsidian.Notice(`Renamed ${activeFile.basename}`, 3e3);
+            }
           } catch (error) {
             new import_obsidian.Notice(`Failed to rename: ${error.message}`, 5e3);
           }
@@ -714,7 +722,7 @@ var FirstLineIsTitle = class extends import_obsidian.Plugin {
     });
     this.registerEvent(
       this.app.vault.on("modify", (abstractFile) => {
-        if (abstractFile instanceof import_obsidian.TFile && abstractFile.extension === "md") {
+        if (this.settings.renameAutomatically && abstractFile instanceof import_obsidian.TFile && abstractFile.extension === "md") {
           this.renameFile(abstractFile).catch((error) => {
             console.error(`Error during auto-rename of ${abstractFile.path}:`, error);
           });
@@ -723,7 +731,7 @@ var FirstLineIsTitle = class extends import_obsidian.Plugin {
     );
     this.registerEvent(
       this.app.workspace.on("active-leaf-change", (leaf) => {
-        if (this.settings.renameOnFocus && leaf && leaf.view && leaf.view.file && leaf.view.file instanceof import_obsidian.TFile && leaf.view.file.extension === "md") {
+        if (this.settings.renameAutomatically && this.settings.renameOnFocus && leaf && leaf.view && leaf.view.file && leaf.view.file instanceof import_obsidian.TFile && leaf.view.file.extension === "md") {
           this.renameFile(leaf.view.file, true).catch((error) => {
             var _a;
             console.error(`Error during focus rename of ${(_a = leaf.view.file) == null ? void 0 : _a.path}:`, error);
@@ -784,6 +792,12 @@ var FirstLineIsTitleSettings = class extends import_obsidian.PluginSettingTab {
   }
   display() {
     this.containerEl.empty();
+    new import_obsidian.Setting(this.containerEl).setName("Rename automatically").setDesc("Renames files automatically when the first line changes. If disabled, files will only be renamed when invoking a command manually.").addToggle(
+      (toggle) => toggle.setValue(this.plugin.settings.renameAutomatically).onChange(async (value) => {
+        this.plugin.settings.renameAutomatically = value;
+        await this.plugin.saveSettings();
+      })
+    );
     new import_obsidian.Setting(this.containerEl).setName("Exclude folders").setDesc(
       "Folder paths to exclude from auto-renaming. Includes all subfolders. Separate by newline. Case-sensitive."
     ).addTextArea((text) => {
@@ -816,6 +830,12 @@ var FirstLineIsTitleSettings = class extends import_obsidian.PluginSettingTab {
     new import_obsidian.Setting(this.containerEl).setName("Rename on focus").setDesc("Automatically rename files when they become focused/active.").addToggle(
       (toggle) => toggle.setValue(this.plugin.settings.renameOnFocus).onChange(async (value) => {
         this.plugin.settings.renameOnFocus = value;
+        await this.plugin.saveSettings();
+      })
+    );
+    new import_obsidian.Setting(this.containerEl).setName("Show notification when renaming manually").setDesc("Controls when to show notifications for the 'Rename current file' command.").addDropdown(
+      (dropdown) => dropdown.addOption("Always", "Always").addOption("On title change", "On title change").addOption("Never", "Never").setValue(this.plugin.settings.manualNotificationMode).onChange(async (value) => {
+        this.plugin.settings.manualNotificationMode = value;
         await this.plugin.saveSettings();
       })
     );
