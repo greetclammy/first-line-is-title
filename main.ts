@@ -1,5 +1,183 @@
 import { Notice, Plugin, PluginSettingTab, Setting, TFile, Command, App, Modal, setIcon } from "obsidian";
 
+// CSS styles for the plugin
+const PLUGIN_STYLES = `
+.flit-modal-heading {
+    text-align: center;
+}
+
+.flit-modal-button-container {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 20px;
+}
+
+.flit-char-header-container {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.flit-char-header {
+    margin: 0;
+}
+
+.flit-char-settings-container {
+    display: block;
+}
+
+.flit-char-settings-container.hidden {
+    display: none;
+}
+
+.flit-char-replacement-section-header {
+    margin-bottom: 10px;
+}
+
+.flit-char-replacement-section-header.windows-android {
+    margin-top: 20px;
+    margin-bottom: 10px;
+    padding-top: 15px;
+    border-top: 2px solid var(--background-modifier-border);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.flit-section-title {
+    margin: 0;
+    font-size: 1.1em;
+    font-weight: bold;
+}
+
+.flit-char-replacement-setting {
+    display: flex;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.flit-char-replacement-setting.disabled {
+    opacity: 0.5;
+    pointer-events: none;
+}
+
+.flit-char-name-label {
+    margin-left: 8px;
+    min-width: 120px;
+    flex-grow: 1;
+}
+
+.flit-char-text-input {
+    width: 200px;
+}
+
+.flit-custom-header-container {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.flit-custom-header {
+    margin: 0;
+}
+
+.flit-custom-replacement-header {
+    display: flex;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 2px solid var(--background-modifier-border);
+    font-weight: bold;
+    font-size: 0.9em;
+    gap: 8px;
+}
+
+.flit-custom-replacement-header.hidden {
+    display: none;
+}
+
+.flit-custom-replacement-setting {
+    display: flex;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--background-modifier-border);
+    gap: 8px;
+}
+
+.flit-custom-replacement-setting.hidden {
+    display: none;
+}
+
+.flit-enable-column {
+    width: 60px;
+    min-width: 60px;
+    text-align: left;
+}
+
+.flit-text-column {
+    flex: 1;
+    text-align: left;
+}
+
+.flit-toggle-column {
+    width: 85px;
+    min-width: 85px;
+    text-align: left;
+    line-height: 1.2;
+}
+
+.flit-toggle-column.center {
+    display: flex;
+    justify-content: left;
+}
+
+.flit-actions-column {
+    width: 80px;
+    min-width: 80px;
+}
+
+.flit-button-container {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+}
+
+.flit-nav-button {
+    padding: 4px;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+}
+
+.flit-nav-button.disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+}
+
+.flit-delete-button {
+    padding: 4px;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    color: var(--text-error);
+}
+
+.flit-desc-disabled {
+    opacity: 0.5;
+}
+
+.flit-restore-defaults-button.hidden {
+    display: none;
+}
+
+.flit-add-replacement-button.hidden {
+    display: none;
+}
+`;
+
 interface CustomReplacement {
     searchText: string;
     replaceText: string;
@@ -110,6 +288,15 @@ const OS_FORBIDDEN_CHARS: Record<OSPreset, string[]> = {
 // Maximum number of entries to keep in cache
 const MAX_CACHE_SIZE = 1000;
 const MAX_TEMP_PATHS = 500;
+
+// OS detection function
+function detectOS(): OSPreset {
+    switch (process.platform) {
+        case 'darwin': return 'macOS';
+        case 'win32': return 'Windows';
+        default: return 'Linux';
+    }
+}
 
 function inExcludedFolder(file: TFile, settings: PluginSettings): boolean {
     if (settings.excludedFolders.length === 0) return false;
@@ -249,17 +436,12 @@ class RenameAllFilesModal extends Modal {
         const { contentEl } = this;
         contentEl.empty();
 
-        const heading = contentEl.createEl("h2", { text: "Warning" });
-        heading.style.textAlign = "center";
+        const heading = contentEl.createEl("h2", { text: "Warning", cls: "flit-modal-heading" });
         contentEl.createEl("p", { 
             text: "This will edit all of your files except those in excluded folders, and may introduce errors. Make sure you have backed up your files." 
         });
 
-        const buttonContainer = contentEl.createDiv({ cls: "modal-button-container" });
-        buttonContainer.style.display = "flex";
-        buttonContainer.style.justifyContent = "flex-end";
-        buttonContainer.style.gap = "10px";
-        buttonContainer.style.marginTop = "20px";
+        const buttonContainer = contentEl.createDiv({ cls: "modal-button-container flit-modal-button-container" });
 
         const cancelButton = buttonContainer.createEl("button", { text: "Cancel" });
         cancelButton.onclick = () => this.close();
@@ -583,6 +765,16 @@ export default class FirstLineIsTitle extends Plugin {
 
     async onload(): Promise<void> {
         await this.loadSettings();
+        
+        // Auto-detect OS every time plugin loads
+        this.settings.osPreset = detectOS();
+        await this.saveSettings();
+        
+        // Add plugin styles
+        const styleEl = document.createElement('style');
+        styleEl.textContent = PLUGIN_STYLES;
+        document.head.appendChild(styleEl);
+        
         this.addSettingTab(new FirstLineIsTitleSettings(this.app, this));
 
         this.addCommand({
@@ -808,14 +1000,9 @@ class FirstLineIsTitleSettings extends PluginSettingTab {
         this.containerEl.createEl("br");
 
         // Character replacement settings
-        const charHeaderContainer = this.containerEl.createEl("div", { cls: "setting-item" });
-        charHeaderContainer.style.display = "flex";
-        charHeaderContainer.style.justifyContent = "space-between";
-        charHeaderContainer.style.alignItems = "center";
-        charHeaderContainer.style.marginBottom = "10px";
+        const charHeaderContainer = this.containerEl.createEl("div", { cls: "setting-item flit-char-header-container" });
         
-        const charHeader = charHeaderContainer.createEl("h3", { text: "Forbidden character replacements" });
-        charHeader.style.margin = "0";
+        const charHeader = charHeaderContainer.createEl("h3", { text: "Forbidden character replacements", cls: "flit-char-header" });
         
         // Create toggle for the header
         const headerToggleSetting = new Setting(document.createElement('div'));
@@ -831,6 +1018,17 @@ class FirstLineIsTitleSettings extends PluginSettingTab {
                             this.plugin.settings.charReplacementEnabled[key as keyof typeof this.plugin.settings.charReplacementEnabled] = true;
                         });
                         this.plugin.settings.hasEnabledForbiddenChars = true;
+                        
+                        // If OS is Windows or Android, also enable Windows/Android section
+                        const currentOS = detectOS();
+                        if ((currentOS === 'Windows' || currentOS === 'Linux') && !this.plugin.settings.hasEnabledWindowsAndroid) {
+                            this.plugin.settings.windowsAndroidEnabled = true;
+                            const windowsAndroidKeys = ['asterisk', 'quote', 'lessThan', 'greaterThan', 'question'];
+                            windowsAndroidKeys.forEach(key => {
+                                this.plugin.settings.charReplacementEnabled[key as keyof typeof this.plugin.settings.charReplacementEnabled] = true;
+                            });
+                            this.plugin.settings.hasEnabledWindowsAndroid = true;
+                        }
                     }
                     
                     await this.plugin.saveSettings();
@@ -853,22 +1051,35 @@ class FirstLineIsTitleSettings extends PluginSettingTab {
         updateCharDescriptionContent();
         this.containerEl.createEl("br");
 
-        const charSettingsContainer = this.containerEl.createDiv();
+        const charSettingsContainer = this.containerEl.createDiv({ cls: "flit-char-settings-container" });
 
         const updateCharacterReplacementUI = () => {
             const isEnabled = this.plugin.settings.enableForbiddenCharReplacements;
-            charDescEl.style.opacity = isEnabled ? '1' : '0.5';
+            
+            if (isEnabled) {
+                charDescEl.classList.remove('flit-desc-disabled');
+            } else {
+                charDescEl.classList.add('flit-desc-disabled');
+            }
             
             // Update description content
             updateCharDescriptionContent();
             
             // Hide/show the entire character settings container
-            charSettingsContainer.style.display = isEnabled ? 'block' : 'none';
+            if (isEnabled) {
+                charSettingsContainer.classList.remove('hidden');
+            } else {
+                charSettingsContainer.classList.add('hidden');
+            }
             
             // Hide/show restore defaults button
-            const restoreButton = this.containerEl.querySelector('.restore-defaults-button');
+            const restoreButton = this.containerEl.querySelector('.flit-restore-defaults-button');
             if (restoreButton) {
-                (restoreButton as HTMLElement).style.display = isEnabled ? 'block' : 'none';
+                if (isEnabled) {
+                    restoreButton.classList.remove('hidden');
+                } else {
+                    restoreButton.classList.add('hidden');
+                }
             }
         };
 
@@ -895,17 +1106,13 @@ class FirstLineIsTitleSettings extends PluginSettingTab {
             ];
             
             // Add All OSes subsection
-            const allOSesHeader = charSettingsContainer.createEl('div', { cls: 'char-replacement-section-header' });
-            allOSesHeader.style.marginBottom = "10px";
+            const allOSesHeader = charSettingsContainer.createEl('div', { cls: 'flit-char-replacement-section-header' });
             
-            const allOSesTitle = allOSesHeader.createEl('h4', { text: 'All OSes' });
-            allOSesTitle.style.margin = "0";
-            allOSesTitle.style.fontSize = "1.1em";
-            allOSesTitle.style.fontWeight = "bold";
+            const allOSesTitle = allOSesHeader.createEl('h4', { text: 'All OSes', cls: 'flit-section-title' });
             
             const allOSesDescContainer = charSettingsContainer.createEl('div');
             const allOSesDesc = allOSesDescContainer.createEl('div', { 
-                text: 'The following characters are forbidden in filenames on all OSes.',
+                text: 'The following characters are forbidden in Obsidian filenames on all OSes.',
                 cls: 'setting-item-description'
             });
             allOSesDesc.style.marginBottom = "10px";
@@ -913,14 +1120,7 @@ class FirstLineIsTitleSettings extends PluginSettingTab {
             // Build char settings in order: []#^|/:
             
             primaryCharSettings.forEach((setting, index) => {
-                const rowEl = charSettingsContainer.createEl('div', { cls: 'char-replacement-setting' });
-                rowEl.style.display = "flex";
-                rowEl.style.alignItems = "center";
-                rowEl.style.padding = "8px 0";
-                
-                if (index < primaryCharSettings.length - 1) {
-                    rowEl.style.borderBottom = "1px solid var(--background-modifier-border)";
-                }
+                const rowEl = charSettingsContainer.createEl('div', { cls: 'flit-char-replacement-setting' });
                 
                 const toggleSetting = new Setting(document.createElement('div'));
                 toggleSetting.addToggle((toggle) => {
@@ -933,15 +1133,11 @@ class FirstLineIsTitleSettings extends PluginSettingTab {
                     rowEl.appendChild(toggle.toggleEl);
                 });
                 
-                const nameLabel = rowEl.createEl("span", { text: setting.name });
-                nameLabel.style.marginLeft = "8px";
-                nameLabel.style.minWidth = "120px";
-                nameLabel.style.flexGrow = "1";
+                const nameLabel = rowEl.createEl("span", { text: setting.name, cls: "flit-char-name-label" });
                 
-                const textInput = rowEl.createEl("input", { type: "text" });
+                const textInput = rowEl.createEl("input", { type: "text", cls: "flit-char-text-input" });
                 textInput.placeholder = "Replace with";
                 textInput.value = this.plugin.settings.charReplacements[setting.key];
-                textInput.style.width = "200px";
                 textInput.setAttribute('data-setting-key', setting.key);
                 textInput.addEventListener('input', async (e) => {
                     this.plugin.settings.charReplacements[setting.key] = (e.target as HTMLInputElement).value;
@@ -950,19 +1146,9 @@ class FirstLineIsTitleSettings extends PluginSettingTab {
             });
             
             // Add Windows/Android subsection
-            const windowsAndroidHeader = charSettingsContainer.createEl('div', { cls: 'char-replacement-section-header' });
-            windowsAndroidHeader.style.marginTop = "20px";
-            windowsAndroidHeader.style.marginBottom = "10px";
-            windowsAndroidHeader.style.paddingTop = "15px";
-            windowsAndroidHeader.style.borderTop = "2px solid var(--background-modifier-border)";
-            windowsAndroidHeader.style.display = "flex";
-            windowsAndroidHeader.style.alignItems = "center";
-            windowsAndroidHeader.style.gap = "10px";
+            const windowsAndroidHeader = charSettingsContainer.createEl('div', { cls: 'flit-char-replacement-section-header windows-android' });
             
-            const sectionTitle = windowsAndroidHeader.createEl('h4', { text: 'Windows/Android' });
-            sectionTitle.style.margin = "0";
-            sectionTitle.style.fontSize = "1.1em";
-            sectionTitle.style.fontWeight = "bold";
+            const sectionTitle = windowsAndroidHeader.createEl('h4', { text: 'Windows/Android', cls: 'flit-section-title' });
             
             // Add toggle for Windows/Android
             const windowsAndroidToggleSetting = new Setting(document.createElement('div'));
@@ -988,26 +1174,18 @@ class FirstLineIsTitleSettings extends PluginSettingTab {
             
             const sectionDescContainer = charSettingsContainer.createEl('div');
             const sectionDesc = sectionDescContainer.createEl('div', { 
-                text: 'The following characters are forbidden in filenames on Windows and Android only.',
+                text: 'The following characters are forbidden in Obsidian filenames on Windows and Android only.',
                 cls: 'setting-item-description'
             });
             sectionDesc.style.marginBottom = "10px";
             
             windowsAndroidChars.forEach((setting, index) => {
-                const rowEl = charSettingsContainer.createEl('div', { cls: 'char-replacement-setting' });
-                rowEl.style.display = "flex";
-                rowEl.style.alignItems = "center";
-                rowEl.style.padding = "8px 0";
-                
-                if (index < windowsAndroidChars.length - 1) {
-                    rowEl.style.borderBottom = "1px solid var(--background-modifier-border)";
-                }
+                const rowEl = charSettingsContainer.createEl('div', { cls: 'flit-char-replacement-setting' });
                 
                 // Apply disabled state based on Windows/Android toggle
                 const isDisabled = !this.plugin.settings.windowsAndroidEnabled;
                 if (isDisabled) {
-                    rowEl.style.opacity = "0.5";
-                    rowEl.style.pointerEvents = "none";
+                    rowEl.classList.add('disabled');
                 }
                 
                 const toggleSetting = new Setting(document.createElement('div'));
@@ -1024,15 +1202,11 @@ class FirstLineIsTitleSettings extends PluginSettingTab {
                     rowEl.appendChild(toggle.toggleEl);
                 });
                 
-                const nameLabel = rowEl.createEl("span", { text: setting.name });
-                nameLabel.style.marginLeft = "8px";
-                nameLabel.style.minWidth = "120px";
-                nameLabel.style.flexGrow = "1";
+                const nameLabel = rowEl.createEl("span", { text: setting.name, cls: "flit-char-name-label" });
                 
-                const textInput = rowEl.createEl("input", { type: "text" });
+                const textInput = rowEl.createEl("input", { type: "text", cls: "flit-char-text-input" });
                 textInput.placeholder = "Replace with";
                 textInput.value = this.plugin.settings.charReplacements[setting.key];
-                textInput.style.width = "200px";
                 textInput.setAttribute('data-setting-key', setting.key);
                 textInput.disabled = isDisabled;
                 textInput.addEventListener('input', async (e) => {
@@ -1056,19 +1230,14 @@ class FirstLineIsTitleSettings extends PluginSettingTab {
                     updateCharacterSettings();
                 })
             );
-        restoreDefaultsSetting.settingEl.addClass('restore-defaults-button');
+        restoreDefaultsSetting.settingEl.addClass('flit-restore-defaults-button');
 
         this.containerEl.createEl("br");
 
         // Custom replacements section
-        const customHeaderContainer = this.containerEl.createEl("div", { cls: "setting-item" });
-        customHeaderContainer.style.display = "flex";
-        customHeaderContainer.style.justifyContent = "space-between";
-        customHeaderContainer.style.alignItems = "center";
-        customHeaderContainer.style.marginBottom = "10px";
+        const customHeaderContainer = this.containerEl.createEl("div", { cls: "setting-item flit-custom-header-container" });
         
-        const customHeader = customHeaderContainer.createEl("h3", { text: "Custom replacements" });
-        customHeader.style.margin = "0";
+        const customHeader = customHeaderContainer.createEl("h3", { text: "Custom replacements", cls: "flit-custom-header" });
         
         // Create toggle for the header
         const customHeaderToggleSetting = new Setting(document.createElement('div'));
@@ -1086,18 +1255,35 @@ class FirstLineIsTitleSettings extends PluginSettingTab {
         
         const updateCustomDescriptionContent = () => {
             const isEnabled = this.plugin.settings.enableCustomReplacements;
+            customDescEl.empty();
+            
             if (isEnabled) {
-                customDescEl.innerHTML = `
-                    Define custom text replacements.<br><br>
-                    <ul style="margin: 0; padding-left: 20px;">
-                        <li>Rules are applied sequentially from top to bottom.</li>
-                        <li>Whitespace preserved.</li>
-                        <li>Leave <em>Replace with</em> blank to omit text entirely.</li>
-                        <li>If <em>Replace with</em> is blank and <em>Text to replace</em> matches whole line, the filename becomes <em>Untitled</em>.</li>
-                    </ul>
-                `;
+                customDescEl.createEl('span', { text: 'Define custom text replacements.' });
+                customDescEl.createEl('br');
+                customDescEl.createEl('br');
+                
+                const ul = customDescEl.createEl('ul');
+                ul.style.margin = '0';
+                ul.style.paddingLeft = '20px';
+                
+                ul.createEl('li', { text: 'Rules are applied sequentially from top to bottom.' });
+                ul.createEl('li', { text: 'Whitespace preserved.' });
+                
+                const li3 = ul.createEl('li');
+                li3.appendText('Leave ');
+                li3.createEl('em', { text: 'Replace with' });
+                li3.appendText(' blank to omit text entirely.');
+                
+                const li4 = ul.createEl('li');
+                li4.appendText('If ');
+                li4.createEl('em', { text: 'Replace with' });
+                li4.appendText(' is blank and ');
+                li4.createEl('em', { text: 'Text to replace' });
+                li4.appendText(' matches whole line, the filename becomes ');
+                li4.createEl('em', { text: 'Untitled' });
+                li4.appendText('.');
             } else {
-                customDescEl.innerHTML = 'Define custom text replacements.';
+                customDescEl.createEl('span', { text: 'Define custom text replacements.' });
             }
         };
         
@@ -1106,94 +1292,72 @@ class FirstLineIsTitleSettings extends PluginSettingTab {
 
         const updateCustomReplacementUI = () => {
             const isEnabled = this.plugin.settings.enableCustomReplacements;
-            customDescEl.style.opacity = isEnabled ? '1' : '0.5';
+            
+            if (isEnabled) {
+                customDescEl.classList.remove('flit-desc-disabled');
+            } else {
+                customDescEl.classList.add('flit-desc-disabled');
+            }
             
             // Update description content
             updateCustomDescriptionContent();
             
             // Hide/show all custom replacement elements
-            const customSettingsEls = this.containerEl.querySelectorAll('.custom-replacement-setting, .custom-replacement-header, .add-replacement-button');
+            const customSettingsEls = this.containerEl.querySelectorAll('.flit-custom-replacement-setting, .flit-custom-replacement-header, .flit-add-replacement-button');
             customSettingsEls.forEach(el => {
-                (el as HTMLElement).style.display = isEnabled ? 'flex' : 'none';
+                if (isEnabled) {
+                    el.classList.remove('hidden');
+                } else {
+                    el.classList.add('hidden');
+                }
             });
         };
 
         const renderCustomReplacements = () => {
             // Clear existing custom replacement settings
-            const existingCustomSettings = this.containerEl.querySelectorAll('.custom-replacement-setting, .custom-replacement-header');
+            const existingCustomSettings = this.containerEl.querySelectorAll('.flit-custom-replacement-setting, .flit-custom-replacement-header');
             existingCustomSettings.forEach(el => el.remove());
             
             // Clear existing add button
-            const existingAddButton = this.containerEl.querySelector('.add-replacement-button');
+            const existingAddButton = this.containerEl.querySelector('.flit-add-replacement-button');
             if (existingAddButton) existingAddButton.remove();
 
             // Create header row with column titles
-            const headerRow = this.containerEl.createEl('div', { cls: 'custom-replacement-header' });
-            headerRow.style.display = "flex";
-            headerRow.style.alignItems = "center";
-            headerRow.style.padding = "8px 0";
-            headerRow.style.borderBottom = "2px solid var(--background-modifier-border)";
-            headerRow.style.fontWeight = "bold";
-            headerRow.style.fontSize = "0.9em";
-            headerRow.style.gap = "8px";
+            const headerRow = this.containerEl.createEl('div', { cls: 'flit-custom-replacement-header' });
             
             // Header for toggle
-            const enableHeader = headerRow.createDiv();
+            const enableHeader = headerRow.createDiv({ cls: "flit-enable-column" });
             enableHeader.textContent = "Enable";
-            enableHeader.style.width = "60px";
-            enableHeader.style.minWidth = "60px";
-            enableHeader.style.textAlign = "left";
             
             // Headers for input fields
-            const textToReplaceHeader = headerRow.createDiv();
+            const textToReplaceHeader = headerRow.createDiv({ cls: "flit-text-column" });
             textToReplaceHeader.textContent = "Text to replace";
-            textToReplaceHeader.style.flex = "1";
-            textToReplaceHeader.style.textAlign = "left";
             
-            const replaceWithHeader = headerRow.createDiv();
+            const replaceWithHeader = headerRow.createDiv({ cls: "flit-text-column" });
             replaceWithHeader.textContent = "Replace with";
-            replaceWithHeader.style.flex = "1";
-            replaceWithHeader.style.textAlign = "left";
             
             // Headers for toggle switches
-            const startOnlyHeader = headerRow.createDiv();
-            startOnlyHeader.style.width = "85px";
-            startOnlyHeader.style.minWidth = "85px";
-            startOnlyHeader.style.textAlign = "left";
-            startOnlyHeader.style.lineHeight = "1.2";
+            const startOnlyHeader = headerRow.createDiv({ cls: "flit-toggle-column" });
             const startLine1 = startOnlyHeader.createDiv();
             startLine1.textContent = "Match at line";
             const startLine2 = startOnlyHeader.createDiv();
             startLine2.textContent = "start only";
             
-            const wholeLineHeader = headerRow.createDiv();
-            wholeLineHeader.style.width = "85px";
-            wholeLineHeader.style.minWidth = "85px";
-            wholeLineHeader.style.textAlign = "left";
-            wholeLineHeader.style.lineHeight = "1.2";
+            const wholeLineHeader = headerRow.createDiv({ cls: "flit-toggle-column" });
             const wholeLine1 = wholeLineHeader.createDiv();
             wholeLine1.textContent = "Match whole";
             const wholeLine2 = wholeLineHeader.createDiv();
             wholeLine2.textContent = "line only";
             
             // Empty header for action buttons
-            const actionsHeader = headerRow.createDiv();
+            const actionsHeader = headerRow.createDiv({ cls: "flit-actions-column" });
             actionsHeader.textContent = "";
-            actionsHeader.style.width = "80px";
-            actionsHeader.style.minWidth = "80px";
 
             this.plugin.settings.customReplacements.forEach((replacement, index) => {
-                const rowEl = this.containerEl.createEl('div', { cls: 'custom-replacement-setting' });
-                rowEl.style.display = "flex";
-                rowEl.style.alignItems = "center";
-                rowEl.style.padding = "8px 0";
-                rowEl.style.borderBottom = "1px solid var(--background-modifier-border)";
-                rowEl.style.gap = "8px";
+                const rowEl = this.containerEl.createEl('div', { cls: 'flit-custom-replacement-setting' });
 
                 // Create toggle container with fixed width
-                const toggleContainer = rowEl.createDiv();
-                toggleContainer.style.width = "60px";
-                toggleContainer.style.minWidth = "60px";
+                const toggleContainer = rowEl.createDiv({ cls: "flit-enable-column" });
                 
                 // Create individual toggle
                 const individualToggleSetting = new Setting(document.createElement('div'));
@@ -1208,31 +1372,25 @@ class FirstLineIsTitleSettings extends PluginSettingTab {
                 });
 
                 // Create text input 1
-                const input1 = rowEl.createEl("input", { type: "text" });
+                const input1 = rowEl.createEl("input", { type: "text", cls: "flit-text-column" });
                 input1.placeholder = "Text to replace";
                 input1.value = replacement.searchText;
-                input1.style.flex = "1";
                 input1.addEventListener('input', async (e) => {
                     this.plugin.settings.customReplacements[index].searchText = (e.target as HTMLInputElement).value;
                     await this.plugin.saveSettings();
                 });
 
                 // Create text input 2
-                const input2 = rowEl.createEl("input", { type: "text" });
+                const input2 = rowEl.createEl("input", { type: "text", cls: "flit-text-column" });
                 input2.placeholder = "Replace with";
                 input2.value = replacement.replaceText;
-                input2.style.flex = "1";
                 input2.addEventListener('input', async (e) => {
                     this.plugin.settings.customReplacements[index].replaceText = (e.target as HTMLInputElement).value;
                     await this.plugin.saveSettings();
                 });
 
                 // Create toggle for "Match at line start only"
-                const startToggleContainer = rowEl.createDiv();
-                startToggleContainer.style.width = "85px";
-                startToggleContainer.style.minWidth = "85px";
-                startToggleContainer.style.display = "flex";
-                startToggleContainer.style.justifyContent = "left";
+                const startToggleContainer = rowEl.createDiv({ cls: "flit-toggle-column center" });
                 const startToggleSetting = new Setting(document.createElement('div'));
                 startToggleSetting.addToggle((toggle) => {
                     toggle.setValue(replacement.onlyAtStart)
@@ -1255,11 +1413,7 @@ class FirstLineIsTitleSettings extends PluginSettingTab {
                 });
                 
                 // Create toggle for "Match whole line only"
-                const wholeToggleContainer = rowEl.createDiv();
-                wholeToggleContainer.style.width = "85px";
-                wholeToggleContainer.style.minWidth = "85px";
-                wholeToggleContainer.style.display = "flex";
-                wholeToggleContainer.style.justifyContent = "left";
+                const wholeToggleContainer = rowEl.createDiv({ cls: "flit-toggle-column center" });
                 const wholeToggleSetting = new Setting(document.createElement('div'));
                 wholeToggleSetting.addToggle((toggle) => {
                     toggle.setValue(replacement.onlyWholeLine)
@@ -1282,23 +1436,16 @@ class FirstLineIsTitleSettings extends PluginSettingTab {
                 });
 
                 // Create button container for action buttons
-                const buttonContainer = rowEl.createDiv();
-                buttonContainer.style.width = "80px";
-                buttonContainer.style.minWidth = "80px";
-                buttonContainer.style.display = "flex";
-                buttonContainer.style.gap = "4px";
-                buttonContainer.style.alignItems = "center";
+                const buttonContainer = rowEl.createDiv({ cls: "flit-actions-column flit-button-container" });
 
                 // Create up arrow button
                 const upButton = buttonContainer.createEl("button", { 
-                    cls: "clickable-icon",
+                    cls: "clickable-icon flit-nav-button",
                     attr: { "aria-label": "Move up" }
                 });
-                upButton.style.padding = "4px";
-                upButton.style.background = "transparent";
-                upButton.style.border = "none";
-                upButton.style.cursor = index === 0 ? "not-allowed" : "pointer";
-                upButton.style.opacity = index === 0 ? "0.5" : "1";
+                if (index === 0) {
+                    upButton.classList.add('disabled');
+                }
                 setIcon(upButton, "chevron-up");
                 
                 if (index > 0) {
@@ -1313,14 +1460,12 @@ class FirstLineIsTitleSettings extends PluginSettingTab {
 
                 // Create down arrow button
                 const downButton = buttonContainer.createEl("button", { 
-                    cls: "clickable-icon",
+                    cls: "clickable-icon flit-nav-button",
                     attr: { "aria-label": "Move down" }
                 });
-                downButton.style.padding = "4px";
-                downButton.style.background = "transparent";
-                downButton.style.border = "none";
-                downButton.style.cursor = index === this.plugin.settings.customReplacements.length - 1 ? "not-allowed" : "pointer";
-                downButton.style.opacity = index === this.plugin.settings.customReplacements.length - 1 ? "0.5" : "1";
+                if (index === this.plugin.settings.customReplacements.length - 1) {
+                    downButton.classList.add('disabled');
+                }
                 setIcon(downButton, "chevron-down");
                 
                 if (index < this.plugin.settings.customReplacements.length - 1) {
@@ -1335,14 +1480,9 @@ class FirstLineIsTitleSettings extends PluginSettingTab {
 
                 // Create delete button with trash icon
                 const deleteButton = buttonContainer.createEl("button", { 
-                    cls: "clickable-icon",
+                    cls: "clickable-icon flit-delete-button",
                     attr: { "aria-label": "Delete" }
                 });
-                deleteButton.style.padding = "4px";
-                deleteButton.style.background = "transparent";
-                deleteButton.style.border = "none";
-                deleteButton.style.cursor = "pointer";
-                deleteButton.style.color = "var(--text-error)";
                 setIcon(deleteButton, "trash-2");
                 
                 deleteButton.addEventListener('click', async () => {
@@ -1367,7 +1507,7 @@ class FirstLineIsTitleSettings extends PluginSettingTab {
                         renderCustomReplacements();
                     })
                 );
-            addButtonSetting.settingEl.addClass('add-replacement-button');
+            addButtonSetting.settingEl.addClass('flit-add-replacement-button');
             
             // Update UI state after rendering
             updateCustomReplacementUI();
