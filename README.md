@@ -86,10 +86,6 @@ For the times when you want to force the plugin to update the title, I recommend
 
 This is super useful if you already use Ctrl/Cmd-S to trigger [Linter](https://obsidian.md/plugins?id=obsidian-linter).
 
-## 🔨 Room for improvement
-
-Though I don't currently plan on working on this plugin further, some potential improvements come to mind. [I've created an issue for each.](https://github.com/greetclammy/first-line-is-title/issues) PRs welcome.
-
 ## 👀 Alternative solutions
 
 1. [Auto Filename](https://obsidian.md/plugins?id=auto-filename)
