@@ -1,6 +1,6 @@
 # First Line is Title
 
-Automatically puts the note's first line in title.
+Automatically put the note's first line in title.
 
 Can replace forbidden characters with alternatives. Supports custom replacemet rules.
 
