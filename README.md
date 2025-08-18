@@ -75,7 +75,7 @@ This plugin adds three commmands to the Command palette:
 
 <img width="455" height="232" alt="image" src="https://github.com/user-attachments/assets/6efdace0-e168-4115-ac63-c2a63acaf4fd" />
 
-For the times when you want to force the plugin to update the title, I recommend to create the following macro with [Commander](https://obsidian.md/plugins?id=cmdr) and bind it to Ctrl/Cmd-S:
+For the times when you want to force the plugin to update the title, I recommend to create a macro like this with [Commander](https://obsidian.md/plugins?id=cmdr) and bind it to Ctrl/Cmd-S:
 
 <details>
   <summary>Screenshot</summary>
