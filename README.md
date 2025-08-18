@@ -73,15 +73,15 @@ tp.hooks.on_all_templates_executed(async () => {
 
 ### Commands
 
-This plugin adds two commmands to the Command palette:
+This plugin adds three commmands to the Command palette:
 
-<img width="732" height="200" alt="Screenshot 2025-08-04 at 15 16 40" src="https://github.com/user-attachments/assets/934db3a9-31fe-4ce6-826a-13b51e1ce6e6" />
+<img width="455" height="232" alt="image" src="https://github.com/user-attachments/assets/6efdace0-e168-4115-ac63-c2a63acaf4fd" />
 
 For the times when you want to force the plugin to update the title, I recommend to create the following macro with [Commander](https://obsidian.md/plugins?id=cmdr) and bind it to Ctrl/Cmd-S:
 
 <details>
   <summary>Screenshot</summary>
-<img width="582" height="436" alt="Screenshot 2025-08-17 at 16 14 35" src="https://github.com/user-attachments/assets/084d9605-6e0f-4195-a534-f44bb607d697" />
+<img width="587" height="444" alt="Screenshot 2025-08-18 at 03 02 27" src="https://github.com/user-attachments/assets/156f775a-a3d9-4f61-a7b2-799a12a17ae5" />
 </details>
 
 This is super useful if you already use Ctrl/Cmd-S to trigger [Linter](https://obsidian.md/plugins?id=obsidian-linter).
