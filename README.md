@@ -12,7 +12,7 @@ Can replace forbidden characters with alternatives. Supports custom replacemet r
 
 <details>
   <summary>Screenshot</summary>
-<img width="1044" height="1315" alt="settings" src="https://github.com/user-attachments/assets/02798b46-17a3-48c7-8d9f-64298a743d63" />
+<img width="1126" height="2500" alt="settings" src="https://github.com/user-attachments/assets/b12374f2-d174-40f5-8036-e7c7c44a3e30" />
 </details>
 
 ## ✅ Installation
