@@ -79,11 +79,28 @@ var PLUGIN_STYLES = `
     font-weight: bold;
 }
 
-.flit-char-replacement-setting {
+.flit-char-replacement-header, .flit-char-replacement-setting {
     display: flex;
     align-items: flex-start;
     padding: 8px 0;
     border-bottom: 1px solid var(--background-modifier-border);
+    gap: 8px;
+    width: fit-content;
+    min-width: 750px;
+}
+
+.flit-char-replacement-header {
+    border-bottom: 2px solid var(--background-modifier-border);
+    font-weight: bold;
+    font-size: 0.9em;
+}
+
+.flit-char-replacement-header.hidden {
+    display: none;
+}
+
+.flit-char-replacement-setting:last-of-type {
+    border-bottom: none;
 }
 
 .flit-char-replacement-setting.disabled {
@@ -91,20 +108,65 @@ var PLUGIN_STYLES = `
     pointer-events: none;
 }
 
-.flit-char-name-label {
-    margin-left: 8px;
-    min-width: 120px;
-    flex-grow: 1;
+.flit-char-replacement-setting.hidden {
+    display: none;
+}
+
+.flit-char-name-column {
+    width: 320px;
+    min-width: 320px;
+    max-width: 320px;
+    flex-shrink: 0;
+    text-align: left;
+    display: flex;
+    flex-direction: column;
+}
+
+.flit-char-name-column .setting-item-name {
+    margin-bottom: 2px;
+}
+
+.flit-char-name-column .setting-item-description {
+    margin-top: 0;
+    margin-bottom: 0;
+    font-size: 0.85em;
+    color: var(--text-muted);
+}
+
+.flit-char-text-input-container {
+    width: 150px;
+    min-width: 150px;
+    max-width: 150px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 4px;
 }
 
 .flit-char-text-input {
-    width: 200px;
-    min-width: 200px;
-    max-width: 200px;
-    flex-shrink: 0;
+    width: 120px !important;
+    min-width: 120px !important;
+    max-width: 120px !important;
+    flex: none !important;
+    flex-grow: 0 !important;
+    flex-shrink: 0 !important;
     box-sizing: border-box;
     overflow: hidden;
     text-overflow: ellipsis;
+}
+
+.flit-restore-icon {
+    padding: 4px;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+}
+
+.flit-restore-icon:hover {
+    color: var(--text-normal);
 }
 
 .flit-custom-header-container {
@@ -128,7 +190,6 @@ var PLUGIN_STYLES = `
 .flit-table-wrapper {
     width: fit-content;
     min-width: 100%;
-    padding-right: 20px;
 }
 
 .flit-custom-replacement-header, .flit-safeword-header {
@@ -159,7 +220,7 @@ var PLUGIN_STYLES = `
 
 .flit-custom-replacement-setting, .flit-safeword-setting {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     padding: 8px 0;
     border-bottom: 1px solid var(--background-modifier-border);
     gap: 8px;
@@ -267,10 +328,6 @@ var PLUGIN_STYLES = `
     opacity: 0.5;
 }
 
-.flit-restore-defaults-button.hidden {
-    display: none;
-}
-
 .flit-add-replacement-button.hidden, .flit-add-safeword-button.hidden {
     display: none;
 }
@@ -278,7 +335,7 @@ var PLUGIN_STYLES = `
 var DEFAULT_SETTINGS = {
   excludedFolders: [],
   charCount: 100,
-  checkInterval: 500,
+  checkInterval: 600,
   disableRenamingKey: "rename",
   disableRenamingValue: "off",
   osPreset: "macOS",
@@ -292,8 +349,8 @@ var DEFAULT_SETTINGS = {
     quote: "\uFF02",
     pipe: "\u2758",
     hash: "\uFF03",
-    leftBracket: "\u301A",
-    rightBracket: "\u301B",
+    leftBracket: "\uFF3B",
+    rightBracket: "\uFF3D",
     caret: "\u02C6",
     backslash: "\u29F5",
     dot: "\u2024"
@@ -310,6 +367,38 @@ var DEFAULT_SETTINGS = {
     hash: false,
     leftBracket: false,
     rightBracket: false,
+    caret: false,
+    backslash: false,
+    dot: false
+  },
+  charReplacementTrimLeft: {
+    slash: false,
+    colon: false,
+    asterisk: false,
+    question: false,
+    lessThan: false,
+    greaterThan: false,
+    quote: false,
+    pipe: false,
+    hash: false,
+    leftBracket: true,
+    rightBracket: true,
+    caret: false,
+    backslash: false,
+    dot: false
+  },
+  charReplacementTrimRight: {
+    slash: false,
+    colon: false,
+    asterisk: false,
+    question: false,
+    lessThan: false,
+    greaterThan: false,
+    quote: false,
+    pipe: false,
+    hash: false,
+    leftBracket: true,
+    rightBracket: true,
     caret: false,
     backslash: false,
     dot: false
@@ -332,7 +421,9 @@ var DEFAULT_SETTINGS = {
   hasEnabledForbiddenChars: false,
   hasEnabledWindowsAndroid: false,
   hasEnabledSafewords: false,
-  skipExcalidrawFiles: false
+  skipExcalidrawFiles: false,
+  grabTitleFromCardLink: false,
+  excludeSubfolders: true
 };
 var UNIVERSAL_FORBIDDEN_CHARS = ["/", ":", "|", String.fromCharCode(92), "#", "[", "]", "^"];
 var WINDOWS_ANDROID_CHARS = ["*", "?", "<", ">", '"'];
@@ -369,8 +460,17 @@ function detectOS() {
 function inExcludedFolder(file, settings) {
   var _a;
   if (settings.excludedFolders.length === 0) return false;
-  if (settings.excludedFolders.includes((_a = file.parent) == null ? void 0 : _a.path))
+  const filePath = (_a = file.parent) == null ? void 0 : _a.path;
+  if (settings.excludedFolders.includes(filePath)) {
     return true;
+  }
+  if (settings.excludeSubfolders) {
+    for (const excludedFolder of settings.excludedFolders) {
+      if (filePath && filePath.startsWith(excludedFolder + "/")) {
+        return true;
+      }
+    }
+  }
   return false;
 }
 function hasDisableProperty(content, settings) {
@@ -616,6 +716,26 @@ var FirstLineIsTitle = class extends import_obsidian.Plugin {
     }
     const currentName = file.basename;
     let firstLine = content.split("\n")[0];
+    if (this.settings.grabTitleFromCardLink) {
+      let embedMatch = content.match(/^embed\s*\n[\s\S]*?title:\s*"([^"]+)"/);
+      if (!embedMatch) {
+        embedMatch = content.match(/^```embed[^\n]*\n[\s\S]*?title:\s*"([^"]+)"/);
+      }
+      if (!embedMatch) {
+        embedMatch = content.match(/^embed\s*\n[\s\S]*?title:\s*(.+?)(?:\n|$)/);
+      }
+      if (embedMatch) {
+        firstLine = embedMatch[1];
+      } else {
+        let cardlinkMatch = content.match(/^cardlink\s*\n[\s\S]*?title:\s*"([^"]+)"/);
+        if (!cardlinkMatch) {
+          cardlinkMatch = content.match(/^```cardlink[^\n]*\n[\s\S]*?title:\s*"([^"]+)"/);
+        }
+        if (cardlinkMatch) {
+          firstLine = cardlinkMatch[1];
+        }
+      }
+    }
     const previousFileContent = previousContent.get(file.path);
     if (content.trim() === "" && previousFileContent && previousFileContent.trim() !== "") {
       const parentPath2 = ((_a = file.parent) == null ? void 0 : _a.path) === "/" ? "" : ((_b = file.parent) == null ? void 0 : _b.path) + "/";
@@ -777,9 +897,19 @@ var FirstLineIsTitle = class extends import_obsidian.Plugin {
           }
           const isWindowsAndroidChar = ["*", "?", "<", ">", '"'].includes(char);
           const canReplace = isWindowsAndroidChar ? this.settings.windowsAndroidEnabled && settingKey && this.settings.charReplacementEnabled[settingKey] : settingKey && this.settings.charReplacementEnabled[settingKey];
-          if (canReplace) {
+          if (canReplace && settingKey) {
             shouldReplace = true;
             replacement = charMap[char] || "";
+            if (replacement !== "") {
+              if (this.settings.charReplacementTrimLeft[settingKey]) {
+                newFileName = newFileName.trimEnd();
+              }
+              if (this.settings.charReplacementTrimRight[settingKey]) {
+                while (i + 1 < content.length && /\s/.test(content[i + 1])) {
+                  i++;
+                }
+              }
+            }
           }
         }
         if (shouldReplace && replacement !== "") {
@@ -920,7 +1050,7 @@ var FirstLineIsTitleSettings = class extends import_obsidian.PluginSettingTab {
       })
     );
     new import_obsidian.Setting(this.containerEl).setName("Exclude folders").setDesc(
-      "Folder paths to exclude from auto-renaming. Includes all subfolders. Separate by newline. Case-sensitive."
+      "Folder paths to exclude from auto-renaming. Separate by newline. Case-sensitive."
     ).addTextArea((text) => {
       text.setPlaceholder("/\nfolder\nfolder/subfolder").setValue(this.plugin.settings.excludedFolders.join("\n")).onChange(async (value) => {
         this.plugin.settings.excludedFolders = value.split("\n");
@@ -929,20 +1059,26 @@ var FirstLineIsTitleSettings = class extends import_obsidian.PluginSettingTab {
       text.inputEl.cols = 28;
       text.inputEl.rows = 4;
     });
-    new import_obsidian.Setting(this.containerEl).setName("Character count").setDesc("The maximum number of characters to put in title. Enter a value from 10 to 255. Default: 100.").addText(
+    new import_obsidian.Setting(this.containerEl).setName("Exclude subfolders").setDesc("Exclude all subfolders of excluded folders.").addToggle(
+      (toggle) => toggle.setValue(this.plugin.settings.excludeSubfolders).onChange(async (value) => {
+        this.plugin.settings.excludeSubfolders = value;
+        await this.plugin.saveSettings();
+      })
+    );
+    new import_obsidian.Setting(this.containerEl).setName("Character count").setDesc("The maximum number of characters to put in title. Can't exceed 255 characters. Default: 100.").addText(
       (text) => text.setPlaceholder("100").setValue(String(this.plugin.settings.charCount)).onChange(async (value) => {
         if (value === "") {
           this.plugin.settings.charCount = DEFAULT_SETTINGS.charCount;
         } else {
           const numVal = Number(value);
-          if (numVal >= 10 && numVal <= 255) {
+          if (numVal >= 1 && numVal <= 255) {
             this.plugin.settings.charCount = numVal;
           }
         }
         await this.plugin.saveSettings();
       })
     );
-    new import_obsidian.Setting(this.containerEl).setName("Check interval").setDesc("Interval in milliseconds of how often to rename files while editing. Increase if there's performance issues. Default: 500.").addText(
+    new import_obsidian.Setting(this.containerEl).setName("Check interval").setDesc("Interval in milliseconds of how often to rename files while editing. Increase in case of issues. Default: 600.").addText(
       (text) => text.setPlaceholder("500").setValue(String(this.plugin.settings.checkInterval)).onChange(async (value) => {
         if (value === "") {
           this.plugin.settings.checkInterval = DEFAULT_SETTINGS.checkInterval;
@@ -978,12 +1114,6 @@ var FirstLineIsTitleSettings = class extends import_obsidian.PluginSettingTab {
         await this.plugin.saveSettings();
       })
     );
-    new import_obsidian.Setting(this.containerEl).setName("Don't rename Excalidraw files").setDesc("Files that have the property `excalidraw-plugin: parsed` won't be renamed.").addToggle(
-      (toggle) => toggle.setValue(this.plugin.settings.skipExcalidrawFiles).onChange(async (value) => {
-        this.plugin.settings.skipExcalidrawFiles = value;
-        await this.plugin.saveSettings();
-      })
-    );
     new import_obsidian.Setting(this.containerEl).setName("Rename on focus").setDesc("Automatically rename files when they become focused/active.").addToggle(
       (toggle) => toggle.setValue(this.plugin.settings.renameOnFocus).onChange(async (value) => {
         this.plugin.settings.renameOnFocus = value;
@@ -999,6 +1129,27 @@ var FirstLineIsTitleSettings = class extends import_obsidian.PluginSettingTab {
     new import_obsidian.Setting(this.containerEl).setName("Rename all files").setDesc("Rename all files except those in excluded folders. Can also be run from the Command palette.").addButton(
       (button) => button.setButtonText("Rename").onClick(() => {
         new RenameAllFilesModal(this.app, this.plugin).open();
+      })
+    );
+    this.containerEl.createEl("br");
+    this.containerEl.createEl("h6", { text: "Compatibility with other plugins" });
+    new import_obsidian.Setting(this.containerEl).setName("Don't rename Excalidraw files").setDesc("Files that have the property `excalidraw-plugin: parsed` won't be renamed.").addToggle(
+      (toggle) => toggle.setValue(this.plugin.settings.skipExcalidrawFiles).onChange(async (value) => {
+        this.plugin.settings.skipExcalidrawFiles = value;
+        await this.plugin.saveSettings();
+      })
+    );
+    const cardLinkSetting = new import_obsidian.Setting(this.containerEl).setName("Grab title from card link");
+    const cardLinkDesc = cardLinkSetting.descEl;
+    cardLinkDesc.appendText("If a note starts with a card link created with ");
+    cardLinkDesc.createEl("em", { text: "Link Embed" });
+    cardLinkDesc.appendText(" or ");
+    cardLinkDesc.createEl("em", { text: "Auto Card Link" });
+    cardLinkDesc.appendText(", the card link title will be put it in filename.");
+    cardLinkSetting.addToggle(
+      (toggle) => toggle.setValue(this.plugin.settings.grabTitleFromCardLink).onChange(async (value) => {
+        this.plugin.settings.grabTitleFromCardLink = value;
+        await this.plugin.saveSettings();
       })
     );
     this.containerEl.createEl("br");
@@ -1055,14 +1206,6 @@ var FirstLineIsTitleSettings = class extends import_obsidian.PluginSettingTab {
       } else {
         charSettingsContainer.classList.add("hidden");
       }
-      const restoreButton = this.containerEl.querySelector(".flit-restore-defaults-button");
-      if (restoreButton) {
-        if (isEnabled) {
-          restoreButton.classList.remove("hidden");
-        } else {
-          restoreButton.classList.add("hidden");
-        }
-      }
     };
     const updateCharacterSettings = () => {
       charSettingsContainer.empty();
@@ -1088,15 +1231,36 @@ var FirstLineIsTitleSettings = class extends import_obsidian.PluginSettingTab {
       const allOSesTitle = allOSesHeader.createEl("h3", { text: "All OSes", cls: "flit-section-title" });
       const allOSesDescContainer = charSettingsContainer.createEl("div");
       const allOSesDesc = allOSesDescContainer.createEl("div", {
-        text: "The following characters are forbidden in Obsidian filenames on all OSes. Whitespace preserved.",
+        text: "The following characters are forbidden in Obsidian filenames on all OSes.",
         cls: "setting-item-description"
       });
       allOSesDesc.style.marginBottom = "10px";
+      const allOSesTableContainer = charSettingsContainer.createEl("div", { cls: "flit-table-container" });
+      const allOSesTableWrapper = allOSesTableContainer.createEl("div", { cls: "flit-table-wrapper" });
+      const headerRow = allOSesTableWrapper.createEl("div", { cls: "flit-char-replacement-header" });
+      const enableHeader = headerRow.createDiv({ cls: "flit-enable-column" });
+      enableHeader.textContent = "Enable";
+      const charHeader2 = headerRow.createDiv({ cls: "flit-char-name-column" });
+      charHeader2.textContent = "Character";
+      const replaceHeader = headerRow.createDiv({ cls: "flit-char-text-input-container" });
+      replaceHeader.textContent = "Replace with";
+      const trimLeftHeader = headerRow.createDiv({ cls: "flit-toggle-column" });
+      const trimLeftLine1 = trimLeftHeader.createDiv();
+      trimLeftLine1.textContent = "Trim";
+      const trimLeftLine2 = trimLeftHeader.createDiv();
+      trimLeftLine2.textContent = "whitespace";
+      const trimLeftLine3 = trimLeftHeader.createDiv();
+      trimLeftLine3.textContent = "to the left";
+      const trimRightHeader = headerRow.createDiv({ cls: "flit-toggle-column" });
+      const trimRightLine1 = trimRightHeader.createDiv();
+      trimRightLine1.textContent = "Trim";
+      const trimRightLine2 = trimRightHeader.createDiv();
+      trimRightLine2.textContent = "whitespace";
+      const trimRightLine3 = trimRightHeader.createDiv();
+      trimRightLine3.textContent = "to the right";
       primaryCharSettings.forEach((setting, index) => {
-        const rowEl = charSettingsContainer.createEl("div", { cls: "flit-char-replacement-setting" });
-        if (index === primaryCharSettings.length - 1) {
-          rowEl.style.borderBottom = "none";
-        }
+        const rowEl = allOSesTableWrapper.createEl("div", { cls: "flit-char-replacement-setting" });
+        const toggleContainer = rowEl.createDiv({ cls: "flit-enable-column" });
         const toggleSetting = new import_obsidian.Setting(document.createElement("div"));
         toggleSetting.addToggle((toggle) => {
           toggle.setValue(this.plugin.settings.charReplacementEnabled[setting.key]).onChange(async (value) => {
@@ -1104,20 +1268,51 @@ var FirstLineIsTitleSettings = class extends import_obsidian.PluginSettingTab {
             await this.plugin.saveSettings();
           });
           toggle.toggleEl.style.margin = "0";
-          rowEl.appendChild(toggle.toggleEl);
+          toggleContainer.appendChild(toggle.toggleEl);
         });
-        const nameContainer = rowEl.createEl("div", { cls: "flit-char-name-label" });
-        nameContainer.createEl("div", { text: setting.name, cls: "setting-item-name" });
+        const nameContainer = rowEl.createEl("div", { cls: "flit-char-name-column" });
+        const nameEl = nameContainer.createEl("div", { text: setting.name, cls: "setting-item-name" });
         if (setting.description) {
           nameContainer.createEl("div", { text: setting.description, cls: "setting-item-description" });
         }
-        const textInput = rowEl.createEl("input", { type: "text", cls: "flit-char-text-input" });
+        const inputContainer = rowEl.createDiv({ cls: "flit-char-text-input-container" });
+        const restoreButton = inputContainer.createEl("button", {
+          cls: "clickable-icon flit-restore-icon",
+          attr: { "aria-label": "Restore default" }
+        });
+        (0, import_obsidian.setIcon)(restoreButton, "rotate-ccw");
+        restoreButton.addEventListener("click", async () => {
+          this.plugin.settings.charReplacements[setting.key] = DEFAULT_SETTINGS.charReplacements[setting.key];
+          textInput.value = DEFAULT_SETTINGS.charReplacements[setting.key];
+          await this.plugin.saveSettings();
+        });
+        const textInput = inputContainer.createEl("input", { type: "text", cls: "flit-char-text-input" });
         textInput.placeholder = "Replace with";
         textInput.value = this.plugin.settings.charReplacements[setting.key];
-        textInput.setAttribute("data-setting-key", setting.key);
+        textInput.style.width = "120px";
         textInput.addEventListener("input", async (e) => {
           this.plugin.settings.charReplacements[setting.key] = e.target.value;
           await this.plugin.saveSettings();
+        });
+        const trimLeftContainer = rowEl.createDiv({ cls: "flit-toggle-column center" });
+        const trimLeftSetting = new import_obsidian.Setting(document.createElement("div"));
+        trimLeftSetting.addToggle((toggle) => {
+          toggle.setValue(this.plugin.settings.charReplacementTrimLeft[setting.key]).onChange(async (value) => {
+            this.plugin.settings.charReplacementTrimLeft[setting.key] = value;
+            await this.plugin.saveSettings();
+          });
+          toggle.toggleEl.style.margin = "0";
+          trimLeftContainer.appendChild(toggle.toggleEl);
+        });
+        const trimRightContainer = rowEl.createDiv({ cls: "flit-toggle-column center" });
+        const trimRightSetting = new import_obsidian.Setting(document.createElement("div"));
+        trimRightSetting.addToggle((toggle) => {
+          toggle.setValue(this.plugin.settings.charReplacementTrimRight[setting.key]).onChange(async (value) => {
+            this.plugin.settings.charReplacementTrimRight[setting.key] = value;
+            await this.plugin.saveSettings();
+          });
+          toggle.toggleEl.style.margin = "0";
+          trimRightContainer.appendChild(toggle.toggleEl);
         });
       });
       const windowsAndroidHeader = charSettingsContainer.createEl("div", { cls: "flit-char-replacement-section-header windows-android" });
@@ -1140,16 +1335,31 @@ var FirstLineIsTitleSettings = class extends import_obsidian.PluginSettingTab {
       });
       const sectionDescContainer = charSettingsContainer.createEl("div");
       const sectionDesc = sectionDescContainer.createEl("div", {
-        text: "The following characters are forbidden in Obsidian filenames on Windows and Android only. Whitespace preserved.",
+        text: "The following characters are forbidden in Obsidian filenames on Windows and Android only.",
         cls: "setting-item-description"
       });
       sectionDesc.style.marginBottom = "10px";
+      const winAndroidTableContainer = charSettingsContainer.createEl("div", { cls: "flit-table-container" });
+      const winAndroidTableWrapper = winAndroidTableContainer.createEl("div", { cls: "flit-table-wrapper" });
+      const winAndroidHeaderRow = winAndroidTableWrapper.createEl("div", { cls: "flit-char-replacement-header" });
+      winAndroidHeaderRow.createDiv({ cls: "flit-enable-column" }).textContent = "Enable";
+      winAndroidHeaderRow.createDiv({ cls: "flit-char-name-column" }).textContent = "Character";
+      winAndroidHeaderRow.createDiv({ cls: "flit-char-text-input-container" }).textContent = "Replace with";
+      const winTrimLeftHeader = winAndroidHeaderRow.createDiv({ cls: "flit-toggle-column" });
+      winTrimLeftHeader.createDiv().textContent = "Trim";
+      winTrimLeftHeader.createDiv().textContent = "whitespace";
+      winTrimLeftHeader.createDiv().textContent = "to the left";
+      const winTrimRightHeader = winAndroidHeaderRow.createDiv({ cls: "flit-toggle-column" });
+      winTrimRightHeader.createDiv().textContent = "Trim";
+      winTrimRightHeader.createDiv().textContent = "whitespace";
+      winTrimRightHeader.createDiv().textContent = "to the right";
       windowsAndroidChars.forEach((setting, index) => {
-        const rowEl = charSettingsContainer.createEl("div", { cls: "flit-char-replacement-setting" });
+        const rowEl = winAndroidTableWrapper.createEl("div", { cls: "flit-char-replacement-setting" });
         const isDisabled = !this.plugin.settings.windowsAndroidEnabled;
         if (isDisabled) {
           rowEl.classList.add("disabled");
         }
+        const toggleContainer = rowEl.createDiv({ cls: "flit-enable-column" });
         const toggleSetting = new import_obsidian.Setting(document.createElement("div"));
         toggleSetting.addToggle((toggle) => {
           toggle.setValue(this.plugin.settings.charReplacementEnabled[setting.key]).onChange(async (value) => {
@@ -1160,30 +1370,63 @@ var FirstLineIsTitleSettings = class extends import_obsidian.PluginSettingTab {
           if (isDisabled) {
             toggle.setDisabled(true);
           }
-          rowEl.appendChild(toggle.toggleEl);
+          toggleContainer.appendChild(toggle.toggleEl);
         });
-        const nameLabel = rowEl.createEl("span", { text: setting.name, cls: "flit-char-name-label" });
-        const textInput = rowEl.createEl("input", { type: "text", cls: "flit-char-text-input" });
+        const nameContainer = rowEl.createEl("div", { cls: "flit-char-name-column" });
+        nameContainer.createEl("div", { text: setting.name, cls: "setting-item-name" });
+        const inputContainer = rowEl.createDiv({ cls: "flit-char-text-input-container" });
+        const restoreButton = inputContainer.createEl("button", {
+          cls: "clickable-icon flit-restore-icon",
+          attr: { "aria-label": "Restore default" }
+        });
+        (0, import_obsidian.setIcon)(restoreButton, "rotate-ccw");
+        if (isDisabled) {
+          restoreButton.disabled = true;
+        }
+        restoreButton.addEventListener("click", async () => {
+          this.plugin.settings.charReplacements[setting.key] = DEFAULT_SETTINGS.charReplacements[setting.key];
+          textInput.value = DEFAULT_SETTINGS.charReplacements[setting.key];
+          await this.plugin.saveSettings();
+        });
+        const textInput = inputContainer.createEl("input", { type: "text", cls: "flit-char-text-input" });
         textInput.placeholder = "Replace with";
         textInput.value = this.plugin.settings.charReplacements[setting.key];
-        textInput.setAttribute("data-setting-key", setting.key);
+        textInput.style.width = "120px";
         textInput.disabled = isDisabled;
         textInput.addEventListener("input", async (e) => {
           this.plugin.settings.charReplacements[setting.key] = e.target.value;
           await this.plugin.saveSettings();
         });
+        const trimLeftContainer = rowEl.createDiv({ cls: "flit-toggle-column center" });
+        const trimLeftSetting = new import_obsidian.Setting(document.createElement("div"));
+        trimLeftSetting.addToggle((toggle) => {
+          toggle.setValue(this.plugin.settings.charReplacementTrimLeft[setting.key]).onChange(async (value) => {
+            this.plugin.settings.charReplacementTrimLeft[setting.key] = value;
+            await this.plugin.saveSettings();
+          });
+          toggle.toggleEl.style.margin = "0";
+          if (isDisabled) {
+            toggle.setDisabled(true);
+          }
+          trimLeftContainer.appendChild(toggle.toggleEl);
+        });
+        const trimRightContainer = rowEl.createDiv({ cls: "flit-toggle-column center" });
+        const trimRightSetting = new import_obsidian.Setting(document.createElement("div"));
+        trimRightSetting.addToggle((toggle) => {
+          toggle.setValue(this.plugin.settings.charReplacementTrimRight[setting.key]).onChange(async (value) => {
+            this.plugin.settings.charReplacementTrimRight[setting.key] = value;
+            await this.plugin.saveSettings();
+          });
+          toggle.toggleEl.style.margin = "0";
+          if (isDisabled) {
+            toggle.setDisabled(true);
+          }
+          trimRightContainer.appendChild(toggle.toggleEl);
+        });
       });
       updateCharacterReplacementUI();
     };
     updateCharacterSettings();
-    const restoreDefaultsSetting = new import_obsidian.Setting(this.containerEl).addButton(
-      (button) => button.setButtonText("Restore defaults").onClick(async () => {
-        this.plugin.settings.charReplacements = { ...DEFAULT_SETTINGS.charReplacements };
-        await this.plugin.saveSettings();
-        updateCharacterSettings();
-      })
-    );
-    restoreDefaultsSetting.settingEl.addClass("flit-restore-defaults-button");
     this.containerEl.createEl("br");
     const customHeaderContainer = this.containerEl.createEl("div", { cls: "setting-item flit-custom-header-container" });
     const customHeader = customHeaderContainer.createEl("h3", { text: "Custom replacements", cls: "flit-custom-header" });

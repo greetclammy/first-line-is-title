@@ -52,11 +52,28 @@ const PLUGIN_STYLES = `
     font-weight: bold;
 }
 
-.flit-char-replacement-setting {
+.flit-char-replacement-header, .flit-char-replacement-setting {
     display: flex;
     align-items: flex-start;
     padding: 8px 0;
     border-bottom: 1px solid var(--background-modifier-border);
+    gap: 8px;
+    width: fit-content;
+    min-width: 750px;
+}
+
+.flit-char-replacement-header {
+    border-bottom: 2px solid var(--background-modifier-border);
+    font-weight: bold;
+    font-size: 0.9em;
+}
+
+.flit-char-replacement-header.hidden {
+    display: none;
+}
+
+.flit-char-replacement-setting:last-of-type {
+    border-bottom: none;
 }
 
 .flit-char-replacement-setting.disabled {
@@ -64,20 +81,65 @@ const PLUGIN_STYLES = `
     pointer-events: none;
 }
 
-.flit-char-name-label {
-    margin-left: 8px;
-    min-width: 120px;
-    flex-grow: 1;
+.flit-char-replacement-setting.hidden {
+    display: none;
+}
+
+.flit-char-name-column {
+    width: 320px;
+    min-width: 320px;
+    max-width: 320px;
+    flex-shrink: 0;
+    text-align: left;
+    display: flex;
+    flex-direction: column;
+}
+
+.flit-char-name-column .setting-item-name {
+    margin-bottom: 2px;
+}
+
+.flit-char-name-column .setting-item-description {
+    margin-top: 0;
+    margin-bottom: 0;
+    font-size: 0.85em;
+    color: var(--text-muted);
+}
+
+.flit-char-text-input-container {
+    width: 150px;
+    min-width: 150px;
+    max-width: 150px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 4px;
 }
 
 .flit-char-text-input {
-    width: 200px;
-    min-width: 200px;
-    max-width: 200px;
-    flex-shrink: 0;
+    width: 120px !important;
+    min-width: 120px !important;
+    max-width: 120px !important;
+    flex: none !important;
+    flex-grow: 0 !important;
+    flex-shrink: 0 !important;
     box-sizing: border-box;
     overflow: hidden;
     text-overflow: ellipsis;
+}
+
+.flit-restore-icon {
+    padding: 4px;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+}
+
+.flit-restore-icon:hover {
+    color: var(--text-normal);
 }
 
 .flit-custom-header-container {
@@ -101,7 +163,6 @@ const PLUGIN_STYLES = `
 .flit-table-wrapper {
     width: fit-content;
     min-width: 100%;
-    padding-right: 20px;
 }
 
 .flit-custom-replacement-header, .flit-safeword-header {
@@ -132,7 +193,7 @@ const PLUGIN_STYLES = `
 
 .flit-custom-replacement-setting, .flit-safeword-setting {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     padding: 8px 0;
     border-bottom: 1px solid var(--background-modifier-border);
     gap: 8px;
@@ -240,10 +301,6 @@ const PLUGIN_STYLES = `
     opacity: 0.5;
 }
 
-.flit-restore-defaults-button.hidden {
-    display: none;
-}
-
 .flit-add-replacement-button.hidden, .flit-add-safeword-button.hidden {
     display: none;
 }
@@ -306,6 +363,38 @@ interface PluginSettings {
         backslash: boolean;
         dot: boolean;
     };
+    charReplacementTrimLeft: {
+        slash: boolean;
+        colon: boolean;
+        asterisk: boolean;
+        question: boolean;
+        lessThan: boolean;
+        greaterThan: boolean;
+        quote: boolean;
+        pipe: boolean;
+        hash: boolean;
+        leftBracket: boolean;
+        rightBracket: boolean;
+        caret: boolean;
+        backslash: boolean;
+        dot: boolean;
+    };
+    charReplacementTrimRight: {
+        slash: boolean;
+        colon: boolean;
+        asterisk: boolean;
+        question: boolean;
+        lessThan: boolean;
+        greaterThan: boolean;
+        quote: boolean;
+        pipe: boolean;
+        hash: boolean;
+        leftBracket: boolean;
+        rightBracket: boolean;
+        caret: boolean;
+        backslash: boolean;
+        dot: boolean;
+    };
     customReplacements: CustomReplacement[];
     safewords: Safeword[];
     omitHtmlTags: boolean;
@@ -320,12 +409,14 @@ interface PluginSettings {
     hasEnabledWindowsAndroid: boolean;
     hasEnabledSafewords: boolean;
     skipExcalidrawFiles: boolean;
+    grabTitleFromCardLink: boolean;
+    excludeSubfolders: boolean;
 }
 
 const DEFAULT_SETTINGS: PluginSettings = {
     excludedFolders: [],
     charCount: 100,
-    checkInterval: 500,
+    checkInterval: 600,
     disableRenamingKey: 'rename',
     disableRenamingValue: 'off',
     osPreset: 'macOS',
@@ -339,8 +430,8 @@ const DEFAULT_SETTINGS: PluginSettings = {
         quote: '＂',
         pipe: '❘',
         hash: '＃',
-        leftBracket: '〚',
-        rightBracket: '〛',
+        leftBracket: '［',
+        rightBracket: '］',
         caret: 'ˆ',
         backslash: '⧵',
         dot: '․'
@@ -357,6 +448,38 @@ const DEFAULT_SETTINGS: PluginSettings = {
         hash: false,
         leftBracket: false,
         rightBracket: false,
+        caret: false,
+        backslash: false,
+        dot: false
+    },
+    charReplacementTrimLeft: {
+        slash: false,
+        colon: false,
+        asterisk: false,
+        question: false,
+        lessThan: false,
+        greaterThan: false,
+        quote: false,
+        pipe: false,
+        hash: false,
+        leftBracket: true,
+        rightBracket: true,
+        caret: false,
+        backslash: false,
+        dot: false
+    },
+    charReplacementTrimRight: {
+        slash: false,
+        colon: false,
+        asterisk: false,
+        question: false,
+        lessThan: false,
+        greaterThan: false,
+        quote: false,
+        pipe: false,
+        hash: false,
+        leftBracket: true,
+        rightBracket: true,
         caret: false,
         backslash: false,
         dot: false
@@ -379,7 +502,9 @@ const DEFAULT_SETTINGS: PluginSettings = {
     hasEnabledForbiddenChars: false,
     hasEnabledWindowsAndroid: false,
     hasEnabledSafewords: false,
-    skipExcalidrawFiles: false
+    skipExcalidrawFiles: false,
+    grabTitleFromCardLink: false,
+    excludeSubfolders: true
 };
 
 // OS-specific forbidden characters
@@ -425,8 +550,21 @@ function detectOS(): OSPreset {
 
 function inExcludedFolder(file: TFile, settings: PluginSettings): boolean {
     if (settings.excludedFolders.length === 0) return false;
-    if (settings.excludedFolders.includes(file.parent?.path as string))
+    
+    const filePath = file.parent?.path as string;
+    if (settings.excludedFolders.includes(filePath)) {
         return true;
+    }
+    
+    // Check subfolders if enabled
+    if (settings.excludeSubfolders) {
+        for (const excludedFolder of settings.excludedFolders) {
+            if (filePath && filePath.startsWith(excludedFolder + "/")) {
+                return true;
+            }
+        }
+    }
+    
     return false;
 }
 
@@ -496,6 +634,8 @@ function containsSafeword(filename: string, settings: PluginSettings): boolean {
 function extractTitle(line: string, settings: PluginSettings): string {
     const originalLine = line;
     line = line.trim();
+
+
 
     // Remove template placeholder
     line = line.replace(/<%\s*tp\.file\.cursor\(\)\s*%>/, '').trim();
@@ -767,6 +907,37 @@ export default class FirstLineIsTitle extends Plugin {
         const currentName = file.basename;
         let firstLine = content.split('\n')[0];
 
+        // Check for card links if enabled - extract title but continue to normal processing
+        if (this.settings.grabTitleFromCardLink) {
+            // Handle ```embed card links (Link Embed plugin)
+            // Note: The backticks may already be stripped by Obsidian/other plugins
+            let embedMatch = content.match(/^embed\s*\n[\s\S]*?title:\s*"([^"]+)"/);
+            if (!embedMatch) {
+                // Try with backticks if they're still present
+                embedMatch = content.match(/^```embed[^\n]*\n[\s\S]*?title:\s*"([^"]+)"/);
+            }
+            if (!embedMatch) {
+                // Try without quotes (YAML style)
+                embedMatch = content.match(/^embed\s*\n[\s\S]*?title:\s*(.+?)(?:\n|$)/);
+            }
+            if (embedMatch) {
+                // Extract title and continue with normal processing
+                firstLine = embedMatch[1];
+            } else {
+                // Handle ```cardlink card links
+                // Note: The backticks may already be stripped by Obsidian/other plugins
+                let cardlinkMatch = content.match(/^cardlink\s*\n[\s\S]*?title:\s*"([^"]+)"/);
+                if (!cardlinkMatch) {
+                    // Try with backticks if they're still present
+                    cardlinkMatch = content.match(/^```cardlink[^\n]*\n[\s\S]*?title:\s*"([^"]+)"/);
+                }
+                if (cardlinkMatch) {
+                    // Extract title and continue with normal processing
+                    firstLine = cardlinkMatch[1];
+                }
+            }
+        }
+
         // Check if content became empty when it wasn't before
         const previousFileContent = previousContent.get(file.path);
         if (content.trim() === '' && previousFileContent && previousFileContent.trim() !== '') {
@@ -910,9 +1081,26 @@ export default class FirstLineIsTitle extends Plugin {
                         (this.settings.windowsAndroidEnabled && settingKey && this.settings.charReplacementEnabled[settingKey]) :
                         (settingKey && this.settings.charReplacementEnabled[settingKey]);
                     
-                    if (canReplace) {
+                    if (canReplace && settingKey) {
                         shouldReplace = true;
                         replacement = charMap[char] || '';
+                        
+                        // Check for whitespace trimming
+                        if (replacement !== '') {
+                            // Trim whitespace to the left
+                            if (this.settings.charReplacementTrimLeft[settingKey]) {
+                                // Remove trailing whitespace from newFileName
+                                newFileName = newFileName.trimEnd();
+                            }
+                            
+                            // Check if we should trim whitespace to the right
+                            if (this.settings.charReplacementTrimRight[settingKey]) {
+                                // Skip upcoming whitespace characters
+                                while (i + 1 < content.length && /\s/.test(content[i + 1])) {
+                                    i++;
+                                }
+                            }
+                        }
                     }
                 }
                 
@@ -1106,7 +1294,7 @@ class FirstLineIsTitleSettings extends PluginSettingTab {
         new Setting(this.containerEl)
             .setName("Exclude folders")
             .setDesc(
-                "Folder paths to exclude from auto-renaming. Includes all subfolders. Separate by newline. Case-sensitive."
+                "Folder paths to exclude from auto-renaming. Separate by newline. Case-sensitive."
             )
             .addTextArea((text) => {
                 text.setPlaceholder("/\nfolder\nfolder/subfolder")
@@ -1120,8 +1308,20 @@ class FirstLineIsTitleSettings extends PluginSettingTab {
             });
 
         new Setting(this.containerEl)
+            .setName("Exclude subfolders")
+            .setDesc("Exclude all subfolders of excluded folders.")
+            .addToggle((toggle) =>
+                toggle
+                    .setValue(this.plugin.settings.excludeSubfolders)
+                    .onChange(async (value) => {
+                        this.plugin.settings.excludeSubfolders = value;
+                        await this.plugin.saveSettings();
+                    })
+            );
+
+        new Setting(this.containerEl)
             .setName("Character count")
-            .setDesc("The maximum number of characters to put in title. Enter a value from 10 to 255. Default: 100.")
+            .setDesc("The maximum number of characters to put in title. Can't exceed 255 characters. Default: 100.")
             .addText((text) =>
                 text
                     .setPlaceholder("100")
@@ -1132,7 +1332,7 @@ class FirstLineIsTitleSettings extends PluginSettingTab {
                             // Don't update the field value immediately
                         } else {
                             const numVal = Number(value);
-                            if (numVal >= 10 && numVal <= 255) {
+                            if (numVal >= 1 && numVal <= 255) {
                                 this.plugin.settings.charCount = numVal;
                             }
                         }
@@ -1142,7 +1342,7 @@ class FirstLineIsTitleSettings extends PluginSettingTab {
 
         new Setting(this.containerEl)
             .setName("Check interval")
-            .setDesc("Interval in milliseconds of how often to rename files while editing. Increase if there's performance issues. Default: 500.")
+            .setDesc("Interval in milliseconds of how often to rename files while editing. Increase in case of issues. Default: 600.")
             .addText((text) =>
                 text
                     .setPlaceholder("500")
@@ -1197,18 +1397,6 @@ class FirstLineIsTitleSettings extends PluginSettingTab {
             );
 
         new Setting(this.containerEl)
-            .setName("Don't rename Excalidraw files")
-            .setDesc("Files that have the property `excalidraw-plugin: parsed` won't be renamed.")
-            .addToggle((toggle) =>
-                toggle
-                    .setValue(this.plugin.settings.skipExcalidrawFiles)
-                    .onChange(async (value) => {
-                        this.plugin.settings.skipExcalidrawFiles = value;
-                        await this.plugin.saveSettings();
-                    })
-            );
-
-        new Setting(this.containerEl)
             .setName("Rename on focus")
             .setDesc("Automatically rename files when they become focused/active.")
             .addToggle((toggle) =>
@@ -1243,6 +1431,40 @@ class FirstLineIsTitleSettings extends PluginSettingTab {
                     new RenameAllFilesModal(this.app, this.plugin).open();
                 })
             );
+
+        this.containerEl.createEl("br");
+        this.containerEl.createEl("h6", { text: "Compatibility with other plugins" });
+
+        new Setting(this.containerEl)
+            .setName("Don't rename Excalidraw files")
+            .setDesc("Files that have the property `excalidraw-plugin: parsed` won't be renamed.")
+            .addToggle((toggle) =>
+                toggle
+                    .setValue(this.plugin.settings.skipExcalidrawFiles)
+                    .onChange(async (value) => {
+                        this.plugin.settings.skipExcalidrawFiles = value;
+                        await this.plugin.saveSettings();
+                    })
+            );
+
+        const cardLinkSetting = new Setting(this.containerEl)
+            .setName("Grab title from card link");
+            
+        const cardLinkDesc = cardLinkSetting.descEl;
+        cardLinkDesc.appendText("If a note starts with a card link created with ");
+        cardLinkDesc.createEl("em", { text: "Link Embed" });
+        cardLinkDesc.appendText(" or ");
+        cardLinkDesc.createEl("em", { text: "Auto Card Link" });
+        cardLinkDesc.appendText(", the card link title will be put it in filename.");
+        
+        cardLinkSetting.addToggle((toggle) =>
+            toggle
+                .setValue(this.plugin.settings.grabTitleFromCardLink)
+                .onChange(async (value) => {
+                    this.plugin.settings.grabTitleFromCardLink = value;
+                    await this.plugin.saveSettings();
+                })
+        );
 
         this.containerEl.createEl("br");
 
@@ -1319,16 +1541,6 @@ class FirstLineIsTitleSettings extends PluginSettingTab {
             } else {
                 charSettingsContainer.classList.add('hidden');
             }
-            
-            // Hide/show restore defaults button
-            const restoreButton = this.containerEl.querySelector('.flit-restore-defaults-button');
-            if (restoreButton) {
-                if (isEnabled) {
-                    restoreButton.classList.remove('hidden');
-                } else {
-                    restoreButton.classList.add('hidden');
-                }
-            }
         };
 
         const updateCharacterSettings = () => {
@@ -1357,26 +1569,54 @@ class FirstLineIsTitleSettings extends PluginSettingTab {
             
             // Add All OSes subsection
             const allOSesHeader = charSettingsContainer.createEl('div', { cls: 'flit-char-replacement-section-header' });
-            
             const allOSesTitle = allOSesHeader.createEl('h3', { text: 'All OSes', cls: 'flit-section-title' });
             
             const allOSesDescContainer = charSettingsContainer.createEl('div');
             const allOSesDesc = allOSesDescContainer.createEl('div', { 
-                text: 'The following characters are forbidden in Obsidian filenames on all OSes. Whitespace preserved.',
+                text: 'The following characters are forbidden in Obsidian filenames on all OSes.',
                 cls: 'setting-item-description'
             });
             allOSesDesc.style.marginBottom = "10px";
             
-            // Build char settings in order: []#^|\/:.  
+            // Create table container for All OSes
+            const allOSesTableContainer = charSettingsContainer.createEl('div', { cls: 'flit-table-container' });
+            const allOSesTableWrapper = allOSesTableContainer.createEl('div', { cls: 'flit-table-wrapper' });
             
+            // Create header row
+            const headerRow = allOSesTableWrapper.createEl('div', { cls: 'flit-char-replacement-header' });
+            
+            // Header columns
+            const enableHeader = headerRow.createDiv({ cls: "flit-enable-column" });
+            enableHeader.textContent = "Enable";
+            
+            const charHeader = headerRow.createDiv({ cls: "flit-char-name-column" });
+            charHeader.textContent = "Character";
+            
+            const replaceHeader = headerRow.createDiv({ cls: "flit-char-text-input-container" });
+            replaceHeader.textContent = "Replace with";
+            
+            const trimLeftHeader = headerRow.createDiv({ cls: "flit-toggle-column" });
+            const trimLeftLine1 = trimLeftHeader.createDiv();
+            trimLeftLine1.textContent = "Trim";
+            const trimLeftLine2 = trimLeftHeader.createDiv();
+            trimLeftLine2.textContent = "whitespace";
+            const trimLeftLine3 = trimLeftHeader.createDiv();
+            trimLeftLine3.textContent = "to the left";
+            
+            const trimRightHeader = headerRow.createDiv({ cls: "flit-toggle-column" });
+            const trimRightLine1 = trimRightHeader.createDiv();
+            trimRightLine1.textContent = "Trim";
+            const trimRightLine2 = trimRightHeader.createDiv();
+            trimRightLine2.textContent = "whitespace";
+            const trimRightLine3 = trimRightHeader.createDiv();
+            trimRightLine3.textContent = "to the right";
+            
+            // Build char settings rows
             primaryCharSettings.forEach((setting, index) => {
-                const rowEl = charSettingsContainer.createEl('div', { cls: 'flit-char-replacement-setting' });
+                const rowEl = allOSesTableWrapper.createEl('div', { cls: 'flit-char-replacement-setting' });
                 
-                // Remove border from last item in All OSes
-                if (index === primaryCharSettings.length - 1) {
-                    rowEl.style.borderBottom = 'none';
-                }
-                
+                // Enable toggle
+                const toggleContainer = rowEl.createDiv({ cls: "flit-enable-column" });
                 const toggleSetting = new Setting(document.createElement('div'));
                 toggleSetting.addToggle((toggle) => {
                     toggle.setValue(this.plugin.settings.charReplacementEnabled[setting.key])
@@ -1385,27 +1625,67 @@ class FirstLineIsTitleSettings extends PluginSettingTab {
                             await this.plugin.saveSettings();
                         });
                     toggle.toggleEl.style.margin = "0";
-                    rowEl.appendChild(toggle.toggleEl);
+                    toggleContainer.appendChild(toggle.toggleEl);
                 });
                 
-                // Create name and description container
-                const nameContainer = rowEl.createEl("div", { cls: "flit-char-name-label" });
-                nameContainer.createEl("div", { text: setting.name, cls: "setting-item-name" });
+                // Character name and description
+                const nameContainer = rowEl.createEl("div", { cls: "flit-char-name-column" });
+                const nameEl = nameContainer.createEl("div", { text: setting.name, cls: "setting-item-name" });
                 if (setting.description) {
                     nameContainer.createEl("div", { text: setting.description, cls: "setting-item-description" });
                 }
                 
-                const textInput = rowEl.createEl("input", { type: "text", cls: "flit-char-text-input" });
+                // Text input with restore icon
+                const inputContainer = rowEl.createDiv({ cls: "flit-char-text-input-container" });
+                
+                const restoreButton = inputContainer.createEl("button", { 
+                    cls: "clickable-icon flit-restore-icon",
+                    attr: { "aria-label": "Restore default" }
+                });
+                setIcon(restoreButton, "rotate-ccw");
+                restoreButton.addEventListener('click', async () => {
+                    this.plugin.settings.charReplacements[setting.key] = DEFAULT_SETTINGS.charReplacements[setting.key];
+                    textInput.value = DEFAULT_SETTINGS.charReplacements[setting.key];
+                    await this.plugin.saveSettings();
+                });
+                
+                const textInput = inputContainer.createEl("input", { type: "text", cls: "flit-char-text-input" });
                 textInput.placeholder = "Replace with";
                 textInput.value = this.plugin.settings.charReplacements[setting.key];
-                textInput.setAttribute('data-setting-key', setting.key);
+                textInput.style.width = "120px";
                 textInput.addEventListener('input', async (e) => {
                     this.plugin.settings.charReplacements[setting.key] = (e.target as HTMLInputElement).value;
                     await this.plugin.saveSettings();
                 });
+                
+                // Trim left toggle
+                const trimLeftContainer = rowEl.createDiv({ cls: "flit-toggle-column center" });
+                const trimLeftSetting = new Setting(document.createElement('div'));
+                trimLeftSetting.addToggle((toggle) => {
+                    toggle.setValue(this.plugin.settings.charReplacementTrimLeft[setting.key])
+                        .onChange(async (value) => {
+                            this.plugin.settings.charReplacementTrimLeft[setting.key] = value;
+                            await this.plugin.saveSettings();
+                        });
+                    toggle.toggleEl.style.margin = "0";
+                    trimLeftContainer.appendChild(toggle.toggleEl);
+                });
+                
+                // Trim right toggle
+                const trimRightContainer = rowEl.createDiv({ cls: "flit-toggle-column center" });
+                const trimRightSetting = new Setting(document.createElement('div'));
+                trimRightSetting.addToggle((toggle) => {
+                    toggle.setValue(this.plugin.settings.charReplacementTrimRight[setting.key])
+                        .onChange(async (value) => {
+                            this.plugin.settings.charReplacementTrimRight[setting.key] = value;
+                            await this.plugin.saveSettings();
+                        });
+                    toggle.toggleEl.style.margin = "0";
+                    trimRightContainer.appendChild(toggle.toggleEl);
+                });
             });
             
-            // Add Windows/Android subsection
+            // Add Windows/Android subsection header
             const windowsAndroidHeader = charSettingsContainer.createEl('div', { cls: 'flit-char-replacement-section-header windows-android' });
             
             const sectionTitle = windowsAndroidHeader.createEl('h3', { text: 'Windows/Android', cls: 'flit-section-title' });
@@ -1434,13 +1714,36 @@ class FirstLineIsTitleSettings extends PluginSettingTab {
             
             const sectionDescContainer = charSettingsContainer.createEl('div');
             const sectionDesc = sectionDescContainer.createEl('div', { 
-                text: 'The following characters are forbidden in Obsidian filenames on Windows and Android only. Whitespace preserved.',
+                text: 'The following characters are forbidden in Obsidian filenames on Windows and Android only.',
                 cls: 'setting-item-description'
             });
             sectionDesc.style.marginBottom = "10px";
             
+            // Create separate table container for Windows/Android
+            const winAndroidTableContainer = charSettingsContainer.createEl('div', { cls: 'flit-table-container' });
+            const winAndroidTableWrapper = winAndroidTableContainer.createEl('div', { cls: 'flit-table-wrapper' });
+            
+            // Create header row for Windows/Android table
+            const winAndroidHeaderRow = winAndroidTableWrapper.createEl('div', { cls: 'flit-char-replacement-header' });
+            
+            // Duplicate headers for Windows/Android table
+            winAndroidHeaderRow.createDiv({ cls: "flit-enable-column" }).textContent = "Enable";
+            winAndroidHeaderRow.createDiv({ cls: "flit-char-name-column" }).textContent = "Character";
+            winAndroidHeaderRow.createDiv({ cls: "flit-char-text-input-container" }).textContent = "Replace with";
+            
+            const winTrimLeftHeader = winAndroidHeaderRow.createDiv({ cls: "flit-toggle-column" });
+            winTrimLeftHeader.createDiv().textContent = "Trim";
+            winTrimLeftHeader.createDiv().textContent = "whitespace";
+            winTrimLeftHeader.createDiv().textContent = "to the left";
+            
+            const winTrimRightHeader = winAndroidHeaderRow.createDiv({ cls: "flit-toggle-column" });
+            winTrimRightHeader.createDiv().textContent = "Trim";
+            winTrimRightHeader.createDiv().textContent = "whitespace";
+            winTrimRightHeader.createDiv().textContent = "to the right";
+            
+            // Add Windows/Android rows
             windowsAndroidChars.forEach((setting, index) => {
-                const rowEl = charSettingsContainer.createEl('div', { cls: 'flit-char-replacement-setting' });
+                const rowEl = winAndroidTableWrapper.createEl('div', { cls: 'flit-char-replacement-setting' });
                 
                 // Apply disabled state based on Windows/Android toggle
                 const isDisabled = !this.plugin.settings.windowsAndroidEnabled;
@@ -1448,6 +1751,8 @@ class FirstLineIsTitleSettings extends PluginSettingTab {
                     rowEl.classList.add('disabled');
                 }
                 
+                // Enable toggle
+                const toggleContainer = rowEl.createDiv({ cls: "flit-enable-column" });
                 const toggleSetting = new Setting(document.createElement('div'));
                 toggleSetting.addToggle((toggle) => {
                     toggle.setValue(this.plugin.settings.charReplacementEnabled[setting.key])
@@ -1459,19 +1764,70 @@ class FirstLineIsTitleSettings extends PluginSettingTab {
                     if (isDisabled) {
                         toggle.setDisabled(true);
                     }
-                    rowEl.appendChild(toggle.toggleEl);
+                    toggleContainer.appendChild(toggle.toggleEl);
                 });
                 
-                const nameLabel = rowEl.createEl("span", { text: setting.name, cls: "flit-char-name-label" });
+                // Character name
+                const nameContainer = rowEl.createEl("div", { cls: "flit-char-name-column" });
+                nameContainer.createEl("div", { text: setting.name, cls: "setting-item-name" });
                 
-                const textInput = rowEl.createEl("input", { type: "text", cls: "flit-char-text-input" });
+                // Text input with restore icon
+                const inputContainer = rowEl.createDiv({ cls: "flit-char-text-input-container" });
+                
+                const restoreButton = inputContainer.createEl("button", { 
+                    cls: "clickable-icon flit-restore-icon",
+                    attr: { "aria-label": "Restore default" }
+                });
+                setIcon(restoreButton, "rotate-ccw");
+                if (isDisabled) {
+                    restoreButton.disabled = true;
+                }
+                restoreButton.addEventListener('click', async () => {
+                    this.plugin.settings.charReplacements[setting.key] = DEFAULT_SETTINGS.charReplacements[setting.key];
+                    textInput.value = DEFAULT_SETTINGS.charReplacements[setting.key];
+                    await this.plugin.saveSettings();
+                });
+                
+                const textInput = inputContainer.createEl("input", { type: "text", cls: "flit-char-text-input" });
                 textInput.placeholder = "Replace with";
                 textInput.value = this.plugin.settings.charReplacements[setting.key];
-                textInput.setAttribute('data-setting-key', setting.key);
+                textInput.style.width = "120px";
                 textInput.disabled = isDisabled;
                 textInput.addEventListener('input', async (e) => {
                     this.plugin.settings.charReplacements[setting.key] = (e.target as HTMLInputElement).value;
                     await this.plugin.saveSettings();
+                });
+                
+                // Trim left toggle
+                const trimLeftContainer = rowEl.createDiv({ cls: "flit-toggle-column center" });
+                const trimLeftSetting = new Setting(document.createElement('div'));
+                trimLeftSetting.addToggle((toggle) => {
+                    toggle.setValue(this.plugin.settings.charReplacementTrimLeft[setting.key])
+                        .onChange(async (value) => {
+                            this.plugin.settings.charReplacementTrimLeft[setting.key] = value;
+                            await this.plugin.saveSettings();
+                        });
+                    toggle.toggleEl.style.margin = "0";
+                    if (isDisabled) {
+                        toggle.setDisabled(true);
+                    }
+                    trimLeftContainer.appendChild(toggle.toggleEl);
+                });
+                
+                // Trim right toggle
+                const trimRightContainer = rowEl.createDiv({ cls: "flit-toggle-column center" });
+                const trimRightSetting = new Setting(document.createElement('div'));
+                trimRightSetting.addToggle((toggle) => {
+                    toggle.setValue(this.plugin.settings.charReplacementTrimRight[setting.key])
+                        .onChange(async (value) => {
+                            this.plugin.settings.charReplacementTrimRight[setting.key] = value;
+                            await this.plugin.saveSettings();
+                        });
+                    toggle.toggleEl.style.margin = "0";
+                    if (isDisabled) {
+                        toggle.setDisabled(true);
+                    }
+                    trimRightContainer.appendChild(toggle.toggleEl);
                 });
             });
             
@@ -1480,17 +1836,6 @@ class FirstLineIsTitleSettings extends PluginSettingTab {
 
         // Initialize character settings
         updateCharacterSettings();
-
-        // Add restore defaults button
-        const restoreDefaultsSetting = new Setting(this.containerEl)
-            .addButton((button) =>
-                button.setButtonText("Restore defaults").onClick(async () => {
-                    this.plugin.settings.charReplacements = { ...DEFAULT_SETTINGS.charReplacements };
-                    await this.plugin.saveSettings();
-                    updateCharacterSettings();
-                })
-            );
-        restoreDefaultsSetting.settingEl.addClass('flit-restore-defaults-button');
 
         this.containerEl.createEl("br");
 
