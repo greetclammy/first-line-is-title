@@ -1,6 +1,6 @@
 {
   "name": "put-first-line-in-title",
-  "version": "1.4.0",
+  "version": "1.4.1",
   "description": "Automatically renames files based on the first line of their content.",
   "main": "main.js",
   "scripts": {

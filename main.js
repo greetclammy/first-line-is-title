@@ -331,6 +331,16 @@ var PLUGIN_STYLES = `
 .flit-add-replacement-button.hidden, .flit-add-safeword-button.hidden {
     display: none;
 }
+
+.flit-section-title {
+    border-bottom: none !important;
+}
+
+.flit-section-title + .setting-item {
+    border-top: none !important;
+    margin-top: 15px !important;
+    padding-top: 0 !important;
+}
 `;
 var DEFAULT_SETTINGS = {
   excludedFolders: [],
@@ -741,8 +751,19 @@ var FirstLineIsTitle = class extends import_obsidian.Plugin {
       return;
     }
     if (content.startsWith("---")) {
-      let index = content.indexOf("---", 3);
-      if (index != -1) content = content.slice(index + 3).trimStart();
+      const lines = content.split("\n");
+      let foundEnd = false;
+      let endLineIndex = -1;
+      for (let i = 1; i < lines.length; i++) {
+        if (lines[i].trim() === "---") {
+          foundEnd = true;
+          endLineIndex = i;
+          break;
+        }
+      }
+      if (foundEnd && endLineIndex > 0) {
+        content = lines.slice(endLineIndex + 1).join("\n").trimStart();
+      }
     }
     const currentName = file.basename;
     let firstLine = content.split("\n")[0];
@@ -1079,6 +1100,18 @@ var FirstLineIsTitleSettings = class extends import_obsidian.PluginSettingTab {
         await this.plugin.saveSettings();
       })
     );
+    new import_obsidian.Setting(this.containerEl).setName("Rename on focus").setDesc("Automatically rename files when they become focused/active.").addToggle(
+      (toggle) => toggle.setValue(this.plugin.settings.renameOnFocus).onChange(async (value) => {
+        this.plugin.settings.renameOnFocus = value;
+        await this.plugin.saveSettings();
+      })
+    );
+    new import_obsidian.Setting(this.containerEl).setName("Show notification when renaming manually").setDesc("Controls when to show notifications for the 'Rename current file' command.").addDropdown(
+      (dropdown) => dropdown.addOption("Always", "Always").addOption("On title change", "On title change").addOption("Never", "Never").setValue(this.plugin.settings.manualNotificationMode).onChange(async (value) => {
+        this.plugin.settings.manualNotificationMode = value;
+        await this.plugin.saveSettings();
+      })
+    );
     new import_obsidian.Setting(this.containerEl).setName("Exclude folders").setDesc(
       "Folder paths to exclude from auto-renaming. Separate by newline. Case-sensitive."
     ).addTextArea((text) => {
@@ -1092,29 +1125,6 @@ var FirstLineIsTitleSettings = class extends import_obsidian.PluginSettingTab {
     new import_obsidian.Setting(this.containerEl).setName("Exclude subfolders").setDesc("Exclude all subfolders of excluded folders.").addToggle(
       (toggle) => toggle.setValue(this.plugin.settings.excludeSubfolders).onChange(async (value) => {
         this.plugin.settings.excludeSubfolders = value;
-        await this.plugin.saveSettings();
-      })
-    );
-    new import_obsidian.Setting(this.containerEl).setName("Character count").setDesc("The maximum number of characters to put in title. Can't exceed 255 characters. Default: 100.").addText(
-      (text) => text.setPlaceholder("100").setValue(String(this.plugin.settings.charCount)).onChange(async (value) => {
-        if (value === "") {
-          this.plugin.settings.charCount = DEFAULT_SETTINGS.charCount;
-        } else {
-          const numVal = Number(value);
-          if (numVal >= 1 && numVal <= 255) {
-            this.plugin.settings.charCount = numVal;
-          }
-        }
-        await this.plugin.saveSettings();
-      })
-    );
-    new import_obsidian.Setting(this.containerEl).setName("Check interval").setDesc("Interval in milliseconds of how often to rename files while editing. Increase in case of issues. Default: 600.").addText(
-      (text) => text.setPlaceholder("500").setValue(String(this.plugin.settings.checkInterval)).onChange(async (value) => {
-        if (value === "") {
-          this.plugin.settings.checkInterval = DEFAULT_SETTINGS.checkInterval;
-        } else if (!isNaN(Number(value))) {
-          this.plugin.settings.checkInterval = Number(value);
-        }
         await this.plugin.saveSettings();
       })
     );
@@ -1138,6 +1148,29 @@ var FirstLineIsTitleSettings = class extends import_obsidian.PluginSettingTab {
       this.plugin.settings.disableRenamingValue = e.target.value;
       await this.plugin.saveSettings();
     });
+    new import_obsidian.Setting(this.containerEl).setName("Character count").setDesc("The maximum number of characters to put in title. Can't exceed 255 characters. Default: 100.").addText(
+      (text) => text.setPlaceholder("100").setValue(String(this.plugin.settings.charCount)).onChange(async (value) => {
+        if (value === "") {
+          this.plugin.settings.charCount = DEFAULT_SETTINGS.charCount;
+        } else {
+          const numVal = Number(value);
+          if (numVal >= 1 && numVal <= 255) {
+            this.plugin.settings.charCount = numVal;
+          }
+        }
+        await this.plugin.saveSettings();
+      })
+    );
+    new import_obsidian.Setting(this.containerEl).setName("Check interval").setDesc("Interval in milliseconds of how often to rename files while editing. Increase in case of issues. Default: 600.").addText(
+      (text) => text.setPlaceholder("500").setValue(String(this.plugin.settings.checkInterval)).onChange(async (value) => {
+        if (value === "") {
+          this.plugin.settings.checkInterval = DEFAULT_SETTINGS.checkInterval;
+        } else if (!isNaN(Number(value))) {
+          this.plugin.settings.checkInterval = Number(value);
+        }
+        await this.plugin.saveSettings();
+      })
+    );
     new import_obsidian.Setting(this.containerEl).setName("Omit comments").setDesc("Omit %%markdown%% and <!--HTML--> comments in title.").addToggle(
       (toggle) => toggle.setValue(this.plugin.settings.omitComments).onChange(async (value) => {
         this.plugin.settings.omitComments = value;
@@ -1150,25 +1183,13 @@ var FirstLineIsTitleSettings = class extends import_obsidian.PluginSettingTab {
         await this.plugin.saveSettings();
       })
     );
-    new import_obsidian.Setting(this.containerEl).setName("Rename on focus").setDesc("Automatically rename files when they become focused/active.").addToggle(
-      (toggle) => toggle.setValue(this.plugin.settings.renameOnFocus).onChange(async (value) => {
-        this.plugin.settings.renameOnFocus = value;
-        await this.plugin.saveSettings();
-      })
-    );
-    new import_obsidian.Setting(this.containerEl).setName("Show notification when renaming manually").setDesc("Controls when to show notifications for the 'Rename current file' command.").addDropdown(
-      (dropdown) => dropdown.addOption("Always", "Always").addOption("On title change", "On title change").addOption("Never", "Never").setValue(this.plugin.settings.manualNotificationMode).onChange(async (value) => {
-        this.plugin.settings.manualNotificationMode = value;
-        await this.plugin.saveSettings();
-      })
-    );
     new import_obsidian.Setting(this.containerEl).setName("Rename all files").setDesc("Rename all files except those in excluded folders. Can also be run from the Command palette.").addButton(
       (button) => button.setButtonText("Rename").onClick(() => {
         new RenameAllFilesModal(this.app, this.plugin).open();
       })
     );
     this.containerEl.createEl("br");
-    this.containerEl.createEl("h6", { text: "Compatibility with other plugins" });
+    this.containerEl.createEl("h3", { text: "Compatibility with other plugins", cls: "flit-section-title" });
     new import_obsidian.Setting(this.containerEl).setName("Don't rename Excalidraw files").setDesc("Files that have the property `excalidraw-plugin: parsed` won't be renamed.").addToggle(
       (toggle) => toggle.setValue(this.plugin.settings.skipExcalidrawFiles).onChange(async (value) => {
         this.plugin.settings.skipExcalidrawFiles = value;
@@ -1665,7 +1686,7 @@ var FirstLineIsTitleSettings = class extends import_obsidian.PluginSettingTab {
           renderCustomReplacements();
         });
       });
-      const addButtonSetting = new import_obsidian.Setting(this.containerEl).addButton(
+      const addButtonSetting = new import_obsidian.Setting(customReplacementsContainer).addButton(
         (button) => button.setButtonText("Add replacement").onClick(async () => {
           this.plugin.settings.customReplacements.push({
             searchText: "",

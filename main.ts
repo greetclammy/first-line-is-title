@@ -304,6 +304,16 @@ const PLUGIN_STYLES = `
 .flit-add-replacement-button.hidden, .flit-add-safeword-button.hidden {
     display: none;
 }
+
+.flit-section-title {
+    border-bottom: none !important;
+}
+
+.flit-section-title + .setting-item {
+    border-top: none !important;
+    margin-top: 15px !important;
+    padding-top: 0 !important;
+}
 `;
 
 interface CustomReplacement {
@@ -946,8 +956,23 @@ export default class FirstLineIsTitle extends Plugin {
         }
 
         if (content.startsWith("---")) {
-            let index = content.indexOf("---", 3);
-            if (index != -1) content = content.slice(index + 3).trimStart();
+            // Find the end of frontmatter - must be on its own line
+            const lines = content.split('\n');
+            let foundEnd = false;
+            let endLineIndex = -1;
+            
+            for (let i = 1; i < lines.length; i++) {
+                if (lines[i].trim() === "---") {
+                    foundEnd = true;
+                    endLineIndex = i;
+                    break;
+                }
+            }
+            
+            if (foundEnd && endLineIndex > 0) {
+                // Join the lines after the frontmatter
+                content = lines.slice(endLineIndex + 1).join('\n').trimStart();
+            }
         }
 
         const currentName = file.basename;
@@ -1338,6 +1363,33 @@ class FirstLineIsTitleSettings extends PluginSettingTab {
             );
 
         new Setting(this.containerEl)
+            .setName("Rename on focus")
+            .setDesc("Automatically rename files when they become focused/active.")
+            .addToggle((toggle) =>
+                toggle
+                    .setValue(this.plugin.settings.renameOnFocus)
+                    .onChange(async (value) => {
+                        this.plugin.settings.renameOnFocus = value;
+                        await this.plugin.saveSettings();
+                    })
+            );
+
+        new Setting(this.containerEl)
+            .setName("Show notification when renaming manually")
+            .setDesc("Controls when to show notifications for the 'Rename current file' command.")
+            .addDropdown((dropdown) =>
+                dropdown
+                    .addOption('Always', 'Always')
+                    .addOption('On title change', 'On title change')
+                    .addOption('Never', 'Never')
+                    .setValue(this.plugin.settings.manualNotificationMode)
+                    .onChange(async (value: NotificationMode) => {
+                        this.plugin.settings.manualNotificationMode = value;
+                        await this.plugin.saveSettings();
+                    })
+            );
+
+        new Setting(this.containerEl)
             .setName("Exclude folders")
             .setDesc(
                 "Folder paths to exclude from auto-renaming. Separate by newline. Case-sensitive."
@@ -1364,6 +1416,32 @@ class FirstLineIsTitleSettings extends PluginSettingTab {
                         await this.plugin.saveSettings();
                     })
             );
+
+        const propertyDisableSetting = new Setting(this.containerEl)
+            .setName("Property to disable renaming")
+            .setDesc("Define the key:property pair that will disable renaming for files that contain it. Case insensitive.");
+        
+        const propertyContainer = propertyDisableSetting.controlEl.createDiv({ cls: "flit-property-disable-container" });
+        propertyContainer.style.display = "flex";
+        propertyContainer.style.gap = "10px";
+        
+        const keyInput = propertyContainer.createEl("input", { type: "text" });
+        keyInput.placeholder = "key";
+        keyInput.style.width = "120px";
+        keyInput.value = this.plugin.settings.disableRenamingKey;
+        keyInput.addEventListener('input', async (e) => {
+            this.plugin.settings.disableRenamingKey = (e.target as HTMLInputElement).value;
+            await this.plugin.saveSettings();
+        });
+        
+        const valueInput = propertyContainer.createEl("input", { type: "text" });
+        valueInput.placeholder = "value";
+        valueInput.style.width = "120px";
+        valueInput.value = this.plugin.settings.disableRenamingValue;
+        valueInput.addEventListener('input', async (e) => {
+            this.plugin.settings.disableRenamingValue = (e.target as HTMLInputElement).value;
+            await this.plugin.saveSettings();
+        });
 
         new Setting(this.containerEl)
             .setName("Character count")
@@ -1404,32 +1482,6 @@ class FirstLineIsTitleSettings extends PluginSettingTab {
                     })
             );
 
-        const propertyDisableSetting = new Setting(this.containerEl)
-            .setName("Property to disable renaming")
-            .setDesc("Define the key:property pair that will disable renaming for files that contain it. Case insensitive.");
-        
-        const propertyContainer = propertyDisableSetting.controlEl.createDiv({ cls: "flit-property-disable-container" });
-        propertyContainer.style.display = "flex";
-        propertyContainer.style.gap = "10px";
-        
-        const keyInput = propertyContainer.createEl("input", { type: "text" });
-        keyInput.placeholder = "key";
-        keyInput.style.width = "120px";
-        keyInput.value = this.plugin.settings.disableRenamingKey;
-        keyInput.addEventListener('input', async (e) => {
-            this.plugin.settings.disableRenamingKey = (e.target as HTMLInputElement).value;
-            await this.plugin.saveSettings();
-        });
-        
-        const valueInput = propertyContainer.createEl("input", { type: "text" });
-        valueInput.placeholder = "value";
-        valueInput.style.width = "120px";
-        valueInput.value = this.plugin.settings.disableRenamingValue;
-        valueInput.addEventListener('input', async (e) => {
-            this.plugin.settings.disableRenamingValue = (e.target as HTMLInputElement).value;
-            await this.plugin.saveSettings();
-        });
-
         new Setting(this.containerEl)
             .setName("Omit comments")
             .setDesc("Omit %%markdown%% and <!--HTML--> comments in title.")
@@ -1455,33 +1507,6 @@ class FirstLineIsTitleSettings extends PluginSettingTab {
             );
 
         new Setting(this.containerEl)
-            .setName("Rename on focus")
-            .setDesc("Automatically rename files when they become focused/active.")
-            .addToggle((toggle) =>
-                toggle
-                    .setValue(this.plugin.settings.renameOnFocus)
-                    .onChange(async (value) => {
-                        this.plugin.settings.renameOnFocus = value;
-                        await this.plugin.saveSettings();
-                    })
-            );
-
-        new Setting(this.containerEl)
-            .setName("Show notification when renaming manually")
-            .setDesc("Controls when to show notifications for the 'Rename current file' command.")
-            .addDropdown((dropdown) =>
-                dropdown
-                    .addOption('Always', 'Always')
-                    .addOption('On title change', 'On title change')
-                    .addOption('Never', 'Never')
-                    .setValue(this.plugin.settings.manualNotificationMode)
-                    .onChange(async (value: NotificationMode) => {
-                        this.plugin.settings.manualNotificationMode = value;
-                        await this.plugin.saveSettings();
-                    })
-            );
-
-        new Setting(this.containerEl)
             .setName("Rename all files")
             .setDesc("Rename all files except those in excluded folders. Can also be run from the Command palette.")
             .addButton((button) =>
@@ -1491,7 +1516,7 @@ class FirstLineIsTitleSettings extends PluginSettingTab {
             );
 
         this.containerEl.createEl("br");
-        this.containerEl.createEl("h6", { text: "Compatibility with other plugins" });
+        this.containerEl.createEl("h3", { text: "Compatibility with other plugins", cls: "flit-section-title" });
 
         new Setting(this.containerEl)
             .setName("Don't rename Excalidraw files")
@@ -2168,7 +2193,7 @@ class FirstLineIsTitleSettings extends PluginSettingTab {
             });
 
             // Always add the "Add replacement" button at the end
-            const addButtonSetting = new Setting(this.containerEl)
+            const addButtonSetting = new Setting(customReplacementsContainer)
                 .addButton((button) =>
                     button.setButtonText("Add replacement").onClick(async () => {
                         this.plugin.settings.customReplacements.push({
