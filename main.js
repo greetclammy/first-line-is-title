@@ -410,6 +410,7 @@ var DEFAULT_SETTINGS = {
   safewords: [
     { text: "Title", onlyAtStart: false, onlyWholeLine: false, enabled: false }
   ],
+  omitComments: false,
   omitHtmlTags: false,
   enableForbiddenCharReplacements: false,
   enableCustomReplacements: false,
@@ -531,8 +532,37 @@ function extractTitle(line, settings) {
       return placeholder;
     });
   }
-  line = line.replace(/%%.*?%%/g, (match) => {
-    return match.slice(2, -2);
+  if (settings.omitComments) {
+    line = line.replace(/%%.*?%%/g, "");
+    line = line.replace(/<!--.*?-->/g, "");
+  }
+  const checkEscaped = (match, offset) => {
+    if (backslashReplacementEnabled) return false;
+    const matchEnd = offset + match.length;
+    for (let i = offset; i < matchEnd; i++) {
+      for (const placeholder of escapeMap.keys()) {
+        if (line.indexOf(placeholder) === i) return true;
+      }
+    }
+    return false;
+  };
+  line = line.replace(/\*\*(.+?)\*\*/g, (match, content, offset) => {
+    return checkEscaped(match, offset) ? match : content;
+  });
+  line = line.replace(/__(.+?)__/g, (match, content, offset) => {
+    return checkEscaped(match, offset) ? match : content;
+  });
+  line = line.replace(/(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)/g, (match, content, offset) => {
+    return checkEscaped(match, offset) ? match : content;
+  });
+  line = line.replace(/(?<!_)_(?!_)(.+?)(?<!_)_(?!_)/g, (match, content, offset) => {
+    return checkEscaped(match, offset) ? match : content;
+  });
+  line = line.replace(/~~(.+?)~~/g, (match, content, offset) => {
+    return checkEscaped(match, offset) ? match : content;
+  });
+  line = line.replace(/==(.+?)==/g, (match, content, offset) => {
+    return checkEscaped(match, offset) ? match : content;
   });
   if (settings.omitHtmlTags) {
     let previousLine = "";
@@ -1108,6 +1138,12 @@ var FirstLineIsTitleSettings = class extends import_obsidian.PluginSettingTab {
       this.plugin.settings.disableRenamingValue = e.target.value;
       await this.plugin.saveSettings();
     });
+    new import_obsidian.Setting(this.containerEl).setName("Omit comments").setDesc("Omit %%markdown%% and <!--HTML--> comments in title.").addToggle(
+      (toggle) => toggle.setValue(this.plugin.settings.omitComments).onChange(async (value) => {
+        this.plugin.settings.omitComments = value;
+        await this.plugin.saveSettings();
+      })
+    );
     new import_obsidian.Setting(this.containerEl).setName("Omit HTML tags").setDesc("Don't put HTML tags like <u> in title.").addToggle(
       (toggle) => toggle.setValue(this.plugin.settings.omitHtmlTags).onChange(async (value) => {
         this.plugin.settings.omitHtmlTags = value;
@@ -1470,6 +1506,7 @@ var FirstLineIsTitleSettings = class extends import_obsidian.PluginSettingTab {
     };
     updateCustomDescriptionContent();
     this.containerEl.createEl("br");
+    const customReplacementsContainer = this.containerEl.createDiv({ cls: "flit-custom-replacements-container" });
     const updateCustomReplacementUI = () => {
       const isEnabled = this.plugin.settings.enableCustomReplacements;
       if (isEnabled) {
@@ -1488,11 +1525,10 @@ var FirstLineIsTitleSettings = class extends import_obsidian.PluginSettingTab {
       });
     };
     const renderCustomReplacements = () => {
-      const existingCustomSettings = this.containerEl.querySelectorAll(".flit-custom-replacement-setting, .flit-custom-replacement-header, .flit-custom-table-container");
-      existingCustomSettings.forEach((el) => el.remove());
+      customReplacementsContainer.empty();
       const existingAddButton = this.containerEl.querySelector(".flit-add-replacement-button");
       if (existingAddButton) existingAddButton.remove();
-      const tableContainer = this.containerEl.createEl("div", { cls: "flit-table-container flit-custom-table-container" });
+      const tableContainer = customReplacementsContainer.createEl("div", { cls: "flit-table-container flit-custom-table-container" });
       const tableWrapper = tableContainer.createEl("div", { cls: "flit-table-wrapper" });
       const headerRow = tableWrapper.createEl("div", { cls: "flit-custom-replacement-header" });
       const enableHeader = headerRow.createDiv({ cls: "flit-enable-column" });

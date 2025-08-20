@@ -397,6 +397,7 @@ interface PluginSettings {
     };
     customReplacements: CustomReplacement[];
     safewords: Safeword[];
+    omitComments: boolean;
     omitHtmlTags: boolean;
     enableForbiddenCharReplacements: boolean;
     enableCustomReplacements: boolean;
@@ -491,6 +492,7 @@ const DEFAULT_SETTINGS: PluginSettings = {
     safewords: [
         { text: 'Title', onlyAtStart: false, onlyWholeLine: false, enabled: false }
     ],
+    omitComments: false,
     omitHtmlTags: false,
     enableForbiddenCharReplacements: false,
     enableCustomReplacements: false,
@@ -663,9 +665,53 @@ function extractTitle(line: string, settings: PluginSettings): string {
     }
     // If backslash replacement enabled: treat \ as regular character, no escaping
 
-    // Remove comment syntax %% %% (only matching pairs)
-    line = line.replace(/%%.*?%%/g, (match) => {
-        return match.slice(2, -2);
+    // Remove comments if enabled
+    if (settings.omitComments) {
+        // Remove markdown comments %% %% (only matching pairs)
+        line = line.replace(/%%.*?%%/g, '');
+        
+        // Remove HTML comments <!-- --> (only matching pairs)
+        line = line.replace(/<!--.*?-->/g, '');
+    }
+    
+    // Remove markdown formatting (only complete pairs, not escaped)
+    // We check against the original line before escape placeholder replacement
+    const checkEscaped = (match: string, offset: number): boolean => {
+        if (backslashReplacementEnabled) return false;
+        // Check if any part of the match contains escape placeholders
+        const matchEnd = offset + match.length;
+        for (let i = offset; i < matchEnd; i++) {
+            for (const placeholder of escapeMap.keys()) {
+                if (line.indexOf(placeholder) === i) return true;
+            }
+        }
+        return false;
+    };
+    
+    // Remove bold **text** or __text__
+    line = line.replace(/\*\*(.+?)\*\*/g, (match, content, offset) => {
+        return checkEscaped(match, offset) ? match : content;
+    });
+    line = line.replace(/__(.+?)__/g, (match, content, offset) => {
+        return checkEscaped(match, offset) ? match : content;
+    });
+    
+    // Remove italic *text* or _text_
+    line = line.replace(/(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)/g, (match, content, offset) => {
+        return checkEscaped(match, offset) ? match : content;
+    });
+    line = line.replace(/(?<!_)_(?!_)(.+?)(?<!_)_(?!_)/g, (match, content, offset) => {
+        return checkEscaped(match, offset) ? match : content;
+    });
+    
+    // Remove strikethrough ~~text~~
+    line = line.replace(/~~(.+?)~~/g, (match, content, offset) => {
+        return checkEscaped(match, offset) ? match : content;
+    });
+    
+    // Remove highlight ==text==
+    line = line.replace(/==(.+?)==/g, (match, content, offset) => {
+        return checkEscaped(match, offset) ? match : content;
     });
 
     // Remove HTML tags (all tags with opening and closing pairs) - handle nested tags
@@ -1385,6 +1431,18 @@ class FirstLineIsTitleSettings extends PluginSettingTab {
         });
 
         new Setting(this.containerEl)
+            .setName("Omit comments")
+            .setDesc("Omit %%markdown%% and <!--HTML--> comments in title.")
+            .addToggle((toggle) =>
+                toggle
+                    .setValue(this.plugin.settings.omitComments)
+                    .onChange(async (value) => {
+                        this.plugin.settings.omitComments = value;
+                        await this.plugin.saveSettings();
+                    })
+            );
+
+        new Setting(this.containerEl)
             .setName("Omit HTML tags")
             .setDesc("Don't put HTML tags like <u> in title.")
             .addToggle((toggle) =>
@@ -1894,6 +1952,9 @@ class FirstLineIsTitleSettings extends PluginSettingTab {
         
         updateCustomDescriptionContent();
         this.containerEl.createEl("br");
+        
+        // Create dedicated container for custom replacements table
+        const customReplacementsContainer = this.containerEl.createDiv({ cls: 'flit-custom-replacements-container' });
 
         const updateCustomReplacementUI = () => {
             const isEnabled = this.plugin.settings.enableCustomReplacements;
@@ -1919,16 +1980,15 @@ class FirstLineIsTitleSettings extends PluginSettingTab {
         };
 
         const renderCustomReplacements = () => {
-            // Clear existing custom replacement settings and containers
-            const existingCustomSettings = this.containerEl.querySelectorAll('.flit-custom-replacement-setting, .flit-custom-replacement-header, .flit-custom-table-container');
-            existingCustomSettings.forEach(el => el.remove());
+            // Clear existing custom replacement settings in the dedicated container
+            customReplacementsContainer.empty();
             
             // Clear existing add button
             const existingAddButton = this.containerEl.querySelector('.flit-add-replacement-button');
             if (existingAddButton) existingAddButton.remove();
 
             // Create table container
-            const tableContainer = this.containerEl.createEl('div', { cls: 'flit-table-container flit-custom-table-container' });
+            const tableContainer = customReplacementsContainer.createEl('div', { cls: 'flit-table-container flit-custom-table-container' });
             const tableWrapper = tableContainer.createEl('div', { cls: 'flit-table-wrapper' });
 
             // Create header row with column titles
