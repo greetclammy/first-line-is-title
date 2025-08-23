@@ -2,7 +2,7 @@
 
 Automatically put the note's first line in title.
 
-Can replace forbidden characters with alternatives. Supports custom replacemet rules.
+Can replace forbidden characters with safe alternatives. Supports custom replacemet rules.
 
 ![473493035-31c57879-eff3-4615-b358-83b12c97ecb4](https://github.com/user-attachments/assets/db239dd6-ae89-4ffa-8c3c-7a1788e600ed)
 
