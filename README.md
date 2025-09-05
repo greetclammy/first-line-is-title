@@ -98,7 +98,7 @@ Feel free to share your thoughts about this plugin on:
 - [The Obsidian Members Group (OMG) Discord channel](https://discord.com/channels/686053708261228577/707816848615407697)
 - [GitHub discussions](https://github.com/greetclammy/first-line-is-title/discussions)
 
-Or open an issue!
+Or [open an issue](https://github.com/greetclammy/first-line-is-title/issues/new)!
 
 ## 🙏 Acknowledgements
 
