@@ -42,13 +42,10 @@ Here's a template that I use:
 created: <% moment(tp.file.creation_date()).format("YYYY-MM-DDTHH:mmZ") %>
 tags: []
 ---
-<%* 
-if (!(/^Untitled(\s\d+)?$/.test(tp.file.title))) { -%>
-<% tp.file.title %><%* 
-  const leaf = app.workspace.activeLeaf;
-  if (leaf && leaf.view.getViewType() !== "canvas") { 
-    await tp.file.cursor();
-  }
+<%*
+if (!(/^Untitled(\s\d+)?$/.test(tp.file.title))) {
+-%>
+<% tp.file.title %><% await tp.file.cursor() %><%*
 } -%>
 <%*
 tp.hooks.on_all_templates_executed(async () => {
@@ -57,7 +54,7 @@ tp.hooks.on_all_templates_executed(async () => {
     leaf.setViewState({
       type: "markdown",
       state: {
-        mode: "source", 
+        mode: "source",
         source: false
       }
     });
