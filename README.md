@@ -19,12 +19,12 @@ Can replace forbidden characters with safe alternatives. Supports custom replace
 
 Untill this plugin is made availiable in the plugin gallery, it can be insalled via the community plugin [BRAT](https://obsidian.md/plugins?id=obsidian42-brat):
 
-1. Open BRAT settings.
-2. Press "Add Beta Plugin".
-3. Paste this URL in the text field: https://github.com/greetclammy/first-line-is-title.
-4. Select the latest release.
-5. Check "Enable after installing the plugin".
-6. Press "Add Plugin".
+1. Open _BRAT_ settings.
+2. Press _Add Beta Plugin_.
+3. Paste https://github.com/greetclammy/first-line-is-title in the text field.
+4. Select _Latest version_.
+5. Check _Enable after installing the plugin_.
+6. Press _Add Plugin_.
 
 ## 💡 Tips
 
@@ -32,7 +32,7 @@ Untill this plugin is made availiable in the plugin gallery, it can be insalled 
 
 It's recommended to use this plugin with a new note template that puts the cursor in note body on note creation, configured in [Templater](https://obsidian.md/plugins?id=templater-obsidian) settings.
 
-Here's the template that I use:
+Here's a template that I use:
 
 <details>
   <summary>Templater script</summary>
