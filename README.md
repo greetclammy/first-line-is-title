@@ -81,12 +81,6 @@ For the times when you want to force the plugin to update the title, I recommend
 
 This is super useful if you already use Ctrl/Cmd-S to trigger [Linter](https://obsidian.md/plugins?id=obsidian-linter).
 
-## 👀 Alternative solutions
-
-1. [Auto Filename](https://obsidian.md/plugins?id=auto-filename)
-2. [File Title Updater](https://obsidian.md/plugins?id=file-title-updater)
-3. [Filename Heading Sync](https://obsidian.md/plugins?id=obsidian-filename-heading-sync)
-
 ## ⭐️ Support
 
 If you find this plugin helpful:
@@ -96,6 +90,12 @@ If you find this plugin helpful:
 - [Request features](https://github.com/greetclammy/first-line-is-title/issues)
 - [Contribute improvements](https://github.com/greetclammy/first-line-is-title/pulls)
 - Share your thoughts on [Obsidian Forum](https://forum.obsidian.md/t/plugin-to-automatically-copy-first-line-in-note-to-note-title/103558), [Obsidian Members Group](https://discord.com/channels/686053708261228577/707816848615407697) or [GitHub discussions](https://github.com/greetclammy/first-line-is-title/discussions)
+
+## 👀 Alternative solutions
+
+1. [Auto Filename](https://obsidian.md/plugins?id=auto-filename)
+2. [File Title Updater](https://obsidian.md/plugins?id=file-title-updater)
+3. [Filename Heading Sync](https://obsidian.md/plugins?id=obsidian-filename-heading-sync)
 
 ## 🙏 Acknowledgements
 
