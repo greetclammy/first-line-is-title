@@ -83,13 +83,12 @@ This is super useful if you already use Ctrl/Cmd-S to trigger [Linter](https://o
 
 ## ⭐️ Support
 
-If you find this plugin helpful:
-
-- Star the repository 😇
 - [Report bugs](https://github.com/greetclammy/first-line-is-title/issues)
 - [Request features](https://github.com/greetclammy/first-line-is-title/issues)
 - [Contribute improvements](https://github.com/greetclammy/first-line-is-title/pulls)
 - Share your thoughts on [Obsidian Forum](https://forum.obsidian.md/t/plugin-to-automatically-copy-first-line-in-note-to-note-title/103558), [Obsidian Members Group](https://discord.com/channels/686053708261228577/707816848615407697) or [GitHub discussions](https://github.com/greetclammy/first-line-is-title/discussions)
+
+If you find this plugin helpful, please star the repository 😇
 
 ## 👀 Alternative solutions
 
@@ -104,7 +103,3 @@ This plugin builds on [Auto Filename](https://obsidian.md/plugins?id=auto-filena
 ## 👨‍💻 What else I made
 
 - [Adapt to Current View](https://github.com/greetclammy/adapt-to-current-view/)
-
-<br>
-
-Made with ❤️ for the Obsidian community
