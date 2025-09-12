@@ -17,7 +17,7 @@ Can replace forbidden characters with safe alternatives. Supports custom replace
 
 ## ✅ Installation
 
-Untill this plugin is made availiable in the plugin browser, follow the steps below to install it.
+Untill _First Line is Title_ is made availiable in the plugin browser, follow the steps below to install it.
 
 ### BRAT (recommended)
 
@@ -31,7 +31,7 @@ Untill this plugin is made availiable in the plugin browser, follow the steps be
 
 ### Install manually
 
-Note: you will have to check for and install updates manually.
+Note: you will have to check for and install updates to _First Line is Title_ manually.
 
 1. Download `first-line-is-title.zip` in the `Assets` of a [latest release](https://github.com/greetclammy/first-line-is-title/releases).
 2. Unzip the folder and place it in the `.obsidian/plugins` folder (hidden on most OSes) at the root of your vault.
