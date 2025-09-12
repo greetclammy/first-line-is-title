@@ -17,7 +17,7 @@ Can replace forbidden characters with safe alternatives. Supports custom replace
 
 ## ✅ Installation
 
-Untill this plugin is made availiable in the plugin browser, here's how to install it.
+Untill this plugin is made availiable in the plugin browser, follow the steps below to install it.
 
 ### BRAT (recommended)
 
