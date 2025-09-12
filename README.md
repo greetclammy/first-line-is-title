@@ -17,14 +17,26 @@ Can replace forbidden characters with safe alternatives. Supports custom replace
 
 ## ✅ Installation
 
-Untill this plugin is made availiable in the plugin gallery, it can be insalled via the community plugin [BRAT](https://obsidian.md/plugins?id=obsidian42-brat):
+Untill this plugin is made availiable in the plugin browser, here's how to install it.
 
-1. Open _BRAT_ settings.
-2. Press _Add Beta Plugin_.
-3. Paste https://github.com/greetclammy/first-line-is-title in the text field.
-4. Select _Latest version_.
-5. Check _Enable after installing the plugin_.
-6. Press _Add Plugin_.
+### BRAT (recommended)
+
+1. Download and enable the community plugin [BRAT](https://obsidian.md/plugins?id=obsidian42-brat).
+2. Open _BRAT_ settings.
+3. Press _Add Beta Plugin_.
+4. Paste https://github.com/greetclammy/first-line-is-title in the text field.
+5. Select _Latest version_.
+6. Check _Enable after installing the plugin_.
+7. Press _Add Plugin_.
+
+### Install manually
+
+1. Download `first-line-is-title.zip` in the `Assets` of a [latest release](https://github.com/greetclammy/first-line-is-title/releases).
+2. Unzip the folder and place it in the `.obsidian/plugins` folder (hidden on most OSes) at the root of your vault.
+3. Reload plugins or app.
+4. Enable _First Line is Title_ in `Settings > Community plugins > Installed plugins`.
+
+Note: you won't get plugin updates unless you install them manually.
 
 ## 💡 Tips
 
