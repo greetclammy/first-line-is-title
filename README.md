@@ -36,7 +36,7 @@ Untill this plugin is made availiable in the plugin browser, follow the steps be
 3. Reload plugins or app.
 4. Enable _First Line is Title_ in `Settings > Community plugins > Installed plugins`.
 
-Note: you won't get plugin updates unless you install them manually.
+Note: you will have to check for and install updates manually.
 
 ## 💡 Tips
 
