@@ -1,7 +1,7 @@
 {
   "name": "put-first-line-in-title",
-  "version": "1.4.1",
-  "description": "Automatically renames files based on the first line of their content.",
+  "version": "1.5.0",
+  "description": "Automatically put first line in note title.",
   "main": "main.js",
   "scripts": {
     "dev": "node esbuild.config.mjs",
