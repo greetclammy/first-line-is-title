@@ -1,60 +1,119 @@
 {
   "excludedFolders": [
-    "一Attachments",
-    "一Bases",
-    "一Templates",
-    "Obsidian 🌋/Templater/Archive"
+    "Areas II/Obsidian 🌋/一Attachments",
+    "Areas II/Obsidian 🌋/一Bases",
+    "Areas II/Obsidian 🌋/一Templates",
+    "Areas II/Obsidian 🌋/Templater",
+    "Areas I/Coding 🧑🏼‍💻/Concerns about my approach to learning"
   ],
-  "charCount": 200,
-  "checkInterval": 100,
+  "charCount": 100,
+  "checkInterval": 600,
+  "disableRenamingKey": "rename",
+  "disableRenamingValue": "off",
+  "osPreset": "macOS",
   "charReplacements": {
     "slash": " ∕ ",
     "colon": "։",
+    "asterisk": "∗",
+    "question": "﹖",
+    "lessThan": "‹",
+    "greaterThan": "›",
+    "quote": "＂",
     "pipe": "❘",
     "hash": "＃",
-    "leftBracket": "〚",
-    "rightBracket": "〛",
+    "leftBracket": "［",
+    "rightBracket": "］",
     "caret": "ˆ",
+    "backslash": "⧵",
     "dot": "․"
   },
   "charReplacementEnabled": {
     "slash": true,
     "colon": true,
+    "asterisk": false,
+    "question": false,
+    "lessThan": false,
+    "greaterThan": false,
+    "quote": false,
     "pipe": true,
     "hash": true,
     "leftBracket": true,
     "rightBracket": true,
     "caret": true,
+    "backslash": false,
+    "dot": true
+  },
+  "charReplacementTrimLeft": {
+    "slash": false,
+    "colon": false,
+    "asterisk": false,
+    "question": false,
+    "lessThan": false,
+    "greaterThan": false,
+    "quote": false,
+    "pipe": false,
+    "hash": false,
+    "leftBracket": true,
+    "rightBracket": true,
+    "caret": false,
+    "backslash": false,
+    "dot": false
+  },
+  "charReplacementTrimRight": {
+    "slash": false,
+    "colon": false,
+    "asterisk": false,
+    "question": false,
+    "lessThan": false,
+    "greaterThan": false,
+    "quote": false,
+    "pipe": false,
+    "hash": false,
+    "leftBracket": true,
+    "rightBracket": true,
+    "caret": false,
+    "backslash": false,
     "dot": false
   },
   "customReplacements": [
     {
-      "searchText": ".",
-      "replaceText": "․",
-      "onlyAtStart": false,
-      "enabled": true
-    },
-    {
-      "searchText": "- [ ] ",
-      "replaceText": "✔️",
-      "onlyAtStart": true,
-      "enabled": true
-    },
-    {
       "searchText": "- [x] ",
-      "replaceText": "✅",
-      "onlyAtStart": true,
+      "replaceText": "✅ ",
+      "onlyAtStart": false,
+      "onlyWholeLine": false,
       "enabled": true
     },
     {
-      "searchText": "- [-] ",
-      "replaceText": "❌",
-      "onlyAtStart": true,
+      "searchText": "Folder index.base",
+      "replaceText": "",
+      "onlyAtStart": false,
+      "onlyWholeLine": false,
       "enabled": true
     }
   ],
+  "safewords": [
+    {
+      "text": "test",
+      "onlyAtStart": false,
+      "onlyWholeLine": true,
+      "enabled": true,
+      "caseSensitive": true
+    }
+  ],
+  "omitComments": true,
   "omitHtmlTags": true,
-  "enableIllegalCharReplacements": true,
+  "enableForbiddenCharReplacements": true,
   "enableCustomReplacements": true,
-  "renameOnFocus": true
+  "enableSafewords": true,
+  "renameOnFocus": false,
+  "renameAutomatically": true,
+  "manualNotificationMode": "On title change",
+  "windowsAndroidEnabled": true,
+  "hasEnabledForbiddenChars": true,
+  "hasEnabledWindowsAndroid": true,
+  "hasEnabledSafewords": true,
+  "skipExcalidrawFiles": true,
+  "grabTitleFromCardLink": true,
+  "excludeSubfolders": true,
+  "verboseLogging": false
 }
