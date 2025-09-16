@@ -1,7 +1,7 @@
 {
   "name": "put-first-line-in-title",
-  "version": "1.6.0",
-  "description": "Automatically put first line in note title.",
+  "version": "1.6.1",
+  "description": "Automatically put the first line in note title.",
   "main": "main.js",
   "scripts": {
     "dev": "node esbuild.config.mjs",
