@@ -8,13 +8,6 @@ Can replace forbidden characters with safe alternatives. Supports custom replace
 
 **⚠️ It's recommended that you back up your files before using this plugin.**
 
-## ⚙️ Settings page overview
-
-<details>
-  <summary><b>Click to expand</b></summary>
-<img width="1126" height="2500" alt="settings" src="https://github.com/user-attachments/assets/b12374f2-d174-40f5-8036-e7c7c44a3e30" />
-</details>
-
 ## ✅ Installation
 
 Untill _First Line is Title_ is made availiable in the plugin browser, follow the steps below to install it.
@@ -84,11 +77,11 @@ This plugin adds three commmands to the Command palette:
 
 <img width="455" height="232" alt="image" src="https://github.com/user-attachments/assets/6efdace0-e168-4115-ac63-c2a63acaf4fd" />
 
-For the times when you want to force the plugin to update the title, I recommend to create a macro like this with [Commander](https://obsidian.md/plugins?id=cmdr) and bind it to Ctrl/Cmd-S:
+For when you want to force the plugin to update the title, I recommend to create a macro like this with [Commander](https://obsidian.md/plugins?id=cmdr) and bind it to Ctrl/Cmd-S:
 
 <details>
   <summary><b>Click to expand</b></summary>
-<img width="587" height="444" alt="Screenshot 2025-08-18 at 03 02 27" src="https://github.com/user-attachments/assets/156f775a-a3d9-4f61-a7b2-799a12a17ae5" />
+<img width="489" height="230" src="https://github.com/user-attachments/assets/823c2510-77c5-4b49-8715-1f8e3477640f" />
 </details>
 
 This is super useful if you already use Ctrl/Cmd-S to trigger [Linter](https://obsidian.md/plugins?id=obsidian-linter).
