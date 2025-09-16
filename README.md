@@ -37,7 +37,7 @@ Note: to get updates for _First Line is Title_, you will have to check for and i
 
 It's recommended to use this plugin with a new note template that puts the cursor in note body on note creation, configured in [Templater](https://obsidian.md/plugins?id=templater-obsidian) settings.
 
-Here's a template that I use:
+Here's an example of such template:
 
 <details>
   <summary><b>Click to expand</b></summary>
@@ -75,13 +75,13 @@ tp.hooks.on_all_templates_executed(async () => {
 
 This plugin adds three commmands to the Command palette:
 
-<img width="455" height="232" alt="image" src="https://github.com/user-attachments/assets/6efdace0-e168-4115-ac63-c2a63acaf4fd" />
+<img width="489" height="230" src="https://github.com/user-attachments/assets/823c2510-77c5-4b49-8715-1f8e3477640f" />
 
 For when you want to force the plugin to update the title, I recommend to create a macro like this with [Commander](https://obsidian.md/plugins?id=cmdr) and bind it to Ctrl/Cmd-S:
 
 <details>
   <summary><b>Click to expand</b></summary>
-<img width="489" height="230" src="https://github.com/user-attachments/assets/823c2510-77c5-4b49-8715-1f8e3477640f" />
+<img width="571" height="427" src="https://github.com/user-attachments/assets/24273438-d0e4-47a5-833c-f86161fa2b20" />
 </details>
 
 This is super useful if you already use Ctrl/Cmd-S to trigger [Linter](https://obsidian.md/plugins?id=obsidian-linter).
