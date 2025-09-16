@@ -11,7 +11,7 @@ Can replace forbidden characters with safe alternatives. Supports custom replace
 ## ⚙️ Settings page overview
 
 <details>
-  <summary>Expand</summary>
+  <summary>Click to expand</summary>
 <img width="1126" height="2500" alt="settings" src="https://github.com/user-attachments/assets/b12374f2-d174-40f5-8036-e7c7c44a3e30" />
 </details>
 
@@ -47,7 +47,7 @@ It's recommended to use this plugin with a new note template that puts the curso
 Here's a template that I use:
 
 <details>
-  <summary>Expand</summary>
+  <summary>Click to expand</summary>
 
   ```js
 ---
@@ -87,7 +87,7 @@ This plugin adds three commmands to the Command palette:
 For the times when you want to force the plugin to update the title, I recommend to create a macro like this with [Commander](https://obsidian.md/plugins?id=cmdr) and bind it to Ctrl/Cmd-S:
 
 <details>
-  <summary>Expand</summary>
+  <summary>Click to expand</summary>
 <img width="587" height="444" alt="Screenshot 2025-08-18 at 03 02 27" src="https://github.com/user-attachments/assets/156f775a-a3d9-4f61-a7b2-799a12a17ae5" />
 </details>
 
