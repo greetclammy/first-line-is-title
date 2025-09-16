@@ -75,7 +75,7 @@ const PLUGIN_STYLES = `
     border-bottom: 1px solid var(--background-modifier-border);
     gap: 8px;
     width: fit-content;
-    min-width: 700px;
+    min-width: 520px;
 }
 
 .flit-char-replacement-header {
@@ -193,7 +193,7 @@ const PLUGIN_STYLES = `
     font-size: 0.9em;
     gap: 8px;
     width: 100%;
-    min-width: 700px;
+    min-width: 520px;
 }
 
 .flit-custom-replacement-header .flit-toggle-column:first-of-type,
@@ -217,7 +217,7 @@ const PLUGIN_STYLES = `
     border-bottom: 1px solid var(--background-modifier-border);
     gap: 8px;
     width: 100%;
-    min-width: 700px;
+    min-width: 520px;
 }
 
 .flit-custom-replacement-setting .flit-toggle-column:first-of-type,
@@ -256,9 +256,9 @@ const PLUGIN_STYLES = `
 }
 
 .flit-text-column.flit-safeword-input {
-    width: 320px;
-    min-width: 320px;
-    max-width: 320px;
+    width: 330px;
+    min-width: 330px;
+    max-width: 330px;
 }
 
 .flit-text-column input {
@@ -270,9 +270,9 @@ const PLUGIN_STYLES = `
 }
 
 .flit-toggle-column {
-    width: 90px;
-    min-width: 90px;
-    max-width: 90px;
+    width: 70px;
+    min-width: 70px;
+    max-width: 70px;
     flex-shrink: 0;
     text-align: left;
     line-height: 1.2;
@@ -284,9 +284,9 @@ const PLUGIN_STYLES = `
 }
 
 .flit-actions-column {
-    width: 60px;
-    min-width: 60px;
-    max-width: 60px;
+    width: 80px;
+    min-width: 80px;
+    max-width: 80px;
     flex-shrink: 0;
 }
 
@@ -309,9 +309,6 @@ const PLUGIN_STYLES = `
 }
 
 
-.flit-desc-disabled {
-    opacity: 0.5;
-}
 
 .flit-add-replacement-button.hidden, .flit-add-safeword-button.hidden {
     display: none;
@@ -518,6 +515,96 @@ const PLUGIN_STYLES = `
 }
 
 /* Minimal fix: Only target known problematic elements in plugin containers */
+
+/* ==========================================================================
+   Settings Tabs
+   ========================================================================== */
+
+.flit-settings-tab-bar {
+    display: flex;
+    flex-direction: row;
+    padding-bottom: 1rem;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+
+.flit-settings-tab {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: var(--size-4-2);
+    padding: 10px;
+    border: 1px solid var(--background-modifier-border);
+    cursor: pointer;
+    border-radius: var(--radius-s);
+    transition: all 0.15s ease;
+}
+
+.flit-settings-tab:hover {
+    background-color: var(--background-modifier-hover);
+}
+
+.flit-settings-tab-active {
+    background-color: var(--color-accent);
+    color: var(--text-on-accent);
+}
+
+.flit-settings-tab-name {
+    font-weight: bold;
+    text-align: center;
+    line-height: 1.2;
+    font-size: 0.9em;
+}
+
+.flit-settings-page {
+    /* Container for tab content */
+}
+
+.flit-divider {
+    margin: 1rem 0;
+    border: none;
+    border-top: 1px solid var(--background-modifier-border);
+}
+
+/* Master toggle names should be bold */
+.flit-master-toggle .setting-item-name {
+    font-weight: bold;
+}
+
+/* Ensure consistent X button positioning and sizing across all sections */
+.flit-excluded-folder-setting .setting-item-control {
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    width: 100% !important;
+}
+
+.flit-excluded-folder-setting .setting-item-control input {
+    flex: 1 !important;
+    min-width: 0 !important;
+}
+
+.flit-excluded-folder-setting .setting-item-control .clickable-icon {
+    flex-shrink: 0 !important;
+    width: 32px !important;
+    height: 32px !important;
+    min-width: 32px !important;
+    min-height: 32px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    font-size: 16px !important;
+}
+
+
+/* Ensure all X buttons are the same size */
+.flit-button-container .clickable-icon {
+    width: 32px !important;
+    height: 32px !important;
+    min-width: 32px !important;
+    min-height: 32px !important;
+    font-size: 16px !important;
+}
 `;
 
 class FolderSuggest extends AbstractInputSuggest<TFolder> {
@@ -670,7 +757,9 @@ interface PluginSettings {
     skipExcalidrawFiles: boolean;
     grabTitleFromCardLink: boolean;
     excludeSubfolders: boolean;
+    useDirectFileRead: boolean; // Use direct file read instead of cache (slower but may resolve issues)
     verboseLogging: boolean; // Added verbose logging setting
+    currentSettingsTab: string; // Track current settings tab
 }
 
 const DEFAULT_SETTINGS: PluginSettings = {
@@ -766,7 +855,9 @@ const DEFAULT_SETTINGS: PluginSettings = {
     skipExcalidrawFiles: false,
     grabTitleFromCardLink: false,
     excludeSubfolders: true,
-    verboseLogging: false // Added default for verbose logging
+    useDirectFileRead: false, // Default to cached read for performance
+    verboseLogging: false, // Added default for verbose logging
+    currentSettingsTab: 'general' // Default to general tab
 };
 
 // OS-specific forbidden characters
@@ -1078,9 +1169,20 @@ function extractTitle(line: string, settings: PluginSettings): string {
         line = (beforeLink + resolvedText + afterLink).trim();
     }
 
-    // Handle Markdown links
+    // Check for empty links that should result in "Untitled"
+    // If entire line is just empty links (regular or image), return "Untitled"
+    const onlyEmptyLinksRegex = /^(\s*!?\[\]\([^)]*\)\s*)+$/;
+    if (onlyEmptyLinksRegex.test(line)) {
+        return "Untitled";
+    }
+
+    // Handle regular Markdown links (non-empty)
     const markdownLinkRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
     line = line.replace(markdownLinkRegex, (_, title) => title);
+
+    // Remove empty links (but keep surrounding text)
+    // This handles cases like "test [](smile.md)" -> "test"
+    line = line.replace(/!?\[\]\([^)]*\)/g, '').trim();
 
     // Restore escaped characters (remove escape, keep character) - only if escaping was used
     if (!backslashReplacementEnabled) {
@@ -1170,6 +1272,14 @@ class RenameAllFilesModal extends Modal {
 
 export default class FirstLineIsTitle extends Plugin {
     settings: PluginSettings;
+    private advancedCanvasEnabled: boolean | null = null;
+
+    private checkAdvancedCanvasStatus(): boolean {
+        if (this.advancedCanvasEnabled === null) {
+            this.advancedCanvasEnabled = this.app.plugins.enabledPlugins.has('advanced-canvas');
+        }
+        return this.advancedCanvasEnabled;
+    }
 
     cleanupStaleCache(): void {
         // Clean up tempNewPaths - remove paths that don't exist anymore
@@ -1223,10 +1333,18 @@ export default class FirstLineIsTitle extends Plugin {
         // Clean up stale cache before processing
         this.cleanupStaleCache();
 
+        // Check Advanced Canvas status (cached after first check)
+        const isAdvancedCanvasEnabled = this.checkAdvancedCanvasStatus();
+
         let content: string;
         try {
-            content = await this.app.vault.cachedRead(file);
-            verboseLog(this, `Read content from ${file.path}`, { contentLength: content.length });
+            if (this.settings.useDirectFileRead) {
+                content = await this.app.vault.read(file);
+                verboseLog(this, `Direct read content from ${file.path}`, { contentLength: content.length });
+            } else {
+                content = await this.app.vault.cachedRead(file);
+                verboseLog(this, `Cached read content from ${file.path}`, { contentLength: content.length });
+            }
         } catch (error) {
             console.error(`Failed to read file ${file.path}:`, error);
             throw new Error(`Failed to read file: ${error.message}`);
@@ -1273,6 +1391,27 @@ export default class FirstLineIsTitle extends Plugin {
 
         const currentName = file.basename;
         let firstLine = content.split('\n')[0];
+
+        // Skip Advanced Canvas metadata if detected and Advanced Canvas is enabled
+        if (isAdvancedCanvasEnabled && /^\[\]\([^)]*\)/.test(firstLine)) {
+            verboseLog(this, `Skipping Advanced Canvas metadata in ${file.path}`, { originalLine: firstLine });
+
+            // Advanced Canvas metadata is on first line only - extract real content after the link chains
+            // Pattern: [](link)[](link)...# Real Title or [](link)[](link)Real Title
+            const cleanedLine = firstLine.replace(/^(\[\]\([^)]*\))+/g, '').trim();
+
+            if (cleanedLine) {
+                firstLine = cleanedLine;
+                verboseLog(this, `Extracted content from Advanced Canvas line: ${firstLine}`);
+            } else {
+                // If nothing left after cleaning, use next line
+                const lines = content.split('\n');
+                if (lines[1]?.trim()) {
+                    firstLine = lines[1].trim();
+                    verboseLog(this, `Using line 2 as title: ${firstLine}`);
+                }
+            }
+        }
 
         // Check for card links if enabled - extract title but continue to normal processing
         if (this.settings.grabTitleFromCardLink) {
@@ -1706,6 +1845,17 @@ export default class FirstLineIsTitle extends Plugin {
 
 class FirstLineIsTitleSettings extends PluginSettingTab {
     plugin: FirstLineIsTitle;
+    private settingsPage: HTMLDivElement | null = null;
+
+    private readonly TABS = {
+        GENERAL: { id: 'general', name: 'General' },
+        EXCLUDED_FOLDERS: { id: 'excluded-folders', name: 'Excluded folders' },
+        FORBIDDEN_CHARS: { id: 'forbidden-chars', name: 'Forbidden character replacements' },
+        CUSTOM_REPLACEMENTS: { id: 'custom-replacements', name: 'Custom replacements' },
+        SAFEWORDS: { id: 'safewords', name: 'Safewords' },
+        PLUGIN_SUPPORT: { id: 'plugin-support', name: 'Support for other plugins' },
+        ADVANCED: { id: 'advanced', name: 'Advanced' }
+    };
 
     constructor(app: App, plugin: FirstLineIsTitle) {
         super(app, plugin);
@@ -1715,7 +1865,77 @@ class FirstLineIsTitleSettings extends PluginSettingTab {
     display(): void {
         this.containerEl.empty();
 
-        new Setting(this.containerEl)
+        // Create tab bar
+        const tabBar = this.containerEl.createEl('nav', { cls: 'flit-settings-tab-bar' });
+
+        for (const [tabKey, tabInfo] of Object.entries(this.TABS)) {
+            const tabEl = tabBar.createEl('div', { cls: 'flit-settings-tab' });
+            const tabNameEl = tabEl.createEl('div', { cls: 'flit-settings-tab-name' });
+            tabNameEl.innerHTML = tabInfo.name; // Use innerHTML to support line breaks
+
+            if (this.plugin.settings.currentSettingsTab === tabInfo.id) {
+                tabEl.addClass('flit-settings-tab-active');
+            }
+
+            tabEl.addEventListener('click', () => {
+                // Remove active class from all tabs
+                for (const child of tabBar.children) {
+                    child.removeClass('flit-settings-tab-active');
+                }
+
+                // Add active class to clicked tab
+                tabEl.addClass('flit-settings-tab-active');
+
+                // Update settings and render
+                this.plugin.settings.currentSettingsTab = tabInfo.id;
+                this.plugin.saveSettings();
+                this.renderTab(tabInfo.id);
+            });
+        }
+
+        // Create settings page container
+        this.settingsPage = this.containerEl.createDiv({ cls: 'flit-settings-page' });
+
+        // Render initial tab
+        this.renderTab(this.plugin.settings.currentSettingsTab);
+    }
+
+    private renderTab(tabId: string): void {
+        if (!this.settingsPage) return;
+
+        this.settingsPage.empty();
+
+        switch (tabId) {
+            case 'general':
+                this.renderGeneralTab();
+                break;
+            case 'excluded-folders':
+                this.renderExcludedFoldersTab();
+                break;
+            case 'forbidden-chars':
+                this.renderForbiddenCharsTab();
+                break;
+            case 'custom-replacements':
+                this.renderCustomReplacementsTab();
+                break;
+            case 'safewords':
+                this.renderSafewordsTab();
+                break;
+            case 'plugin-support':
+                this.renderPluginSupportTab();
+                break;
+            case 'advanced':
+                this.renderAdvancedTab();
+                break;
+            default:
+                this.renderGeneralTab();
+        }
+    }
+
+    private renderGeneralTab(): void {
+        if (!this.settingsPage) return;
+
+        new Setting(this.settingsPage)
             .setName("Rename automatically")
             .setDesc("Renames files automatically when the first line changes. If disabled, files will only be renamed when invoking a command manually.")
             .addToggle((toggle) =>
@@ -1728,13 +1948,16 @@ class FirstLineIsTitleSettings extends PluginSettingTab {
             );
 
 
-        new Setting(this.containerEl)
+        new Setting(this.settingsPage)
             .setName("Rename on focus")
             .setDesc(createFragment(fragment => {
                 fragment.createSpan({ text: "Automatically rename files when they become focused/active. " });
-                const noteSpan = fragment.createSpan({ text: "Note: may cause errors if " });
+                fragment.createEl("br");
+                const noteSpan = fragment.createSpan({ text: "Note: may cause errors when using " });
+                noteSpan.createEl("em", { text: "Web Clipper" });
+                noteSpan.createSpan({ text: " or if " });
                 noteSpan.createEl("em", { text: "Templater" });
-                noteSpan.createSpan({ text: " is triggered on file creation." });
+                noteSpan.createSpan({ text: " is set to trigger on file creation." });
             }))
             .addToggle((toggle) =>
                 toggle
@@ -1745,7 +1968,7 @@ class FirstLineIsTitleSettings extends PluginSettingTab {
                     })
             );
 
-        new Setting(this.containerEl)
+        new Setting(this.settingsPage)
             .setName("Show notification when renaming manually")
             .setDesc("Controls when to show notifications for the 'Put first line in title' command.")
             .addDropdown((dropdown) =>
@@ -1760,7 +1983,7 @@ class FirstLineIsTitleSettings extends PluginSettingTab {
                     })
             );
 
-        new Setting(this.containerEl)
+        new Setting(this.settingsPage)
             .setName("Rename all files")
             .setDesc("Rename all files except those in excluded folders. Can also be run from the Command palette.")
             .addButton((button) =>
@@ -1769,9 +1992,9 @@ class FirstLineIsTitleSettings extends PluginSettingTab {
                 })
             );
 
-        const propertyDisableSetting = new Setting(this.containerEl)
+        const propertyDisableSetting = new Setting(this.settingsPage)
             .setName("Property to disable renaming")
-            .setDesc("Define the key:property pair that will disable renaming for files that contain it. Case insensitive.");
+            .setDesc("Define the key:property pair that will disable renaming for files that contain it. Case-insensetive.");
         
         const propertyContainer = propertyDisableSetting.controlEl.createDiv({ cls: "flit-property-disable-container" });
         propertyContainer.style.display = "flex";
@@ -1795,7 +2018,7 @@ class FirstLineIsTitleSettings extends PluginSettingTab {
             await this.plugin.saveSettings();
         });
 
-        new Setting(this.containerEl)
+        new Setting(this.settingsPage)
             .setName("Character count")
             .setDesc(createFragment(fragment => {
                 fragment.createSpan({ text: "The maximum number of characters to put in title. Up to 255 characters." });
@@ -1804,7 +2027,7 @@ class FirstLineIsTitleSettings extends PluginSettingTab {
             }))
             .addText((text) =>
                 text
-                    .setPlaceholder("100")
+                    .setPlaceholder("Empty")
                     .setValue(String(this.plugin.settings.charCount))
                     .onChange(async (value) => {
                         if (value === '') {
@@ -1819,75 +2042,29 @@ class FirstLineIsTitleSettings extends PluginSettingTab {
                         await this.plugin.saveSettings();
                     })
             );
+    }
 
-        new Setting(this.containerEl)
-            .setName("Check interval")
-            .setDesc(createFragment(fragment => {
-                fragment.createSpan({ text: "Interval in milliseconds of how often to rename files while editing. Increase in case of issues. " });
-                const noteSpan = fragment.createSpan({ text: "Note: lower values may cause errors if " });
-                noteSpan.createEl("em", { text: "Templater" });
-                noteSpan.createSpan({ text: " is triggered on file creation." });
-                fragment.createEl("br");
-                fragment.createEl("small").createEl("strong", { text: "Default: 600" });
-            }))
-            .addText((text) =>
-                text
-                    .setPlaceholder("500")
-                    .setValue(String(this.plugin.settings.checkInterval))
-                    .onChange(async (value) => {
-                        if (value === '') {
-                            this.plugin.settings.checkInterval = DEFAULT_SETTINGS.checkInterval;
-                            // Don't update the field value immediately
-                        } else if (!isNaN(Number(value))) {
-                            this.plugin.settings.checkInterval = Number(value);
-                        }
-                        await this.plugin.saveSettings();
-                    })
-            );
+    private renderExcludedFoldersTab(): void {
+        if (!this.settingsPage) return;
 
-        new Setting(this.containerEl)
-            .setName("Omit comments")
-            .setDesc("Omit %%markdown%% and <!--HTML--> comments in title.")
+        // Exclude subfolders setting moved to top
+        new Setting(this.settingsPage)
+            .setName("Exclude subfolders")
+            .setDesc("Exclude all subfolders of excluded folders.")
             .addToggle((toggle) =>
                 toggle
-                    .setValue(this.plugin.settings.omitComments)
+                    .setValue(this.plugin.settings.excludeSubfolders)
                     .onChange(async (value) => {
-                        this.plugin.settings.omitComments = value;
+                        this.plugin.settings.excludeSubfolders = value;
                         await this.plugin.saveSettings();
                     })
             );
 
-        new Setting(this.containerEl)
-            .setName("Omit HTML tags")
-            .setDesc("Don't put HTML tags like <u> in title.")
-            .addToggle((toggle) =>
-                toggle
-                    .setValue(this.plugin.settings.omitHtmlTags)
-                    .onChange(async (value) => {
-                        this.plugin.settings.omitHtmlTags = value;
-                        await this.plugin.saveSettings();
-                    })
-            );
-
-        // Added verbose logging setting
-        new Setting(this.containerEl)
-            .setName("Verbose logging")
-            .setDesc("Log all of the plugin's activity to the developer console.")
-            .addToggle((toggle) =>
-                toggle
-                    .setValue(this.plugin.settings.verboseLogging)
-                    .onChange(async (value) => {
-                        this.plugin.settings.verboseLogging = value;
-                        await this.plugin.saveSettings();
-                    })
-            );
-
-        new Setting(this.containerEl)
-            .setName("Excluded folders")
-            .setHeading();
+        // Add divider line beneath subfolder option
+        this.settingsPage.createEl("hr", { cls: "flit-divider" });
 
         // Create a container for folder settings that will stay in place
-        const folderContainer = this.containerEl.createDiv();
+        const folderContainer = this.settingsPage.createDiv();
 
         const renderExcludedFolders = () => {
             // Clear only the folder container
@@ -1943,24 +2120,12 @@ class FirstLineIsTitleSettings extends PluginSettingTab {
         };
 
         renderExcludedFolders();
+    }
 
-        new Setting(this.containerEl)
-            .setName("Exclude subfolders")
-            .setDesc("Exclude all subfolders of excluded folders.")
-            .addToggle((toggle) =>
-                toggle
-                    .setValue(this.plugin.settings.excludeSubfolders)
-                    .onChange(async (value) => {
-                        this.plugin.settings.excludeSubfolders = value;
-                        await this.plugin.saveSettings();
-                    })
-            );
+    private renderPluginSupportTab(): void {
+        if (!this.settingsPage) return;
 
-        new Setting(this.containerEl)
-            .setName("Support for other plugins")
-            .setHeading();
-
-        new Setting(this.containerEl)
+        new Setting(this.settingsPage)
             .setName("Don't rename Excalidraw files")
             .setDesc("Files that have the property `excalidraw-plugin: parsed` won't be renamed.")
             .addToggle((toggle) =>
@@ -1972,7 +2137,7 @@ class FirstLineIsTitleSettings extends PluginSettingTab {
                     })
             );
 
-        const cardLinkSetting = new Setting(this.containerEl)
+        const cardLinkSetting = new Setting(this.settingsPage)
             .setName("Grab title from card link");
             
         const cardLinkDesc = cardLinkSetting.descEl;
@@ -1990,13 +2155,15 @@ class FirstLineIsTitleSettings extends PluginSettingTab {
                     await this.plugin.saveSettings();
                 })
         );
+    }
 
-        this.containerEl.createEl("br");
+    private renderForbiddenCharsTab(): void {
+        if (!this.settingsPage) return;
 
-        // Working toggle with heading-style name
-        const headerToggleSetting = new Setting(this.containerEl)
-            .setName("Forbidden character replacements")
-            .setClass("flit-header-setting")
+        // Replace forbidden characters toggle as regular setting
+        const headerToggleSetting = new Setting(this.settingsPage)
+            .setName("Replace forbidden characters")
+            .setDesc("")
             .addToggle((toggle) => {
                 toggle.setValue(this.plugin.settings.enableForbiddenCharReplacements)
                     .onChange(async (value) => {
@@ -2028,42 +2195,23 @@ class FirstLineIsTitleSettings extends PluginSettingTab {
                     });
             });
 
-        const charDescEl = this.containerEl.createEl("div", { cls: "setting-item-description" });
+        headerToggleSetting.settingEl.addClass('flit-master-toggle');
+
+        const charDescEl = this.settingsPage.createEl("div", { cls: "setting-item-description" });
 
         const updateCharDescriptionContent = () => {
-            const isEnabled = this.plugin.settings.enableForbiddenCharReplacements;
-            if (isEnabled) {
-                charDescEl.setText("Define replacements for forbidden filename characters. Characters are omitted entirely if disabled.");
-            } else {
-                charDescEl.setText("Define replacements for forbidden filename characters. Characters are omitted entirely if disabled.");
-            }
+            charDescEl.setText("Define replacements for forbidden filename characters. Characters are omitted entirely if disabled.");
         };
 
         updateCharDescriptionContent();
-        this.containerEl.createEl("br");
-        this.containerEl.createEl("br");
+        this.settingsPage.createEl("br");
+        this.settingsPage.createEl("br");
 
         // Create char settings container after description and spacing
-        const charSettingsContainer = this.containerEl.createDiv({ cls: "flit-char-settings-container" });
+        const charSettingsContainer = this.settingsPage.createDiv({ cls: "flit-char-settings-container" });
 
         const updateCharacterReplacementUI = () => {
-            const isEnabled = this.plugin.settings.enableForbiddenCharReplacements;
-
-            if (isEnabled) {
-                charDescEl.classList.remove('flit-desc-disabled');
-            } else {
-                charDescEl.classList.add('flit-desc-disabled');
-            }
-
-            // Update description content
-            updateCharDescriptionContent();
-
-            // Hide/show the entire character settings container
-            if (isEnabled) {
-                charSettingsContainer.classList.remove('hidden');
-            } else {
-                charSettingsContainer.classList.add('hidden');
-            }
+            // Character settings container is always visible - no longer hide/show based on master toggle
         };
 
         const updateCharacterSettings = () => {
@@ -2338,12 +2486,15 @@ class FirstLineIsTitleSettings extends PluginSettingTab {
         updateCharacterReplacementUI();
 
 
-        this.containerEl.createEl("br");
+    }
 
-        // Custom replacements section - use working pattern
-        const customHeaderToggleSetting = new Setting(this.containerEl)
-            .setName("Custom replacements")
-            .setClass("flit-header-setting")
+    private renderCustomReplacementsTab(): void {
+        if (!this.settingsPage) return;
+
+        // Enable custom replacements toggle as regular setting
+        const customHeaderToggleSetting = new Setting(this.settingsPage)
+            .setName("Enable custom replacements")
+            .setDesc("")
             .addToggle((toggle) => {
                 toggle.setValue(this.plugin.settings.enableCustomReplacements)
                     .onChange(async (value) => {
@@ -2353,70 +2504,48 @@ class FirstLineIsTitleSettings extends PluginSettingTab {
                     });
             });
 
-        const customDescEl = this.containerEl.createEl("div", { cls: "setting-item-description" });
+        customHeaderToggleSetting.settingEl.addClass('flit-master-toggle');
+
+        const customDescEl = this.settingsPage.createEl("div", { cls: "setting-item-description" });
 
         const updateCustomDescriptionContent = () => {
-            const isEnabled = this.plugin.settings.enableCustomReplacements;
             customDescEl.empty();
 
             customDescEl.createEl('span', { text: 'Define custom text replacements.' });
             customDescEl.createEl('br');
-            customDescEl.createEl('span', { text: '• Rules are applied before forbidden character replacements.' });
-            
-            if (isEnabled) {
-                customDescEl.createEl('br');
-                customDescEl.createEl('br');
+            customDescEl.createEl('br');
 
-                const ul = customDescEl.createEl('ul');
-                ul.style.margin = '0';
-                ul.style.paddingLeft = '20px';
+            const ul = customDescEl.createEl('ul');
+            ul.style.margin = '0';
+            ul.style.paddingLeft = '20px';
 
-                ul.createEl('li', { text: 'Rules are applied sequentially from top to bottom.' });
-                ul.createEl('li', { text: 'Whitespace preserved.' });
+            ul.createEl('li', { text: 'Whitespace preserved.' });
+            ul.createEl('li', { text: 'Rules are applied before forbidden character replacements.' });
+            ul.createEl('li', { text: 'Rules are applied sequentially from top to bottom.' });
 
-                const li3 = ul.createEl('li');
-                li3.appendText('Leave ');
-                li3.createEl('em', { text: 'Replace with' });
-                li3.appendText(' blank to omit text entirely.');
+            const li3 = ul.createEl('li');
+            li3.appendText('Leave ');
+            li3.createEl('em', { text: 'Replace with' });
+            li3.appendText(' blank to omit text entirely.');
 
-                const li4 = ul.createEl('li');
-                li4.appendText('If ');
-                li4.createEl('em', { text: 'Replace with' });
-                li4.appendText(' is blank and ');
-                li4.createEl('em', { text: 'Text to replace' });
-                li4.appendText(' matches whole line, the filename becomes ');
-                li4.createEl('em', { text: 'Untitled' });
-                li4.appendText('.');
-            }
+            const li4 = ul.createEl('li');
+            li4.appendText('If ');
+            li4.createEl('em', { text: 'Replace with' });
+            li4.appendText(' is blank and ');
+            li4.createEl('em', { text: 'Text to replace' });
+            li4.appendText(' matches whole line, the filename becomes ');
+            li4.createEl('em', { text: 'Untitled' });
+            li4.appendText('.');
         };
 
         updateCustomDescriptionContent();
-        this.containerEl.createEl("br");
+        this.settingsPage.createEl("br");
 
         // Create dedicated container for custom replacements table
-        const customReplacementsContainer = this.containerEl.createDiv({ cls: 'flit-custom-replacements-container' });
+        const customReplacementsContainer = this.settingsPage.createDiv({ cls: 'flit-custom-replacements-container' });
 
         const updateCustomReplacementUI = () => {
-            const isEnabled = this.plugin.settings.enableCustomReplacements;
-
-            if (isEnabled) {
-                customDescEl.classList.remove('flit-desc-disabled');
-            } else {
-                customDescEl.classList.add('flit-desc-disabled');
-            }
-
-            // Update description content
-            updateCustomDescriptionContent();
-
-            // Hide/show all custom replacement elements
-            const customSettingsEls = this.containerEl.querySelectorAll('.flit-custom-replacement-setting, .flit-custom-replacement-header, .flit-add-replacement-button');
-            customSettingsEls.forEach(el => {
-                if (isEnabled) {
-                    el.classList.remove('hidden');
-                } else {
-                    el.classList.add('hidden');
-                }
-            });
+            // Custom replacement elements are always visible - no longer hide/show based on master toggle
         };
 
         const renderCustomReplacements = () => {
@@ -2424,7 +2553,7 @@ class FirstLineIsTitleSettings extends PluginSettingTab {
             customReplacementsContainer.empty();
 
             // Clear existing add button
-            const existingAddButton = this.containerEl.querySelector('.flit-add-replacement-button');
+            const existingAddButton = this.settingsPage.querySelector('.flit-add-replacement-button');
             if (existingAddButton) existingAddButton.remove();
 
             // Create table container
@@ -2483,7 +2612,7 @@ class FirstLineIsTitleSettings extends PluginSettingTab {
                 // Create text input 1 container and input
                 const input1Container = rowEl.createDiv({ cls: "flit-text-column" });
                 const input1 = input1Container.createEl("input", { type: "text" });
-                input1.placeholder = "Text to replace";
+                input1.placeholder = "Empty";
                 input1.value = replacement.searchText;
                 input1.addEventListener('input', async (e) => {
                     this.plugin.settings.customReplacements[index].searchText = (e.target as HTMLInputElement).value;
@@ -2626,12 +2755,15 @@ class FirstLineIsTitleSettings extends PluginSettingTab {
 
         renderCustomReplacements();
 
-        this.containerEl.createEl("br");
+    }
 
-        // Safewords section - use working pattern
-        const safewordsHeaderToggleSetting = new Setting(this.containerEl)
-            .setName("Safewords")
-            .setClass("flit-header-setting")
+    private renderSafewordsTab(): void {
+        if (!this.settingsPage) return;
+
+        // Enable safewords toggle as regular setting
+        const safewordsHeaderToggleSetting = new Setting(this.settingsPage)
+            .setName("Enable safewords")
+            .setDesc("")
             .addToggle((toggle) => {
                 toggle.setValue(this.plugin.settings.enableSafewords)
                     .onChange(async (value) => {
@@ -2656,50 +2788,33 @@ class FirstLineIsTitleSettings extends PluginSettingTab {
                     });
             });
 
-        const safewordsDescEl = this.containerEl.createEl("div", { cls: "setting-item-description" });
+        safewordsHeaderToggleSetting.settingEl.addClass('flit-master-toggle');
+
+        const safewordsDescEl = this.settingsPage.createEl("div", { cls: "setting-item-description" });
 
         const updateSafewordsDescriptionContent = () => {
             safewordsDescEl.empty();
-            safewordsDescEl.createEl('span', { text: 'Specify filenames not to be renamed.' });
+            safewordsDescEl.createEl('span', { text: 'Specify text that prevents files from being renamed.' });
         };
 
         updateSafewordsDescriptionContent();
-        this.containerEl.createEl("br");
+        this.settingsPage.createEl("br");
 
         const updateSafewordsUI = () => {
-            const isEnabled = this.plugin.settings.enableSafewords;
-
-            if (isEnabled) {
-                safewordsDescEl.classList.remove('flit-desc-disabled');
-            } else {
-                safewordsDescEl.classList.add('flit-desc-disabled');
-            }
-
-            // Update description content
-            updateSafewordsDescriptionContent();
-
-            // Hide/show all safeword elements
-            const safewordSettingsEls = this.containerEl.querySelectorAll('.flit-safeword-setting, .flit-safeword-header, .flit-add-safeword-button');
-            safewordSettingsEls.forEach(el => {
-                if (isEnabled) {
-                    el.classList.remove('hidden');
-                } else {
-                    el.classList.add('hidden');
-                }
-            });
+            // Safeword elements are always visible - no longer hide/show based on master toggle
         };
 
         const renderSafewords = () => {
             // Clear existing safeword settings and containers
-            const existingSafewordSettings = this.containerEl.querySelectorAll('.flit-safeword-setting, .flit-safeword-header, .flit-safeword-table-container');
+            const existingSafewordSettings = this.settingsPage.querySelectorAll('.flit-safeword-setting, .flit-safeword-header, .flit-safeword-table-container');
             existingSafewordSettings.forEach(el => el.remove());
 
             // Clear existing add button
-            const existingAddButton = this.containerEl.querySelector('.flit-add-safeword-button');
+            const existingAddButton = this.settingsPage.querySelector('.flit-add-safeword-button');
             if (existingAddButton) existingAddButton.remove();
 
             // Create table container
-            const tableContainer = this.containerEl.createEl('div', { cls: 'flit-table-container flit-safeword-table-container' });
+            const tableContainer = this.settingsPage.createEl('div', { cls: 'flit-table-container flit-safeword-table-container' });
             const tableWrapper = tableContainer.createEl('div', { cls: 'flit-table-wrapper' });
 
             // Create header row with column titles
@@ -2724,13 +2839,13 @@ class FirstLineIsTitleSettings extends PluginSettingTab {
             const wholeLine1 = wholeLineHeader.createDiv();
             wholeLine1.textContent = "Only match";
             const wholeLine2 = wholeLineHeader.createDiv();
-            wholeLine2.textContent = "full";
+            wholeLine2.textContent = "whole";
             const wholeLine3 = wholeLineHeader.createDiv();
             wholeLine3.textContent = "filename";
 
             const caseSensitiveHeader = headerRow.createDiv({ cls: "flit-toggle-column" });
             const caseLine1 = caseSensitiveHeader.createDiv();
-            caseLine1.textContent = "Case";
+            caseLine1.textContent = "Case-";
             const caseLine2 = caseSensitiveHeader.createDiv();
             caseLine2.textContent = "sensitive";
 
@@ -2759,7 +2874,7 @@ class FirstLineIsTitleSettings extends PluginSettingTab {
                 // Create text input container and input
                 const inputContainer = rowEl.createDiv({ cls: "flit-text-column flit-safeword-input" });
                 const input = inputContainer.createEl("input", { type: "text" });
-                input.placeholder = "Safeword";
+                input.placeholder = "Empty";
                 input.value = safeword.text;
                 input.addEventListener('input', async (e) => {
                     const inputEl = e.target as HTMLInputElement;
@@ -2921,7 +3036,7 @@ class FirstLineIsTitleSettings extends PluginSettingTab {
             });
 
             // Always add the "Add safeword" button at the end
-            const addButtonSetting = new Setting(this.containerEl)
+            const addButtonSetting = new Setting(this.settingsPage)
                 .addButton((button) =>
                     button.setButtonText("Add safeword").onClick(async () => {
                         this.plugin.settings.safewords.push({
@@ -2942,5 +3057,90 @@ class FirstLineIsTitleSettings extends PluginSettingTab {
         };
 
         renderSafewords();
+
+    }
+
+    private renderAdvancedTab(): void {
+        if (!this.settingsPage) return;
+
+        // Check interval setting
+        new Setting(this.settingsPage)
+            .setName("Check interval")
+            .setDesc(createFragment(fragment => {
+                fragment.createSpan({ text: "Interval in milliseconds of how often to rename files while editing. Increase in case of issues. " });
+                fragment.createEl("br");
+                const noteSpan = fragment.createSpan({ text: "Note: lower values may cause errors when using " });
+                noteSpan.createEl("em", { text: "Web Clipper" });
+                noteSpan.createSpan({ text: " or " });
+                noteSpan.createEl("em", { text: "Templater" });
+                noteSpan.createSpan({ text: " plugins." });
+                fragment.createEl("br");
+                fragment.createEl("small").createEl("strong", { text: "Default: 600" });
+            }))
+            .addText((text) =>
+                text
+                    .setPlaceholder("Empty")
+                    .setValue(String(this.plugin.settings.checkInterval))
+                    .onChange(async (value) => {
+                        if (value === '') {
+                            this.plugin.settings.checkInterval = DEFAULT_SETTINGS.checkInterval;
+                        } else if (!isNaN(Number(value))) {
+                            this.plugin.settings.checkInterval = Number(value);
+                        }
+                        await this.plugin.saveSettings();
+                    })
+            );
+
+        // Omit comments setting
+        new Setting(this.settingsPage)
+            .setName("Omit comments")
+            .setDesc("Omit %%markdown%% and <!--HTML--> comments in title.")
+            .addToggle((toggle) =>
+                toggle
+                    .setValue(this.plugin.settings.omitComments)
+                    .onChange(async (value) => {
+                        this.plugin.settings.omitComments = value;
+                        await this.plugin.saveSettings();
+                    })
+            );
+
+        // Omit HTML tags setting
+        new Setting(this.settingsPage)
+            .setName("Omit HTML tags")
+            .setDesc("Omit HTML tags from the title.")
+            .addToggle((toggle) =>
+                toggle
+                    .setValue(this.plugin.settings.omitHtmlTags)
+                    .onChange(async (value) => {
+                        this.plugin.settings.omitHtmlTags = value;
+                        await this.plugin.saveSettings();
+                    })
+            );
+
+        // File read method setting
+        new Setting(this.settingsPage)
+            .setName("Use direct file read")
+            .setDesc("Read directly from disk instead of file cache. Can resolve issues with other plugins but may be slower.")
+            .addToggle((toggle) =>
+                toggle
+                    .setValue(this.plugin.settings.useDirectFileRead)
+                    .onChange(async (value) => {
+                        this.plugin.settings.useDirectFileRead = value;
+                        await this.plugin.saveSettings();
+                    })
+            );
+
+        // Verbose logging setting
+        new Setting(this.settingsPage)
+            .setName("Verbose logging")
+            .setDesc("Log all of the plugin's activity to the developer console.")
+            .addToggle((toggle) =>
+                toggle
+                    .setValue(this.plugin.settings.verboseLogging)
+                    .onChange(async (value) => {
+                        this.plugin.settings.verboseLogging = value;
+                        await this.plugin.saveSettings();
+                    })
+            );
     }
 }
