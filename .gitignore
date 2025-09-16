@@ -1,0 +1,14 @@
+# Compiled output
+main.js
+
+# Dependencies
+node_modules/
+
+# System files
+.DS_Store
+
+# Plugin data
+data.json
+
+# Build artifacts
+*.map
