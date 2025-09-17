@@ -4,7 +4,7 @@ Automatically put the first line in note title.
 
 Can replace forbidden characters with safe alternatives. Supports custom replacemet rules.
 
-![473493035-31c57879-eff3-4615-b358-83b12c97ecb4](https://github.com/user-attachments/assets/db239dd6-ae89-4ffa-8c3c-7a1788e600ed)
+<img src="https://github.com/user-attachments/assets/4d4bb0d5-aaa8-464a-9e00-eeb88f4235de" height="450">
 
 **⚠️ It's recommended that you back up your files before using this plugin.**
 
