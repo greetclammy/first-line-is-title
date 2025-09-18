@@ -650,6 +650,49 @@ class FolderSuggest extends AbstractInputSuggest<TFolder> {
     }
 }
 
+class TagSuggest extends AbstractInputSuggest<string> {
+    private inputEl: HTMLInputElement;
+    private onSelectCallback: (value: string) => void;
+
+    constructor(app: App, inputEl: HTMLInputElement, onSelectCallback: (value: string) => void) {
+        super(app, inputEl);
+        this.inputEl = inputEl;
+        this.onSelectCallback = onSelectCallback;
+    }
+
+    getSuggestions(query: string): string[] {
+        // Get all tags from the vault
+        const allTags = Object.keys(this.app.metadataCache.getTags());
+
+        if (!query) {
+            return allTags.slice(0, 10);
+        }
+
+        const lowerQuery = query.toLowerCase();
+        return allTags.filter(tag =>
+            tag.toLowerCase().includes(lowerQuery)
+        ).slice(0, 10);
+    }
+
+    renderSuggestion(tag: string, el: HTMLElement): void {
+        el.setText(tag);
+    }
+
+    selectSuggestion(tag: string, evt: MouseEvent | KeyboardEvent): void {
+        // Execute callback first to handle the setting change
+        this.onSelectCallback(tag);
+
+        // Update the input value
+        this.inputEl.value = tag;
+
+        // Use jQuery-style trigger which Obsidian expects
+        this.inputEl.trigger("input");
+
+        // Close the suggestion popup
+        this.close();
+    }
+}
+
 interface CustomReplacement {
     searchText: string;
     replaceText: string;
@@ -671,6 +714,7 @@ type NotificationMode = 'Always' | 'On title change' | 'Never';
 
 interface PluginSettings {
     excludedFolders: string[];
+    excludedTags: string[];
     charCount: number;
     checkInterval: number;
     disableRenamingKey: string;
@@ -760,10 +804,17 @@ interface PluginSettings {
     useDirectFileRead: boolean; // Use direct file read instead of cache (slower but may resolve issues)
     verboseLogging: boolean; // Added verbose logging setting
     currentSettingsTab: string; // Track current settings tab
+    commandVisibility: {
+        folderPutFirstLineInTitle: boolean;
+        folderExclude: boolean;
+        folderStopExcluding: boolean;
+        filePutFirstLineInTitle: boolean;
+    };
 }
 
 const DEFAULT_SETTINGS: PluginSettings = {
-    excludedFolders: [],
+    excludedFolders: [""],
+    excludedTags: [""],
     charCount: 100,
     checkInterval: 600,
     disableRenamingKey: 'rename',
@@ -857,7 +908,13 @@ const DEFAULT_SETTINGS: PluginSettings = {
     excludeSubfolders: true,
     useDirectFileRead: false, // Default to cached read for performance
     verboseLogging: false, // Added default for verbose logging
-    currentSettingsTab: 'general' // Default to general tab
+    currentSettingsTab: 'general', // Default to general tab
+    commandVisibility: {
+        folderPutFirstLineInTitle: true,
+        folderExclude: true,
+        folderStopExcluding: true,
+        filePutFirstLineInTitle: true
+    }
 };
 
 // OS-specific forbidden characters
@@ -913,22 +970,47 @@ function detectOS(): OSPreset {
 }
 
 function inExcludedFolder(file: TFile, settings: PluginSettings): boolean {
-    if (settings.excludedFolders.length === 0) return false;
-    
+    // Filter out empty strings
+    const nonEmptyFolders = settings.excludedFolders.filter(folder => folder.trim() !== "");
+    if (nonEmptyFolders.length === 0) return false;
+
     const filePath = file.parent?.path as string;
-    if (settings.excludedFolders.includes(filePath)) {
+    if (nonEmptyFolders.includes(filePath)) {
         return true;
     }
     
     // Check subfolders if enabled
     if (settings.excludeSubfolders) {
-        for (const excludedFolder of settings.excludedFolders) {
+        for (const excludedFolder of nonEmptyFolders) {
             if (filePath && filePath.startsWith(excludedFolder + "/")) {
                 return true;
             }
         }
     }
     
+    return false;
+}
+
+function isFileExcluded(file: TFile, settings: PluginSettings, app: App): boolean {
+    // Check folder exclusions
+    if (inExcludedFolder(file, settings)) {
+        return true;
+    }
+
+    // Check tag exclusions
+    const nonEmptyTags = settings.excludedTags.filter(tag => tag.trim() !== "");
+    if (nonEmptyTags.length > 0) {
+        const fileCache = app.metadataCache.getFileCache(file);
+        if (fileCache && fileCache.tags) {
+            const fileTags = fileCache.tags.map(tag => tag.tag);
+            for (const excludedTag of nonEmptyTags) {
+                if (fileTags.includes(excludedTag)) {
+                    return true;
+                }
+            }
+        }
+    }
+
     return false;
 }
 
@@ -1235,7 +1317,7 @@ class RenameAllFilesModal extends Modal {
     async renameAllFiles() {
         let filesToRename: TFile[] = [];
         this.app.vault.getMarkdownFiles().forEach((file) => {
-            if (!inExcludedFolder(file, this.plugin.settings)) {
+            if (!isFileExcluded(file, this.plugin.settings, this.app)) {
                 filesToRename.push(file);
             }
         });
@@ -1278,6 +1360,44 @@ class RenameAllFilesModal extends Modal {
     }
 }
 
+class RenameFolderModal extends Modal {
+    plugin: FirstLineIsTitle;
+    folder: TFolder;
+
+    constructor(app: App, plugin: FirstLineIsTitle, folder: TFolder) {
+        super(app);
+        this.plugin = plugin;
+        this.folder = folder;
+    }
+
+    onOpen() {
+        const { contentEl } = this;
+        contentEl.empty();
+
+        const heading = contentEl.createEl("h2", { text: "Warning", cls: "flit-modal-heading" });
+        contentEl.createEl("p", {
+            text: `This will edit all of your files in ${this.folder.path}, and may introduce errors. Make sure you have backed up your files.`
+        });
+
+        const buttonContainer = contentEl.createDiv({ cls: "modal-button-container flit-modal-button-container" });
+
+        const cancelButton = buttonContainer.createEl("button", { text: "Cancel" });
+        cancelButton.onclick = () => this.close();
+
+        const renameButton = buttonContainer.createEl("button", { text: "Rename all files" });
+        renameButton.addClass("mod-cta");
+        renameButton.onclick = async () => {
+            this.close();
+            await this.plugin.putFirstLineInTitleForFolder(this.folder);
+        };
+    }
+
+    onClose() {
+        const { contentEl } = this;
+        contentEl.empty();
+    }
+}
+
 export default class FirstLineIsTitle extends Plugin {
     settings: PluginSettings;
 
@@ -1297,10 +1417,63 @@ export default class FirstLineIsTitle extends Plugin {
         verboseLog(this, 'Cache cleanup completed');
     }
 
+    async putFirstLineInTitleForFolder(folder: TFolder): Promise<void> {
+        const files = this.app.vault.getAllLoadedFiles()
+            .filter((file): file is TFile => file instanceof TFile && file.extension === 'md')
+            .filter(file => {
+                // Check if file is in the target folder or its subfolders
+                return file.path.startsWith(folder.path + "/") || file.parent?.path === folder.path;
+            });
+
+        if (files.length === 0) {
+            new Notice("No markdown files found in this folder.");
+            return;
+        }
+
+        new Notice(`Processing ${files.length} files in "${folder.path}"...`);
+
+        let processedCount = 0;
+        let errorCount = 0;
+
+        for (const file of files) {
+            try {
+                // Use the existing renameFile method with ignoreExclusions = true to force processing
+                await this.renameFile(file, true, true);
+                processedCount++;
+            } catch (error) {
+                verboseLog(this, `Error processing file ${file.path}:`, error);
+                errorCount++;
+            }
+        }
+
+        if (errorCount > 0) {
+            new Notice(`Processed ${processedCount} files with ${errorCount} errors.`);
+        } else {
+            new Notice(`Successfully processed ${processedCount} files.`);
+        }
+    }
+
+    async toggleFolderExclusion(folderPath: string): Promise<void> {
+        const isExcluded = this.settings.excludedFolders.includes(folderPath);
+
+        if (isExcluded) {
+            // Remove from excluded folders
+            this.settings.excludedFolders = this.settings.excludedFolders.filter(path => path !== folderPath);
+            new Notice(`Renaming enabled for folder: ${folderPath}`);
+        } else {
+            // Add to excluded folders
+            this.settings.excludedFolders.push(folderPath);
+            new Notice(`Renaming disabled for folder: ${folderPath}`);
+        }
+
+        await this.saveSettings();
+        verboseLog(this, `Folder exclusion toggled for: ${folderPath}`, { isNowExcluded: !isExcluded });
+    }
+
     async renameFile(file: TFile, noDelay = false, ignoreExclusions = false): Promise<void> {
         verboseLog(this, `Processing file: ${file.path}`, { noDelay, ignoreExclusions });
         
-        if (!ignoreExclusions && inExcludedFolder(file, this.settings)) {
+        if (!ignoreExclusions && isFileExcluded(file, this.settings, this.app)) {
             verboseLog(this, `Skipping excluded file: ${file.path}`);
             return;
         }
@@ -1348,20 +1521,20 @@ export default class FirstLineIsTitle extends Plugin {
             throw new Error(`Failed to read file: ${error.message}`);
         }
 
-        // Check if this file has the disable property and skip if enabled
-        if (!ignoreExclusions && hasDisableProperty(content, this.settings)) {
+        // Check if this file has the disable property and skip if enabled (always respect disable property)
+        if (hasDisableProperty(content, this.settings)) {
             verboseLog(this, `Skipping file with disable property: ${file.path}`);
             return;
         }
 
-        // Check if this is an Excalidraw file and skip if enabled
-        if (!ignoreExclusions && isExcalidrawFile(content, this.settings)) {
+        // Check if this is an Excalidraw file and skip if enabled (always respect Excalidraw protection)
+        if (isExcalidrawFile(content, this.settings)) {
             verboseLog(this, `Skipping Excalidraw file: ${file.path}`);
             return;
         }
 
-        // Check if filename contains any safewords and skip if enabled
-        if (!ignoreExclusions && containsSafeword(file.name, this.settings)) {
+        // Check if filename contains any safewords and skip if enabled (always respect safewords)
+        if (containsSafeword(file.name, this.settings)) {
             verboseLog(this, `Skipping file with safeword: ${file.path}`);
             return;
         }
@@ -1734,6 +1907,63 @@ export default class FirstLineIsTitle extends Plugin {
             }
         });
 
+        // Add context menu handlers
+        this.registerEvent(
+            this.app.workspace.on("file-menu", (menu, file) => {
+                if (file instanceof TFolder) {
+                    // Add "Put first line in title" command for folder
+                    if (this.settings.commandVisibility.folderPutFirstLineInTitle) {
+                        menu.addItem((item) => {
+                            item
+                                .setTitle("Put first line in title")
+                                .setIcon("folder-pen")
+                                .onClick(() => {
+                                    new RenameFolderModal(this.app, this, file).open();
+                                });
+                        });
+                    }
+
+                    // Add folder exclusion commands
+                    const isExcluded = this.settings.excludedFolders.includes(file.path);
+
+                    if (!isExcluded && this.settings.commandVisibility.folderExclude) {
+                        menu.addItem((item) => {
+                            item
+                                .setTitle("Disable renaming in folder")
+                                .setIcon("folder-x")
+                                .onClick(async () => {
+                                    await this.toggleFolderExclusion(file.path);
+                                });
+                        });
+                    }
+
+                    if (isExcluded && this.settings.commandVisibility.folderStopExcluding) {
+                        menu.addItem((item) => {
+                            item
+                                .setTitle("Enable renaming in folder")
+                                .setIcon("folder-check")
+                                .onClick(async () => {
+                                    await this.toggleFolderExclusion(file.path);
+                                });
+                        });
+                    }
+                } else if (file instanceof TFile && file.extension === 'md') {
+                    // Add "Put first line in title" command for files
+                    if (this.settings.commandVisibility.filePutFirstLineInTitle) {
+                        menu.addItem((item) => {
+                            item
+                                .setTitle("Put first line in title")
+                                .setIcon("file-pen")
+                                .onClick(async () => {
+                                    // Run the "even if excluded" version
+                                    await this.renameFile(file, true, true);
+                                });
+                        });
+                    }
+                }
+            })
+        );
+
         this.registerEvent(
             this.app.vault.on("modify", (abstractFile) => {
                 if (abstractFile instanceof TFile && abstractFile.extension === 'md') {
@@ -1814,6 +2044,14 @@ export default class FirstLineIsTitle extends Plugin {
                 caseSensitive: safeword.caseSensitive !== undefined ? safeword.caseSensitive : false
             }));
         }
+
+        // Ensure there's always at least one entry for folders and tags (even if empty)
+        if (this.settings.excludedFolders.length === 0) {
+            this.settings.excludedFolders.push("");
+        }
+        if (this.settings.excludedTags.length === 0) {
+            this.settings.excludedTags.push("");
+        }
     }
 
     async saveSettings(): Promise<void> {
@@ -1827,10 +2065,11 @@ class FirstLineIsTitleSettings extends PluginSettingTab {
 
     private readonly TABS = {
         GENERAL: { id: 'general', name: 'General' },
-        EXCLUDED_FOLDERS: { id: 'excluded-folders', name: 'Excluded folders' },
+        EXCLUSIONS: { id: 'exclusions', name: 'Exclusions' },
         FORBIDDEN_CHARS: { id: 'forbidden-chars', name: 'Forbidden character replacements' },
         CUSTOM_REPLACEMENTS: { id: 'custom-replacements', name: 'Custom replacements' },
         SAFEWORDS: { id: 'safewords', name: 'Safewords' },
+        COMMANDS: { id: 'commands', name: 'Commands' },
         PLUGIN_SUPPORT: { id: 'plugin-support', name: 'Support for other plugins' },
         ADVANCED: { id: 'advanced', name: 'Advanced' }
     };
@@ -1887,8 +2126,8 @@ class FirstLineIsTitleSettings extends PluginSettingTab {
             case 'general':
                 this.renderGeneralTab();
                 break;
-            case 'excluded-folders':
-                this.renderExcludedFoldersTab();
+            case 'exclusions':
+                this.renderExclusionsTab();
                 break;
             case 'forbidden-chars':
                 this.renderForbiddenCharsTab();
@@ -1898,6 +2137,9 @@ class FirstLineIsTitleSettings extends PluginSettingTab {
                 break;
             case 'safewords':
                 this.renderSafewordsTab();
+                break;
+            case 'commands':
+                this.renderCommandsTab();
                 break;
             case 'plugin-support':
                 this.renderPluginSupportTab();
@@ -2022,11 +2264,14 @@ class FirstLineIsTitleSettings extends PluginSettingTab {
             );
     }
 
-    private renderExcludedFoldersTab(): void {
+    private renderExclusionsTab(): void {
         if (!this.settingsPage) return;
 
-        // Exclude subfolders setting moved to top
-        new Setting(this.settingsPage)
+        // Folders subsection
+        this.settingsPage.createEl("h4", { text: "Folders" });
+
+        // Exclude subfolders setting under Folders heading
+        const subfolderSetting = new Setting(this.settingsPage)
             .setName("Exclude subfolders")
             .setDesc("Exclude all subfolders of excluded folders.")
             .addToggle((toggle) =>
@@ -2038,7 +2283,11 @@ class FirstLineIsTitleSettings extends PluginSettingTab {
                     })
             );
 
-        // Add divider line beneath subfolder option
+        // Remove any top border from the subfolder setting
+        subfolderSetting.settingEl.style.borderTop = "none";
+        subfolderSetting.settingEl.style.paddingTop = "0";
+
+        // Add divider line right after subfolder option
         this.settingsPage.createEl("hr", { cls: "flit-divider" });
 
         // Create a container for folder settings that will stay in place
@@ -2050,36 +2299,77 @@ class FirstLineIsTitleSettings extends PluginSettingTab {
 
             // Render each folder setting
             this.plugin.settings.excludedFolders.forEach((folder, index) => {
-                const folderSetting = new Setting(folderContainer)
-                    .addText(text => {
-                        text.setPlaceholder("Folder name")
-                            .setValue(folder)
-                            .onChange(async (value) => {
-                                this.plugin.settings.excludedFolders[index] = value;
-                                await this.plugin.saveSettings();
-                            });
-                        text.inputEl.style.width = "100%";
+                const folderSetting = new Setting(folderContainer);
+                let textInput: any;
+                let removeButton: any;
 
-                        // Add folder suggestion functionality
-                        try {
-                            new FolderSuggest(this.plugin.app, text.inputEl, async (selectedPath: string) => {
-                                // Update the settings when a folder is selected
-                                this.plugin.settings.excludedFolders[index] = selectedPath;
-                                await this.plugin.saveSettings();
-                            });
-                        } catch (error) {
-                            console.error('Failed to create FolderSuggest:', error);
+                const updateButtonState = () => {
+                    const isLastEmptyEntry = this.plugin.settings.excludedFolders.length === 1 &&
+                                              this.plugin.settings.excludedFolders[0].trim() === "";
+
+                    if (isLastEmptyEntry) {
+                        // Don't set any tooltip, disable button
+                        removeButton.setDisabled(true);
+                        removeButton.extraSettingsEl.style.opacity = "0.5";
+                        removeButton.extraSettingsEl.style.pointerEvents = "none";
+                        removeButton.extraSettingsEl.removeAttribute('aria-label');
+                        removeButton.extraSettingsEl.title = "";
+                    } else {
+                        removeButton.setDisabled(false);
+                        removeButton.extraSettingsEl.style.opacity = "1";
+                        removeButton.extraSettingsEl.style.pointerEvents = "auto";
+                        removeButton.setTooltip("Remove");
+                    }
+                };
+
+                folderSetting.addText(text => {
+                    textInput = text;
+                    text.setPlaceholder("Folder name")
+                        .setValue(folder)
+                        .onChange(async (value) => {
+                            this.plugin.settings.excludedFolders[index] = value;
+                            await this.plugin.saveSettings();
+                            updateButtonState(); // Update button state when text changes
+                        });
+                    text.inputEl.style.width = "100%";
+
+                    // Add folder suggestion functionality
+                    try {
+                        new FolderSuggest(this.plugin.app, text.inputEl, async (selectedPath: string) => {
+                            // Update the settings when a folder is selected
+                            this.plugin.settings.excludedFolders[index] = selectedPath;
+                            await this.plugin.saveSettings();
+                            updateButtonState(); // Update button state when suggestion is selected
+                        });
+                    } catch (error) {
+                        console.error('Failed to create FolderSuggest:', error);
+                    }
+                })
+                .addExtraButton(button => {
+                    removeButton = button;
+                    button.setIcon("x");
+
+                    button.onClick(async () => {
+                        // Only execute if not disabled
+                        const isLastEmptyEntry = this.plugin.settings.excludedFolders.length === 1 &&
+                                                  this.plugin.settings.excludedFolders[0].trim() === "";
+
+                        if (!isLastEmptyEntry) {
+                            this.plugin.settings.excludedFolders.splice(index, 1);
+
+                            // If this was the last entry, add a new empty one
+                            if (this.plugin.settings.excludedFolders.length === 0) {
+                                this.plugin.settings.excludedFolders.push("");
+                            }
+
+                            await this.plugin.saveSettings();
+                            renderExcludedFolders();
                         }
-                    })
-                    .addExtraButton(button => {
-                        button.setIcon("x")
-                            .setTooltip("Delete")
-                            .onClick(async () => {
-                                this.plugin.settings.excludedFolders.splice(index, 1);
-                                await this.plugin.saveSettings();
-                                renderExcludedFolders();
-                            });
                     });
+
+                    // Initial button state
+                    updateButtonState();
+                });
 
                 folderSetting.settingEl.addClass('flit-excluded-folder-setting');
             });
@@ -2098,6 +2388,165 @@ class FirstLineIsTitleSettings extends PluginSettingTab {
         };
 
         renderExcludedFolders();
+
+        // Tags subsection
+        this.settingsPage.createEl("h4", { text: "Tags" });
+
+        // Create a container for tag settings that will stay in place
+        const tagContainer = this.settingsPage.createDiv();
+
+        const renderExcludedTags = () => {
+            // Clear only the tag container
+            tagContainer.empty();
+
+            // Render each tag setting
+            this.plugin.settings.excludedTags.forEach((tag, index) => {
+                const tagSetting = new Setting(tagContainer);
+                let textInput: any;
+                let removeButton: any;
+
+                const updateButtonState = () => {
+                    const isLastEmptyEntry = this.plugin.settings.excludedTags.length === 1 &&
+                                              this.plugin.settings.excludedTags[0].trim() === "";
+
+                    if (isLastEmptyEntry) {
+                        // Don't set any tooltip, disable button
+                        removeButton.setDisabled(true);
+                        removeButton.extraSettingsEl.style.opacity = "0.5";
+                        removeButton.extraSettingsEl.style.pointerEvents = "none";
+                        removeButton.extraSettingsEl.removeAttribute('aria-label');
+                        removeButton.extraSettingsEl.title = "";
+                    } else {
+                        removeButton.setDisabled(false);
+                        removeButton.extraSettingsEl.style.opacity = "1";
+                        removeButton.extraSettingsEl.style.pointerEvents = "auto";
+                        removeButton.setTooltip("Remove");
+                    }
+                };
+
+                tagSetting.addText(text => {
+                    textInput = text;
+                    text.setPlaceholder("Tag name")
+                        .setValue(tag)
+                        .onChange(async (value) => {
+                            this.plugin.settings.excludedTags[index] = value;
+                            await this.plugin.saveSettings();
+                            updateButtonState(); // Update button state when text changes
+                        });
+                    text.inputEl.style.width = "100%";
+
+                    // Add tag suggestion functionality
+                    try {
+                        new TagSuggest(this.plugin.app, text.inputEl, async (selectedTag: string) => {
+                            // Update the settings when a tag is selected
+                            this.plugin.settings.excludedTags[index] = selectedTag;
+                            await this.plugin.saveSettings();
+                            updateButtonState(); // Update button state when suggestion is selected
+                        });
+                    } catch (error) {
+                        console.error('Failed to create TagSuggest:', error);
+                    }
+                })
+                .addExtraButton(button => {
+                    removeButton = button;
+                    button.setIcon("x");
+
+                    button.onClick(async () => {
+                        // Only execute if not disabled
+                        const isLastEmptyEntry = this.plugin.settings.excludedTags.length === 1 &&
+                                                  this.plugin.settings.excludedTags[0].trim() === "";
+
+                        if (!isLastEmptyEntry) {
+                            this.plugin.settings.excludedTags.splice(index, 1);
+
+                            // If this was the last entry, add a new empty one
+                            if (this.plugin.settings.excludedTags.length === 0) {
+                                this.plugin.settings.excludedTags.push("");
+                            }
+
+                            await this.plugin.saveSettings();
+                            renderExcludedTags();
+                        }
+                    });
+
+                    // Initial button state
+                    updateButtonState();
+                });
+
+                tagSetting.settingEl.addClass('flit-excluded-folder-setting');
+            });
+
+            // Always add the "Add tag" button at the end
+            const addTagButtonSetting = new Setting(tagContainer)
+                .addButton(button => {
+                    button.setButtonText("Add tag")
+                        .onClick(async () => {
+                            this.plugin.settings.excludedTags.push("");
+                            await this.plugin.saveSettings();
+                            renderExcludedTags();
+                        });
+                });
+            addTagButtonSetting.settingEl.addClass('flit-add-folder-button');
+        };
+
+        renderExcludedTags();
+    }
+
+    private renderCommandsTab(): void {
+        if (!this.settingsPage) return;
+
+        this.settingsPage.createEl("p", {
+            text: "Control which commands appear in context menus for files and folders.",
+            cls: "setting-item-description"
+        });
+
+        new Setting(this.settingsPage)
+            .setName("Put first line in title (note)")
+            .setDesc("Show command to process individual note.")
+            .addToggle(toggle =>
+                toggle
+                    .setValue(this.plugin.settings.commandVisibility.filePutFirstLineInTitle)
+                    .onChange(async (value) => {
+                        this.plugin.settings.commandVisibility.filePutFirstLineInTitle = value;
+                        await this.plugin.saveSettings();
+                    })
+            );
+
+        new Setting(this.settingsPage)
+            .setName("Put first line in title (folder)")
+            .setDesc("Show command to process all notes in folder.")
+            .addToggle(toggle =>
+                toggle
+                    .setValue(this.plugin.settings.commandVisibility.folderPutFirstLineInTitle)
+                    .onChange(async (value) => {
+                        this.plugin.settings.commandVisibility.folderPutFirstLineInTitle = value;
+                        await this.plugin.saveSettings();
+                    })
+            );
+
+        new Setting(this.settingsPage)
+            .setName("Disable renaming in folder")
+            .setDesc("Show command to exclude folder.")
+            .addToggle(toggle =>
+                toggle
+                    .setValue(this.plugin.settings.commandVisibility.folderExclude)
+                    .onChange(async (value) => {
+                        this.plugin.settings.commandVisibility.folderExclude = value;
+                        await this.plugin.saveSettings();
+                    })
+            );
+
+        new Setting(this.settingsPage)
+            .setName("Enable renaming in folder")
+            .setDesc("Show command to remove folder from excluded folders.")
+            .addToggle(toggle =>
+                toggle
+                    .setValue(this.plugin.settings.commandVisibility.folderStopExcluding)
+                    .onChange(async (value) => {
+                        this.plugin.settings.commandVisibility.folderStopExcluding = value;
+                        await this.plugin.saveSettings();
+                    })
+            );
     }
 
     private renderPluginSupportTab(): void {
@@ -2772,7 +3221,7 @@ class FirstLineIsTitleSettings extends PluginSettingTab {
 
         const updateSafewordsDescriptionContent = () => {
             safewordsDescEl.empty();
-            safewordsDescEl.createEl('span', { text: 'Specify text that prevents files from being renamed.' });
+            safewordsDescEl.createEl('span', { text: 'Specify text that, if matched in filename, prevents note renaming.' });
         };
 
         updateSafewordsDescriptionContent();
