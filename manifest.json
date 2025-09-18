@@ -1,7 +1,7 @@
 {
   "id": "first-line-is-title",
   "name": "First Line is Title",
-  "version": "1.6.1",
+  "version": "1.6.2",
   "minAppVersion": "1.4.16",
   "description": "Automatically put the first line in note title.",
   "author": "greetclammy",
