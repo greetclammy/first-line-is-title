@@ -997,14 +997,18 @@ function isFileExcluded(file: TFile, settings: PluginSettings, app: App): boolea
         return true;
     }
 
-    // Check tag exclusions
+    // Check tag exclusions (only YAML frontmatter tags)
     const nonEmptyTags = settings.excludedTags.filter(tag => tag.trim() !== "");
     if (nonEmptyTags.length > 0) {
         const fileCache = app.metadataCache.getFileCache(file);
-        if (fileCache && fileCache.tags) {
-            const fileTags = fileCache.tags.map(tag => tag.tag);
+        if (fileCache && fileCache.frontmatter && fileCache.frontmatter.tags) {
+            const frontmatterTags = fileCache.frontmatter.tags;
+            // Handle both string arrays and single strings
+            const fileTags = Array.isArray(frontmatterTags) ? frontmatterTags : [frontmatterTags];
             for (const excludedTag of nonEmptyTags) {
-                if (fileTags.includes(excludedTag)) {
+                // Normalize both sides: remove # prefix for comparison
+                const normalizedExcludedTag = excludedTag.startsWith('#') ? excludedTag.slice(1) : excludedTag;
+                if (fileTags.includes(normalizedExcludedTag)) {
                     return true;
                 }
             }
@@ -3221,7 +3225,7 @@ class FirstLineIsTitleSettings extends PluginSettingTab {
 
         const updateSafewordsDescriptionContent = () => {
             safewordsDescEl.empty();
-            safewordsDescEl.createEl('span', { text: 'Specify text that, if matched in filename, prevents note renaming.' });
+            safewordsDescEl.createEl('span', { text: 'Specify text that prevents renaming if found in filename.' });
         };
 
         updateSafewordsDescriptionContent();
