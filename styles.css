@@ -1,0 +1,603 @@
+.flit-modal-heading {
+    text-align: center;
+}
+
+.flit-modal-button-container {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 20px;
+}
+
+/* TEMPORARILY COMMENTED OUT FOR TESTING */
+/*
+.flit-char-header-container {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+*/
+
+.flit-char-header {
+    margin: 0;
+}
+
+.flit-char-settings-container {
+    display: block;
+}
+
+.flit-char-settings-container.hidden {
+    display: none;
+}
+
+/* Style setting names to look like headings for section toggles */
+.flit-header-setting .setting-item-name {
+    font-size: 1.4em;
+    font-weight: 600;
+    color: var(--text-normal);
+    margin: 0;
+}
+
+.flit-header-setting .setting-item-description {
+    margin-top: 5px;
+    font-size: 0.9em;
+}
+
+.flit-char-replacement-section-header {
+    margin-bottom: 10px;
+}
+
+.flit-char-replacement-section-header.windows-android {
+    margin-top: 20px;
+    margin-bottom: 10px;
+    padding-top: 15px;
+    border-top: 2px solid var(--background-modifier-border);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.flit-section-title {
+    margin: 0;
+    font-size: 1.1em;
+    font-weight: bold;
+}
+
+.flit-char-replacement-header, .flit-char-replacement-setting {
+    display: flex;
+    align-items: flex-start;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--background-modifier-border);
+    gap: 8px;
+    width: fit-content;
+    min-width: 520px;
+}
+
+.flit-char-replacement-header {
+    border-bottom: 2px solid var(--background-modifier-border);
+    font-weight: bold;
+    font-size: 0.9em;
+}
+
+.flit-char-replacement-header.hidden {
+    display: none;
+}
+
+.flit-char-replacement-setting:last-of-type {
+    border-bottom: none;
+}
+
+.flit-char-replacement-setting.disabled {
+    opacity: 0.5;
+    pointer-events: none;
+}
+
+.flit-char-replacement-setting.hidden {
+    display: none;
+}
+
+.flit-char-name-column {
+    width: 320px;
+    min-width: 320px;
+    max-width: 320px;
+    flex-shrink: 0;
+    text-align: left;
+    display: flex;
+    flex-direction: column;
+}
+
+.flit-char-name-column .setting-item-name {
+    margin-bottom: 2px;
+}
+
+.flit-char-name-column .setting-item-description {
+    margin-top: 0;
+    margin-bottom: 0;
+    font-size: 0.85em;
+    color: var(--text-muted);
+}
+
+.flit-char-text-input-container {
+    width: 150px;
+    min-width: 150px;
+    max-width: 150px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.flit-char-text-input {
+    width: 120px !important;
+    min-width: 120px !important;
+    max-width: 120px !important;
+    flex: none !important;
+    flex-grow: 0 !important;
+    flex-shrink: 0 !important;
+    box-sizing: border-box;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.flit-restore-icon {
+    padding: 4px;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+}
+
+.flit-restore-icon:hover {
+    color: var(--text-normal);
+}
+
+/* TEMPORARILY COMMENTED OUT FOR TESTING */
+/*
+.flit-custom-header-container {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+*/
+
+.flit-custom-header {
+    margin: 0;
+}
+
+.flit-table-container {
+    overflow-x: auto;
+    overflow-y: hidden;
+    width: 100%;
+    margin-bottom: 10px;
+}
+
+.flit-table-wrapper {
+    width: fit-content;
+    min-width: 100%;
+}
+
+.flit-custom-replacement-header, .flit-safeword-header {
+    display: flex;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 2px solid var(--background-modifier-border);
+    font-weight: bold;
+    font-size: 0.9em;
+    gap: 8px;
+    width: 100%;
+    min-width: 520px;
+}
+
+.flit-custom-replacement-header .flit-toggle-column:first-of-type,
+.flit-safeword-header .flit-toggle-column:first-of-type {
+    margin-right: -5px;
+}
+
+.flit-custom-replacement-header .flit-toggle-column:last-of-type,
+.flit-safeword-header .flit-toggle-column:last-of-type {
+    margin-right: -5px;
+}
+
+.flit-custom-replacement-header.hidden, .flit-safeword-header.hidden {
+    display: none;
+}
+
+.flit-custom-replacement-setting, .flit-safeword-setting {
+    display: flex;
+    align-items: flex-start;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--background-modifier-border);
+    gap: 8px;
+    width: 100%;
+    min-width: 520px;
+}
+
+.flit-custom-replacement-setting .flit-toggle-column:first-of-type,
+.flit-safeword-setting .flit-toggle-column:first-of-type {
+    margin-right: -5px;
+}
+
+.flit-custom-replacement-setting .flit-toggle-column:last-of-type,
+.flit-safeword-setting .flit-toggle-column:last-of-type {
+    margin-right: -5px;
+}
+
+.flit-custom-replacement-setting:last-of-type, .flit-safeword-setting:last-of-type {
+    border-bottom: none;
+}
+
+.flit-custom-replacement-setting.hidden, .flit-safeword-setting.hidden {
+    display: none;
+}
+
+.flit-enable-column {
+    width: 60px;
+    min-width: 60px;
+    max-width: 60px;
+    flex-shrink: 0;
+    text-align: left;
+}
+
+.flit-text-column {
+    width: 200px;
+    min-width: 200px;
+    max-width: 200px;
+    flex-shrink: 0;
+    text-align: left;
+    overflow: hidden;
+}
+
+.flit-text-column.flit-safeword-input {
+    width: 330px;
+    min-width: 330px;
+    max-width: 330px;
+}
+
+.flit-text-column input {
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.flit-toggle-column {
+    width: 70px;
+    min-width: 70px;
+    max-width: 70px;
+    flex-shrink: 0;
+    text-align: left;
+    line-height: 1.2;
+}
+
+.flit-toggle-column.center {
+    display: flex;
+    justify-content: left;
+}
+
+.flit-actions-column {
+    width: 80px;
+    min-width: 80px;
+    max-width: 80px;
+    flex-shrink: 0;
+}
+
+.flit-button-container {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+}
+
+.flit-nav-button {
+    padding: 4px;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+}
+
+.flit-nav-button.disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+}
+
+
+
+.flit-add-replacement-button.hidden, .flit-add-safeword-button.hidden {
+    display: none;
+}
+
+.flit-section-title {
+    border-bottom: none !important;
+}
+
+.flit-section-title + .setting-item {
+    border-top: none !important;
+    margin-top: 15px !important;
+    padding-top: 0 !important;
+}
+
+/* Integrated fixes from fix.css */
+/* Focus styles - use more specific selectors to override Obsidian defaults */
+.flit-char-text-input:focus,
+.flit-text-column input[type="text"]:focus,
+.flit-custom-replacement-setting input[type="text"]:focus,
+.flit-safeword-setting input[type="text"]:focus {
+    outline: 2px solid var(--interactive-accent) !important;
+    outline-offset: -1px !important;
+    box-shadow: none !important;
+    border-color: var(--interactive-accent) !important;
+}
+
+/* Remove all container-level disabled styling */
+.flit-custom-replacements-container.disabled,
+.flit-safewords-container.disabled {
+    /* Remove all styling - containers should never be styled as disabled */
+}
+
+/* Apply disabled styling only to specific elements that should be dimmed */
+.master-disabled .flit-custom-replacement-header,
+.master-disabled .flit-custom-replacement-setting > .flit-text-column,
+.master-disabled .flit-custom-replacement-setting > .flit-toggle-column,
+.master-disabled .flit-custom-replacement-setting > .flit-enable-column,
+.master-disabled .flit-add-replacement-button,
+.master-disabled .flit-safeword-header,
+.master-disabled .flit-safeword-setting > .flit-text-column,
+.master-disabled .flit-safeword-setting > .flit-toggle-column,
+.master-disabled .flit-safeword-setting > .flit-enable-column,
+.master-disabled .flit-add-safeword-button {
+    opacity: 0.5;
+}
+
+/* Replicate Obsidian's native extra button styling */
+.flit-delete-button {
+    background: none !important;
+    border: none !important;
+    outline: none !important;
+    box-shadow: none !important;
+    color: currentColor;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 3px;
+    border-radius: 3px;
+    opacity: 0.6;
+    font-size: 16px;
+    transition: opacity 100ms ease-in-out;
+}
+.flit-delete-button:focus {
+    outline: none !important;
+    box-shadow: none !important;
+    border: none !important;
+}
+.flit-delete-button:active {
+    outline: none !important;
+    box-shadow: none !important;
+    border: none !important;
+}
+.flit-delete-button:hover {
+    opacity: 1;
+    background: var(--background-modifier-hover);
+}
+
+/* Maximize excluded folder text input width */
+.flit-excluded-folder-setting {
+    display: flex !important;
+    align-items: center !important;
+}
+.flit-excluded-folder-setting .setting-item-info {
+    display: none !important;
+}
+.flit-excluded-folder-setting .setting-item-control {
+    flex: 1 !important;
+    max-width: none !important;
+}
+
+/* Ensure action buttons are NEVER disabled or greyed out */
+.flit-nav-button,
+.flit-actions-column,
+.flit-button-container {
+    opacity: 1 !important;
+    pointer-events: auto !important;
+}
+
+/* Fix alignment of action buttons */
+.flit-custom-replacement-setting,
+.flit-safeword-setting {
+    display: flex;
+    align-items: center !important; /* Force center alignment */
+}
+
+.flit-actions-column {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+}
+
+.flit-button-container {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+/* Fix spacing between last toggle and actions */
+.flit-toggle-column:last-of-type {
+    margin-right: 0;
+}
+
+.flit-actions-column {
+    margin-left: 4px;
+}
+
+/* Ensure master toggles are never greyed out - SCOPED TO PLUGIN ONLY */
+.flit-custom-header-container .checkbox-container,
+.flit-char-header-container .checkbox-container,
+.flit-custom-header-container .mod-toggle,
+.flit-char-header-container .mod-toggle,
+.flit-custom-header-container input[type="checkbox"],
+.flit-char-header-container input[type="checkbox"],
+.flit-custom-header-container [role="switch"],
+.flit-char-header-container [role="switch"] {
+    opacity: 1 !important;
+    pointer-events: auto !important;
+    display: block !important;
+    visibility: visible !important;
+}
+
+/* Fix the visual artifact in toggle - hide pseudo-elements causing circular artifacts */
+.flit-custom-header-container,
+.flit-char-header-container {
+    position: relative !important;
+}
+
+.flit-custom-header-container .setting-item,
+.flit-char-header-container .setting-item {
+    border: none !important;
+    padding: 0 !important;
+    background: none !important;
+}
+
+/* TEMPORARILY COMMENTED OUT FOR TESTING - Hide circular pseudo-elements that cause visual artifacts */
+/*
+.flit-custom-header-container::before,
+.flit-custom-header-container::after,
+.flit-char-header-container::before,
+.flit-char-header-container::after,
+.flit-custom-header-container .checkbox-container::before,
+.flit-custom-header-container .checkbox-container::after,
+.flit-char-header-container .checkbox-container::before,
+.flit-char-header-container .checkbox-container::after,
+.flit-custom-header-container .mod-toggle::before,
+.flit-custom-header-container .mod-toggle::after,
+.flit-char-header-container .mod-toggle::before,
+.flit-char-header-container .mod-toggle::after {
+    display: none !important;
+    content: none !important;
+    opacity: 0 !important;
+}
+*/
+
+/* Ensure toggle elements don't inherit problematic styles */
+.flit-custom-header-container .checkbox-container,
+.flit-char-header-container .checkbox-container,
+.flit-custom-header-container .mod-toggle,
+.flit-char-header-container .mod-toggle,
+.flit-custom-header-container input[type="checkbox"],
+.flit-char-header-container input[type="checkbox"],
+.flit-custom-header-container [role="switch"],
+.flit-char-header-container [role="switch"] {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+}
+
+/* Force visibility on all toggle elements in header containers */
+.flit-custom-header-container *,
+.flit-char-header-container * {
+    opacity: inherit !important;
+}
+
+/* Specifically target toggle container elements */
+.flit-custom-header-container > *:last-child,
+.flit-char-header-container > *:last-child {
+    opacity: 1 !important;
+    pointer-events: auto !important;
+    display: block !important;
+    visibility: visible !important;
+}
+
+/* Minimal fix: Only target known problematic elements in plugin containers */
+
+/* ==========================================================================
+   Settings Tabs
+   ========================================================================== */
+
+.flit-settings-tab-bar {
+    display: flex;
+    flex-direction: row;
+    padding-bottom: 1rem;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+
+.flit-settings-tab {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: var(--size-4-2);
+    padding: 10px;
+    border: 1px solid var(--background-modifier-border);
+    cursor: pointer;
+    border-radius: var(--radius-s);
+    transition: all 0.15s ease;
+}
+
+.flit-settings-tab:hover {
+    background-color: var(--background-modifier-hover);
+}
+
+.flit-settings-tab-active {
+    background-color: var(--color-accent);
+    color: var(--text-on-accent);
+}
+
+.flit-settings-tab-name {
+    font-weight: bold;
+    text-align: center;
+    line-height: 1.2;
+    font-size: 0.9em;
+}
+
+.flit-settings-page {
+    /* Container for tab content */
+}
+
+.flit-divider {
+    margin: 1rem 0;
+    border: none;
+    border-top: 1px solid var(--background-modifier-border);
+}
+
+/* Master toggle names should be bold */
+.flit-master-toggle .setting-item-name {
+    font-weight: bold;
+}
+
+/* Ensure consistent X button positioning and sizing across all sections */
+.flit-excluded-folder-setting .setting-item-control {
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    width: 100% !important;
+}
+
+.flit-excluded-folder-setting .setting-item-control input {
+    flex: 1 !important;
+    min-width: 0 !important;
+}
+
+.flit-excluded-folder-setting .setting-item-control .clickable-icon {
+    flex-shrink: 0 !important;
+    width: 32px !important;
+    height: 32px !important;
+    min-width: 32px !important;
+    min-height: 32px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    font-size: 16px !important;
+}
+
+
+/* Ensure all X buttons are the same size */
+.flit-button-container .clickable-icon {
+    width: 32px !important;
+    height: 32px !important;
+    min-width: 32px !important;
+    min-height: 32px !important;
+    font-size: 16px !important;
+}
