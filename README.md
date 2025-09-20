@@ -4,7 +4,7 @@ Automatically put the first line in note title. Just like in Apple Notes. Forget
 
 <img src="https://github.com/user-attachments/assets/4d4bb0d5-aaa8-464a-9e00-eeb88f4235de" height="450">
 
-**⚠️ It's recommended that you back up your files before using this plugin.**
+**⚠️ It's advised to back up your files before using this plugin.**
 
 ## ⚡ Features
 
