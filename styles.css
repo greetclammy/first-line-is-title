@@ -261,7 +261,7 @@
     width: 100%;
     max-width: 100%;
     box-sizing: border-box;
-    overflow: hidden;
+    /* Remove overflow: hidden to prevent outline clipping */
     text-overflow: ellipsis;
 }
 
@@ -299,9 +299,11 @@
     cursor: pointer;
 }
 
-.flit-nav-button.disabled {
+.flit-nav-button.disabled,
+.flit-delete-button.disabled {
     cursor: not-allowed;
-    opacity: 0.5;
+    opacity: 0.25 !important;
+    pointer-events: none !important;
 }
 
 
@@ -320,16 +322,30 @@
     padding-top: 0 !important;
 }
 
-/* Integrated fixes from fix.css */
-/* Focus styles - use more specific selectors to override Obsidian defaults */
-.flit-char-text-input:focus,
-.flit-text-column input[type="text"]:focus,
-.flit-custom-replacement-setting input[type="text"]:focus,
-.flit-safeword-setting input[type="text"]:focus {
-    outline: 2px solid var(--interactive-accent) !important;
-    outline-offset: -1px !important;
-    box-shadow: none !important;
-    border-color: var(--interactive-accent) !important;
+/* Let Obsidian handle all input styling naturally */
+
+/* Ensure table containers don't clip overflowing content and have space for outlines */
+.flit-table-container,
+.flit-table-wrapper {
+    overflow: visible !important;
+    padding: 4px !important;
+}
+
+/* Add margin to input elements in tables to prevent outline clipping */
+.flit-custom-replacement-setting input[type="text"],
+.flit-safeword-setting input[type="text"],
+.flit-text-column input[type="text"] {
+    margin: 2px !important;
+    width: calc(100% - 4px) !important;
+    max-width: calc(100% - 4px) !important;
+}
+
+/* Adjust row alignment to accommodate input margins */
+.flit-custom-replacement-setting,
+.flit-safeword-setting {
+    align-items: stretch !important;
+    /* Add slight padding to rows to accommodate input margins */
+    padding: 6px 0 !important;
 }
 
 /* Remove all container-level disabled styling */
@@ -536,13 +552,27 @@
     transition: all 0.15s ease;
 }
 
-.flit-settings-tab:hover {
+.flit-settings-tab:hover:not(.flit-settings-tab-active) {
     background-color: var(--background-modifier-hover);
 }
 
 .flit-settings-tab-active {
-    background-color: var(--color-accent);
-    color: var(--text-on-accent);
+    background-color: var(--color-accent) !important;
+    color: var(--text-on-accent) !important;
+}
+
+/* Ensure active tab styling works on mobile with increased specificity */
+.flit-settings-tab.flit-settings-tab-active {
+    background-color: var(--color-accent) !important;
+    color: var(--text-on-accent) !important;
+}
+
+/* Force active styling on mobile devices */
+@media screen and (max-width: 768px) {
+    .flit-settings-tab.flit-settings-tab-active {
+        background-color: var(--color-accent) !important;
+        color: var(--text-on-accent) !important;
+    }
 }
 
 .flit-settings-tab-name {
@@ -552,6 +582,11 @@
     font-size: 0.9em;
 }
 
+/* Ensure tab name inherits color from parent */
+.flit-settings-tab-active .flit-settings-tab-name {
+    color: inherit !important;
+}
+
 .flit-settings-page {
     /* Container for tab content */
 }
@@ -559,7 +594,13 @@
 .flit-divider {
     margin: 1rem 0;
     border: none;
-    border-top: 1px solid var(--background-modifier-border);
+    border-bottom: 1px solid var(--background-modifier-border);
+}
+
+/* Master toggle styling */
+.flit-master-toggle {
+    border-top: none !important;
+    border-bottom: 1px solid var(--background-modifier-border) !important;
 }
 
 /* Master toggle names should be bold */
@@ -600,4 +641,34 @@
     min-width: 32px !important;
     min-height: 32px !important;
     font-size: 16px !important;
+}
+
+/* Disabled row styling */
+.flit-row-disabled {
+    opacity: 0.5;
+    pointer-events: none;
+}
+
+/* Keep the toggle itself interactive even in disabled rows */
+.flit-row-disabled .flit-enable-column {
+    pointer-events: auto;
+}
+
+/* Master disabled section styling */
+.flit-master-disabled {
+    opacity: 0.5;
+    pointer-events: none;
+}
+
+/* Keep master toggles themselves interactive even when section is disabled */
+.flit-master-toggle {
+    pointer-events: auto;
+    opacity: 1;
+}
+
+/* Ensure master toggles in disabled sections remain interactive */
+.flit-master-disabled .flit-master-toggle,
+.flit-master-disabled .flit-master-toggle * {
+    pointer-events: auto;
+    opacity: 1;
 }
