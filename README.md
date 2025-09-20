@@ -49,7 +49,7 @@ It's recommended to use this plugin with a new note template that puts the curso
 An example template you can use:
 
 <details>
-  <summary><b>Click to expand</b></summary>
+  <summary><b>Press to expand</b></summary>
 
   ```js
 ---
@@ -89,7 +89,7 @@ The plugin adds three Command palette commmands:
 For when you want to force the plugin to update the title, you could create a macro like this with [Commander](https://obsidian.md/plugins?id=cmdr) and bind it to Ctrl/Cmd-S:
 
 <details>
-  <summary><b>Click to expand</b></summary>
+  <summary><b>Press to expand</b></summary>
 <img width="571" height="427" src="https://github.com/user-attachments/assets/24273438-d0e4-47a5-833c-f86161fa2b20" />
 </details>
 
