@@ -3,7 +3,7 @@
   "name": "First Line is Title",
   "version": "1.7.0",
   "minAppVersion": "1.4.16",
-  "description": "Automatically put the first line in note title.",
+  "description": "Automatically set the first line as note title.",
   "author": "greetclammy",
   "isDesktopOnly": false
 }
