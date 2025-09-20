@@ -117,3 +117,7 @@ This plugin builds on [Auto Filename](https://obsidian.md/plugins?id=auto-filena
 ## 👨‍💻 What else I made
 
 - [Adapt to Current View](https://github.com/greetclammy/adapt-to-current-view/)
+
+<br>
+
+<p align="center">Made with ❤️ for the Obsidian community</p>
