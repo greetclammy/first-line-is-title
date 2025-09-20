@@ -1,16 +1,25 @@
 # First Line is Title
 
-Automatically put the first line in note title.
-
-Can replace forbidden characters with safe alternatives. Supports custom replacemet rules.
+Automatically put the first line in note title. Just like in Apple Notes.
 
 <img src="https://github.com/user-attachments/assets/4d4bb0d5-aaa8-464a-9e00-eeb88f4235de" height="450">
 
 **⚠️ It's recommended that you back up your files before using this plugin.**
 
+## ⚡ Features
+
+- Replace forbidden characters with safe alternatives.
+- Omit markdown syntax in filename.
+- Auto truncate long filenames.
+- Add custom replacemet rules.
+- Rename automatically or manually.
+- Copy first line to `aliases` to make forbidden characters searchable in the Quick switcher.
+- Commands to process entire folder, all notes with a certain tag, or all notes in vault in one go.
+- Granular control: exclude certain notes, folders, tags or filenames from renaming.
+
 ## ✅ Installation
 
-Untill _First Line is Title_ is made availiable in the plugin browser, follow the steps below to install it.
+Untill _First Line is Title_ is made availiable in the plugin directory, follow the steps below to install it.
 
 ### BRAT (recommended)
 
