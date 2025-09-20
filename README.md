@@ -11,7 +11,7 @@ Automatically set the first line as note title, just like in Apple Notes! Forget
 - Replace forbidden characters with safe alternatives.
 - Omit markdown syntax in filename.
 - Auto truncate long filenames.
-- Add custom replacemet rules.
+- Add custom replacement rules.
 - Rename automatically or manually.
 - Copy first line to `aliases` to make forbidden characters searchable in the Quick switcher.
 - Commands to process entire folder, all notes with a certain tag, or all notes in vault in one go.
