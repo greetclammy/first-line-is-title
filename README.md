@@ -1,6 +1,6 @@
 # First Line is Title
 
-Automatically use the first line as note title, like in Apple Notes. Forget about manual filename entry or non-descript timestamps. 
+Automatically set the first line as note title, just like in Apple Notes! Forget about manual filename entry or non-descript timestamps. 
 
 <img src="https://github.com/user-attachments/assets/4d4bb0d5-aaa8-464a-9e00-eeb88f4235de" height="450">
 
