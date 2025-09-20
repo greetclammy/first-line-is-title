@@ -46,7 +46,7 @@ Note: to get updates for _First Line is Title_, you will have to check for and i
 
 It's recommended to use this plugin with a new note template that puts the cursor in note body on note creation, configured in [Templater](https://obsidian.md/plugins?id=templater-obsidian) settings.
 
-Here's an example template you can use:
+An example template you can use:
 
 <details>
   <summary><b>Click to expand</b></summary>
