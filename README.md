@@ -82,7 +82,7 @@ tp.hooks.on_all_templates_executed(async () => {
 
 ### Commands
 
-This plugin adds three commmands to the Command palette:
+The plugin adds three Command palette commmands:
 
 <img width="489" height="230" src="https://github.com/user-attachments/assets/823c2510-77c5-4b49-8715-1f8e3477640f" />
 
@@ -93,7 +93,7 @@ For when you want to force the plugin to update the title, you could create a ma
 <img width="571" height="427" src="https://github.com/user-attachments/assets/24273438-d0e4-47a5-833c-f86161fa2b20" />
 </details>
 
-This is super useful if you already use Ctrl/Cmd-S to trigger [Linter](https://obsidian.md/plugins?id=obsidian-linter).
+This is super useful if you use Ctrl/Cmd-S to run [Linter](https://obsidian.md/plugins?id=obsidian-linter).
 
 ## ⭐️ Support
 
