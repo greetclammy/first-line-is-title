@@ -112,9 +112,8 @@ If you find this plugin helpful, please star the repository 😇
 
 ## 🙏 Acknowledgements
 
-This plugin builds on [Auto Filename](https://obsidian.md/plugins?id=auto-filename) and employs some of its code.
-
-Tag context menu functionality is inspired by and implements patterns from [Tag Wrangler](https://github.com/pjeby/tag-wrangler), an excellent plugin for comprehensive tag management in Obsidian.
+- This plugin builds on [Auto Filename](https://obsidian.md/plugins?id=auto-filename) and employs some of its code.
+- Tag context menu functionality implements patterns from [Tag Wrangler](https://github.com/pjeby/tag-wrangler).
 
 ## 👨‍💻 What else I made
 
