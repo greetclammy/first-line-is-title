@@ -42,10 +42,10 @@ Note: to get updates for _First Line is Title_, you will have to check for and i
 
 ## 💡 Tips
 
-### New note template
+### Obsidian set-up
 
 It's best to use _First Line is Title_ with:
-- The tab title bar enabled in `Obsidian settings > Appearance > Interface`
+- The tab title bar enabled in `Obsidian settings > Appearance > Interface`.
 - A new-note template that places the cursor on the first line on note creation, configured in [Templater](https://obsidian.md/plugins?id=templater-obsidian) settings.
 
 An example template you can use:
