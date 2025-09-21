@@ -1,6 +1,6 @@
 # First Line is Title
 
-Automatically set the first line as note title, just like in Apple Notes! Forget about manual filename entry or nondescript timestamps. 
+Automatically set the first line as note title, just like in Apple Notes! Forget about manual filename entry or non-descript timestamps. 
 
 <img src="https://github.com/user-attachments/assets/4d4bb0d5-aaa8-464a-9e00-eeb88f4235de" height="450">
 
@@ -11,7 +11,7 @@ Automatically set the first line as note title, just like in Apple Notes! Forget
 - Replace forbidden characters with safe alternatives.
 - Omit markdown syntax in filename.
 - Auto truncate long filenames.
-- Add custom replacement rules.
+- Add custom replacemet rules.
 - Rename automatically or manually.
 - Copy first line to `aliases` to make forbidden characters searchable in the Quick switcher.
 - Commands to process entire folder, all notes with a certain tag, or all notes in vault in one go.
@@ -113,6 +113,8 @@ If you find this plugin helpful, please star the repository 😇
 ## 🙏 Acknowledgements
 
 This plugin builds on [Auto Filename](https://obsidian.md/plugins?id=auto-filename) and employs some of its code.
+
+Tag context menu functionality is inspired by and implements patterns from [Tag Wrangler](https://github.com/pjeby/tag-wrangler), an excellent plugin for comprehensive tag management in Obsidian.
 
 ## 👨‍💻 What else I made
 
