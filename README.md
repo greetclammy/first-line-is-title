@@ -11,12 +11,14 @@ Automatically set the first line as note title, just like in Apple Notes! Forget
 
 ## ⚡ Features
 
+- Rename automatically or manually.
+- Move cursor to the first line on note creation.
+- Only put headings in title or any first line content.
 - Replace forbidden characters with safe alternatives.
 - Omit markdown syntax in filename.
 - Auto truncate long filenames.
-- Add custom replacemet rules.
 - Copy the first line to `aliases` to make forbidden characters searchable in the Quick switcher.
-- Rename automatically or manually.
+- Add custom replacemet rules.
 - Commands to process entire folder, all notes with a certain tag, or all notes in vault in one go.
 - Granular control: exclude certain notes, folders, tags or filenames from renaming.
 
