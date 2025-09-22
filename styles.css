@@ -535,22 +535,37 @@
 .flit-settings-tab-bar {
     display: flex;
     flex-direction: row;
+    justify-content: center;
     padding-bottom: 1rem;
     flex-wrap: wrap;
     gap: 4px;
+    align-content: flex-start;
+    max-width: 660px;
+    margin: 0 auto;
 }
 
 .flit-settings-tab {
     display: flex;
     flex-direction: row;
     align-items: center;
+    justify-content: center;
     gap: var(--size-4-2);
     padding: 10px;
     border: 1px solid var(--background-modifier-border);
     cursor: pointer;
     border-radius: var(--radius-s);
     transition: all 0.15s ease;
+    flex: 1 1 auto;
 }
+
+/* Apply minimum width only at narrow page widths */
+@media screen and (max-width: 660px) {
+    .flit-settings-tab {
+        min-width: 190px;
+    }
+}
+
+
 
 .flit-settings-tab:hover:not(.flit-settings-tab-active) {
     background-color: var(--background-modifier-hover);
@@ -580,6 +595,7 @@
     text-align: center;
     line-height: 1.2;
     font-size: 0.9em;
+    white-space: nowrap;
 }
 
 /* Ensure tab name inherits color from parent */
@@ -601,6 +617,11 @@
 .flit-master-toggle {
     border-top: none !important;
     border-bottom: 1px solid var(--background-modifier-border) !important;
+}
+
+/* Remove borders from specific toggle settings */
+.flit-no-border {
+    border-bottom: none !important;
 }
 
 /* Master toggle names should be bold */
@@ -671,4 +692,49 @@
 .flit-master-disabled .flit-master-toggle * {
     pointer-events: auto;
     opacity: 1;
+}
+
+/* Setting item icon styling */
+.setting-item-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    margin-right: 8px;
+    color: var(--text-muted);
+    flex-shrink: 0;
+}
+
+.setting-item-icon svg {
+    width: 16px;
+    height: 16px;
+}
+
+/* Fix alignment of setting names with icons */
+.setting-item-name {
+    display: flex;
+    align-items: center;
+    line-height: 1.4;
+}
+
+/* ==========================================================================
+   Command Palette Icons
+   ========================================================================== */
+
+/* Dynamic command palette icons injected via JavaScript */
+.flit-command-icon {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 16px !important;
+    height: 16px !important;
+    margin-right: 8px !important;
+    color: var(--text-muted) !important;
+    flex-shrink: 0 !important;
+}
+
+.flit-command-icon svg {
+    width: 16px !important;
+    height: 16px !important;
 }
