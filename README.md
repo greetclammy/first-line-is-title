@@ -19,7 +19,7 @@ Automatically set the first line as note title, just like in Apple Notes! Forget
 - Auto truncate long filenames.
 - Copy the first line to the `aliases` property — make forbidden characters searchable in the Quick switcher.
 - Add custom replacement rules.
-- Commands to process all notes in a folder, with a tag, among search results, or all notes at once.
+- Process all notes in a folder, all notes with a tag, all search results, or the entire vault.
 - Granular control: exclude certain notes, folders, tags or filenames from renaming.
 
 ## ✅ Installation
