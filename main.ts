@@ -1,18 +1,21 @@
-import { Menu, Notice, Plugin, TFile, TFolder } from "obsidian";
+import { Menu, Notice, Plugin, TFile, TFolder, setIcon, MarkdownView } from "obsidian";
 import { PluginSettings } from './src/types';
 import { DEFAULT_SETTINGS, UNIVERSAL_FORBIDDEN_CHARS, WINDOWS_ANDROID_CHARS, OS_FORBIDDEN_CHARS } from './src/constants';
 import {
     verboseLog,
     detectOS,
     isFileExcluded,
+    shouldProcessFile,
     hasDisableProperty,
+    hasDisablePropertyInFile,
     isExcalidrawFile,
     containsSafeword,
     extractTitle,
-    insertAliasIntoContent
+    isValidHeading
 } from './src/utils';
 import { RenameAllFilesModal, RenameFolderModal, ClearSettingsModal, ProcessTagModal } from './src/modals';
 import { FirstLineIsTitleSettings } from './src/settings';
+import { around } from "monkey-around";
 
 // Global variables (keeping them in main for now to avoid major refactoring)
 let renamedFileCount: number = 0;
@@ -25,8 +28,7 @@ let aliasUpdateTimers: Map<string, NodeJS.Timeout> = new Map();
 
 export default class FirstLineIsTitle extends Plugin {
     settings: PluginSettings;
-    notificationObserver: MutationObserver | null = null;
-    notificationStyleElement: HTMLStyleElement | null = null;
+    commandPaletteObserver: MutationObserver | null = null;
 
     cleanupStaleCache(): void {
         // Clean up tempNewPaths - remove paths that don't exist anymore
@@ -87,18 +89,27 @@ export default class FirstLineIsTitle extends Plugin {
         if (isExcluded) {
             // Remove from excluded folders
             this.settings.excludedFolders = this.settings.excludedFolders.filter(path => path !== folderPath);
+            // Ensure there's always at least one entry (even if empty)
+            if (this.settings.excludedFolders.length === 0) {
+                this.settings.excludedFolders.push("");
+            }
             new Notice(`Renaming enabled for folder: ${folderPath}`);
         } else {
-            // Add to excluded folders
-            this.settings.excludedFolders.push(folderPath);
+            // If there's only an empty entry, replace it; otherwise add
+            if (this.settings.excludedFolders.length === 1 && this.settings.excludedFolders[0] === "") {
+                this.settings.excludedFolders[0] = folderPath;
+            } else {
+                this.settings.excludedFolders.push(folderPath);
+            }
             new Notice(`Renaming disabled for folder: ${folderPath}`);
         }
 
+        this.debugLog('excludedFolders', this.settings.excludedFolders);
         await this.saveSettings();
         verboseLog(this, `Folder exclusion toggled for: ${folderPath}`, { isNowExcluded: !isExcluded });
     }
 
-    async putFirstLineInTitleForTag(tagName: string): Promise<void> {
+    async putFirstLineInTitleForTag(tagName: string, omitBodyTags: boolean = false, omitNestedTags: boolean = false): Promise<void> {
         const tagToFind = tagName.startsWith('#') ? tagName : `#${tagName}`;
         const files = this.app.vault.getMarkdownFiles();
         const matchingFiles: TFile[] = [];
@@ -106,6 +117,7 @@ export default class FirstLineIsTitle extends Plugin {
         for (const file of files) {
             const cache = this.app.metadataCache.getFileCache(file);
             let hasTag = false;
+            let tagFoundInBody = false;
 
             // Check YAML frontmatter tags
             if (cache?.frontmatter?.tags) {
@@ -113,16 +125,57 @@ export default class FirstLineIsTitle extends Plugin {
                     ? cache.frontmatter.tags
                     : [cache.frontmatter.tags];
 
-                hasTag = frontmatterTags.some((tag: string) =>
-                    tag === tagName || tag === tagToFind
-                );
+                hasTag = frontmatterTags.some((tag: string) => {
+                    if (omitNestedTags) {
+                        // Exact match only
+                        return tag === tagName || tag === tagToFind;
+                    } else {
+                        // Include nested tags
+                        return tag === tagName || tag === tagToFind ||
+                               tag.startsWith(tagName + '/') || tag.startsWith(tagToFind + '/');
+                    }
+                });
             }
 
             // Check metadata cache tags (includes both frontmatter and body tags)
             if (!hasTag && cache?.tags) {
-                hasTag = cache.tags.some(tagCache =>
-                    tagCache.tag === tagToFind || tagCache.tag === `#${tagName}`
-                );
+                cache.tags.forEach(tagCache => {
+                    const cacheTag = tagCache.tag;
+                    let tagMatches = false;
+
+                    if (omitNestedTags) {
+                        // Exact match only
+                        tagMatches = cacheTag === tagToFind || cacheTag === `#${tagName}`;
+                    } else {
+                        // Include nested tags
+                        tagMatches = cacheTag === tagToFind || cacheTag === `#${tagName}` ||
+                                   cacheTag.startsWith(tagToFind + '/') || cacheTag.startsWith(`#${tagName}/`);
+                    }
+
+                    if (tagMatches) {
+                        hasTag = true;
+                        // Check if this tag appears in the body (not frontmatter)
+                        if (tagCache.position.start.line > 0) {
+                            // If the tag is found after line 0, it's likely in the body
+                            // We need to check if there's frontmatter to be more precise
+                            if (cache.frontmatterPosition) {
+                                // If tag is after frontmatter, it's in body
+                                if (tagCache.position.start.line > cache.frontmatterPosition.end.line) {
+                                    tagFoundInBody = true;
+                                }
+                            } else {
+                                // No frontmatter, so any tag after line 0 is in body
+                                tagFoundInBody = true;
+                            }
+                        }
+                    }
+                });
+            }
+
+            // Apply omitBodyTags filter
+            if (hasTag && omitBodyTags && tagFoundInBody) {
+                // Skip this file because it has the tag in the body and we want to omit such files
+                continue;
             }
 
             if (hasTag) {
@@ -165,50 +218,178 @@ export default class FirstLineIsTitle extends Plugin {
         if (isExcluded) {
             // Remove from excluded tags
             this.settings.excludedTags = this.settings.excludedTags.filter(tag => tag !== tagToFind);
-            new Notice(`Renaming enabled for tag: ${tagToFind}`);
+            // Ensure there's always at least one entry (even if empty)
+            if (this.settings.excludedTags.length === 0) {
+                this.settings.excludedTags.push("");
+            }
+            new Notice(`Renaming enabled for ${tagToFind}`);
         } else {
-            // Add to excluded tags
-            this.settings.excludedTags.push(tagToFind);
-            new Notice(`Renaming disabled for tag: ${tagToFind}`);
+            // If there's only an empty entry, replace it; otherwise add
+            if (this.settings.excludedTags.length === 1 && this.settings.excludedTags[0] === "") {
+                this.settings.excludedTags[0] = tagToFind;
+            } else {
+                this.settings.excludedTags.push(tagToFind);
+            }
+            new Notice(`Renaming disabled for ${tagToFind}`);
         }
 
+        this.debugLog('excludedTags', this.settings.excludedTags);
         await this.saveSettings();
         verboseLog(this, `Tag exclusion toggled for: ${tagToFind}`, { isNowExcluded: !isExcluded });
     }
 
+    // Debug logging helper for setting changes
+    debugLog(settingName: string, value: any): void {
+        if (this.settings.verboseLogging) {
+            console.log(`[First Line Is Title] Setting changed: ${settingName} = ${JSON.stringify(value)}`);
+        }
+    }
+
+    menuForEvent(evt: MouseEvent): Menu {
+        // Use Tag Wrangler's menuForEvent pattern
+        let menu = (evt as any).obsidian_contextmenu;
+        if (!menu) {
+            menu = (evt as any).obsidian_contextmenu = new Menu();
+            setTimeout(() => menu.showAtPosition({x: evt.pageX, y: evt.pageY}), 0);
+        }
+        return menu;
+    }
+
+    // Helper functions for dynamic context menu logic based on scope strategy
+    shouldShowDisableMenuForFolder(folderPath: string): boolean {
+        const isInList = this.settings.excludedFolders.includes(folderPath);
+
+        let result: boolean;
+        if (this.settings.scopeStrategy === 'Enable in all notes except below') {
+            // Enable strategy: list contains DISABLED folders
+            // folder in list (disabled) → show "enable" → return false
+            // folder not in list (enabled) → show "disable" → return true
+            result = !isInList;
+        } else {
+            // Disable strategy: list contains ENABLED folders
+            // folder in list (enabled) → show "disable" → return true
+            // folder not in list (disabled) → show "enable" → return false
+            result = isInList;
+        }
+
+        verboseLog(this, `shouldShowDisableMenuForFolder(${folderPath})`, {
+            scopeStrategy: this.settings.scopeStrategy,
+            isInList,
+            result,
+            willShow: result ? 'DISABLE menu' : 'ENABLE menu'
+        });
+
+        return result;
+    }
+
+    shouldShowDisableMenuForTag(tagName: string): boolean {
+        const tagToFind = tagName.startsWith('#') ? tagName : `#${tagName}`;
+        const isInList = this.settings.excludedTags.includes(tagToFind);
+
+        let result: boolean;
+        if (this.settings.scopeStrategy === 'Enable in all notes except below') {
+            // Enable strategy: list contains DISABLED tags
+            // tag in list (disabled) → show "enable" → return false
+            // tag not in list (enabled) → show "disable" → return true
+            result = !isInList;
+        } else {
+            // Disable strategy: list contains ENABLED tags
+            // tag in list (enabled) → show "disable" → return true
+            // tag not in list (disabled) → show "enable" → return false
+            result = isInList;
+        }
+
+        verboseLog(this, `shouldShowDisableMenuForTag(${tagName})`, {
+            scopeStrategy: this.settings.scopeStrategy,
+            tagToFind,
+            isInList,
+            result,
+            willShow: result ? 'DISABLE menu' : 'ENABLE menu'
+        });
+
+        return result;
+    }
+
+    getFolderMenuText(folderPath: string): { disable: string, enable: string } {
+        if (this.settings.scopeStrategy === 'Enable in all notes except below') {
+            // Enable strategy: list contains DISABLED folders
+            return {
+                disable: "Disable renaming in folder",
+                enable: "Enable renaming in folder"
+            };
+        } else {
+            // Disable strategy: list contains ENABLED folders
+            return {
+                disable: "Disable renaming in folder",
+                enable: "Enable renaming in folder"
+            };
+        }
+    }
+
+    getTagMenuText(tagName: string): { disable: string, enable: string } {
+        if (this.settings.scopeStrategy === 'Enable in all notes except below') {
+            // Enable strategy: list contains DISABLED tags
+            return {
+                disable: "Disable renaming for tag",
+                enable: "Enable renaming for tag"
+            };
+        } else {
+            // Disable strategy: list contains ENABLED tags
+            return {
+                disable: "Disable renaming for tag",
+                enable: "Enable renaming for tag"
+            };
+        }
+    }
+
     addTagMenuItems(menu: Menu, tagName: string): void {
         const tagToFind = tagName.startsWith('#') ? tagName : `#${tagName}`;
-        const isExcluded = this.settings.excludedTags.includes(tagToFind);
+        const shouldShowDisable = this.shouldShowDisableMenuForTag(tagName);
+        const menuText = this.getTagMenuText(tagName);
+
+        // Count visible items to determine if we need a separator
+        let visibleItemCount = 0;
+        if (this.settings.commandVisibility.tagPutFirstLineInTitle) visibleItemCount++;
+        if (shouldShowDisable && this.settings.commandVisibility.tagExclude) visibleItemCount++;
+        if (!shouldShowDisable && this.settings.commandVisibility.tagStopExcluding) visibleItemCount++;
+
+        // Add separator if we have any items to show
+        if (visibleItemCount > 0) {
+            menu.addSeparator();
+        }
 
         // Add "Put first line in title" command for tag
         if (this.settings.commandVisibility.tagPutFirstLineInTitle) {
             menu.addItem((item) => {
                 item
                     .setTitle("Put first line in title")
-                    .setIcon("tag")
+                    .setIcon("file-pen")
+                    .setSection("tag")
                     .onClick(() => {
                         new ProcessTagModal(this.app, this, tagName).open();
                     });
             });
         }
 
-        // Add tag exclusion commands
-        if (!isExcluded && this.settings.commandVisibility.tagExclude) {
+        // Add tag exclusion commands with dynamic text
+        if (shouldShowDisable && this.settings.commandVisibility.tagExclude) {
             menu.addItem((item) => {
                 item
-                    .setTitle("Disable renaming for tag")
-                    .setIcon("tag-x")
+                    .setTitle(menuText.disable)
+                    .setIcon("square-x")
+                    .setSection("tag")
                     .onClick(async () => {
                         await this.toggleTagExclusion(tagName);
                     });
             });
         }
 
-        if (isExcluded && this.settings.commandVisibility.tagStopExcluding) {
+        if (!shouldShowDisable && this.settings.commandVisibility.tagStopExcluding) {
             menu.addItem((item) => {
                 item
-                    .setTitle("Enable renaming for tag")
-                    .setIcon("tag-check")
+                    .setTitle(menuText.enable)
+                    .setIcon("square-check")
+                    .setSection("tag")
                     .onClick(async () => {
                         await this.toggleTagExclusion(tagName);
                     });
@@ -216,27 +397,69 @@ export default class FirstLineIsTitle extends Plugin {
         }
     }
 
-    async renameFile(file: TFile, noDelay = false, ignoreExclusions = false): Promise<void> {
+    addTagMenuItemsToDOM(menuEl: HTMLElement, tagName: string): void {
+        const tagToFind = tagName.startsWith('#') ? tagName : `#${tagName}`;
+        const shouldShowDisable = this.shouldShowDisableMenuForTag(tagName);
+        const menuText = this.getTagMenuText(tagName);
+
+        // Add "Put first line in title" command for tag
+        if (this.settings.commandVisibility.tagPutFirstLineInTitle) {
+            const menuItem = menuEl.createEl('div', { cls: 'menu-item' });
+            const iconEl = menuItem.createEl('div', { cls: 'menu-item-icon' });
+            setIcon(iconEl, 'file-pen');
+            menuItem.createEl('div', { cls: 'menu-item-title', text: 'Put first line in title' });
+
+            menuItem.addEventListener('click', () => {
+                new ProcessTagModal(this.app, this, tagName).open();
+                menuEl.remove();
+            });
+        }
+
+        // Add tag exclusion commands with dynamic text
+        if (shouldShowDisable && this.settings.commandVisibility.tagExclude) {
+            const menuItem = menuEl.createEl('div', { cls: 'menu-item' });
+            const iconEl = menuItem.createEl('div', { cls: 'menu-item-icon' });
+            setIcon(iconEl, 'square-x');
+            menuItem.createEl('div', { cls: 'menu-item-title', text: menuText.disable });
+
+            menuItem.addEventListener('click', async () => {
+                await this.toggleTagExclusion(tagName);
+                menuEl.remove();
+            });
+        }
+
+        if (!shouldShowDisable && this.settings.commandVisibility.tagStopExcluding) {
+            const menuItem = menuEl.createEl('div', { cls: 'menu-item' });
+            const iconEl = menuItem.createEl('div', { cls: 'menu-item-icon' });
+            setIcon(iconEl, 'square-check');
+            menuItem.createEl('div', { cls: 'menu-item-title', text: menuText.enable });
+
+            menuItem.addEventListener('click', async () => {
+                await this.toggleTagExclusion(tagName);
+                menuEl.remove();
+            });
+        }
+    }
+
+
+    async renameFile(file: TFile, noDelay = false, ignoreExclusions = false, suppressNotices = false): Promise<{ success: boolean, reason?: string }> {
         verboseLog(this, `Processing file: ${file.path}`, { noDelay, ignoreExclusions });
 
         // Log full file content at start of processing and use it for exclusion check
         let initialContent: string | undefined;
         try {
             initialContent = await this.app.vault.read(file);
-            console.log(`🔍 FLIT PROCESSING START - ${file.path}:`);
-            console.log(`📄 FULL FILE CONTENT:\n${initialContent}`);
-            console.log(`📄 END CONTENT\n`);
         } catch (error) {
-            console.log(`🔍 FLIT PROCESSING START - ${file.path}: Failed to read initial content`);
+            // Silently continue if unable to read initial content
         }
 
-        if (!ignoreExclusions && isFileExcluded(file, this.settings, this.app, initialContent)) {
-            verboseLog(this, `Skipping excluded file: ${file.path}`);
-            return;
+        if (!ignoreExclusions && !shouldProcessFile(file, this.settings, this.app, initialContent)) {
+            verboseLog(this, `Skipping file based on include/exclude strategy: ${file.path}`);
+            return { success: false, reason: 'excluded' };
         }
         if (file.extension !== 'md') {
             verboseLog(this, `Skipping non-markdown file: ${file.path}`);
-            return;
+            return { success: false, reason: 'not-markdown' };
         }
 
         if (noDelay === false) {
@@ -267,10 +490,10 @@ export default class FirstLineIsTitle extends Plugin {
         try {
             if (this.settings.useDirectFileRead) {
                 content = await this.app.vault.read(file);
-                verboseLog(this, `Direct read content from ${file.path}`, { contentLength: content.length });
+                verboseLog(this, `Direct read content from ${file.path} (${content.length} chars)`);
             } else {
                 content = await this.app.vault.cachedRead(file);
-                verboseLog(this, `Cached read content from ${file.path}`, { contentLength: content.length });
+                verboseLog(this, `Cached read content from ${file.path} (${content.length} chars)`);
             }
         } catch (error) {
             console.error(`Failed to read file ${file.path}:`, error);
@@ -280,19 +503,19 @@ export default class FirstLineIsTitle extends Plugin {
         // Check if this file has the disable property and skip if enabled (always respect disable property)
         if (hasDisableProperty(content, this.settings)) {
             verboseLog(this, `Skipping file with disable property: ${file.path}`);
-            return;
+            return { success: false, reason: 'property-disabled' };
         }
 
         // Check if this is an Excalidraw file and skip if enabled (always respect Excalidraw protection)
         if (isExcalidrawFile(content, this.settings)) {
             verboseLog(this, `Skipping Excalidraw file: ${file.path}`);
-            return;
+            return { success: false, reason: 'excalidraw' };
         }
 
         // Check if filename contains any safewords and skip if enabled (always respect safewords)
         if (containsSafeword(file.name, this.settings)) {
             verboseLog(this, `Skipping file with safeword: ${file.path}`);
-            return;
+            return { success: false, reason: 'safeword' };
         }
 
         if (content.startsWith("---")) {
@@ -328,6 +551,13 @@ export default class FirstLineIsTitle extends Plugin {
             }
         }
 
+        // Check if only headings should be processed
+        if (this.settings.onlyProcessHeadings) {
+            if (!isValidHeading(firstLine)) {
+                verboseLog(this, `Skipping file - first line is not a valid heading: ${file.path}`);
+                return { success: false, reason: 'not-heading' };
+            }
+        }
 
         // Check for card links if enabled - extract title but continue to normal processing
         if (this.settings.grabTitleFromCardLink) {
@@ -454,7 +684,7 @@ export default class FirstLineIsTitle extends Plugin {
             processedTitle = "Untitled";
         }
 
-        // Check for self-reference AFTER custom replacements are applied
+        // Store self-reference check for later (after we know the new filename)
         verboseLog(this, `Checking self-reference for ${file.path}`, { processedTitle, currentName });
         const escapedName = currentName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         const wikiLinkRegex = new RegExp(`\\[\\[${escapedName}(\\|.*?)?\\]\\]`);
@@ -479,13 +709,7 @@ export default class FirstLineIsTitle extends Plugin {
             }
         }
 
-        if (isSelfReferencing) {
-            new Notice("File not renamed due to self-referential link in first line");
-            verboseLog(this, `Skipping self-referencing file: ${file.path}`);
-            return;
-        }
-
-        verboseLog(this, `No self-reference found in ${file.path} after custom replacements`);
+        verboseLog(this, isSelfReferencing ? `Self-reference found in ${file.path}` : `No self-reference found in ${file.path}`);
 
         // Now extract title from the processed line (custom replacements already applied above)
         const extractedTitle = extractTitle(processedTitle, this.settings);
@@ -616,12 +840,23 @@ export default class FirstLineIsTitle extends Plugin {
 
         let newPath: string = `${parentPath}${newFileName}.md`;
 
+        // Check if filename would change - if not, no need to check self-reference or show notice
+        if (file.path == newPath) {
+            verboseLog(this, `No rename needed for ${file.path} - already has correct name`);
+            // Still process alias even if no rename is needed
+            if (this.settings.enableAliases) {
+                await this.addAliasToFile(file, firstLine, newFileName);
+            }
+            return;
+        }
+
         let counter: number = 0;
         let fileExists: boolean =
             this.app.vault.getAbstractFileByPath(newPath) != null;
         while (fileExists || tempNewPaths.includes(newPath)) {
+            // Check if we're about to create a path that matches current file (with counter)
             if (file.path == newPath) {
-                verboseLog(this, `No rename needed for ${file.path} - already has correct name`);
+                verboseLog(this, `No rename needed for ${file.path} - already has correct name with counter`);
                 // Still process alias even if no rename is needed
                 if (this.settings.enableAliases) {
                     await this.addAliasToFile(file, firstLine, newFileName);
@@ -631,6 +866,15 @@ export default class FirstLineIsTitle extends Plugin {
             counter += 1;
             newPath = `${parentPath}${newFileName} ${counter}.md`;
             fileExists = this.app.vault.getAbstractFileByPath(newPath) != null;
+        }
+
+        // Only check for self-reference if filename would actually change (after handling counter)
+        if (isSelfReferencing) {
+            if (!suppressNotices) {
+                new Notice(`File not renamed due to self-referential link in first line: ${file.name}`, 0);
+            }
+            verboseLog(this, `Skipping self-referencing file: ${file.path}`);
+            return { success: false, reason: 'self-referential' };
         }
 
         if (noDelay) {
@@ -646,9 +890,23 @@ export default class FirstLineIsTitle extends Plugin {
             if (this.settings.enableAliases) {
                 await this.addAliasToFile(file, firstLine, newFileName);
             }
+
+            // Show notification for manual renames (unless suppressed)
+            if (!suppressNotices && noDelay) {
+                const titleChanged = currentName !== newFileName;
+                const shouldShowNotice =
+                    this.settings.manualNotificationMode === 'Always' ||
+                    (this.settings.manualNotificationMode === 'On title change' && titleChanged);
+
+                if (shouldShowNotice) {
+                    new Notice(`Updated title: ${currentName} → ${newFileName}`);
+                }
+            }
+
+            return { success: true };
         } catch (error) {
             console.error(`Failed to rename file ${file.path} to ${newPath}:`, error);
-            throw new Error(`Failed to rename file: ${error.message}`);
+            return { success: false, reason: 'error' };
         }
     }
 
@@ -658,7 +916,6 @@ export default class FirstLineIsTitle extends Plugin {
             const firstLine = originalFirstLine;
 
             // Step 2: Process first line to get what becomes the filename
-            // This should match exactly what the rename logic does
             const processedFirstLine = extractTitle(firstLine, this.settings);
 
             // Step 3: Compare processed first line with current filename
@@ -674,46 +931,67 @@ export default class FirstLineIsTitle extends Plugin {
                 return;
             }
 
-            // Step 5: Check if the alias we would add already exists to prevent infinite loops
-            const content = await this.app.vault.read(file);
+            // Step 5: Process the alias through the same pipeline as filename generation
+            // but with forbidden character replacements disabled
+            const originalCharReplacementSetting = this.settings.enableForbiddenCharReplacements;
+            this.settings.enableForbiddenCharReplacements = false;
 
-            // Determine what alias to add (use original first line, not processed)
-            let aliasToAdd = firstLine;
+            let aliasToAdd = extractTitle(firstLine, this.settings);
+
+            // Restore original setting
+            this.settings.enableForbiddenCharReplacements = originalCharReplacementSetting;
 
             // Apply truncation to alias if enabled
             if (this.settings.truncateAlias) {
-                aliasToAdd = extractTitle(aliasToAdd, this.settings);
                 if (aliasToAdd.length > this.settings.charCount - 1) {
                     aliasToAdd = aliasToAdd.slice(0, this.settings.charCount - 1).trimEnd() + "…";
                 }
             }
 
-            // Check if this exact alias (with ZWSP markers) already exists
+            // Mark alias with ZWSP for identification
             const markedAlias = '\u200B' + aliasToAdd + '\u200B';
 
-            if (content.includes(`"${markedAlias}"`)) {
-                verboseLog(this, `Alias \`${aliasToAdd}\` already exists in ${file.path}, skipping update`);
-                return;
+            // Step 6: Save any unsaved changes before modifying frontmatter
+            const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
+            if (activeView && activeView.file === file) {
+                await activeView.save();
             }
 
-            // Step 6: Clean up existing plugin aliases first
-            verboseLog(this, `Cleaning up existing plugin aliases from ${file.path}`);
-            await this.removePluginAliasesFromFile(file);
+            // Step 8: Use processFrontMatter to update aliases
+            await this.app.fileManager.processFrontMatter(file, (frontmatter) => {
+                const aliasPropertyKey = this.settings.aliasPropertyKey || 'aliases';
 
-            // Step 7: Read updated file content and add the alias
-            const updatedContent = await this.app.vault.read(file);
+                // Get existing aliases
+                let existingAliases: string[] = [];
+                if (frontmatter[aliasPropertyKey]) {
+                    if (Array.isArray(frontmatter[aliasPropertyKey])) {
+                        existingAliases = [...frontmatter[aliasPropertyKey]];
+                    } else {
+                        existingAliases = [frontmatter[aliasPropertyKey]];
+                    }
+                }
 
-            // Insert/update alias
-            const newContent = insertAliasIntoContent(updatedContent, aliasToAdd, this.settings);
+                // Remove any existing plugin aliases (marked with ZWSP)
+                existingAliases = existingAliases.filter(alias =>
+                    !(typeof alias === 'string' && alias.startsWith('\u200B') && alias.endsWith('\u200B'))
+                );
 
-            // Only write if content changed - test improved notification suppression
-            if (newContent !== updatedContent) {
-                // Immediate update to test notification suppression
-                await this.app.vault.process(file, (data: string) => {
-                    return insertAliasIntoContent(data, aliasToAdd, this.settings);
-                });
-                verboseLog(this, `Updated alias \`${aliasToAdd}\` in ${file.path}`);
-            }
+                // Check if this exact alias already exists (unmarked)
+                if (!existingAliases.includes(aliasToAdd)) {
+                    // Add the new marked alias
+                    existingAliases.push(markedAlias);
+                    frontmatter[aliasPropertyKey] = existingAliases;
+                } else {
+                    // If only non-plugin aliases remain, update with them
+                    if (existingAliases.length === 0) {
+                        delete frontmatter[aliasPropertyKey];
+                    } else {
+                        frontmatter[aliasPropertyKey] = existingAliases;
+                    }
+                }
+            });
+
+            verboseLog(this, `Updated alias \`${aliasToAdd}\` in ${file.path}`);
 
         } catch (error) {
             console.error(`Failed to add alias to file ${file.path}:`, error);
@@ -723,149 +1001,40 @@ export default class FirstLineIsTitle extends Plugin {
 
     async removePluginAliasesFromFile(file: TFile): Promise<void> {
         try {
-            const content = await this.app.vault.read(file);
-            verboseLog(this, `Reading file content for alias cleanup: ${file.path}`);
-            verboseLog(this, `BEFORE cleanup - Full content: ${JSON.stringify(content)}`);
-
-            // Parse frontmatter
-            const frontmatterRegex = /^---\n([\s\S]*?)\n---/;
-            const frontmatterMatch = content.match(frontmatterRegex);
-
-            if (!frontmatterMatch) {
-                verboseLog(this, `No frontmatter found in ${file.path}`);
-                return; // No frontmatter
+            // Save any unsaved changes before modifying frontmatter
+            const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
+            if (activeView && activeView.file === file) {
+                await activeView.save();
             }
 
-            const frontmatterContent = frontmatterMatch[1];
-            verboseLog(this, `Frontmatter content: ${JSON.stringify(frontmatterContent)}`);
-            const aliasPropertyKey = this.settings.aliasPropertyKey || 'aliases';
+            await this.app.fileManager.processFrontMatter(file, (frontmatter) => {
+                const aliasPropertyKey = this.settings.aliasPropertyKey || 'aliases';
 
-            // Find the aliases property and capture both inline and multi-line formats
-            // Split frontmatter into lines and find the aliases line specifically
-            const frontmatterLines = frontmatterContent.split('\n');
-            const aliasLine = frontmatterLines.find(line => line.trim().startsWith(`${aliasPropertyKey}:`));
+                if (frontmatter[aliasPropertyKey]) {
+                    let existingAliases: string[] = [];
 
-            if (!aliasLine) {
-                verboseLog(this, `No aliases property found in ${file.path}`);
-                return; // No aliases property
-            }
-
-            // Extract everything after the colon on the aliases line only
-            const colonIndex = aliasLine.indexOf(':');
-            const firstLineValue = aliasLine.substring(colonIndex + 1).trim();
-            verboseLog(this, `Alias line: "${aliasLine}"`);
-            verboseLog(this, `First line value after aliases:: "${firstLineValue}"`);
-            let aliasesToCheck = [];
-
-            if (firstLineValue.startsWith('[') && firstLineValue.endsWith(']')) {
-                // Format 5: [hi, bye] or Format 6: ["hi", "bye"]
-                verboseLog(this, `Found inline array aliases: ${firstLineValue}`);
-                aliasesToCheck = firstLineValue.slice(1, -1).split(',').map(a => a.trim().replace(/^["']|["']$/g, ''));
-            } else if (firstLineValue === '') {
-                // Format 1: multi-line unquoted or Format 2: multi-line quoted
-                const aliasStartIndex = frontmatterLines.findIndex(line => line.trim().startsWith(`${aliasPropertyKey}:`));
-
-                if (aliasStartIndex !== -1) {
-                    // Collect all lines that are part of the aliases array
-                    const aliasLines = [];
-                    for (let i = aliasStartIndex + 1; i < frontmatterLines.length; i++) {
-                        const line = frontmatterLines[i];
-                        if (line.trim().startsWith('-')) {
-                            aliasLines.push(line);
-                        } else if (line.trim() !== '' && !line.startsWith(' ') && !line.startsWith('\t')) {
-                            // Stop when we hit a non-indented, non-empty line (next property)
-                            break;
-                        }
-                    }
-
-                    verboseLog(this, `Found multi-line array aliases: ${JSON.stringify(aliasLines)}`);
-                    aliasesToCheck = aliasLines.map(line => {
-                        const trimmed = line.trim();
-                        // Remove the leading '-' and any whitespace after it
-                        const withoutDash = trimmed.startsWith('-') ? trimmed.substring(1).trim() : trimmed;
-                        // Remove surrounding quotes
-                        return withoutDash.replace(/^["']|["']$/g, '');
-                    });
-                }
-            } else {
-                // Format 3: hi or Format 4: "hi"
-                verboseLog(this, `Found single alias: ${firstLineValue}`);
-                aliasesToCheck = [firstLineValue.replace(/^["']|["']$/g, '')];
-            }
-
-            verboseLog(this, `Parsed aliases: ${JSON.stringify(aliasesToCheck)}`);
-
-            const filteredAliases = aliasesToCheck.filter(alias => !(alias.startsWith('\u200B') && alias.endsWith('\u200B'))); // Filter out ZWSP-wrapped aliases
-            verboseLog(this, `Aliases after ZWSP filtering: ${JSON.stringify(filteredAliases)}`);
-
-            // Only proceed if we actually filtered out some aliases
-            if (filteredAliases.length < aliasesToCheck.length) {
-                verboseLog(this, `Removing ${aliasesToCheck.length - filteredAliases.length} plugin alias(es) from ${file.path}`);
-
-                // Rebuild the frontmatter properly by removing/updating the aliases section
-                const newFrontmatterLines = [];
-                const lines = frontmatterContent.split('\n');
-                let i = 0;
-
-                while (i < lines.length) {
-                    const line = lines[i];
-                    if (line.trim().startsWith(`${aliasPropertyKey}:`)) {
-                        // Found aliases property - skip this line and all following indented lines
-                        i++; // Skip the "aliases:" line
-
-                        // Skip only lines that are clearly part of the aliases array (start with dash and are indented)
-                        while (i < lines.length) {
-                            const nextLine = lines[i];
-                            if (nextLine.trim() === '') {
-                                i++; // Skip empty lines
-                                continue;
-                            }
-                            if ((nextLine.startsWith('  ') || nextLine.startsWith('\t')) && nextLine.trim().startsWith('-')) {
-                                i++; // Skip indented alias items (- "value")
-                                continue;
-                            }
-                            // If we hit a non-indented line or indented line that doesn't start with -, stop
-                            break;
-                        }
-
-                        // Add back the aliases if there are any remaining
-                        if (filteredAliases.length > 0) {
-                            newFrontmatterLines.push(`${aliasPropertyKey}:`);
-                            filteredAliases.forEach(alias => {
-                                newFrontmatterLines.push(`  - "${alias}"`);
-                            });
-                        }
-                        // Continue processing from current line (don't increment i again)
+                    // Normalize to array
+                    if (Array.isArray(frontmatter[aliasPropertyKey])) {
+                        existingAliases = [...frontmatter[aliasPropertyKey]];
                     } else {
-                        // Regular line - keep it
-                        newFrontmatterLines.push(line);
-                        i++;
+                        existingAliases = [frontmatter[aliasPropertyKey]];
+                    }
+
+                    // Filter out plugin aliases (marked with ZWSP)
+                    const filteredAliases = existingAliases.filter(alias =>
+                        !(typeof alias === 'string' && alias.startsWith('\u200B') && alias.endsWith('\u200B'))
+                    );
+
+                    // Update or remove the property
+                    if (filteredAliases.length === 0) {
+                        delete frontmatter[aliasPropertyKey];
+                    } else {
+                        frontmatter[aliasPropertyKey] = filteredAliases;
                     }
                 }
+            });
 
-                const updatedFrontmatter = newFrontmatterLines.join('\n').trim();
-
-                if (updatedFrontmatter) {
-                    const newContent = content.replace(frontmatterRegex, `---\n${updatedFrontmatter}\n---`);
-                    verboseLog(this, `AFTER cleanup - Full content: ${JSON.stringify(newContent)}`);
-                    console.log(`🔧 FLIT YAML MODIFICATION - ${file.path}:`);
-                    console.log(`📄 FULL FILE CONTENT AFTER ALIAS CLEANUP:\n${newContent}`);
-                    console.log(`📄 END CONTENT\n`);
-                    await this.app.vault.modify(file, newContent);
-                    verboseLog(this, `Removed plugin aliases from ${file.path}`);
-                } else {
-                    // Remove entire frontmatter if empty
-                    const newContent = content.replace(frontmatterRegex, '').replace(/^\n+/, '');
-                    verboseLog(this, `AFTER cleanup - Full content: ${JSON.stringify(newContent)}`);
-                    console.log(`🔧 FLIT YAML MODIFICATION - ${file.path}:`);
-                    console.log(`📄 FULL FILE CONTENT AFTER REMOVING FRONTMATTER:\n${newContent}`);
-                    console.log(`📄 END CONTENT\n`);
-                    await this.app.vault.modify(file, newContent);
-                    verboseLog(this, `Removed entire frontmatter from ${file.path}`);
-                }
-            } else {
-                verboseLog(this, `No plugin aliases found to remove from ${file.path}`);
-            }
+            verboseLog(this, `Removed plugin aliases from ${file.path}`);
         } catch (error) {
             console.error(`Failed to remove plugin aliases from ${file.path}:`, error);
         }
@@ -873,209 +1042,317 @@ export default class FirstLineIsTitle extends Plugin {
 
     async removeAliasFromFile(file: TFile, aliasToRemove: string): Promise<void> {
         try {
-            const content = await this.app.vault.read(file);
             const trimmedAlias = aliasToRemove.trim();
 
             if (!trimmedAlias) {
                 return;
             }
 
-            // Parse frontmatter using the same logic as addAliasToFile
-            const frontmatterRegex = /^---\n([\s\S]*?)\n---/;
-            const frontmatterMatch = content.match(frontmatterRegex);
-
-            if (!frontmatterMatch) {
-                // No frontmatter, nothing to remove
-                return;
+            // Save any unsaved changes before modifying frontmatter
+            const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
+            if (activeView && activeView.file === file) {
+                await activeView.save();
             }
 
-            const frontmatterContent = frontmatterMatch[1];
-            const aliasPropertyKey = this.settings.aliasPropertyKey || 'aliases';
-            const aliasRegex = new RegExp(`^${aliasPropertyKey}:\\s*(.*)$`, 'm');
-            const aliasMatch = frontmatterContent.match(aliasRegex);
+            await this.app.fileManager.processFrontMatter(file, (frontmatter) => {
+                const aliasPropertyKey = this.settings.aliasPropertyKey || 'aliases';
 
-            if (!aliasMatch) {
-                // No aliases property, nothing to remove
-                return;
-            }
+                if (frontmatter[aliasPropertyKey]) {
+                    let existingAliases: string[] = [];
 
-            const aliasValue = aliasMatch[1].trim();
-            let updatedAliasValue = '';
-
-            if (aliasValue.startsWith('[') && aliasValue.endsWith(']')) {
-                // Array format - parse and remove the alias
-                const aliasArray = aliasValue.slice(1, -1).split(',').map(a => a.trim().replace(/^["']|["']$/g, ''));
-                const filteredAliases = aliasArray.filter(alias => alias !== trimmedAlias);
-
-                if (filteredAliases.length === 0) {
-                    // Remove the entire aliases property if no aliases left
-                    const updatedFrontmatter = frontmatterContent.replace(new RegExp(`^${aliasPropertyKey}:.*$`, 'm'), '').replace(/\n\n+/g, '\n').trim();
-
-                    if (updatedFrontmatter) {
-                        const newContent = content.replace(frontmatterRegex, `---\n${updatedFrontmatter}\n---`);
-                        await this.app.vault.modify(file, newContent);
-                        verboseLog(this, `Removed alias property from ${file.path}`);
+                    // Normalize to array
+                    if (Array.isArray(frontmatter[aliasPropertyKey])) {
+                        existingAliases = [...frontmatter[aliasPropertyKey]];
                     } else {
-                        // Remove entire frontmatter if empty
-                        const newContent = content.replace(frontmatterRegex, '').replace(/^\n+/, '');
-                        await this.app.vault.modify(file, newContent);
-                        verboseLog(this, `Removed entire frontmatter from ${file.path}`);
+                        existingAliases = [frontmatter[aliasPropertyKey]];
                     }
-                } else {
-                    // Update with remaining aliases
-                    updatedAliasValue = `[${filteredAliases.map(a => `"${a}"`).join(', ')}]`;
-                    const updatedFrontmatter = frontmatterContent.replace(aliasRegex, `${aliasPropertyKey}: ${updatedAliasValue}`);
-                    const newContent = content.replace(frontmatterRegex, `---\n${updatedFrontmatter}\n---`);
-                    await this.app.vault.modify(file, newContent);
-                    verboseLog(this, `Removed alias "${trimmedAlias}" from ${file.path}`);
-                }
-            } else if (aliasValue === `"${trimmedAlias}"` || aliasValue === trimmedAlias) {
-                // Single alias format - remove the entire property
-                const updatedFrontmatter = frontmatterContent.replace(new RegExp(`^${aliasPropertyKey}:.*$`, 'm'), '').replace(/\n\n+/g, '\n').trim();
 
-                if (updatedFrontmatter) {
-                    const newContent = content.replace(frontmatterRegex, `---\n${updatedFrontmatter}\n---`);
-                    await this.app.vault.modify(file, newContent);
-                    verboseLog(this, `Removed alias property from ${file.path}`);
-                } else {
-                    // Remove entire frontmatter if empty
-                    const newContent = content.replace(frontmatterRegex, '').replace(/^\n+/, '');
-                    await this.app.vault.modify(file, newContent);
-                    verboseLog(this, `Removed entire frontmatter from ${file.path}`);
+                    // Remove the specified alias
+                    const filteredAliases = existingAliases.filter(alias => alias !== trimmedAlias);
+
+                    // Update or remove the property
+                    if (filteredAliases.length === 0) {
+                        delete frontmatter[aliasPropertyKey];
+                    } else {
+                        frontmatter[aliasPropertyKey] = filteredAliases;
+                    }
                 }
-            }
+            });
+
+            verboseLog(this, `Removed alias "${trimmedAlias}" from ${file.path}`);
         } catch (error) {
             console.error(`Failed to remove alias from ${file.path}:`, error);
         }
     }
 
-    debouncedAliasUpdate(file: TFile, aliasToAdd: string): void {
-        // Clear any existing timeout for this file
-        const existingTimer = aliasUpdateTimers.get(file.path);
-        if (existingTimer) {
-            clearTimeout(existingTimer);
-        }
 
-        // Set a new timeout - small delay to let user finish current keystroke
-        aliasUpdateTimers.set(file.path, setTimeout(async () => {
-            try {
-                // Use app.vault.process() with debouncing for safer updates
-                await this.app.vault.process(file, (data: string) => {
-                    return insertAliasIntoContent(data, aliasToAdd, this.settings);
-                });
 
-                verboseLog(this, `Updated alias \`${aliasToAdd}\` in ${file.path}`);
+    setupCommandPaletteIcons(): void {
+        // Create a map of command names to their icons
+        const commandIcons = new Map([
+            ['Put first line in title', 'file-pen'],
+            ['Put first line in title (unless excluded)', 'file-pen'],
+            ['Put first line in title in all notes', 'files'],
+            ['Disable renaming for note', 'square-x'],
+            ['Enable renaming for note', 'square-check']
+        ]);
 
-                // Clean up timer
-                aliasUpdateTimers.delete(file.path);
-
-            } catch (error) {
-                console.error(`Failed to update alias for ${file.path}:`, error);
-                aliasUpdateTimers.delete(file.path);
-            }
-        }, 500)); // 500ms delay - enough time for user to finish typing
-    }
-
-    setupNotificationSuppression(): void {
-        // Clean up any existing suppression first
-        this.cleanupNotificationSuppression();
-
-        console.log(`Notification suppression setup: enabled=${this.settings.suppressExternalModificationNotifications}`);
-
-        // Check if suppression is enabled before setting up
-        if (!this.settings.suppressExternalModificationNotifications) {
-            return;
-        }
-
-        console.log(`Manual notification suppression check: enabled=${this.settings.suppressExternalModificationNotifications}`);
-
-        // Watch for new notification containers and hide ones about external modifications
-        this.notificationObserver = new MutationObserver((mutations) => {
+        // Observer to watch for command palette suggestions
+        const observer = new MutationObserver((mutations) => {
             mutations.forEach((mutation) => {
                 mutation.addedNodes.forEach((node) => {
                     if (node instanceof HTMLElement) {
+                        // Look for suggestion items in the command palette
+                        const suggestionItems = node.querySelectorAll('.suggestion-item, [class*="suggestion"]');
 
-                        // Target both notice containers and individual notice elements
-                        if (node.classList.contains('notice-container') || node.classList.contains('notice')) {
+                        suggestionItems.forEach((item) => {
+                            if (item instanceof HTMLElement) {
+                                const titleElement = item.querySelector('.suggestion-title, [class*="title"]');
+                                if (titleElement) {
+                                    const commandName = titleElement.textContent?.trim();
+                                    if (commandName && commandIcons.has(commandName)) {
+                                        // Check if icon already exists
+                                        if (!item.querySelector('.flit-command-icon')) {
+                                            const iconName = commandIcons.get(commandName);
 
-                            const noticeText = node.textContent || '';
+                                            // Create icon element
+                                            const iconElement = document.createElement('div');
+                                            iconElement.classList.add('flit-command-icon');
+                                            iconElement.style.cssText = `
+                                                display: inline-flex;
+                                                align-items: center;
+                                                justify-content: center;
+                                                width: 16px;
+                                                height: 16px;
+                                                margin-right: 8px;
+                                                color: var(--text-muted);
+                                                flex-shrink: 0;
+                                            `;
 
-                            // Check if this notification was already processed
-                            if (node.hasAttribute('data-flit-processed')) {
-                                return;
-                            }
+                                            // Use Obsidian's setIcon function to add the icon
+                                            setIcon(iconElement, iconName);
 
-                            // Mark as processed to prevent double-processing
-                            node.setAttribute('data-flit-processed', 'true');
-
-                            // Check if this is ONLY an external modification notification (no other notifications mixed in)
-                            // Just match the exact text we see in the logs
-                            const conditions = {
-                                hasExternal: noticeText.includes('has been modified externally, merging changes automatically'),
-                                hasMd: noticeText.includes('.md'),
-                                noUpdated: !noticeText.includes('Updated'),
-                                startsQuote: noticeText.trim().charCodeAt(0) === 8220,
-                                shortEnough: noticeText.length < 200
-                            };
-                            const isExternalModification = conditions.hasExternal && conditions.hasMd && conditions.noUpdated && conditions.startsQuote && conditions.shortEnough;
-
-
-                            if (isExternalModification) {
-                                node.style.display = 'none';
-                                if (this.settings.verboseLogging) {
-                                    console.log(`SUPPRESSED: External modification notification: ${noticeText.trim()}`);
+                                            // Insert icon at the beginning of the suggestion item
+                                            item.insertBefore(iconElement, item.firstChild);
+                                        }
+                                    }
                                 }
                             }
-                        }
+                        });
                     }
                 });
             });
         });
 
-        // Start observing for new notice containers
-        this.notificationObserver.observe(document.body, {
+        // Start observing the document for changes
+        observer.observe(document.body, {
             childList: true,
             subtree: true
         });
 
-        verboseLog(this, 'Notification suppression setup completed');
+        // Store the observer for cleanup
+        this.commandPaletteObserver = observer;
     }
 
-    cleanupNotificationSuppression(): void {
-        // Disconnect observer
-        if (this.notificationObserver) {
-            this.notificationObserver.disconnect();
-            this.notificationObserver = null;
-        }
+    registerRibbonIcons(): void {
+        // Register ribbon icons in order according to settings
+        // This method is called with a delay to ensure icons are placed last
 
-        // Remove injected CSS
-        if (this.notificationStyleElement && this.notificationStyleElement.parentNode) {
-            this.notificationStyleElement.parentNode.removeChild(this.notificationStyleElement);
-            this.notificationStyleElement = null;
-        }
+        // Create array of ribbon actions to add in settings order
+        const ribbonActions: Array<{
+            condition: boolean;
+            icon: string;
+            title: string;
+            callback: () => void | Promise<void>;
+        }> = [
+            {
+                condition: this.settings.ribbonVisibility.renameCurrentFile,
+                icon: 'file-pen',
+                title: 'Put first line in title',
+                callback: async () => {
+                    const activeFile = this.app.workspace.getActiveFile();
+                    if (activeFile && activeFile.extension === 'md') {
+                        verboseLog(this, `Manual rename command triggered for ${activeFile.path} (ignoring exclusions)`);
+                        await this.renameFile(activeFile, true, true);
+                    }
+                }
+            },
+            {
+                condition: this.settings.ribbonVisibility.renameAllNotes,
+                icon: 'files',
+                title: 'Put first line in title in all notes',
+                callback: () => {
+                    verboseLog(this, 'Bulk rename command triggered');
+                    new RenameAllFilesModal(this.app, this).open();
+                }
+            }
+        ];
 
-        // Check for any remaining hidden notifications and restore them
-        const hiddenNotifications = document.querySelectorAll('.notice-container[style*="display: none"]');
-        hiddenNotifications.forEach((notification) => {
-            (notification as HTMLElement).style.display = '';
-            (notification as HTMLElement).removeAttribute('data-flit-processed');
+        // Add ribbon icons in order, only if enabled
+        ribbonActions.forEach(action => {
+            if (action.condition) {
+                this.addRibbonIcon(action.icon, action.title, action.callback);
+            }
+        });
+    }
+
+    async registerDynamicCommands(): Promise<void> {
+        if (!this.settings.enableCommandPalette) return;
+
+        const activeFile = this.app.workspace.getActiveFile();
+        if (!activeFile || activeFile.extension !== 'md') return;
+
+        // Check if the disable property exists in the current file
+        const hasDisableProperty = await hasDisablePropertyInFile(activeFile, this.app, this.settings);
+
+        // Remove existing dynamic commands
+        const commandsToRemove = ['disable-renaming-for-note', 'enable-renaming-for-note'];
+        commandsToRemove.forEach(id => {
+            // @ts-ignore - accessing private property
+            if (this.app.commands.commands[id]) {
+                // @ts-ignore - accessing private method
+                this.app.commands.removeCommand(id);
+            }
         });
 
-        verboseLog(this, 'Notification suppression cleanup completed');
+        if (hasDisableProperty) {
+            // Show enable command when property exists
+            if (this.settings.commandPaletteVisibility.enableRenaming) {
+                this.addCommand({
+                    id: 'enable-renaming-for-note',
+                    name: 'Enable renaming for note',
+                    icon: 'square-check',
+                    callback: async () => {
+                        await this.enableRenamingForNote();
+                    }
+                });
+            }
+        } else {
+            // Show disable command when property doesn't exist
+            if (this.settings.commandPaletteVisibility.disableRenaming) {
+                this.addCommand({
+                    id: 'disable-renaming-for-note',
+                    name: 'Disable renaming for note',
+                    icon: 'square-x',
+                    callback: async () => {
+                        await this.disableRenamingForNote();
+                    }
+                });
+            }
+        }
+    }
+
+    async disableRenamingForNote(): Promise<void> {
+        const activeFile = this.app.workspace.getActiveFile();
+        if (!activeFile || activeFile.extension !== 'md') {
+            new Notice("No active markdown file");
+            return;
+        }
+
+        // Check if settings are configured
+        if (!this.settings.disableRenamingKey || !this.settings.disableRenamingValue) {
+            new Notice("Disable renaming property not configured in settings");
+            return;
+        }
+
+        // Check if property already exists
+        const hasProperty = await hasDisablePropertyInFile(activeFile, this.app, this.settings);
+
+        try {
+            if (!hasProperty) {
+                await this.app.fileManager.processFrontMatter(activeFile, (frontmatter) => {
+                    frontmatter[this.settings.disableRenamingKey] = this.settings.disableRenamingValue;
+                });
+                // Re-register commands to reflect new state
+                await this.registerDynamicCommands();
+            }
+
+            new Notice(`Disabled renaming for ${activeFile.name}`);
+        } catch (error) {
+            new Notice(`Failed to disable renaming: ${error.message}`);
+        }
+    }
+
+    async enableRenamingForNote(): Promise<void> {
+        const activeFile = this.app.workspace.getActiveFile();
+        if (!activeFile || activeFile.extension !== 'md') {
+            new Notice("No active markdown file");
+            return;
+        }
+
+        // Check if settings are configured
+        if (!this.settings.disableRenamingKey || !this.settings.disableRenamingValue) {
+            new Notice("Disable renaming property not configured in settings");
+            return;
+        }
+
+        // Check if property exists
+        const hasProperty = await hasDisablePropertyInFile(activeFile, this.app, this.settings);
+
+        try {
+            if (hasProperty) {
+                await this.app.fileManager.processFrontMatter(activeFile, (frontmatter) => {
+                    delete frontmatter[this.settings.disableRenamingKey];
+                });
+                // Re-register commands to reflect new state
+                await this.registerDynamicCommands();
+            }
+
+            new Notice(`Enabled renaming for ${activeFile.name}`);
+        } catch (error) {
+            new Notice(`Failed to enable renaming: ${error.message}`);
+        }
     }
 
     async onload(): Promise<void> {
         await this.loadSettings();
-        verboseLog(this, 'Plugin loaded', this.settings);
+
+        // Always disable debug mode on plugin load (don't preserve ON state)
+        this.settings.verboseLogging = false;
 
         // Auto-detect OS every time plugin loads
         this.settings.osPreset = detectOS();
         await this.saveSettings();
+
+        verboseLog(this, 'Plugin loaded', this.settings);
         verboseLog(this, `Detected OS: \`${this.settings.osPreset}\``);
 
-        // Setup notification suppression for external modification notices (if enabled)
-        if (this.settings.suppressExternalModificationNotifications) {
-            this.setupNotificationSuppression();
+        // Initialize first-enable logic for sections (for fresh installs or existing configs)
+        let settingsChanged = false;
+
+        // Custom replacements first-enable logic
+        if (this.settings.enableCustomReplacements && !this.settings.hasEnabledCustomReplacements) {
+            this.settings.customReplacements.forEach(replacement => {
+                replacement.enabled = true;
+            });
+            this.settings.hasEnabledCustomReplacements = true;
+            settingsChanged = true;
+            verboseLog(this, 'Initialized custom replacements on first enable');
+        }
+
+        // Safewords first-enable logic
+        if (this.settings.enableSafewords && !this.settings.hasEnabledSafewords) {
+            this.settings.safewords.forEach(safeword => {
+                safeword.enabled = true;
+            });
+            this.settings.hasEnabledSafewords = true;
+            settingsChanged = true;
+            verboseLog(this, 'Initialized safewords on first enable');
+        }
+
+        // Forbidden chars first-enable logic (already exists in settings, but add for completeness)
+        if (this.settings.enableForbiddenCharReplacements && !this.settings.hasEnabledForbiddenChars) {
+            const allOSesKeys = ['leftBracket', 'rightBracket', 'hash', 'caret', 'pipe', 'backslash', 'slash', 'colon', 'dot'];
+            allOSesKeys.forEach(key => {
+                this.settings.charReplacementEnabled[key as keyof typeof this.settings.charReplacementEnabled] = true;
+            });
+            this.settings.hasEnabledForbiddenChars = true;
+            settingsChanged = true;
+            verboseLog(this, 'Initialized forbidden char replacements on first enable');
+        }
+
+        if (settingsChanged) {
+            await this.saveSettings();
         }
 
         // Load styles from external CSS file
@@ -1091,24 +1368,11 @@ export default class FirstLineIsTitle extends Plugin {
 
         // Register command palette commands conditionally based on master toggle and individual settings
         if (this.settings.enableCommandPalette) {
-            if (this.settings.commandPaletteVisibility.renameCurrentFileUnlessExcluded) {
-                this.addCommand({
-                    id: 'rename-current-file-unless-excluded',
-                    name: 'Put first line in title (unless excluded)',
-                    callback: async () => {
-                        const activeFile = this.app.workspace.getActiveFile();
-                        if (activeFile && activeFile.extension === 'md') {
-                            verboseLog(this, `Manual rename command triggered for ${activeFile.path} (unless excluded)`);
-                            await this.renameFile(activeFile, true, false);
-                        }
-                    }
-                });
-            }
-
             if (this.settings.commandPaletteVisibility.renameCurrentFile) {
                 this.addCommand({
                     id: 'rename-current-file',
-                    name: 'Put first line in title (even if excluded)',
+                    name: 'Put first line in title',
+                    icon: 'file-pen',
                     callback: async () => {
                         const activeFile = this.app.workspace.getActiveFile();
                         if (activeFile && activeFile.extension === 'md') {
@@ -1119,16 +1383,45 @@ export default class FirstLineIsTitle extends Plugin {
                 });
             }
 
+            if (this.settings.commandPaletteVisibility.renameCurrentFileUnlessExcluded) {
+                this.addCommand({
+                    id: 'rename-current-file-unless-excluded',
+                    name: 'Put first line in title (unless excluded)',
+                    icon: 'file-pen',
+                    callback: async () => {
+                        const activeFile = this.app.workspace.getActiveFile();
+                        if (activeFile && activeFile.extension === 'md') {
+                            verboseLog(this, `Manual rename command triggered for ${activeFile.path} (unless excluded)`);
+                            await this.renameFile(activeFile, true, false);
+                        }
+                    }
+                });
+            }
+
             if (this.settings.commandPaletteVisibility.renameAllFiles) {
                 this.addCommand({
                     id: 'rename-all-files',
                     name: 'Put first line in title in all notes',
+                    icon: 'file-pen',
                     callback: () => {
                         verboseLog(this, 'Bulk rename command triggered');
                         new RenameAllFilesModal(this.app, this).open();
                     }
                 });
             }
+
+            // Dynamic commands that depend on current file state - will be registered separately
+            this.registerDynamicCommands();
+        }
+
+        // Defer ribbon icon registration to ensure they're placed last
+        if (this.settings.enableRibbon) {
+            this.app.workspace.onLayoutReady(() => {
+                // Use setTimeout to ensure this runs after all other plugins have loaded
+                setTimeout(() => {
+                    this.registerRibbonIcons();
+                }, 0);
+            });
         }
 
         // Add context menu handlers
@@ -1137,53 +1430,147 @@ export default class FirstLineIsTitle extends Plugin {
                 // Only show context menu commands if master toggle is enabled
                 if (!this.settings.enableContextMenus) return;
 
-                if (file instanceof TFolder) {
-                    // Add "Put first line in title" command for folder
+                // Count visible items to determine if we need a separator
+                let hasVisibleItems = false;
+
+                if (file instanceof TFile && file.extension === 'md') {
+                    // FILE SECTION
+                    if (this.settings.commandVisibility.filePutFirstLineInTitle) {
+                        if (!hasVisibleItems) {
+                            menu.addSeparator();
+                            hasVisibleItems = true;
+                        }
+                        menu.addItem((item) => {
+                            item
+                                .setTitle("Put first line in title")
+                                .setIcon("file-pen")
+                                .setSection("file")
+                                .onClick(async () => {
+                                    // Run the "even if excluded" version
+                                    await this.renameFile(file, true, true);
+                                });
+                        });
+                    }
+
+                    // Add file exclusion commands using frontmatter properties
+                    // Use synchronous check with cached metadata instead of async file read
+                    const fileCache = this.app.metadataCache.getFileCache(file);
+                    let hasDisableProperty = false;
+
+                    if (fileCache && fileCache.frontmatter && this.settings.disableRenamingKey && this.settings.disableRenamingValue) {
+                        const frontmatter = fileCache.frontmatter;
+                        const value = frontmatter[this.settings.disableRenamingKey];
+                        if (value !== undefined) {
+                            // Handle different value formats (string, number, boolean)
+                            const valueStr = String(value).toLowerCase();
+                            const expectedStr = this.settings.disableRenamingValue.toLowerCase();
+                            hasDisableProperty = valueStr === expectedStr;
+                        }
+                    }
+
+                    if (!hasDisableProperty && this.settings.commandVisibility.fileExclude) {
+                        if (!hasVisibleItems) {
+                            menu.addSeparator();
+                            hasVisibleItems = true;
+                        }
+                        menu.addItem((item) => {
+                            item
+                                .setTitle("Disable renaming for note")
+                                .setIcon("square-x")
+                                .setSection("file")
+                                .onClick(async () => {
+                                    if (!this.settings.disableRenamingKey || !this.settings.disableRenamingValue) {
+                                        new Notice("Disable renaming property not configured in settings");
+                                        return;
+                                    }
+
+                                    try {
+                                        await this.app.fileManager.processFrontMatter(file, (frontmatter) => {
+                                            frontmatter[this.settings.disableRenamingKey] = this.settings.disableRenamingValue;
+                                        });
+                                        new Notice(`Disabled renaming for ${file.name}`);
+                                    } catch (error) {
+                                        new Notice(`Failed to disable renaming: ${error.message}`);
+                                    }
+                                });
+                        });
+                    } else if (hasDisableProperty && this.settings.commandVisibility.fileStopExcluding) {
+                        if (!hasVisibleItems) {
+                            menu.addSeparator();
+                            hasVisibleItems = true;
+                        }
+                        menu.addItem((item) => {
+                            item
+                                .setTitle("Enable renaming for note")
+                                .setIcon("square-check")
+                                .setSection("file")
+                                .onClick(async () => {
+                                    if (!this.settings.disableRenamingKey || !this.settings.disableRenamingValue) {
+                                        new Notice("Disable renaming property not configured in settings");
+                                        return;
+                                    }
+
+                                    try {
+                                        await this.app.fileManager.processFrontMatter(file, (frontmatter) => {
+                                            delete frontmatter[this.settings.disableRenamingKey];
+                                        });
+                                        new Notice(`Enabled renaming for ${file.name}`);
+                                    } catch (error) {
+                                        new Notice(`Failed to enable renaming: ${error.message}`);
+                                    }
+                                });
+                        });
+                    }
+                } else if (file instanceof TFolder) {
+                    // FOLDER SECTION
                     if (this.settings.commandVisibility.folderPutFirstLineInTitle) {
+                        if (!hasVisibleItems) {
+                            menu.addSeparator();
+                            hasVisibleItems = true;
+                        }
                         menu.addItem((item) => {
                             item
                                 .setTitle("Put first line in title")
                                 .setIcon("folder-pen")
+                                .setSection("folder")
                                 .onClick(() => {
                                     new RenameFolderModal(this.app, this, file).open();
                                 });
                         });
                     }
 
-                    // Add folder exclusion commands
-                    const isExcluded = this.settings.excludedFolders.includes(file.path);
+                    // Add folder exclusion commands with dynamic text
+                    const shouldShowDisable = this.shouldShowDisableMenuForFolder(file.path);
+                    const menuText = this.getFolderMenuText(file.path);
 
-                    if (!isExcluded && this.settings.commandVisibility.folderExclude) {
+                    if (shouldShowDisable && this.settings.commandVisibility.folderExclude) {
+                        if (!hasVisibleItems) {
+                            menu.addSeparator();
+                            hasVisibleItems = true;
+                        }
                         menu.addItem((item) => {
                             item
-                                .setTitle("Disable renaming in folder")
-                                .setIcon("folder-x")
+                                .setTitle(menuText.disable)
+                                .setIcon("square-x")
+                                .setSection("folder")
                                 .onClick(async () => {
                                     await this.toggleFolderExclusion(file.path);
                                 });
                         });
                     }
 
-                    if (isExcluded && this.settings.commandVisibility.folderStopExcluding) {
+                    if (!shouldShowDisable && this.settings.commandVisibility.folderStopExcluding) {
+                        if (!hasVisibleItems) {
+                            menu.addSeparator();
+                            hasVisibleItems = true;
+                        }
                         menu.addItem((item) => {
                             item
-                                .setTitle("Enable renaming in folder")
-                                .setIcon("folder-check")
+                                .setTitle(menuText.enable)
+                                .setIcon("square-check")
+                                .setSection("folder")
                                 .onClick(async () => {
                                     await this.toggleFolderExclusion(file.path);
-                                });
-                        });
-                    }
-                } else if (file instanceof TFile && file.extension === 'md') {
-                    // Add "Put first line in title" command for files
-                    if (this.settings.commandVisibility.filePutFirstLineInTitle) {
-                        menu.addItem((item) => {
-                            item
-                                .setTitle("Put first line in title")
-                                .setIcon("file-pen")
-                                .onClick(async () => {
-                                    // Run the "even if excluded" version
-                                    await this.renameFile(file, true, true);
                                 });
                         });
                     }
@@ -1192,70 +1579,259 @@ export default class FirstLineIsTitle extends Plugin {
         );
 
         // Add tag context menu handlers
-        // Handle editor hashtags
+        // Handle editor hashtags using Tag Wrangler's approach
         this.registerEvent(
             this.app.workspace.on("editor-menu", (menu, editor, view) => {
                 // Only show tag context menu commands if master toggle is enabled
                 if (!this.settings.enableContextMenus) return;
 
-                const cursor = editor.getCursor();
-                const line = editor.getLine(cursor.line);
-                const ch = cursor.ch;
-
-                // Check if cursor is on a hashtag
-                const hashtagRegex = /#[\w\/\-]+/g;
-                let match;
-                let tagName = '';
-
-                while ((match = hashtagRegex.exec(line)) !== null) {
-                    if (ch >= match.index && ch <= match.index + match[0].length) {
-                        tagName = match[0].slice(1); // Remove the #
-                        break;
-                    }
-                }
-
-                if (tagName) {
+                const token = editor.getClickableTokenAt(editor.getCursor());
+                if (token?.type === "tag") {
+                    const tagName = token.text.startsWith('#') ? token.text.slice(1) : token.text;
                     this.addTagMenuItems(menu, tagName);
                 }
             })
         );
 
-        // Handle tag pane context menus using DOM events
+        // Handle tag pane context menus using Tag Wrangler's pattern
         this.registerDomEvent(document, 'contextmenu', (evt) => {
             // Only show tag context menu commands if master toggle is enabled
             if (!this.settings.enableContextMenus) return;
 
             const target = evt.target as HTMLElement;
+
+            // Check for tag pane tags
             const tagElement = target.closest('.tag-pane-tag');
-
             if (tagElement) {
-                // Extract tag name from tag pane
-                let tagName = '';
-                const tagText = tagElement.textContent?.trim();
+                // Extract tag name from tag pane using Tag Wrangler's approach
+                const tagNameEl = tagElement.querySelector('.tag-pane-tag-text, .tag-pane-tag .tree-item-inner-text');
+                const tagText = tagNameEl?.textContent?.trim();
+
                 if (tagText) {
-                    tagName = tagText.startsWith('#') ? tagText.slice(1) : tagText;
+                    const tagName = tagText.startsWith('#') ? tagText.slice(1) : tagText;
+
+                    // Use Tag Wrangler's menuForEvent pattern
+                    const menu = this.menuForEvent(evt);
+                    this.addTagMenuItems(menu, tagName);
                 }
+                return;
+            }
 
-                if (tagName) {
-                    // Wait for the native context menu to be created
-                    setTimeout(() => {
-                        const menuEl = document.querySelector('.menu');
-                        if (menuEl) {
-                            // Create Obsidian menu instance from the existing DOM element
-                            const menu = new Menu();
-                            this.addTagMenuItems(menu, tagName);
+            // Check for YAML property view tags (frontmatter tags) - handled separately with monkey patching
+            const yamlTagElement = target.closest('.metadata-property[data-property-key="tags"] .multi-select-pill');
+            if (yamlTagElement) {
+                // YAML tags are handled by the monkey-patched Menu.prototype.showAtPosition
+                return;
+            }
 
-                            // Replace the existing menu
-                            menuEl.remove();
-                            menu.showAtMouseEvent(evt);
+            // Check for reading mode tag links
+            const readingModeTag = target.closest('a.tag[href^="#"]');
+            if (readingModeTag) {
+                const href = readingModeTag.getAttribute('href');
+                if (href) {
+                    const tagName = href.slice(1); // Remove the #
+
+                    // Use Tag Wrangler's menuForEvent pattern
+                    const menu = this.menuForEvent(evt);
+                    this.addTagMenuItems(menu, tagName);
+                }
+                return;
+            }
+        }, true);
+
+        // Handle YAML property view tags with monkey patching (like Tag Wrangler)
+        this.registerDomEvent(document, 'contextmenu', (evt) => {
+            if (!this.settings.enableContextMenus) return;
+
+            const target = evt.target as HTMLElement;
+            const yamlTagElement = target.closest('.metadata-property[data-property-key="tags"] .multi-select-pill');
+
+            if (yamlTagElement) {
+                const tagText = yamlTagElement.textContent?.trim();
+                if (tagText) {
+                    const tagName = tagText.startsWith('#') ? tagText.slice(1) : tagText;
+
+                    // Use proper monkey-around like Tag Wrangler
+                    const plugin = this;
+                    const remove = around(Menu.prototype, {
+                        showAtPosition(old) {
+                            return function (...args) {
+                                remove();
+                                plugin.addTagMenuItems(this, tagName);
+                                return old.apply(this, args);
+                            }
                         }
-                    }, 0);
+                    });
+
+                    if ((Menu as any).forEvent) {
+                        const remove2 = around(Menu as any, {forEvent(old) { return function (ev: Event) {
+                            const m = old.call(this, evt);
+                            if (ev === evt) {
+                                plugin.addTagMenuItems(m, tagName);
+                                remove();
+                            }
+                            remove2()
+                            return m;
+                        }}})
+                        setTimeout(remove2, 0);
+                    }
+                    setTimeout(remove, 0);
                 }
             }
         }, true);
 
+        // Add search results context menu handler
+        this.registerEvent(
+            this.app.workspace.on("search:results-menu", (menu: Menu, leaf: any) => {
+                // Only show context menu commands if master toggle is enabled
+                if (!this.settings.enableVaultSearchContextMenu) return;
+
+                // Extract files from search results
+                let files: TFile[] = [];
+                if (leaf.dom?.vChildren?.children) {
+                    leaf.dom.vChildren.children.forEach((e: any) => {
+                        if (e.file && e.file instanceof TFile && e.file.extension === 'md') {
+                            files.push(e.file);
+                        }
+                    });
+                }
+
+                // Only add menu items if we have markdown files
+                if (files.length < 1) return;
+
+                let hasVisibleItems = false;
+
+                // Add "Put first line in title" command for search results
+                if (this.settings.vaultSearchContextMenuVisibility.putFirstLineInTitle) {
+                    if (!hasVisibleItems) {
+                        menu.addSeparator();
+                        hasVisibleItems = true;
+                    }
+                    menu.addItem((item) => {
+                        item
+                            .setTitle(`Put first line in title (${files.length} notes)`)
+                            .setIcon("file-pen")
+                            .setSection("search")
+                            .onClick(async () => {
+                                const selfReferentialFiles: string[] = [];
+                                let processedCount = 0;
+
+                                for (const file of files) {
+                                    const result = await this.renameFile(file, true, true, true);
+                                    if (result.success) {
+                                        processedCount++;
+                                    } else if (result.reason === 'self-referential') {
+                                        selfReferentialFiles.push(file.name);
+                                    }
+                                }
+
+                                // Show summary notice for self-referential files
+                                if (selfReferentialFiles.length > 0) {
+                                    const fileList = selfReferentialFiles.length === 1
+                                        ? selfReferentialFiles[0]
+                                        : selfReferentialFiles.length === 2
+                                        ? selfReferentialFiles.join(' and ')
+                                        : `${selfReferentialFiles.slice(0, -1).join(', ')}, and ${selfReferentialFiles.slice(-1)[0]}`;
+
+                                    new Notice(`${selfReferentialFiles.length} file${selfReferentialFiles.length === 1 ? '' : 's'} not renamed due to self-referential link${selfReferentialFiles.length === 1 ? '' : 's'} in first line: ${fileList}`, 0);
+                                }
+                            });
+                    });
+                }
+
+                // Add exclusion commands if applicable
+                // Note: For search results, we'll apply to all files regardless of current exclusion status
+                if (this.settings.vaultSearchContextMenuVisibility.disable) {
+                    if (!hasVisibleItems) {
+                        menu.addSeparator();
+                        hasVisibleItems = true;
+                    }
+                    menu.addItem((item) => {
+                        item
+                            .setTitle(`Disable renaming for notes (${files.length} notes)`)
+                            .setIcon("square-x")
+                            .setSection("search")
+                            .onClick(async () => {
+                                if (!this.settings.disableRenamingKey || !this.settings.disableRenamingValue) {
+                                    new Notice("Disable renaming property not configured in settings");
+                                    return;
+                                }
+
+                                let successCount = 0;
+                                let errorCount = 0;
+
+                                for (const file of files) {
+                                    try {
+                                        const hasProperty = await hasDisablePropertyInFile(file, this.app, this.settings);
+                                        if (!hasProperty) {
+                                            await this.app.fileManager.processFrontMatter(file, (frontmatter) => {
+                                                frontmatter[this.settings.disableRenamingKey] = this.settings.disableRenamingValue;
+                                            });
+                                            successCount++;
+                                        }
+                                    } catch (error) {
+                                        errorCount++;
+                                    }
+                                }
+
+                                if (errorCount > 0) {
+                                    new Notice(`Disabled renaming for ${successCount} notes with ${errorCount} errors`);
+                                } else {
+                                    new Notice(`Disabled renaming for ${successCount} notes`);
+                                }
+                            });
+                    });
+                }
+
+                if (this.settings.vaultSearchContextMenuVisibility.enable) {
+                    if (!hasVisibleItems) {
+                        menu.addSeparator();
+                        hasVisibleItems = true;
+                    }
+                    menu.addItem((item) => {
+                        item
+                            .setTitle(`Enable renaming for notes (${files.length} notes)`)
+                            .setIcon("square-check")
+                            .setSection("search")
+                            .onClick(async () => {
+                                if (!this.settings.disableRenamingKey || !this.settings.disableRenamingValue) {
+                                    new Notice("Disable renaming property not configured in settings");
+                                    return;
+                                }
+
+                                let successCount = 0;
+                                let errorCount = 0;
+
+                                for (const file of files) {
+                                    try {
+                                        const hasProperty = await hasDisablePropertyInFile(file, this.app, this.settings);
+                                        if (hasProperty) {
+                                            await this.app.fileManager.processFrontMatter(file, (frontmatter) => {
+                                                delete frontmatter[this.settings.disableRenamingKey];
+                                            });
+                                            successCount++;
+                                        }
+                                    } catch (error) {
+                                        errorCount++;
+                                    }
+                                }
+
+                                if (errorCount > 0) {
+                                    new Notice(`Enabled renaming for ${successCount} notes with ${errorCount} errors`);
+                                } else {
+                                    new Notice(`Enabled renaming for ${successCount} notes`);
+                                }
+                            });
+                    });
+                }
+            })
+        );
+
         this.registerEvent(
             this.app.vault.on("modify", (abstractFile) => {
+                // Only process if automatic renaming is enabled
+                if (!this.settings.renameAutomatically) return;
+
                 if (abstractFile instanceof TFile && abstractFile.extension === 'md') {
                     const noDelay = this.settings.checkInterval === 0;
                     verboseLog(this, `File modified: ${abstractFile.path}`);
@@ -1270,6 +1846,8 @@ export default class FirstLineIsTitle extends Plugin {
                     verboseLog(this, `File focused: ${leaf.view.file.path}`);
                     this.renameFile(leaf.view.file, true);
                 }
+                // Re-register dynamic commands when active file changes
+                this.registerDynamicCommands();
             })
         );
 
@@ -1311,15 +1889,39 @@ export default class FirstLineIsTitle extends Plugin {
                 }
             })
         );
+
+        // Setup notification suppression to hide external modification notices
+        this.setupNotificationSuppression();
+
+        // Setup cursor positioning for new notes
+        this.setupCursorPositioning();
+
+        // Setup save event hook for rename on save
+        this.setupSaveEventHook();
     }
 
     onunload() {
+        // Clean up save event hook
+        if (this.originalSaveCallback) {
+            const saveCommand = (this.app as any).commands?.commands?.['editor:save-file'];
+            if (saveCommand) {
+                saveCommand.checkCallback = this.originalSaveCallback;
+            }
+        }
+
+        // Clean up notification suppression
+        this.cleanupNotificationSuppression();
+
         // Clean up any pending alias update timers
         aliasUpdateTimers.forEach((timer) => clearTimeout(timer));
         aliasUpdateTimers.clear();
 
-        // Clean up notification suppression
-        this.cleanupNotificationSuppression();
+
+        // Clean up command palette observer
+        if (this.commandPaletteObserver) {
+            this.commandPaletteObserver.disconnect();
+            this.commandPaletteObserver = null;
+        }
 
         verboseLog(this, 'Plugin unloaded');
     }
@@ -1354,6 +1956,146 @@ export default class FirstLineIsTitle extends Plugin {
 
     async saveSettings(): Promise<void> {
         await this.saveData(this.settings);
+    }
+
+    private originalSaveCallback?: (checking: boolean) => boolean | void;
+
+    setupSaveEventHook(): void {
+        // Implementation inspired by the Linter plugin: https://github.com/platers/obsidian-linter
+        // Get the save command
+        const saveCommand = (this.app as any).commands?.commands?.['editor:save-file'];
+        if (saveCommand) {
+            // Store the original callback
+            this.originalSaveCallback = saveCommand.checkCallback;
+
+            // Override the save command
+            saveCommand.checkCallback = (checking: boolean) => {
+                // First call the original save logic
+                const result = this.originalSaveCallback ? this.originalSaveCallback(checking) : true;
+
+                // If not checking and save succeeded, run our rename logic
+                if (!checking && this.settings.renameOnSave) {
+                    const activeFile = this.app.workspace.getActiveFile();
+                    if (activeFile && activeFile.extension === 'md') {
+                        // Run rename (unless excluded) with no delay and suppress notices
+                        setTimeout(() => {
+                            this.renameFile(activeFile, true, false, true);
+                        }, 100); // Small delay to ensure save is complete
+                    }
+                }
+
+                return result;
+            };
+
+            verboseLog(this, 'Save event hook installed for rename on save');
+        }
+    }
+
+    setupCursorPositioning(): void {
+        // Listen for file creation events
+        this.registerEvent(
+            this.app.vault.on("create", (file) => {
+                if (!this.settings.moveCursorToFirstLine) return;
+                if (!(file instanceof TFile) || file.extension !== 'md') return;
+
+                // Simple cursor positioning at beginning of first line
+                setTimeout(() => {
+                    const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
+                    if (activeView && activeView.file === file) {
+                        const editor = activeView.editor;
+                        if (editor) {
+                            editor.setCursor({ line: 0, ch: 0 });
+                            editor.focus();
+                            verboseLog(this, `Moved cursor to beginning of first line for new file: ${file.path}`);
+                        }
+                    }
+                }, 50);
+            })
+        );
+
+        // Also listen for when a file is opened (in case the create event doesn't catch it)
+        this.registerEvent(
+            this.app.workspace.on("file-open", (file) => {
+                if (!this.settings.moveCursorToFirstLine) return;
+                if (!file || file.extension !== 'md') return;
+
+                // Check if this is a newly created file (empty or very small)
+                this.app.vault.cachedRead(file).then((content) => {
+                    if (content.trim().length === 0 || content.trim().length < 10) {
+                        const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
+                        if (activeView && activeView.file === file) {
+                            const editor = activeView.editor;
+                            if (editor) {
+                                // Move cursor to first line
+                                if (this.settings.placeCursorAtLineEnd) {
+                                    // Get the length of the first line and place cursor at the end
+                                    const firstLineLength = editor.getLine(0).length;
+                                    editor.setCursor({ line: 0, ch: firstLineLength });
+                                    verboseLog(this, `Moved cursor to end of first line (${firstLineLength} chars) for opened empty file: ${file.path}`);
+                                } else {
+                                    // Place cursor at the beginning of the first line
+                                    editor.setCursor({ line: 0, ch: 0 });
+                                    verboseLog(this, `Moved cursor to beginning of first line for opened empty file: ${file.path}`);
+                                }
+                                editor.focus();
+                            }
+                        }
+                    }
+                });
+            })
+        );
+    }
+
+    private notificationObserver?: MutationObserver;
+
+    setupNotificationSuppression(): void {
+        // Create observer to watch for new notification elements
+        this.notificationObserver = new MutationObserver((mutations) => {
+            mutations.forEach((mutation) => {
+                mutation.addedNodes.forEach((node) => {
+                    if (node instanceof HTMLElement) {
+                        // Look for notice elements
+                        const notices = node.classList.contains('notice') ? [node] : node.querySelectorAll('.notice');
+
+                        notices.forEach((notice) => {
+                            if (notice instanceof HTMLElement) {
+                                const noticeText = notice.textContent || '';
+
+                                // Check conditions for suppressing external modification notifications
+                                const conditions = {
+                                    hasExternal: noticeText.includes('has been modified externally, merging changes automatically'),
+                                    hasMd: noticeText.includes('.md'),
+                                    noUpdated: !noticeText.includes('Updated'),
+                                    startsQuote: noticeText.trim().charCodeAt(0) === 8220, // Left double quotation mark
+                                    shortEnough: noticeText.length < 200
+                                };
+
+                                // Suppress if all conditions are met AND the setting is enabled
+                                if (this.settings.suppressMergeNotifications &&
+                                    conditions.hasExternal && conditions.hasMd && conditions.noUpdated &&
+                                    conditions.startsQuote && conditions.shortEnough) {
+                                    notice.style.display = 'none';
+                                    verboseLog(this, `Suppressed external modification notice: ${noticeText.substring(0, 50)}...`);
+                                }
+                            }
+                        });
+                    }
+                });
+            });
+        });
+
+        // Start observing
+        this.notificationObserver.observe(document.body, {
+            childList: true,
+            subtree: true
+        });
+    }
+
+    cleanupNotificationSuppression(): void {
+        if (this.notificationObserver) {
+            this.notificationObserver.disconnect();
+            this.notificationObserver = undefined;
+        }
     }
 }
 
