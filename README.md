@@ -24,10 +24,10 @@ Automatically set the first line as note title, just like in Apple Notes! Forget
 
 ## ✅ Installation
 
-Untill _First Line is Title_ is made availiable in the plugin directory, follow the steps below to install it.
-
 > [!IMPORTANT]  
 > Ensure your files are backed up before using this plugin.
+
+Untill _First Line is Title_ is made availiable in the plugin directory, follow the steps below to install it.
 
 ### BRAT (recommended)
 
