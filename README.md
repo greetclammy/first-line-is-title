@@ -7,7 +7,7 @@ Automatically set the first line as note title, just like in Apple Notes! Forget
 ​
 
 > [!TIP]
-> It's best to use the plugin with the tab title bar enabled in Obsidian settings > Appearance > Interface.
+> The plugin is best used with the tab title bar enabled in Obsidian settings > Appearance > Interface.
 
 ## ⚡ Features
 
