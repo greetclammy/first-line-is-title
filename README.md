@@ -7,20 +7,20 @@ Automatically set the first line as note title, just like in Apple Notes! Forget
 ​
 
 > [!TIP]
-> It's best to use the plugin with the tab title bar enabled in `Obsidian settings > Appearance > Interface`.
+> It's best to use the plugin with the tab title bar enabled in Obsidian settings > Appearance > Interface.
 
 ## ⚡ Features
 
 - Rename notes automatically or manually.
 - Move cursor to the first line on note creation.
-- Only put headings in title or any first line content.
+- Put any first line content in title or headings only.
 - Replace illegal characters with safe alternatives.
 - Omit markdown syntax in filename.
-- Auto truncate long filenames.
+- Truncate long filenames.
 - Copy the first line to the `aliases` property — make forbidden characters searchable in the Quick switcher.
 - Add custom replacement rules.
-- Process all notes in a folder, all notes with a tag, all search results, or the entire vault.
-- Granular control: exclude certain notes, folders, tags or filenames from renaming.
+- Process all notes in a folder, all notes with a tag, all search results or the entire vault.
+- Exclude certain notes, folders, tags or filenames from renaming.
 
 ## ✅ Installation
 
