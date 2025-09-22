@@ -4,10 +4,10 @@ Automatically set the first line as note title, just like in Apple Notes! Forget
 
 <img src="https://github.com/user-attachments/assets/4d4bb0d5-aaa8-464a-9e00-eeb88f4235de" height="450">
 
-​​
+​
 
-> [!IMPORTANT]  
-> Ensure your files are backed up before using this plugin.
+> [!TIP]
+> It's best to use the plugin with the tab title bar enabled in `Obsidian settings > Appearance > Interface`.
 
 ## ⚡ Features
 
@@ -22,12 +22,12 @@ Automatically set the first line as note title, just like in Apple Notes! Forget
 - Commands to process all notes in a folder, with a tag, among search results, or all notes at once.
 - Granular control: exclude certain notes, folders, tags or filenames from renaming.
 
-> [!TIP]
-> It's best to use the plugin with the tab title bar enabled in `Obsidian settings > Appearance > Interface`.
-
 ## ✅ Installation
 
 Untill _First Line is Title_ is made availiable in the plugin directory, follow the steps below to install it.
+
+> [!IMPORTANT]  
+> Ensure your files are backed up before using this plugin.
 
 ### BRAT (recommended)
 
