@@ -4,7 +4,10 @@ Automatically set the first line as note title, just like in Apple Notes! Forget
 
 <img src="https://github.com/user-attachments/assets/4d4bb0d5-aaa8-464a-9e00-eeb88f4235de" height="450">
 
-**⚠️ Ensure your files are backed up before using this plugin.**
+​​
+
+> [!IMPORTANT]  
+> Ensure your files are backed up before using this plugin.
 
 ## ⚡ Features
 
@@ -16,6 +19,9 @@ Automatically set the first line as note title, just like in Apple Notes! Forget
 - Rename automatically or manually.
 - Commands to process entire folder, all notes with a certain tag, or all notes in vault in one go.
 - Granular control: exclude certain notes, folders, tags or filenames from renaming.
+
+> [!TIP]
+> It's best to use the plugin with the tab title bar enabled in `Obsidian settings > Appearance > Interface`.
 
 ## ✅ Installation
 
@@ -39,63 +45,6 @@ Note: to get updates for _First Line is Title_, you will have to check for and i
 2. Unzip the folder and place it in the `.obsidian/plugins` folder (hidden on most OSes) at the root of your vault.
 3. Reload plugins or app.
 4. Enable _First Line is Title_ in `Settings > Community plugins > Installed plugins`.
-
-## 💡 Tips
-
-### Obsidian set-up
-
-It's best to use _First Line is Title_ with:
-- The tab title bar enabled in `Obsidian settings > Appearance > Interface`.
-- A new-note template that places the cursor on the first line on note creation, configured in [Templater](https://obsidian.md/plugins?id=templater-obsidian) settings.
-
-An example template you can use:
-
-<details>
-  <summary><b>Press to expand</b></summary>
-
-  ```js
----
-created: <% moment(tp.file.creation_date()).format("YYYY-MM-DDTHH:mmZ") %>
-tags: []
----
-<%*
-if (!(/^Untitled(\s\d+)?$/.test(tp.file.title))) {
--%>
-<% tp.file.title %><% await tp.file.cursor() %><%*
-} -%>
-<%*
-tp.hooks.on_all_templates_executed(async () => {
-  const leaf = app.workspace.activeLeaf;
-  if (leaf && leaf.view.getViewType() !== "canvas") {
-    leaf.setViewState({
-      type: "markdown",
-      state: {
-        mode: "source",
-        source: false
-      }
-    });
-    await leaf.view.editor?.focus();
-  }
-});
--%>
-```
-  
-</details>
-
-### Commands
-
-The plugin adds three Command palette commmands:
-
-<img width="489" height="230" src="https://github.com/user-attachments/assets/823c2510-77c5-4b49-8715-1f8e3477640f" />
-
-For when you want to force the plugin to update the title, you could create a macro like this with [Commander](https://obsidian.md/plugins?id=cmdr) and bind it to Ctrl/Cmd-S:
-
-<details>
-  <summary><b>Press to expand</b></summary>
-<img width="571" height="427" src="https://github.com/user-attachments/assets/24273438-d0e4-47a5-833c-f86161fa2b20" />
-</details>
-
-This is super useful if you already use Ctrl/Cmd-S to trigger [Linter](https://obsidian.md/plugins?id=obsidian-linter).
 
 ## ⭐️ Support
 
