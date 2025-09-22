@@ -55,7 +55,7 @@ Note: to get updates for _First Line is Title_, you will have to check for and i
 
 If you find this plugin helpful, please star the repository 😇
 
-## 👀 Alternative solutions
+## 👀 Similar plugins
 
 - [Auto Filename](https://obsidian.md/plugins?id=auto-filename)
 - [File Title Updater](https://obsidian.md/plugins?id=file-title-updater)
