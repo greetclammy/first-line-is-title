@@ -1,6 +1,7 @@
 import { PluginSettings, OSPreset } from './types';
 
 export const DEFAULT_SETTINGS: PluginSettings = {
+    scopeStrategy: 'Enable in all notes except below',
     excludedFolders: [""],
     excludedTags: [""],
     charCount: 100,
@@ -73,11 +74,11 @@ export const DEFAULT_SETTINGS: PluginSettings = {
         dot: false
     },
     customReplacements: [
-        { searchText: '- [ ] ', replaceText: '✔️ ', onlyAtStart: true, onlyWholeLine: false, enabled: true },
-        { searchText: '- [x] ', replaceText: '✅ ', onlyAtStart: true, onlyWholeLine: false, enabled: true }
+        { searchText: '- [ ] ', replaceText: '✔️ ', onlyAtStart: true, onlyWholeLine: false, enabled: false },
+        { searchText: '- [x] ', replaceText: '✅ ', onlyAtStart: true, onlyWholeLine: false, enabled: false }
     ],
     safewords: [
-        { text: 'Title', onlyAtStart: false, onlyWholeLine: false, enabled: false, caseSensitive: false }
+        { text: 'To do', onlyAtStart: false, onlyWholeLine: false, enabled: false, caseSensitive: false }
     ],
     omitComments: false,
     omitHtmlTags: false,
@@ -85,15 +86,19 @@ export const DEFAULT_SETTINGS: PluginSettings = {
     enableCustomReplacements: false,
     enableSafewords: false,
     renameOnFocus: false,
-    renameAutomatically: true,
+    renameOnSave: false,
+    renameNotes: "automatically",
     manualNotificationMode: 'On title change',
     windowsAndroidEnabled: false,
     hasEnabledForbiddenChars: false,
     hasEnabledWindowsAndroid: false,
+    hasEnabledCustomReplacements: false,
     hasEnabledSafewords: false,
     skipExcalidrawFiles: false,
     grabTitleFromCardLink: false,
     excludeSubfolders: true,
+    excludeInlineTags: false,
+    excludeChildTags: true,
     useDirectFileRead: false, // Default to cached read for performance
     verboseLogging: false, // Added default for verbose logging
     currentSettingsTab: 'general', // Default to general tab
@@ -101,8 +106,47 @@ export const DEFAULT_SETTINGS: PluginSettings = {
         folderPutFirstLineInTitle: true,
         folderExclude: true,
         folderStopExcluding: true,
-        filePutFirstLineInTitle: true
-    }
+        filePutFirstLineInTitle: true,
+        fileExclude: true,
+        fileStopExcluding: true,
+        tagPutFirstLineInTitle: true,
+        tagExclude: true,
+        tagStopExcluding: true
+    },
+    enableContextMenus: true,
+    enableVaultSearchContextMenu: true,
+    vaultSearchContextMenuVisibility: {
+        putFirstLineInTitle: true,
+        disable: true,
+        enable: true
+    },
+    enableCommandPalette: true,
+    commandPaletteVisibility: {
+        renameCurrentFileUnlessExcluded: true,
+        renameCurrentFile: true,
+        renameAllFiles: true,
+        disableRenaming: true,
+        enableRenaming: true
+    },
+    enableRibbon: true,
+    ribbonVisibility: {
+        renameCurrentFile: true,
+        renameAllNotes: false
+    },
+    enableAliases: false,
+    truncateAlias: false,
+    addAliasOnlyIfFirstLineDiffers: false,
+    aliasPropertyKey: 'aliases',
+    hideAliasProperty: 'never' as const,
+    showAliasInSidebar: true,
+    keepEmptyAliasProperty: false,
+    whatToPutInTitle: "any_first_line_content",
+    includeSubfolders: true,
+    includeBodyTags: true,
+    includeNestedTags: true,
+    moveCursorToFirstLine: false,
+    placeCursorAtLineEnd: false,
+    suppressMergeNotifications: false
 };
 
 // OS-specific forbidden characters

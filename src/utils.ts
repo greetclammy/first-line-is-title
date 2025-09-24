@@ -4,11 +4,21 @@ import { PluginSettings, OSPreset } from './types';
 export function verboseLog(plugin: { settings: PluginSettings }, message: string, data?: any) {
     if (plugin.settings.verboseLogging) {
         if (data) {
-            console.log(`[First Line Is Title] ${message}`, data);
+            console.log(message, data);
         } else {
-            console.log(`[First Line Is Title] ${message}`);
+            console.log(message);
         }
     }
+}
+
+/**
+ * Validates if a line is a proper Markdown heading
+ * Valid headings: start with 1-6 consecutive #, followed by whitespace, then any text
+ * No preceding characters (including whitespace) allowed before #
+ */
+export function isValidHeading(line: string): boolean {
+    // Regex: ^ = start of line, #{1,6} = 1-6 consecutive #, \s+ = one or more whitespace, .* = any text after
+    return /^#{1,6}\s+.*/.test(line);
 }
 
 // OS detection function
@@ -56,16 +66,174 @@ export function inExcludedFolder(file: TFile, settings: PluginSettings): boolean
     return false;
 }
 
-export function isFileExcluded(file: TFile, settings: PluginSettings, app: App): boolean {
+/**
+ * Strategy-aware function to check if a file is in the target folder list
+ * @param file The file to check
+ * @param settings Plugin settings containing folder list and strategy
+ * @returns true if file is in the target folder list
+ */
+export function isFileInTargetFolders(file: TFile, settings: PluginSettings): boolean {
+    // Filter out empty strings
+    const nonEmptyFolders = settings.excludedFolders.filter(folder => folder.trim() !== "");
+    if (nonEmptyFolders.length === 0) return false;
+
+    const filePath = file.parent?.path as string;
+    if (nonEmptyFolders.includes(filePath)) {
+        return true;
+    }
+
+    // Check subfolders if enabled
+    if (settings.excludeSubfolders) {
+        for (const targetFolder of nonEmptyFolders) {
+            if (filePath && filePath.startsWith(targetFolder + "/")) {
+                return true;
+            }
+        }
+    }
+
+    return false;
+}
+
+/**
+ * Strategy-aware function to check if a file has any of the target tags
+ * @param file The file to check
+ * @param settings Plugin settings containing tag list and strategy
+ * @param app The Obsidian app instance
+ * @param content Optional file content for real-time checking
+ * @returns true if file has any of the target tags
+ */
+export function fileHasTargetTags(file: TFile, settings: PluginSettings, app: App, content?: string): boolean {
+    const nonEmptyTags = settings.excludedTags.filter(tag => tag.trim() !== "");
+    if (nonEmptyTags.length === 0) return false;
+
+    const fileCache = app.metadataCache.getFileCache(file);
+
+    // Check YAML frontmatter tags
+    if (fileCache && fileCache.frontmatter && fileCache.frontmatter.tags) {
+        const frontmatterTags = fileCache.frontmatter.tags;
+        // Handle both string arrays and single strings
+        const fileTags = Array.isArray(frontmatterTags) ? frontmatterTags : [frontmatterTags];
+        for (const targetTag of nonEmptyTags) {
+            // Normalize both sides: remove # prefix for comparison
+            const normalizedTargetTag = targetTag.startsWith('#') ? targetTag.slice(1) : targetTag;
+
+            for (const fileTag of fileTags) {
+                const normalizedFileTag = fileTag.toString();
+
+                // Exact match
+                if (normalizedFileTag === normalizedTargetTag) {
+                    return true;
+                }
+
+                // Check child tags if enabled (default true)
+                if (settings.excludeChildTags) {
+                    // If file has child tag and target tag is parent
+                    if (normalizedFileTag.startsWith(normalizedTargetTag + '/')) {
+                        return true;
+                    }
+                }
+            }
+        }
+    }
+
+    // Check inline tags in file content if enabled
+    if (settings.excludeInlineTags) {
+        let inlineTagsInContent: string[] = [];
+
+        if (content) {
+            // Use provided content (real-time)
+            inlineTagsInContent = parseInlineTagsFromText(content);
+        } else {
+            // Fall back to cached metadata if no content provided
+            if (fileCache && fileCache.tags) {
+                inlineTagsInContent = fileCache.tags.map(tag =>
+                    tag.tag.startsWith('#') ? tag.tag.slice(1) : tag.tag
+                );
+            }
+        }
+
+        for (const targetTag of nonEmptyTags) {
+            // Normalize target tag: remove # prefix for comparison
+            const normalizedTargetTag = targetTag.startsWith('#') ? targetTag.slice(1) : targetTag;
+
+            for (const inlineTag of inlineTagsInContent) {
+                // Exact match
+                if (inlineTag === normalizedTargetTag) {
+                    return true;
+                }
+
+                // Check child tags if enabled (default true)
+                if (settings.excludeChildTags) {
+                    // If file has child tag and target tag is parent
+                    if (inlineTag.startsWith(normalizedTargetTag + '/')) {
+                        return true;
+                    }
+                }
+            }
+        }
+    }
+
+    return false;
+}
+
+/**
+ * Determines whether a file should be processed based on the include/exclude strategy
+ *
+ * Logic summary:
+ * - "Enable in all notes except below": Process all files EXCEPT those in target folders/tags
+ *   - If no targets specified: Process ALL files (default enabled)
+ *   - If targets specified: Process files NOT in targets (traditional exclude)
+ *
+ * - "Disable in all notes except below": Process ONLY files in target folders/tags
+ *   - If no targets specified: Process NO files (default disabled)
+ *   - If targets specified: Process ONLY files in targets (include-only mode)
+ *
+ * @param file The file to check
+ * @param settings Plugin settings containing strategy, folders, and tags
+ * @param app The Obsidian app instance
+ * @param content Optional file content for real-time checking
+ * @returns true if the file should be processed, false otherwise
+ */
+export function shouldProcessFile(file: TFile, settings: PluginSettings, app: App, content?: string): boolean {
+    const isInTargetFolders = isFileInTargetFolders(file, settings);
+    const hasTargetTags = fileHasTargetTags(file, settings, app, content);
+
+    // If file is in target folders OR has target tags, it's "targeted"
+    const isTargeted = isInTargetFolders || hasTargetTags;
+
+    // Check if any targets are actually specified
+    const hasAnyTargets = (
+        settings.excludedFolders.some(folder => folder.trim() !== "") ||
+        settings.excludedTags.some(tag => tag.trim() !== "")
+    );
+
+    // Apply strategy logic
+    if (settings.scopeStrategy === 'Enable in all notes except below') {
+        // Enable renaming in all notes EXCEPT those in the specified folders/tags
+        // The list contains folders/tags where renaming should be DISABLED
+        // If no targets specified, enable renaming for all files
+        return hasAnyTargets ? !isTargeted : true;
+    } else {
+        // 'Disable in all notes except below'
+        // Disable renaming in all notes EXCEPT those in the specified folders/tags
+        // The list contains folders/tags where renaming should be ENABLED
+        // If no targets specified, disable renaming for all files
+        return hasAnyTargets ? isTargeted : false;
+    }
+}
+
+export function isFileExcluded(file: TFile, settings: PluginSettings, app: App, content?: string): boolean {
     // Check folder exclusions
     if (inExcludedFolder(file, settings)) {
         return true;
     }
 
-    // Check tag exclusions (only YAML frontmatter tags)
+    // Check tag exclusions
     const nonEmptyTags = settings.excludedTags.filter(tag => tag.trim() !== "");
     if (nonEmptyTags.length > 0) {
         const fileCache = app.metadataCache.getFileCache(file);
+
+        // Check YAML frontmatter tags
         if (fileCache && fileCache.frontmatter && fileCache.frontmatter.tags) {
             const frontmatterTags = fileCache.frontmatter.tags;
             // Handle both string arrays and single strings
@@ -73,14 +241,82 @@ export function isFileExcluded(file: TFile, settings: PluginSettings, app: App):
             for (const excludedTag of nonEmptyTags) {
                 // Normalize both sides: remove # prefix for comparison
                 const normalizedExcludedTag = excludedTag.startsWith('#') ? excludedTag.slice(1) : excludedTag;
-                if (fileTags.includes(normalizedExcludedTag)) {
-                    return true;
+
+                for (const fileTag of fileTags) {
+                    const normalizedFileTag = fileTag.toString();
+
+                    // Exact match
+                    if (normalizedFileTag === normalizedExcludedTag) {
+                        return true;
+                    }
+
+                    // Check child tags if enabled (default true)
+                    if (settings.excludeChildTags) {
+                        // If file has child tag and excluded tag is parent
+                        if (normalizedFileTag.startsWith(normalizedExcludedTag + '/')) {
+                            return true;
+                        }
+                    }
+                }
+            }
+        }
+
+        // Check inline tags in file content if enabled
+        if (settings.excludeInlineTags) {
+            let inlineTagsInContent: string[] = [];
+
+            if (content) {
+                // Use provided content (real-time)
+                inlineTagsInContent = parseInlineTagsFromText(content);
+            } else {
+                // Fall back to cached metadata if no content provided
+                if (fileCache && fileCache.tags) {
+                    inlineTagsInContent = fileCache.tags.map(tag =>
+                        tag.tag.startsWith('#') ? tag.tag.slice(1) : tag.tag
+                    );
+                }
+            }
+
+            for (const excludedTag of nonEmptyTags) {
+                // Normalize excluded tag: remove # prefix for comparison
+                const normalizedExcludedTag = excludedTag.startsWith('#') ? excludedTag.slice(1) : excludedTag;
+
+                for (const inlineTag of inlineTagsInContent) {
+                    // Exact match
+                    if (inlineTag === normalizedExcludedTag) {
+                        return true;
+                    }
+
+                    // Check child tags if enabled (default true)
+                    if (settings.excludeChildTags) {
+                        // If file has child tag and excluded tag is parent
+                        if (inlineTag.startsWith(normalizedExcludedTag + '/')) {
+                            return true;
+                        }
+                    }
                 }
             }
         }
     }
 
     return false;
+}
+
+function parseInlineTagsFromText(content: string): string[] {
+    // Extract inline tags using regex
+    // This regex matches tags in the format #tag or #tag/subtag
+    const tagRegex = /#([a-zA-Z][\w\-_/]*)/g;
+    const tags: string[] = [];
+    let match;
+
+    while ((match = tagRegex.exec(content)) !== null) {
+        const tag = match[1]; // Extract the tag without the # prefix
+        if (!tags.includes(tag)) {
+            tags.push(tag);
+        }
+    }
+
+    return tags;
 }
 
 export function hasDisableProperty(content: string, settings: PluginSettings): boolean {
@@ -109,6 +345,15 @@ export function hasDisableProperty(content: string, settings: PluginSettings): b
     ];
 
     return patterns.some(regex => regex.test(frontmatter));
+}
+
+export async function hasDisablePropertyInFile(file: TFile, app: App, settings: PluginSettings): Promise<boolean> {
+    try {
+        const content = await app.vault.read(file);
+        return hasDisableProperty(content, settings);
+    } catch (error) {
+        return false;
+    }
 }
 
 export function isExcalidrawFile(content: string, settings: PluginSettings): boolean {
@@ -175,8 +420,7 @@ export function extractTitle(line: string, settings: PluginSettings): string {
     }
 
     // Check if original line (before trim) starts with valid heading - before any processing
-    // Valid heading must: start at line beginning (no preceding chars), have 1-6 hashes, have space after
-    const isValidHeading = /^#{1,6}\s/.test(originalLine);
+    const isHeading = isValidHeading(originalLine);
 
     // Check for empty heading (only hash marks with optional spaces, nothing preceding)
     // Empty heading must: start at line beginning (no preceding chars), have 1-6 hashes, end with optional spaces
@@ -268,7 +512,7 @@ export function extractTitle(line: string, settings: PluginSettings): string {
     line = line.replace(regularEmbedRegex, (match, caption) => caption);
 
     // Handle headers - only if the original line was a valid heading
-    if (isValidHeading) {
+    if (isHeading) {
         const headerArr: string[] = [
             "# ", "## ", "### ", "#### ", "##### ", "###### ",
         ];
@@ -280,35 +524,8 @@ export function extractTitle(line: string, settings: PluginSettings): string {
         }
     }
 
-    // Apply custom replacements
-    if (settings.enableCustomReplacements) {
-        for (const replacement of settings.customReplacements) {
-            if (replacement.searchText === '' || !replacement.enabled) continue;
-
-            // Check if this replacement would make the whole line match
-            let tempLine = line;
-
-            if (replacement.onlyWholeLine) {
-                // Only replace if the entire line matches
-                if (line.trim() === replacement.searchText.trim()) {
-                    tempLine = replacement.replaceText;
-                }
-            } else if (replacement.onlyAtStart) {
-                if (tempLine.startsWith(replacement.searchText)) {
-                    tempLine = replacement.replaceText + tempLine.slice(replacement.searchText.length);
-                }
-            } else {
-                tempLine = tempLine.replaceAll(replacement.searchText, replacement.replaceText);
-            }
-
-            // If the replacement results in empty string or whitespace only, and original search matched whole line, return "Untitled"
-            if (tempLine.trim() === '' && line.trim() === replacement.searchText.trim()) {
-                return "Untitled";
-            }
-
-            line = tempLine;
-        }
-    }
+    // Note: Custom replacements are now handled in main.ts before calling extractTitle
+    // This avoids duplicate processing and ensures proper ordering with self-reference checks
 
     // Handle wikilinks
     while (line.includes("[[") && line.includes("]]")) {
