@@ -17,6 +17,29 @@ import { RenameAllFilesModal, RenameFolderModal, ClearSettingsModal, ProcessTagM
 import { FirstLineIsTitleSettings } from './src/settings';
 import { around } from "monkey-around";
 
+/*
+ * ⚠️  IMPORTANT DEBUGGING REQUIREMENTS FOR AI AGENTS ⚠️
+ *
+ * This plugin implements comprehensive debug logging with the following requirements:
+ *
+ * 1. DEBUG LOGGING: All plugin settings changes MUST be logged to console when Debug mode is ON
+ *    - Every onChange handler in settings.ts must call this.plugin.debugLog(settingName, value)
+ *    - This includes toggles, dropdowns, text inputs, and array modifications
+ *    - The debugLog helper function is implemented in this file (main.ts)
+ *
+ * 2. DEBUG STATE RESET: Debug mode MUST reset to OFF on every plugin reload
+ *    - verboseLogging setting must be set to false in onload() method
+ *    - The ON state must NEVER persist between plugin reloads
+ *    - This prevents accidental debug spam in production
+ *
+ * 3. CONSOLE LOG FORMATTING: Console log messages must NOT contain plugin name
+ *    - Do NOT use "First Line Is Title" or "FLIT" in any console.log messages
+ *    - Keep messages clean and generic (e.g., "Setting changed: settingName = value")
+ *    - This applies to all debug logs, notices, and error messages
+ *
+ * If you need to modify settings or debug logging, ensure ALL of these requirements are maintained.
+ */
+
 // Global variables (keeping them in main for now to avoid major refactoring)
 let renamedFileCount: number = 0;
 let tempNewPaths: string[] = [];
@@ -241,7 +264,7 @@ export default class FirstLineIsTitle extends Plugin {
     // Debug logging helper for setting changes
     debugLog(settingName: string, value: any): void {
         if (this.settings.verboseLogging) {
-            console.log(`[First Line Is Title] Setting changed: ${settingName} = ${JSON.stringify(value)}`);
+            console.log(`Setting changed: ${settingName} = ${JSON.stringify(value)}`);
         }
     }
 
@@ -473,7 +496,7 @@ export default class FirstLineIsTitle extends Plugin {
                     this.renameFile(file);
                 }, this.settings.checkInterval);
                 verboseLog(this, `Scheduled rename for ${file.path} in ${this.settings.checkInterval}ms`);
-                return;
+                return { success: true, reason: 'scheduled' };
             }
             onTimeout = true;
         } else {
@@ -534,6 +557,7 @@ export default class FirstLineIsTitle extends Plugin {
 
             if (foundEnd && endLineIndex > 0) {
                 // Join the lines after the frontmatter (preserve leading whitespace)
+                const beforeStrip = content;
                 content = lines.slice(endLineIndex + 1).join('\n');
                 verboseLog(this, `Stripped frontmatter from ${file.path}`);
             }
@@ -551,8 +575,10 @@ export default class FirstLineIsTitle extends Plugin {
             }
         }
 
+
+
         // Check if only headings should be processed
-        if (this.settings.onlyProcessHeadings) {
+        if (this.settings.whatToPutInTitle === "headings_only") {
             if (!isValidHeading(firstLine)) {
                 verboseLog(this, `Skipping file - first line is not a valid heading: ${file.path}`);
                 return { success: false, reason: 'not-heading' };
@@ -604,7 +630,7 @@ export default class FirstLineIsTitle extends Plugin {
             while (fileExists || tempNewPaths.includes(newPath)) {
                 if (file.path == newPath) {
                     previousContent.set(file.path, content);
-                    return;
+                    return { success: false, reason: 'no-change' };
                 }
                 counter += 1;
                 newPath = `${parentPath}Untitled ${counter}.md`;
@@ -624,8 +650,14 @@ export default class FirstLineIsTitle extends Plugin {
                 throw new Error(`Failed to rename file: ${error.message}`);
             }
 
+            // Remove any plugin aliases since there's no content to alias
+            if (this.settings.enableAliases) {
+                verboseLog(this, `Removing plugin aliases - file became empty`);
+                await this.removePluginAliasesFromFile(file, false); // Respect keepEmptyAliasProperty setting
+            }
+
             previousContent.set(file.path, content);
-            return;
+            return { success: false, reason: 'empty-content' };
         }
 
         // Store current content for next check
@@ -633,7 +665,12 @@ export default class FirstLineIsTitle extends Plugin {
 
         if (firstLine === '') {
             verboseLog(this, `No first line found in ${file.path}`);
-            return;
+            // Remove any plugin aliases since there's no content to alias
+            if (this.settings.enableAliases) {
+                verboseLog(this, `Removing plugin aliases - no non-empty content found`);
+                await this.removePluginAliasesFromFile(file, false); // Respect keepEmptyAliasProperty setting
+            }
+            return { success: false, reason: 'no-content' };
         }
 
         // First apply custom replacements to the original line (before forbidden char processing)
@@ -847,7 +884,7 @@ export default class FirstLineIsTitle extends Plugin {
             if (this.settings.enableAliases) {
                 await this.addAliasToFile(file, firstLine, newFileName);
             }
-            return;
+            return { success: false, reason: 'no-rename-needed' };
         }
 
         let counter: number = 0;
@@ -861,7 +898,7 @@ export default class FirstLineIsTitle extends Plugin {
                 if (this.settings.enableAliases) {
                     await this.addAliasToFile(file, firstLine, newFileName);
                 }
-                return;
+                return { success: false, reason: 'no-rename-needed' };
             }
             counter += 1;
             newPath = `${parentPath}${newFileName} ${counter}.md`;
@@ -908,6 +945,258 @@ export default class FirstLineIsTitle extends Plugin {
             console.error(`Failed to rename file ${file.path} to ${newPath}:`, error);
             return { success: false, reason: 'error' };
         }
+    }
+
+    getSelectedFolders(): TFolder[] {
+        const selectedFolders: TFolder[] = [];
+
+        // Try multiple selection patterns that Obsidian might use
+        const selectors = [
+            '.nav-folder.is-selected',
+            '.nav-folder.is-active',
+            '.nav-folder-title.is-selected',
+            '.nav-folder-title.is-active',
+            '.tree-item.is-selected .nav-folder-title',
+            '.tree-item.is-active .nav-folder-title'
+        ];
+
+        selectors.forEach(selector => {
+            const elements = document.querySelectorAll(selector);
+            elements.forEach(element => {
+                // Try to get folder path from various attributes/parents
+                let folderPath = element.getAttribute('data-path');
+
+                if (!folderPath) {
+                    // Check parent elements
+                    const parent = element.closest('.nav-folder, .tree-item');
+                    if (parent) {
+                        folderPath = parent.getAttribute('data-path');
+                    }
+                }
+
+                if (folderPath) {
+                    const folder = this.app.vault.getAbstractFileByPath(folderPath);
+                    if (folder instanceof TFolder && !selectedFolders.includes(folder)) {
+                        selectedFolders.push(folder);
+                    }
+                }
+            });
+        });
+
+        return selectedFolders;
+    }
+
+    addMultiFolderMenuItems(menu: Menu, folders: TFolder[]): void {
+        // Count total markdown files across all folders
+        let totalFiles = 0;
+        folders.forEach(folder => {
+            const files = this.getAllMarkdownFilesInFolder(folder);
+            totalFiles += files.length;
+        });
+
+        if (totalFiles === 0) return;
+
+        // Add separator before our items
+        menu.addSeparator();
+
+        // Add "Put first line in title" command for multiple folders
+        if (this.settings.commandVisibility.folderPutFirstLineInTitle) {
+            menu.addItem((item) => {
+                item
+                    .setTitle(`Put first line in title (${totalFiles} files in ${folders.length} folders)`)
+                    .setIcon("folder-pen")
+                    .setSection("folder")
+                    .onClick(async () => {
+                        await this.processMultipleFolders(folders, 'rename');
+                    });
+            });
+        }
+
+        // Add "Disable renaming" command for multiple folders
+        if (this.settings.commandVisibility.folderExclude) {
+            menu.addItem((item) => {
+                item
+                    .setTitle(`Disable renaming (${folders.length} folders)`)
+                    .setIcon("square-x")
+                    .setSection("folder")
+                    .onClick(async () => {
+                        await this.processMultipleFolders(folders, 'disable');
+                    });
+            });
+        }
+
+        // Add "Enable renaming" command for multiple folders
+        if (this.settings.commandVisibility.folderStopExcluding) {
+            menu.addItem((item) => {
+                item
+                    .setTitle(`Enable renaming (${folders.length} folders)`)
+                    .setIcon("square-check")
+                    .setSection("folder")
+                    .onClick(async () => {
+                        await this.processMultipleFolders(folders, 'enable');
+                    });
+            });
+        }
+    }
+
+    getAllMarkdownFilesInFolder(folder: TFolder): TFile[] {
+        const files: TFile[] = [];
+
+        const processFolder = (currentFolder: TFolder) => {
+            currentFolder.children.forEach(child => {
+                if (child instanceof TFile && child.extension === 'md') {
+                    files.push(child);
+                } else if (child instanceof TFolder && this.settings.includeSubfolders) {
+                    processFolder(child);
+                }
+            });
+        };
+
+        processFolder(folder);
+        return files;
+    }
+
+    async processMultipleFolders(folders: TFolder[], action: 'rename' | 'disable' | 'enable'): Promise<void> {
+        if (folders.length === 0) return;
+
+        let processed = 0;
+        let skipped = 0;
+        let errors = 0;
+
+        // Collect all files from all folders
+        const allFiles: TFile[] = [];
+        folders.forEach(folder => {
+            const folderFiles = this.getAllMarkdownFilesInFolder(folder);
+            allFiles.push(...folderFiles);
+        });
+
+        if (allFiles.length === 0) {
+            new Notice("No markdown files found in selected folders.");
+            return;
+        }
+
+        if (action === 'rename') {
+            new Notice(`Processing ${allFiles.length} files from ${folders.length} folders...`);
+
+            // Use the existing file processing logic
+            await this.processMultipleFiles(allFiles, 'rename');
+        } else {
+            // For folder exclusion, we work with folder paths directly
+            new Notice(`Processing ${folders.length} folders...`);
+
+            for (const folder of folders) {
+                try {
+                    const isCurrentlyExcluded = this.settings.excludedFolders.includes(folder.path);
+
+                    if (action === 'disable' && !isCurrentlyExcluded) {
+                        // Only toggle if not already excluded
+                        await this.toggleFolderExclusion(folder.path);
+                        processed++;
+                    } else if (action === 'enable' && isCurrentlyExcluded) {
+                        // Only toggle if currently excluded
+                        await this.toggleFolderExclusion(folder.path);
+                        processed++;
+                    } else {
+                        // Already in desired state
+                        skipped++;
+                    }
+                } catch (error) {
+                    console.error(`Error processing folder ${folder.path}:`, error);
+                    errors++;
+                }
+            }
+
+            // Show completion notice
+            const actionText = action === 'disable' ? 'disabled renaming for' : 'enabled renaming for';
+            if (errors > 0) {
+                new Notice(`${actionText} ${processed} folders. ${skipped} already in desired state. ${errors} errors occurred.`);
+            } else if (skipped > 0) {
+                new Notice(`${actionText} ${processed} folders. ${skipped} already in desired state.`);
+            } else {
+                new Notice(`Successfully ${actionText} ${processed} folders.`);
+            }
+        }
+    }
+
+    async processMultipleFiles(files: TFile[], action: 'rename' | 'disable' | 'enable'): Promise<void> {
+        if (files.length === 0) return;
+
+        let processed = 0;
+        let skipped = 0;
+        let errors = 0;
+
+        new Notice(`Processing ${files.length} files...`);
+
+        for (const file of files) {
+            try {
+                if (action === 'rename') {
+                    // Check if note has disable property before processing
+                    if (await hasDisablePropertyInFile(file, this.app, this.settings)) {
+                        new Notice(`Note has a property configured to disable renaming: ${file.name}`);
+                        skipped++;
+                        continue;
+                    }
+                    // Run the "even if excluded" version
+                    const result = await this.renameFile(file, true, true);
+                    if (result.success) {
+                        processed++;
+                    } else {
+                        skipped++;
+                    }
+                } else if (action === 'disable') {
+                    // Add disable property to file
+                    await this.addDisablePropertyToFile(file);
+                    processed++;
+                } else if (action === 'enable') {
+                    // Remove disable property from file
+                    await this.removeDisablePropertyFromFile(file);
+                    processed++;
+                }
+            } catch (error) {
+                console.error(`Error processing file ${file.path}:`, error);
+                errors++;
+            }
+        }
+
+        // Show completion notice
+        if (action === 'rename') {
+            if (errors > 0) {
+                new Notice(`Completed: ${processed} renamed, ${skipped} skipped, ${errors} errors`);
+            } else {
+                new Notice(`Successfully processed ${processed} files. ${skipped} skipped.`);
+            }
+        } else {
+            const actionText = action === 'disable' ? 'disabled renaming for' : 'enabled renaming for';
+            if (errors > 0) {
+                new Notice(`${actionText} ${processed} files. ${errors} errors occurred.`);
+            } else {
+                new Notice(`Successfully ${actionText} ${processed} files.`);
+            }
+        }
+    }
+
+    async addDisablePropertyToFile(file: TFile): Promise<void> {
+        if (!this.settings.disableRenamingKey || !this.settings.disableRenamingValue) {
+            new Notice("Disable renaming key/value not configured in settings");
+            return;
+        }
+
+        await this.app.fileManager.processFrontMatter(file, (frontmatter) => {
+            frontmatter[this.settings.disableRenamingKey] = this.settings.disableRenamingValue;
+        });
+    }
+
+    async removeDisablePropertyFromFile(file: TFile): Promise<void> {
+        if (!this.settings.disableRenamingKey) {
+            new Notice("Disable renaming key not configured in settings");
+            return;
+        }
+
+        await this.app.fileManager.processFrontMatter(file, (frontmatter) => {
+            if (frontmatter.hasOwnProperty(this.settings.disableRenamingKey)) {
+                delete frontmatter[this.settings.disableRenamingKey];
+            }
+        });
     }
 
     async addAliasToFile(file: TFile, originalFirstLine: string, newFileName: string): Promise<void> {
@@ -961,32 +1250,97 @@ export default class FirstLineIsTitle extends Plugin {
             await this.app.fileManager.processFrontMatter(file, (frontmatter) => {
                 const aliasPropertyKey = this.settings.aliasPropertyKey || 'aliases';
 
-                // Get existing aliases
-                let existingAliases: string[] = [];
-                if (frontmatter[aliasPropertyKey]) {
-                    if (Array.isArray(frontmatter[aliasPropertyKey])) {
-                        existingAliases = [...frontmatter[aliasPropertyKey]];
-                    } else {
-                        existingAliases = [frontmatter[aliasPropertyKey]];
+                // Check if property is 'aliases' - if yes, use current behavior
+                if (aliasPropertyKey === 'aliases') {
+                    // Current behavior: add value on its own line as the last line
+                    let existingAliases: string[] = [];
+                    if (frontmatter[aliasPropertyKey]) {
+                        if (Array.isArray(frontmatter[aliasPropertyKey])) {
+                            existingAliases = [...frontmatter[aliasPropertyKey]];
+                        } else {
+                            existingAliases = [frontmatter[aliasPropertyKey]];
+                        }
                     }
-                }
 
-                // Remove any existing plugin aliases (marked with ZWSP)
-                existingAliases = existingAliases.filter(alias =>
-                    !(typeof alias === 'string' && alias.startsWith('\u200B') && alias.endsWith('\u200B'))
-                );
+                    // Remove any existing plugin aliases (marked with ZWSP)
+                    existingAliases = existingAliases.filter(alias =>
+                        !(typeof alias === 'string' && alias.startsWith('\u200B') && alias.endsWith('\u200B'))
+                    );
 
-                // Check if this exact alias already exists (unmarked)
-                if (!existingAliases.includes(aliasToAdd)) {
-                    // Add the new marked alias
-                    existingAliases.push(markedAlias);
-                    frontmatter[aliasPropertyKey] = existingAliases;
-                } else {
-                    // If only non-plugin aliases remain, update with them
-                    if (existingAliases.length === 0) {
-                        delete frontmatter[aliasPropertyKey];
-                    } else {
+                    // Check if this exact alias already exists (unmarked)
+                    if (!existingAliases.includes(aliasToAdd)) {
+                        // Add the new marked alias
+                        existingAliases.push(markedAlias);
                         frontmatter[aliasPropertyKey] = existingAliases;
+                    } else {
+                        // If only non-plugin aliases remain, update with them
+                        if (existingAliases.length === 0) {
+                            if (this.settings.keepEmptyAliasProperty) {
+                                // Keep empty property - use null if aliases property, empty string otherwise
+                                if (aliasPropertyKey === 'aliases') {
+                                    frontmatter[aliasPropertyKey] = null;
+                                } else {
+                                    frontmatter[aliasPropertyKey] = "";
+                                }
+                            } else {
+                                // Delete empty property (original behavior)
+                                delete frontmatter[aliasPropertyKey];
+                            }
+                        } else {
+                            frontmatter[aliasPropertyKey] = existingAliases;
+                        }
+                    }
+                } else {
+                    // New behavior for non-aliases properties
+                    const propertyExists = frontmatter.hasOwnProperty(aliasPropertyKey);
+
+                    if (!propertyExists || frontmatter[aliasPropertyKey] === null || frontmatter[aliasPropertyKey] === undefined) {
+                        // Property doesn't exist or has no value - insert inline
+                        frontmatter[aliasPropertyKey] = markedAlias;
+                    } else {
+                        // Property has existing values - check if they're FLIT-added or user-added
+                        let existingValues: string[] = [];
+                        if (Array.isArray(frontmatter[aliasPropertyKey])) {
+                            existingValues = [...frontmatter[aliasPropertyKey]];
+                        } else {
+                            existingValues = [frontmatter[aliasPropertyKey]];
+                        }
+
+                        // Remove any existing plugin values (marked with ZWSP)
+                        const userValues = existingValues.filter(value =>
+                            !(typeof value === 'string' && value.startsWith('\u200B') && value.endsWith('\u200B'))
+                        );
+
+                        // Check if this exact value already exists (unmarked)
+                        if (!userValues.includes(aliasToAdd)) {
+                            if (userValues.length === 0) {
+                                // No user values, just our value - insert inline
+                                frontmatter[aliasPropertyKey] = markedAlias;
+                            } else {
+                                // Has user values - add as new line in array
+                                userValues.push(markedAlias);
+                                frontmatter[aliasPropertyKey] = userValues;
+                            }
+                        } else {
+                            // Value already exists, just restore user values
+                            if (userValues.length === 0) {
+                                if (this.settings.keepEmptyAliasProperty) {
+                                    // Keep empty property - use null if aliases property, empty string otherwise
+                                    if (aliasPropertyKey === 'aliases') {
+                                        frontmatter[aliasPropertyKey] = null;
+                                    } else {
+                                        frontmatter[aliasPropertyKey] = "";
+                                    }
+                                } else {
+                                    // Delete empty property (original behavior)
+                                    delete frontmatter[aliasPropertyKey];
+                                }
+                            } else if (userValues.length === 1) {
+                                frontmatter[aliasPropertyKey] = userValues[0];
+                            } else {
+                                frontmatter[aliasPropertyKey] = userValues;
+                            }
+                        }
                     }
                 }
             });
@@ -999,7 +1353,7 @@ export default class FirstLineIsTitle extends Plugin {
         }
     }
 
-    async removePluginAliasesFromFile(file: TFile): Promise<void> {
+    async removePluginAliasesFromFile(file: TFile, forceCompleteRemoval: boolean = false): Promise<void> {
         try {
             // Save any unsaved changes before modifying frontmatter
             const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
@@ -1011,25 +1365,39 @@ export default class FirstLineIsTitle extends Plugin {
                 const aliasPropertyKey = this.settings.aliasPropertyKey || 'aliases';
 
                 if (frontmatter[aliasPropertyKey]) {
-                    let existingAliases: string[] = [];
+                    let existingValues: string[] = [];
 
                     // Normalize to array
                     if (Array.isArray(frontmatter[aliasPropertyKey])) {
-                        existingAliases = [...frontmatter[aliasPropertyKey]];
+                        existingValues = [...frontmatter[aliasPropertyKey]];
                     } else {
-                        existingAliases = [frontmatter[aliasPropertyKey]];
+                        existingValues = [frontmatter[aliasPropertyKey]];
                     }
 
-                    // Filter out plugin aliases (marked with ZWSP)
-                    const filteredAliases = existingAliases.filter(alias =>
-                        !(typeof alias === 'string' && alias.startsWith('\u200B') && alias.endsWith('\u200B'))
+                    // Filter out plugin values (marked with ZWSP)
+                    const filteredValues = existingValues.filter(value =>
+                        !(typeof value === 'string' && value.startsWith('\u200B') && value.endsWith('\u200B'))
                     );
 
-                    // Update or remove the property
-                    if (filteredAliases.length === 0) {
-                        delete frontmatter[aliasPropertyKey];
+                    // Update or remove the property based on remaining values
+                    if (filteredValues.length === 0) {
+                        if (forceCompleteRemoval || !this.settings.keepEmptyAliasProperty) {
+                            // Delete empty property completely
+                            delete frontmatter[aliasPropertyKey];
+                        } else {
+                            // Keep empty property - use null if aliases property, empty string otherwise
+                            if (aliasPropertyKey === 'aliases') {
+                                frontmatter[aliasPropertyKey] = null;
+                            } else {
+                                frontmatter[aliasPropertyKey] = "";
+                            }
+                        }
+                    } else if (filteredValues.length === 1 && aliasPropertyKey !== 'aliases') {
+                        // For non-aliases properties, convert back to single value if only one remains
+                        frontmatter[aliasPropertyKey] = filteredValues[0];
                     } else {
-                        frontmatter[aliasPropertyKey] = filteredAliases;
+                        // Keep as array for aliases or multiple values
+                        frontmatter[aliasPropertyKey] = filteredValues;
                     }
                 }
             });
@@ -1072,7 +1440,17 @@ export default class FirstLineIsTitle extends Plugin {
 
                     // Update or remove the property
                     if (filteredAliases.length === 0) {
-                        delete frontmatter[aliasPropertyKey];
+                        if (this.settings.keepEmptyAliasProperty) {
+                            // Keep empty property - use null if aliases property, empty string otherwise
+                            if (aliasPropertyKey === 'aliases') {
+                                frontmatter[aliasPropertyKey] = null;
+                            } else {
+                                frontmatter[aliasPropertyKey] = "";
+                            }
+                        } else {
+                            // Delete empty property (original behavior)
+                            delete frontmatter[aliasPropertyKey];
+                        }
                     } else {
                         frontmatter[aliasPropertyKey] = filteredAliases;
                     }
@@ -1172,6 +1550,11 @@ export default class FirstLineIsTitle extends Plugin {
                 callback: async () => {
                     const activeFile = this.app.workspace.getActiveFile();
                     if (activeFile && activeFile.extension === 'md') {
+                        // Check if note has disable property before processing
+                        if (await hasDisablePropertyInFile(activeFile, this.app, this.settings)) {
+                            new Notice("Note has a property configured to disable renaming");
+                            return;
+                        }
                         verboseLog(this, `Manual rename command triggered for ${activeFile.path} (ignoring exclusions)`);
                         await this.renameFile(activeFile, true, true);
                     }
@@ -1304,6 +1687,116 @@ export default class FirstLineIsTitle extends Plugin {
         }
     }
 
+    private propertyObserver?: MutationObserver;
+
+    private setupEmptyPropertyHiding(propertyKey: string): void {
+        // Clean up existing observer
+        this.cleanupPropertyObserver();
+
+        // Create new observer to watch for property changes
+        this.propertyObserver = new MutationObserver((mutations) => {
+            mutations.forEach(() => {
+                this.hideEmptyProperties(propertyKey);
+            });
+        });
+
+        // Start observing
+        this.propertyObserver.observe(document.body, {
+            childList: true,
+            subtree: true,
+            attributes: true,
+            attributeFilter: ['data-property-key']
+        });
+
+        // Initial hide
+        this.hideEmptyProperties(propertyKey);
+    }
+
+    private hideEmptyProperties(propertyKey: string): void {
+        // Find all property elements with the target key
+        const properties = document.querySelectorAll(`[data-property-key="${propertyKey}"]`);
+
+        properties.forEach((property) => {
+            // Skip if in source view (check for CodeMirror editor context)
+            const isInSourceView = property.closest('.cm-editor') &&
+                                   !property.closest('.metadata-container');
+            if (isInSourceView) {
+                return;
+            }
+
+            // Check if property is empty
+            const valueContainer = property.querySelector('.metadata-property-value');
+            const isEmpty = !valueContainer ||
+                           valueContainer.textContent?.trim() === '' ||
+                           valueContainer.children.length === 0;
+
+            // Hide/show the entire property row
+            if (isEmpty) {
+                (property as HTMLElement).style.display = 'none';
+            } else {
+                (property as HTMLElement).style.display = '';
+            }
+        });
+    }
+
+    private cleanupPropertyObserver(): void {
+        if (this.propertyObserver) {
+            this.propertyObserver.disconnect();
+            this.propertyObserver = undefined;
+        }
+
+        // Remove any hiding styles applied by the observer
+        const hiddenProperties = document.querySelectorAll('[data-property-key][style*="display: none"]');
+        hiddenProperties.forEach((property) => {
+            (property as HTMLElement).style.display = '';
+        });
+    }
+
+    updatePropertyVisibility(): void {
+        // Remove any existing property hiding styles
+        document.head.querySelector('#flit-hide-property-style')?.remove();
+
+        // Clean up any existing observer
+        this.cleanupPropertyObserver();
+
+        if (this.settings.hideAliasProperty === 'never') {
+            return; // No hiding needed
+        }
+
+        const propertyKey = this.settings.aliasPropertyKey || 'aliases';
+        let css = '';
+
+        if (this.settings.hideAliasProperty === 'always') {
+            // Always hide in reading view and live preview (but never source view)
+            css = `
+                /* Reading view */
+                .markdown-preview-view .metadata-property[data-property-key="${propertyKey}"],
+                .markdown-rendered .metadata-property[data-property-key="${propertyKey}"] {
+                    display: none !important;
+                }
+                /* Live preview mode - properties panel */
+                .workspace-leaf-content[data-type="markdown"] .view-header + .view-content .metadata-container .metadata-property[data-property-key="${propertyKey}"] {
+                    display: none !important;
+                }
+                /* Live preview frontmatter rendering */
+                .markdown-source-view.mod-cm6 .metadata-container .metadata-property[data-property-key="${propertyKey}"] {
+                    display: none !important;
+                }
+            `;
+        } else if (this.settings.hideAliasProperty === 'when_empty') {
+            // For "when empty", we use DOM observation to detect empty properties
+            this.setupEmptyPropertyHiding(propertyKey);
+            return;
+        }
+
+        if (css) {
+            const style = document.createElement('style');
+            style.id = 'flit-hide-property-style';
+            style.textContent = css;
+            document.head.appendChild(style);
+        }
+    }
+
     async onload(): Promise<void> {
         await this.loadSettings();
 
@@ -1376,6 +1869,11 @@ export default class FirstLineIsTitle extends Plugin {
                     callback: async () => {
                         const activeFile = this.app.workspace.getActiveFile();
                         if (activeFile && activeFile.extension === 'md') {
+                            // Check if note has disable property before processing
+                            if (await hasDisablePropertyInFile(activeFile, this.app, this.settings)) {
+                                new Notice("Note has a property configured to disable renaming");
+                                return;
+                            }
                             verboseLog(this, `Manual rename command triggered for ${activeFile.path} (ignoring exclusions)`);
                             await this.renameFile(activeFile, true, true);
                         }
@@ -1391,6 +1889,11 @@ export default class FirstLineIsTitle extends Plugin {
                     callback: async () => {
                         const activeFile = this.app.workspace.getActiveFile();
                         if (activeFile && activeFile.extension === 'md') {
+                            // Check if note has disable property before processing
+                            if (await hasDisablePropertyInFile(activeFile, this.app, this.settings)) {
+                                new Notice("Note has a property configured to disable renaming");
+                                return;
+                            }
                             verboseLog(this, `Manual rename command triggered for ${activeFile.path} (unless excluded)`);
                             await this.renameFile(activeFile, true, false);
                         }
@@ -1446,6 +1949,11 @@ export default class FirstLineIsTitle extends Plugin {
                                 .setIcon("file-pen")
                                 .setSection("file")
                                 .onClick(async () => {
+                                    // Check if note has disable property before processing
+                                    if (await hasDisablePropertyInFile(file, this.app, this.settings)) {
+                                        new Notice("Note has a property configured to disable renaming");
+                                        return;
+                                    }
                                     // Run the "even if excluded" version
                                     await this.renameFile(file, true, true);
                                 });
@@ -1577,6 +2085,113 @@ export default class FirstLineIsTitle extends Plugin {
                 }
             })
         );
+
+        // Add multi-file context menu handlers
+        this.registerEvent(
+            this.app.workspace.on("files-menu", (menu, files) => {
+                // Only show context menu commands if master toggle is enabled
+                if (!this.settings.enableContextMenus) return;
+
+                // Filter for markdown files
+                const markdownFiles = files.filter(file => file instanceof TFile && file.extension === 'md') as TFile[];
+
+                if (markdownFiles.length === 0) return;
+
+                let hasVisibleItems = false;
+
+                // Add "Put first line in title" command for multiple files
+                if (this.settings.commandVisibility.filePutFirstLineInTitle) {
+                    if (!hasVisibleItems) {
+                        menu.addSeparator();
+                        hasVisibleItems = true;
+                    }
+                    menu.addItem((item) => {
+                        item
+                            .setTitle(`Put first line in title (${markdownFiles.length} files)`)
+                            .setIcon("file-pen")
+                            .setSection("file")
+                            .onClick(async () => {
+                                await this.processMultipleFiles(markdownFiles, 'rename');
+                            });
+                    });
+                }
+
+                // Add "Disable renaming" command for multiple files
+                if (this.settings.commandVisibility.fileExclude) {
+                    if (!hasVisibleItems) {
+                        menu.addSeparator();
+                        hasVisibleItems = true;
+                    }
+                    menu.addItem((item) => {
+                        item
+                            .setTitle(`Disable renaming (${markdownFiles.length} files)`)
+                            .setIcon("square-x")
+                            .setSection("file")
+                            .onClick(async () => {
+                                await this.processMultipleFiles(markdownFiles, 'disable');
+                            });
+                    });
+                }
+
+                // Add "Enable renaming" command for multiple files
+                if (this.settings.commandVisibility.fileStopExcluding) {
+                    if (!hasVisibleItems) {
+                        menu.addSeparator();
+                        hasVisibleItems = true;
+                    }
+                    menu.addItem((item) => {
+                        item
+                            .setTitle(`Enable renaming (${markdownFiles.length} files)`)
+                            .setIcon("square-check")
+                            .setSection("file")
+                            .onClick(async () => {
+                                await this.processMultipleFiles(markdownFiles, 'enable');
+                            });
+                    });
+                }
+            })
+        );
+
+        // Add multi-folder context menu handler using monkey-patching (like YAML tags)
+        this.registerDomEvent(document, 'contextmenu', (evt) => {
+            if (!this.settings.enableContextMenus) return;
+
+            // Check if we're right-clicking in the file explorer
+            const target = evt.target as HTMLElement;
+            const fileExplorer = target.closest('.workspace-leaf-content[data-type="file-explorer"], .nav-folder, .nav-file, .tree-item');
+
+            if (!fileExplorer) return;
+
+            // Check for multiple folder selection immediately
+            const selectedFolders = this.getSelectedFolders();
+
+            if (selectedFolders.length > 1) {
+                // Multiple folders are selected - set up monkey patch IMMEDIATELY
+                const plugin = this;
+                const remove = around(Menu.prototype, {
+                    showAtPosition(old) {
+                        return function (...args) {
+                            remove();
+                            plugin.addMultiFolderMenuItems(this, selectedFolders);
+                            return old.apply(this, args);
+                        }
+                    }
+                });
+
+                if ((Menu as any).forEvent) {
+                    const remove2 = around(Menu as any, {forEvent(old) { return function (ev: Event) {
+                        const m = old.call(this, evt);
+                        if (ev === evt) {
+                            plugin.addMultiFolderMenuItems(m, selectedFolders);
+                            remove();
+                        }
+                        remove2()
+                        return m;
+                    }}})
+                    setTimeout(remove2, 0);
+                }
+            }
+        }, true);
 
         // Add tag context menu handlers
         // Handle editor hashtags using Tag Wrangler's approach
@@ -1830,7 +2445,7 @@ export default class FirstLineIsTitle extends Plugin {
         this.registerEvent(
             this.app.vault.on("modify", (abstractFile) => {
                 // Only process if automatic renaming is enabled
-                if (!this.settings.renameAutomatically) return;
+                if (this.settings.renameNotes !== "automatically") return;
 
                 if (abstractFile instanceof TFile && abstractFile.extension === 'md') {
                     const noDelay = this.settings.checkInterval === 0;
@@ -1898,6 +2513,9 @@ export default class FirstLineIsTitle extends Plugin {
 
         // Setup save event hook for rename on save
         this.setupSaveEventHook();
+
+        // Initialize property visibility
+        this.updatePropertyVisibility();
     }
 
     onunload() {
@@ -1911,6 +2529,10 @@ export default class FirstLineIsTitle extends Plugin {
 
         // Clean up notification suppression
         this.cleanupNotificationSuppression();
+
+        // Clean up property hiding styles and observer
+        document.head.querySelector('#flit-hide-property-style')?.remove();
+        this.cleanupPropertyObserver();
 
         // Clean up any pending alias update timers
         aliasUpdateTimers.forEach((timer) => clearTimeout(timer));
@@ -1934,16 +2556,11 @@ export default class FirstLineIsTitle extends Plugin {
             loadedData
         );
 
-        // Ensure all safewords have required properties (for backwards compatibility)
-        if (this.settings.safewords) {
-            this.settings.safewords = this.settings.safewords.map(safeword => ({
-                text: safeword.text || '',
-                onlyAtStart: safeword.onlyAtStart || false,
-                onlyWholeLine: safeword.onlyWholeLine || false,
-                enabled: safeword.enabled !== undefined ? safeword.enabled : true,
-                caseSensitive: safeword.caseSensitive !== undefined ? safeword.caseSensitive : false
-            }));
+        // Ensure scopeStrategy is always set
+        if (!this.settings.scopeStrategy) {
+            this.settings.scopeStrategy = 'Enable in all notes except below';
         }
+
 
         // Ensure there's always at least one entry for folders and tags (even if empty)
         if (this.settings.excludedFolders.length === 0) {
@@ -1961,7 +2578,6 @@ export default class FirstLineIsTitle extends Plugin {
     private originalSaveCallback?: (checking: boolean) => boolean | void;
 
     setupSaveEventHook(): void {
-        // Implementation inspired by the Linter plugin: https://github.com/platers/obsidian-linter
         // Get the save command
         const saveCommand = (this.app as any).commands?.commands?.['editor:save-file'];
         if (saveCommand) {
