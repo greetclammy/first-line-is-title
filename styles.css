@@ -52,7 +52,6 @@
     margin-top: 20px;
     margin-bottom: 10px;
     padding-top: 15px;
-    border-top: 2px solid var(--background-modifier-border);
     display: flex;
     align-items: center;
     gap: 10px;
@@ -71,11 +70,11 @@
     border-bottom: 1px solid var(--background-modifier-border);
     gap: 8px;
     width: fit-content;
-    min-width: 520px;
+    min-width: 735px;
 }
 
 .flit-char-replacement-header {
-    border-bottom: 2px solid var(--background-modifier-border);
+    border-bottom: 1px solid var(--background-modifier-border);
     font-weight: bold;
     font-size: 0.9em;
 }
@@ -85,7 +84,9 @@
 }
 
 .flit-char-replacement-setting:last-of-type {
-    border-bottom: none;
+    border-bottom: 1px solid var(--background-modifier-border);
+    width: fit-content;
+    min-width: 735px;
 }
 
 .flit-char-replacement-setting.disabled {
@@ -173,23 +174,26 @@
     overflow-y: hidden;
     width: 100%;
     margin-bottom: 10px;
+    /* Create a new stacking context to isolate scroll */
+    isolation: isolate;
 }
 
 .flit-table-wrapper {
     width: fit-content;
-    min-width: 100%;
+    min-width: 735px; /* Match our table width */
+    max-width: none; /* Allow tables to be wider than viewport */
 }
 
 .flit-custom-replacement-header, .flit-safeword-header {
     display: flex;
     align-items: center;
     padding: 8px 0;
-    border-bottom: 2px solid var(--background-modifier-border);
+    border-bottom: 1px solid var(--background-modifier-border);
     font-weight: bold;
     font-size: 0.9em;
     gap: 8px;
-    width: 100%;
-    min-width: 520px;
+    width: fit-content;
+    min-width: 735px;
 }
 
 .flit-custom-replacement-header .flit-toggle-column:first-of-type,
@@ -212,8 +216,8 @@
     padding: 8px 0;
     border-bottom: 1px solid var(--background-modifier-border);
     gap: 8px;
-    width: 100%;
-    min-width: 520px;
+    width: fit-content;
+    min-width: 735px;
 }
 
 .flit-custom-replacement-setting .flit-toggle-column:first-of-type,
@@ -227,7 +231,9 @@
 }
 
 .flit-custom-replacement-setting:last-of-type, .flit-safeword-setting:last-of-type {
-    border-bottom: none;
+    border-bottom: 1px solid var(--background-modifier-border);
+    width: fit-content;
+    min-width: 735px;
 }
 
 .flit-custom-replacement-setting.hidden, .flit-safeword-setting.hidden {
@@ -540,7 +546,7 @@
     flex-wrap: wrap;
     gap: 4px;
     align-content: flex-start;
-    max-width: 660px;
+    max-width: 655px;
     margin: 0 auto;
 }
 
@@ -605,12 +611,96 @@
 
 .flit-settings-page {
     /* Container for tab content */
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
 }
 
 .flit-divider {
-    margin: 1rem 0;
-    border: none;
-    border-bottom: 1px solid var(--background-modifier-border);
+    display: none !important; /* Hide redundant divider lines since tables now have proper bottom borders */
+}
+
+/* Hide any HR elements that might be creating redundant borders */
+hr.flit-divider {
+    display: none !important;
+}
+
+/* Remove borders from settings elements that might be creating extra lines */
+.flit-table-container + hr,
+.flit-table-wrapper + hr,
+.flit-add-replacement-button + hr,
+.flit-add-safeword-button + hr {
+    display: none !important;
+}
+
+/* Remove any borders from containers that might appear after tables */
+.flit-table-container,
+.flit-table-wrapper {
+    border-bottom: none !important;
+    margin-bottom: 0 !important;
+}
+
+/* Remove borders from add buttons and their containers */
+.flit-add-replacement-button,
+.flit-add-safeword-button {
+    border-top: none !important;
+    border-bottom: none !important;
+    margin-top: 10px !important;
+    /* Keep buttons fixed to viewport width, don't let them scroll */
+    width: 100%;
+    max-width: 100%;
+    position: relative;
+    overflow: visible;
+}
+
+/* Hide any setting item borders that might appear after tables */
+.flit-table-container + .setting-item,
+.flit-table-wrapper + .setting-item,
+.flit-custom-replacement-setting:last-of-type + .setting-item,
+.flit-safeword-setting:last-of-type + .setting-item {
+    border-top: none !important;
+}
+
+/* Nuclear option: remove ALL borders from any elements that might follow tables */
+.flit-table-container ~ *,
+.flit-table-wrapper ~ *,
+.flit-custom-replacement-setting:last-of-type ~ *,
+.flit-safeword-setting:last-of-type ~ * {
+    border-top: none !important;
+    border-bottom: none !important;
+}
+
+/* Remove borders from any section elements */
+.flit-settings-page hr,
+.flit-settings-page .setting-item:first-of-type {
+    border-top: none !important;
+}
+
+/* Keep non-table elements fixed to viewport width (don't let them scroll horizontally) */
+.flit-settings-page h2,
+.flit-settings-page h3,
+.flit-settings-page p,
+.flit-settings-page .setting-item:not(.flit-custom-replacement-setting):not(.flit-safeword-setting):not(.flit-char-replacement-setting),
+.flit-char-replacement-section-header,
+.flit-section-title {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden; /* Force no horizontal overflow */
+    box-sizing: border-box;
+    word-wrap: break-word; /* Prevent text overflow */
+}
+
+/* Allow table containers to scroll while preventing everything else from overflowing */
+.flit-table-container {
+    /* Allow horizontal scroll for tables only */
+    overflow-x: auto !important;
+}
+
+/* Prevent non-table elements from causing horizontal overflow */
+.flit-settings-page > *:not(.flit-table-container) {
+    max-width: 100%;
+    overflow-x: hidden;
+    box-sizing: border-box;
 }
 
 /* Master toggle styling */
@@ -640,6 +730,8 @@
 .flit-excluded-folder-setting .setting-item-control input {
     flex: 1 !important;
     min-width: 0 !important;
+    /* Add margin to prevent focus outline clipping */
+    margin: 2px !important;
 }
 
 .flit-excluded-folder-setting .setting-item-control .clickable-icon {
@@ -686,6 +778,7 @@
     pointer-events: auto;
     opacity: 1;
 }
+
 
 /* Ensure master toggles in disabled sections remain interactive */
 .flit-master-disabled .flit-master-toggle,
@@ -737,4 +830,112 @@
 .flit-command-icon svg {
     width: 16px !important;
     height: 16px !important;
+}
+
+/* ==========================================================================
+   Sub-Settings Indentation (notebook-navigator approach)
+   ========================================================================== */
+
+/* Simple sub-settings container styling - copied from notebook-navigator */
+.flit-sub-settings {
+    margin-inline-start: 20px;
+    padding-left: 1em;
+    position: relative;
+}
+
+/* Create shortened indentation line */
+.flit-sub-settings::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 10px;
+    width: 2px;
+    background-color: var(--background-modifier-border);
+}
+
+/* ==========================================================================
+   Dropdown Menu Fix
+   ========================================================================== */
+
+/* Fix dropdown menu clipping in settings - ONLY for non-table elements */
+.mod-settings .setting-item-control:not(.flit-table-container .setting-item-control) {
+    overflow: visible !important;
+}
+
+/* Ensure dropdown elements have proper overflow handling */
+.mod-settings .dropdown,
+.mod-settings select {
+    position: relative !important;
+    z-index: 1000 !important;
+}
+
+/* Fix specific Obsidian dropdown clipping - EXCLUDE table containers */
+.setting-item-control:not(.flit-table-container .setting-item-control):not(.flit-table-wrapper .setting-item-control) .dropdown,
+.setting-item-control:not(.flit-table-container .setting-item-control):not(.flit-table-wrapper .setting-item-control) select,
+.setting-item-control:not(.flit-table-container .setting-item-control):not(.flit-table-wrapper .setting-item-control) .clickable-icon {
+    overflow: visible !important;
+    position: relative;
+    z-index: 100 !important;
+}
+
+/* Ensure dropdown menus can extend past container boundaries - EXCLUDE tables */
+.mod-settings .setting-item:not(.flit-custom-replacement-setting):not(.flit-safeword-setting):not(.flit-char-replacement-setting) {
+    overflow: visible !important;
+    position: relative;
+}
+
+/* Fix main settings container overflow - ONLY fix horizontal clipping, preserve vertical scroll */
+.vertical-tab-content {
+    overflow-x: visible !important;
+    /* Keep vertical scrolling intact */
+}
+
+/* Specific fix for plugin settings tabs - ONLY fix horizontal clipping */
+.flit-settings-page {
+    overflow-x: visible !important;
+    /* Allow normal vertical overflow behavior */
+    position: relative;
+}
+
+/* RESTORE table horizontal scrolling - tables MUST remain scrollable */
+.flit-table-container {
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    position: relative;
+}
+
+/* Ensure table wrappers maintain scrolling */
+.flit-table-wrapper {
+    overflow: visible;
+    position: relative;
+}
+
+/* For dropdowns INSIDE tables, use different positioning strategy */
+.flit-table-container .setting-item-control,
+.flit-table-wrapper .setting-item-control,
+.flit-custom-replacement-setting .setting-item-control,
+.flit-safeword-setting .setting-item-control,
+.flit-char-replacement-setting .setting-item-control {
+    position: static;
+    overflow: hidden;
+}
+
+/* Ensure dropdown menus from tables can still be visible with higher z-index */
+.flit-table-container select,
+.flit-table-wrapper select,
+.flit-custom-replacement-setting select,
+.flit-safeword-setting select,
+.flit-char-replacement-setting select {
+    position: relative;
+    z-index: 2000 !important;
+}
+
+/* Ensure all dropdown-related elements have proper stacking */
+.dropdown-menu,
+.suggestion-container,
+.menu {
+    position: absolute !important;
+    z-index: 9999 !important;
+    overflow: visible !important;
 }
