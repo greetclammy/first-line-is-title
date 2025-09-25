@@ -46,7 +46,7 @@ Note: to get updates for _First Line is Title_, you will have to check for and i
 1. Download `first-line-is-title.zip` in the `Assets` of the [latest release](https://github.com/greetclammy/first-line-is-title/releases).
 2. Unzip the folder and place it in the `.obsidian/plugins` folder (hidden on most OSes) at the root of your vault.
 3. Reload plugins or app.
-4. Enable _First Line is Title_ in `Settings > Community plugins > Installed plugins`.
+4. Enable _First Line is Title_ in Obsidian settings > Community plugins > Installed plugins.
 
 ## ⭐️ Support
 
