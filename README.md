@@ -48,6 +48,10 @@ Note: to get updates for _First Line is Title_, you will have to check for and i
 3. Reload plugins or app.
 4. Enable _First Line is Title_ in Obsidian settings > Community plugins > Installed plugins.
 
+## ❓ Can it update any faster?
+
+Obsidian delays file modification events by 2 s. The plugin can only update the title after this delay.
+
 ## ⭐️ Support
 
 - [Report bugs](https://github.com/greetclammy/first-line-is-title/issues)
