@@ -2,6 +2,15 @@
     text-align: center;
 }
 
+.flit-modal-heading-left {
+    text-align: left;
+}
+
+.flit-link-input-full {
+    width: 100%;
+    box-sizing: border-box;
+}
+
 .flit-modal-button-container {
     display: flex;
     justify-content: flex-end;
@@ -49,9 +58,36 @@
 }
 
 .flit-char-replacement-section-header.windows-android {
-    margin-top: 20px;
-    margin-bottom: 10px;
-    padding-top: 15px;
+    margin-top: 12px;
+    margin-bottom: 5px;
+    padding-top: 8px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.flit-char-replacement-section-header.command-palette {
+    margin-top: 12px;
+    margin-bottom: 5px;
+    padding-top: 8px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.flit-char-replacement-section-header.ribbon {
+    margin-top: 12px;
+    margin-bottom: 5px;
+    padding-top: 8px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.flit-char-replacement-section-header.context-menu {
+    margin-top: 12px;
+    margin-bottom: 5px;
+    padding-top: 8px;
     display: flex;
     align-items: center;
     gap: 10px;
@@ -59,8 +95,8 @@
 
 .flit-section-title {
     margin: 0;
-    font-size: 1.1em;
-    font-weight: bold;
+    font-size: 1.33em; /* Standard H3 size */
+    font-weight: 600; /* Standard H3 weight */
 }
 
 .flit-char-replacement-header, .flit-char-replacement-setting {
@@ -360,6 +396,19 @@
     /* Remove all styling - containers should never be styled as disabled */
 }
 
+/* Ensure alias container allows overflow for dropdowns */
+.flit-alias-container {
+    overflow: visible !important;
+}
+
+.flit-alias-container .setting-item {
+    overflow: visible !important;
+}
+
+.flit-alias-container .setting-item-control {
+    overflow: visible !important;
+}
+
 /* Apply disabled styling only to specific elements that should be dimmed */
 .master-disabled .flit-custom-replacement-header,
 .master-disabled .flit-custom-replacement-setting > .flit-text-column,
@@ -419,12 +468,11 @@
     max-width: none !important;
 }
 
-/* Ensure action buttons are NEVER disabled or greyed out */
+/* Action buttons styling - will be disabled via master disabled class */
 .flit-nav-button,
 .flit-actions-column,
 .flit-button-container {
-    opacity: 1 !important;
-    pointer-events: auto !important;
+    /* No forced opacity or pointer-events - allow parent classes to control */
 }
 
 /* Fix alignment of action buttons */
@@ -539,15 +587,20 @@
    ========================================================================== */
 
 .flit-settings-tab-bar {
-    display: flex;
-    flex-direction: row;
-    justify-content: center;
-    padding-bottom: 1rem;
-    flex-wrap: wrap;
+    display: grid;
     gap: 4px;
-    align-content: flex-start;
-    max-width: 655px;
-    margin: 0 auto;
+    padding-bottom: 1rem;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    justify-content: stretch;
+    /* Start with 5 columns, CSS will adjust based on container width */
+    grid-template-columns: repeat(5, minmax(140px, 1fr));
+    /* Allow horizontal scrolling when tabs need more space than container provides */
+    overflow-x: auto;
+    overflow-y: hidden;
+    /* Ensure grid can be wider than container when needed */
+    min-width: min-content;
 }
 
 .flit-settings-tab {
@@ -561,15 +614,91 @@
     cursor: pointer;
     border-radius: var(--radius-s);
     transition: all 0.15s ease;
-    flex: 1 1 auto;
+    width: 100%;
+    min-width: 140px;
+    box-sizing: border-box;
 }
 
-/* Apply minimum width only at narrow page widths */
-@media screen and (max-width: 660px) {
-    .flit-settings-tab {
-        min-width: 190px;
+.flit-settings-tab-name {
+    white-space: normal;
+    text-align: center;
+    line-height: 1.2;
+    word-break: break-word;
+    font-size: 0.85em;
+}
+
+/* Use container queries if supported, fallback to media queries */
+@supports (container-type: inline-size) {
+    .flit-settings-page {
+        container-type: inline-size;
+    }
+
+    /* 5-4 layout: container width >= 720px (5 * 140px + gaps) */
+    @container (min-width: 720px) {
+        .flit-settings-tab-bar {
+            grid-template-columns: repeat(5, minmax(140px, 1fr));
+            justify-content: stretch;
+        }
+    }
+
+    /* 3-3-3 layout: container width 420px-719px (3 * 140px + gaps) */
+    @container (min-width: 420px) and (max-width: 719px) {
+        .flit-settings-tab-bar {
+            grid-template-columns: repeat(3, minmax(140px, 1fr));
+            justify-content: stretch;
+        }
+    }
+
+    /* 2-2-2-2-1 layout: container width 280px-419px (2 * 140px + gaps) */
+    @container (min-width: 280px) and (max-width: 419px) {
+        .flit-settings-tab-bar {
+            grid-template-columns: repeat(2, minmax(140px, 1fr));
+            justify-content: stretch;
+        }
+    }
+
+    /* 9 rows: container width < 280px - still enforce 140px minimum */
+    @container (max-width: 279px) {
+        .flit-settings-tab-bar {
+            grid-template-columns: minmax(140px, 1fr);
+            justify-content: stretch;
+            /* Grid will be 140px wide minimum, allowing horizontal scroll if needed */
+            min-width: 140px;
+        }
     }
 }
+
+/* Fallback for browsers without container query support */
+@supports not (container-type: inline-size) {
+    /* Use reasonable viewport-based breakpoints as fallback */
+    @media screen and (min-width: 720px) {
+        .flit-settings-tab-bar {
+            grid-template-columns: repeat(5, minmax(140px, 1fr));
+            max-width: 720px;
+            margin: 0 auto;
+        }
+    }
+
+    @media screen and (max-width: 719px) and (min-width: 420px) {
+        .flit-settings-tab-bar {
+            grid-template-columns: repeat(3, minmax(140px, 1fr));
+        }
+    }
+
+    @media screen and (max-width: 419px) and (min-width: 280px) {
+        .flit-settings-tab-bar {
+            grid-template-columns: repeat(2, minmax(140px, 1fr));
+        }
+    }
+
+    @media screen and (max-width: 279px) {
+        .flit-settings-tab-bar {
+            grid-template-columns: minmax(140px, 1fr);
+            min-width: 140px;
+        }
+    }
+}
+
 
 
 
@@ -709,8 +838,32 @@ hr.flit-divider {
     border-bottom: 1px solid var(--background-modifier-border) !important;
 }
 
-/* Remove borders from specific toggle settings */
-.flit-no-border {
+/* Ensure no double borders from Obsidian's default setting-item styling */
+.flit-master-toggle.setting-item {
+    border-bottom: 1px solid var(--background-modifier-border) !important;
+}
+
+/* Section header styling (like master toggle but can be greyed out) */
+.flit-section-header {
+    border-top: none !important;
+    border-bottom: 1px solid var(--background-modifier-border) !important;
+}
+
+.flit-section-header.setting-item {
+    border-bottom: 1px solid var(--background-modifier-border) !important;
+}
+
+.flit-section-header .setting-item-name {
+    font-weight: bold;
+}
+
+/* Remove border-top from settings that immediately follow the Processing order master toggle to prevent border stacking */
+.flit-processing-order-toggle + .setting-item {
+    border-top: none !important;
+}
+
+/* Remove borders from specific toggle settings - higher specificity to override master toggle */
+.flit-master-toggle.flit-no-border {
     border-bottom: none !important;
 }
 
@@ -779,12 +932,16 @@ hr.flit-divider {
     opacity: 1;
 }
 
-
 /* Ensure master toggles in disabled sections remain interactive */
 .flit-master-disabled .flit-master-toggle,
 .flit-master-disabled .flit-master-toggle * {
     pointer-events: auto;
     opacity: 1;
+}
+
+/* Processing order container spacing */
+.flit-processing-order-container {
+    margin-top: 1em;
 }
 
 /* Setting item icon styling */
@@ -854,12 +1011,55 @@ hr.flit-divider {
     background-color: var(--background-modifier-border);
 }
 
+/* Double-indented settings (for nested sub-settings) */
+.flit-double-indent {
+    position: relative;
+    margin-inline-start: 20px;
+    padding-left: 1em;
+}
+
+/* Create second indentation line for double-indented settings */
+.flit-double-indent::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 10px;
+    width: 2px;
+    background-color: var(--background-modifier-border);
+}
+
+/* Fix dropdown clipping for double-indented settings */
+.flit-double-indent .setting-item-control {
+    overflow: visible !important;
+}
+
+/* Ensure sub-settings container doesn't clip dropdowns */
+.flit-sub-settings {
+    overflow: visible !important;
+}
+
+/* Fix parent container clipping issues */
+.flit-settings-page .flit-sub-settings {
+    overflow: visible !important;
+}
+
+.flit-settings-page .flit-sub-settings .setting-item {
+    overflow: visible !important;
+}
+
 /* ==========================================================================
    Dropdown Menu Fix
    ========================================================================== */
 
 /* Fix dropdown menu clipping in settings - ONLY for non-table elements */
 .mod-settings .setting-item-control:not(.flit-table-container .setting-item-control) {
+    overflow: visible !important;
+}
+
+/* Fix dropdown clipping for indented settings - comprehensive approach */
+.flit-sub-settings .setting-item-control,
+.flit-double-indent .setting-item-control {
     overflow: visible !important;
 }
 
@@ -896,6 +1096,32 @@ hr.flit-divider {
     overflow-x: visible !important;
     /* Allow normal vertical overflow behavior */
     position: relative;
+}
+
+/* Comprehensive dropdown clipping fix - ensure all parent containers allow horizontal overflow */
+.mod-settings .flit-settings-page,
+.mod-settings .flit-sub-settings,
+.mod-settings .flit-double-indent {
+    overflow-x: visible !important;
+    /* Preserve existing vertical overflow behavior */
+}
+
+/* Fix vertical-tab-content to only fix horizontal clipping */
+.mod-settings .vertical-tab-content {
+    overflow-x: visible !important;
+    /* Keep vertical scrolling intact - don't override overflow-y */
+}
+
+/* Ensure dropdowns have proper z-index */
+.flit-sub-settings select,
+.flit-double-indent select {
+    position: relative;
+    z-index: 1000;
+}
+
+/* Bullet point styling */
+.setting-item-description ul li {
+    list-style-type: disc;
 }
 
 /* RESTORE table horizontal scrolling - tables MUST remain scrollable */
