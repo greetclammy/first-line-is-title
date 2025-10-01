@@ -14,7 +14,7 @@ Automatically set the first line as note title, just like in Apple Notes! Forget
 - Rename notes automatically or manually.
 - Move cursor to the first line on note creation.
 - Put any first line content in title or headings only.
-- Replace illegal characters with safe alternatives.
+- Replace forbidden filename characters with safe alternatives.
 - Strip markdown syntax in filename.
 - Add custom replacement rules.
 - Copy the first line to the `aliases` property — make illegal characters searchable in the Quick switcher or [Omnisearch](https://obsidian.md/plugins?id=omnisearch).
