@@ -2,9 +2,8 @@ import { Modal, App, TFile, TFolder, Notice } from "obsidian";
 import { PluginSettings } from './types';
 import { verboseLog, isFileExcluded, shouldProcessFile } from './utils';
 
-// Need to declare these globals that are defined in main.ts
-declare let renamedFileCount: number;
-declare let tempNewPaths: string[];
+// Access global variables through globalThis
+const globals = (globalThis as any).flitGlobals;
 
 interface FirstLineIsTitlePlugin {
     settings: PluginSettings;
@@ -52,21 +51,27 @@ export class RenameAllFilesModal extends Modal {
             }
         });
 
-        renamedFileCount = 0;
-        tempNewPaths = [];
+        // Sort files by creation time (oldest first) to give chronological priority
+        // Older files get clean names, newer files get numbered versions
+        filesToRename.sort((a, b) => a.stat.ctime - b.stat.ctime);
+
+        globals?.setRenamedFileCount(0);
+        // No longer need tempNewPaths - each file checks disk state when processed
         const pleaseWaitNotice = new Notice(`Processing ${filesToRename.length} notes...`, 0);
 
         verboseLog(this.plugin, `Starting bulk rename of ${filesToRename.length} files`);
 
+        let renamedFileCount = 0;
         try {
             const errors: string[] = [];
 
             for (const file of filesToRename) {
                 try {
-                    await this.plugin.renameFile(file, true);
+                    await this.plugin.renameEngine.renameFile(file, true, true, true);
+                    renamedFileCount++;
                 } catch (error) {
                     errors.push(`Failed to rename ${file.path}: ${error}`);
-                    verboseLog(this.plugin, `Error renaming ${file.path}`, error);
+                    console.error(`Error renaming ${file.path}`, error);
                 }
             }
 
@@ -75,6 +80,12 @@ export class RenameAllFilesModal extends Modal {
                 console.error('Rename errors:', errors);
             }
         } finally {
+            // Immediate cleanup after batch operation
+            if (this.plugin.cacheManager) {
+                this.plugin.cacheManager.clearReservedPaths();
+                verboseLog(this.plugin, 'Cache cleaned up immediately after batch operation');
+            }
+
             pleaseWaitNotice.hide();
             new Notice(
                 `Renamed ${renamedFileCount}/${filesToRename.length} notes.`,
@@ -145,8 +156,8 @@ export class RenameFolderModal extends Modal {
 export class ProcessTagModal extends Modal {
     plugin: FirstLineIsTitlePlugin;
     tag: string;
-    private includeBodyTags: boolean = true;
-    private includeNestedTags: boolean = true;
+    private omitBodyTags: boolean = false;
+    private omitNestedTags: boolean = false;
 
     constructor(app: App, plugin: FirstLineIsTitlePlugin, tag: string) {
         super(app);
@@ -193,6 +204,15 @@ export class ProcessTagModal extends Modal {
         const processButton = buttonContainer.createEl("button", { text: "Proceed" });
         processButton.addClass("mod-cta");
         processButton.onclick = async () => {
+            // Save checkbox states
+            this.plugin.settings.includeBodyTags = bodyCheckbox.checked;
+            this.plugin.settings.includeNestedTags = nestedCheckbox.checked;
+            await this.plugin.saveSettings();
+
+            // Set omit flags based on checkbox states
+            this.omitBodyTags = !bodyCheckbox.checked;
+            this.omitNestedTags = !nestedCheckbox.checked;
+
             this.close();
             await this.processTagFiles();
         };
@@ -287,10 +307,10 @@ export class ProcessTagModal extends Modal {
         try {
             for (const file of filesToProcess) {
                 try {
-                    await this.plugin.renameFile(file, true);
+                    await this.plugin.renameEngine.renameFile(file, true, true, true);
                     processedCount++;
                 } catch (error) {
-                    verboseLog(this.plugin, `Error processing ${file.path}`, error);
+                    console.error(`Error processing ${file.path}`, error);
                 }
             }
         } finally {
@@ -335,6 +355,74 @@ export class ClearSettingsModal extends Modal {
             this.close();
             await this.onConfirm();
         };
+    }
+
+    onClose() {
+        const { contentEl } = this;
+        contentEl.empty();
+    }
+}
+
+export class InternalLinkModal extends Modal {
+    plugin: FirstLineIsTitlePlugin;
+    onSubmit: (linkTarget: string, linkCaption?: string) => void;
+    withCaption: boolean;
+
+    constructor(app: App, plugin: FirstLineIsTitlePlugin, onSubmit: (linkTarget: string, linkCaption?: string) => void, withCaption: boolean = false) {
+        super(app);
+        this.plugin = plugin;
+        this.onSubmit = onSubmit;
+        this.withCaption = withCaption;
+    }
+
+    onOpen() {
+        const { contentEl } = this;
+        contentEl.empty();
+
+        contentEl.createEl("h3", { text: "Internal link", cls: "flit-modal-heading-left" });
+
+        // Single text input - always just one field
+        const inputContainer = contentEl.createDiv({ cls: "flit-input-container" });
+        const textInput = inputContainer.createEl("input", {
+            type: "text",
+            placeholder: "Enter text...",
+            cls: "flit-link-input-full"
+        });
+        textInput.focus();
+
+        const buttonContainer = contentEl.createDiv({ cls: "modal-button-container flit-modal-button-container" });
+
+        const addButton = buttonContainer.createEl("button", { text: "Add" });
+        addButton.addClass("mod-cta");
+
+        const cancelButton = buttonContainer.createEl("button", { text: "Cancel" });
+        cancelButton.onclick = () => this.close();
+
+        const handleSubmit = () => {
+            const inputText = textInput.value.trim();
+            if (inputText) {
+                this.close();
+                this.onSubmit(inputText, this.withCaption ? inputText : undefined);
+            }
+        };
+
+        addButton.onclick = handleSubmit;
+
+        // Handle Enter key
+        textInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                handleSubmit();
+            }
+        });
+
+        // Handle Escape key
+        contentEl.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                e.preventDefault();
+                this.close();
+            }
+        });
     }
 
     onClose() {

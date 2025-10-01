@@ -1,12 +1,13 @@
 import { TFile, App } from "obsidian";
 import { PluginSettings, OSPreset } from './types';
+import { UNIVERSAL_FORBIDDEN_CHARS, WINDOWS_ANDROID_CHARS } from './constants';
 
 export function verboseLog(plugin: { settings: PluginSettings }, message: string, data?: any) {
     if (plugin.settings.verboseLogging) {
         if (data) {
-            console.log(message, data);
+            console.debug(message, data);
         } else {
-            console.log(message);
+            console.debug(message);
         }
     }
 }
@@ -28,7 +29,7 @@ export function detectOS(): OSPreset {
         // On mobile, use user agent detection
         const userAgent = navigator.userAgent.toLowerCase();
         if (userAgent.includes('android')) {
-            return 'Linux'; // Android uses Linux-like paths but needs same char restrictions as macOS
+            return 'Windows'; // Android has same file restrictions as Windows
         } else if (userAgent.includes('iphone') || userAgent.includes('ipad')) {
             return 'macOS'; // iOS uses macOS-like paths
         }
@@ -108,8 +109,9 @@ export function fileHasTargetTags(file: TFile, settings: PluginSettings, app: Ap
 
     const fileCache = app.metadataCache.getFileCache(file);
 
-    // Check YAML frontmatter tags
-    if (fileCache && fileCache.frontmatter && fileCache.frontmatter.tags) {
+    // Check YAML frontmatter tags (unless mode is 'Only match tags in note body')
+    if (settings.tagMatchingMode !== 'Only match tags in note body' &&
+        fileCache && fileCache.frontmatter && fileCache.frontmatter.tags) {
         const frontmatterTags = fileCache.frontmatter.tags;
         // Handle both string arrays and single strings
         const fileTags = Array.isArray(frontmatterTags) ? frontmatterTags : [frontmatterTags];
@@ -136,14 +138,18 @@ export function fileHasTargetTags(file: TFile, settings: PluginSettings, app: Ap
         }
     }
 
-    // Check inline tags in file content if enabled
-    if (settings.excludeInlineTags) {
+    // Check tags based on matching mode
+    if (settings.tagMatchingMode !== 'Only match tags in Properties') {
         let inlineTagsInContent: string[] = [];
 
-        if (content) {
-            // Use provided content (real-time)
+        if (content && settings.tagMatchingMode === 'Match tags anywhere in note') {
+            // Use provided content (real-time) - check both frontmatter and body
             inlineTagsInContent = parseInlineTagsFromText(content);
-        } else {
+        } else if (content && settings.tagMatchingMode === 'Only match tags in note body') {
+            // Only check content after frontmatter
+            const bodyContent = stripFrontmatter(content);
+            inlineTagsInContent = parseInlineTagsFromText(bodyContent);
+        } else if (!content) {
             // Fall back to cached metadata if no content provided
             if (fileCache && fileCache.tags) {
                 inlineTagsInContent = fileCache.tags.map(tag =>
@@ -233,8 +239,9 @@ export function isFileExcluded(file: TFile, settings: PluginSettings, app: App, 
     if (nonEmptyTags.length > 0) {
         const fileCache = app.metadataCache.getFileCache(file);
 
-        // Check YAML frontmatter tags
-        if (fileCache && fileCache.frontmatter && fileCache.frontmatter.tags) {
+        // Check YAML frontmatter tags (unless mode is 'Only match tags in note body')
+        if (settings.tagMatchingMode !== 'Only match tags in note body' &&
+            fileCache && fileCache.frontmatter && fileCache.frontmatter.tags) {
             const frontmatterTags = fileCache.frontmatter.tags;
             // Handle both string arrays and single strings
             const fileTags = Array.isArray(frontmatterTags) ? frontmatterTags : [frontmatterTags];
@@ -261,14 +268,18 @@ export function isFileExcluded(file: TFile, settings: PluginSettings, app: App, 
             }
         }
 
-        // Check inline tags in file content if enabled
-        if (settings.excludeInlineTags) {
+        // Check tags based on matching mode
+        if (settings.tagMatchingMode !== 'Only match tags in Properties') {
             let inlineTagsInContent: string[] = [];
 
-            if (content) {
-                // Use provided content (real-time)
+            if (content && settings.tagMatchingMode === 'Match tags anywhere in note') {
+                // Use provided content (real-time) - check both frontmatter and body
                 inlineTagsInContent = parseInlineTagsFromText(content);
-            } else {
+            } else if (content && settings.tagMatchingMode === 'Only match tags in note body') {
+                // Only check content after frontmatter
+                const bodyContent = stripFrontmatter(content);
+                inlineTagsInContent = parseInlineTagsFromText(bodyContent);
+            } else if (!content) {
                 // Fall back to cached metadata if no content provided
                 if (fileCache && fileCache.tags) {
                     inlineTagsInContent = fileCache.tags.map(tag =>
@@ -319,9 +330,33 @@ function parseInlineTagsFromText(content: string): string[] {
     return tags;
 }
 
-export function hasDisableProperty(content: string, settings: PluginSettings): boolean {
-    // Check if the setting is configured
-    if (!settings.disableRenamingKey || !settings.disableRenamingValue) return false;
+function stripFrontmatter(content: string): string {
+    // Remove YAML frontmatter from content
+    if (!content.startsWith('---')) {
+        return content;
+    }
+
+    const lines = content.split('\n');
+    let endIndex = -1;
+
+    // Find the closing ---
+    for (let i = 1; i < lines.length; i++) {
+        if (lines[i].trim() === '---') {
+            endIndex = i;
+            break;
+        }
+    }
+
+    if (endIndex === -1) {
+        return content; // No closing ---, return original
+    }
+
+    // Return content after frontmatter
+    return lines.slice(endIndex + 1).join('\n');
+}
+
+export function hasDisableProperty(content: string): boolean {
+    // Hardcoded to check for "no rename: true"
 
     // Check if content starts with frontmatter
     if (!content.startsWith("---")) return false;
@@ -333,45 +368,23 @@ export function hasDisableProperty(content: string, settings: PluginSettings): b
     // Extract frontmatter content
     const frontmatter = content.slice(3, frontmatterEnd);
 
-    // Create case-insensitive regex for key:value pair
-    const escapedKey = settings.disableRenamingKey.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const escapedValue = settings.disableRenamingValue.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-
-    // Match with or without quotes, and handle trailing spaces
+    // Check for "no rename: true" (case-insensitive, with or without quotes)
     const patterns = [
-        new RegExp(`^\\s*${escapedKey}\\s*:\\s*"${escapedValue}"\\s*$`, 'im'),
-        new RegExp(`^\\s*${escapedKey}\\s*:\\s*'${escapedValue}'\\s*$`, 'im'),
-        new RegExp(`^\\s*${escapedKey}\\s*:\\s*${escapedValue}\\s*$`, 'im')
+        /^\s*no\s+rename\s*:\s*"true"\s*$/im,
+        /^\s*no\s+rename\s*:\s*'true'\s*$/im,
+        /^\s*no\s+rename\s*:\s*true\s*$/im
     ];
 
     return patterns.some(regex => regex.test(frontmatter));
 }
 
-export async function hasDisablePropertyInFile(file: TFile, app: App, settings: PluginSettings): Promise<boolean> {
+export async function hasDisablePropertyInFile(file: TFile, app: App): Promise<boolean> {
     try {
         const content = await app.vault.read(file);
-        return hasDisableProperty(content, settings);
+        return hasDisableProperty(content);
     } catch (error) {
         return false;
     }
-}
-
-export function isExcalidrawFile(content: string, settings: PluginSettings): boolean {
-    if (!settings.skipExcalidrawFiles) return false;
-
-    // Check if content starts with frontmatter
-    if (!content.startsWith("---")) return false;
-
-    // Find the end of the first frontmatter block
-    const frontmatterEnd = content.indexOf("---", 3);
-    if (frontmatterEnd === -1) return false;
-
-    // Extract frontmatter content
-    const frontmatter = content.slice(3, frontmatterEnd);
-
-    // Check for excalidraw-plugin: parsed
-    const excalidrawRegex = /^\s*excalidraw-plugin\s*:\s*parsed\s*$/m;
-    return excalidrawRegex.test(frontmatter);
 }
 
 export function containsSafeword(filename: string, settings: PluginSettings): boolean {
@@ -412,11 +425,12 @@ export function extractTitle(line: string, settings: PluginSettings): string {
     const originalLine = line;
     line = line.trim();
 
-    // Remove template placeholder
-    line = line.replace(/<%\s*tp\.file\.cursor\(\)\s*%>/, '').trim();
-
-    if (line === "<%*") {
-        return "Untitled";
+    // Remove template placeholder if enabled
+    if (settings.stripTemplaterSyntax) {
+        line = line.replace(/<%\s*tp\.file\.cursor\(\)\s*%>/, '').trim();
+        if (line === "<%*") {
+            return "Untitled";
+        }
     }
 
     // Check if original line (before trim) starts with valid heading - before any processing
@@ -445,61 +459,83 @@ export function extractTitle(line: string, settings: PluginSettings): string {
     }
     // If backslash replacement enabled: treat \ as regular character, no escaping
 
-    // Remove comments if enabled
-    if (settings.omitComments) {
-        // Remove markdown comments %% %% (only matching pairs)
-        line = line.replace(/%%.*?%%/g, '');
+    // Strip markup based on settings (legacy fallback + new granular controls)
+    if (settings.enableStripMarkup || settings.omitComments || settings.omitHtmlTags) {
 
-        // Remove HTML comments <!-- --> (only matching pairs)
-        line = line.replace(/<!--.*?-->/g, '');
-    }
-
-    // Remove markdown formatting (only complete pairs, not escaped)
-    // We check against the original line before escape placeholder replacement
-    const checkEscaped = (match: string, offset: number): boolean => {
-        if (backslashReplacementEnabled) return false;
-        // Check if any part of the match contains escape placeholders
-        const matchEnd = offset + match.length;
-        for (let i = offset; i < matchEnd; i++) {
-            for (const placeholder of escapeMap.keys()) {
-                if (line.indexOf(placeholder) === i) return true;
+        // Helper function to check if text is escaped
+        const checkEscaped = (match: string, offset: number): boolean => {
+            if (backslashReplacementEnabled) return false;
+            // Check if any part of the match contains escape placeholders
+            const matchEnd = offset + match.length;
+            for (let i = offset; i < matchEnd; i++) {
+                for (const placeholder of escapeMap.keys()) {
+                    if (line.indexOf(placeholder) === i) return true;
+                }
             }
+            return false;
+        };
+
+        // Strip comments (legacy settings + new granular control)
+        if ((settings.enableStripMarkup && settings.stripMarkupSettings.comments) || settings.omitComments) {
+            // Remove markdown comments %% %% (only matching pairs)
+            line = line.replace(/%%.*?%%/g, '');
+            // Remove HTML comments <!-- --> (only matching pairs)
+            line = line.replace(/<!--.*?-->/g, '');
         }
-        return false;
-    };
 
-    // Remove bold **text** or __text__
-    line = line.replace(/\*\*(.+?)\*\*/g, (match, content, offset) => {
-        return checkEscaped(match, offset) ? match : content;
-    });
-    line = line.replace(/__(.+?)__/g, (match, content, offset) => {
-        return checkEscaped(match, offset) ? match : content;
-    });
+        // Strip bold markup
+        if (settings.enableStripMarkup && settings.stripMarkupSettings.bold) {
+            line = line.replace(/\*\*(.+?)\*\*/g, (match, content, offset) => {
+                return checkEscaped(match, offset) ? match : content;
+            });
+            line = line.replace(/__(.+?)__/g, (match, content, offset) => {
+                return checkEscaped(match, offset) ? match : content;
+            });
+        }
 
-    // Remove italic *text* or _text_
-    line = line.replace(/(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)/g, (match, content, offset) => {
-        return checkEscaped(match, offset) ? match : content;
-    });
-    line = line.replace(/(?<!_)_(?!_)(.+?)(?<!_)_(?!_)/g, (match, content, offset) => {
-        return checkEscaped(match, offset) ? match : content;
-    });
+        // Strip italic markup
+        if (settings.enableStripMarkup && settings.stripMarkupSettings.italic) {
+            line = line.replace(/(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)/g, (match, content, offset) => {
+                return checkEscaped(match, offset) ? match : content;
+            });
+            line = line.replace(/(?<!_)_(?!_)(.+?)(?<!_)_(?!_)/g, (match, content, offset) => {
+                return checkEscaped(match, offset) ? match : content;
+            });
+        }
 
-    // Remove strikethrough ~~text~~
-    line = line.replace(/~~(.+?)~~/g, (match, content, offset) => {
-        return checkEscaped(match, offset) ? match : content;
-    });
+        // Strip strikethrough markup
+        if (settings.enableStripMarkup && settings.stripMarkupSettings.strikethrough) {
+            line = line.replace(/~~(.+?)~~/g, (match, content, offset) => {
+                return checkEscaped(match, offset) ? match : content;
+            });
+        }
 
-    // Remove highlight ==text==
-    line = line.replace(/==(.+?)==/g, (match, content, offset) => {
-        return checkEscaped(match, offset) ? match : content;
-    });
+        // Strip highlight markup
+        if (settings.enableStripMarkup && settings.stripMarkupSettings.highlight) {
+            line = line.replace(/==(.+?)==/g, (match, content, offset) => {
+                return checkEscaped(match, offset) ? match : content;
+            });
+        }
 
-    // Remove HTML tags (all tags with opening and closing pairs) - handle nested tags
-    if (settings.omitHtmlTags) {
-        let previousLine = '';
-        while (line !== previousLine) {
-            previousLine = line;
-            line = line.replace(/<([a-zA-Z][a-zA-Z0-9]*)\b[^>]*>(.*?)<\/\1>/g, '$2');
+        // Strip code markup
+        if (settings.enableStripMarkup && settings.stripMarkupSettings.code) {
+            line = line.replace(/`(.+?)`/g, (match, content, offset) => {
+                return checkEscaped(match, offset) ? match : content;
+            });
+        }
+
+        // Strip blockquote markup
+        if (settings.enableStripMarkup && settings.stripMarkupSettings.blockquote) {
+            line = line.replace(/^>\s*(.*)$/gm, '$1');
+        }
+
+        // Strip HTML tags (legacy settings + new granular control)
+        if ((settings.enableStripMarkup && settings.stripMarkupSettings.htmlTags) || settings.omitHtmlTags) {
+            let previousLine = '';
+            while (line !== previousLine) {
+                previousLine = line;
+                line = line.replace(/<([a-zA-Z][a-zA-Z0-9]*)\b[^>]*>(.*?)<\/\1>/g, '$2');
+            }
         }
     }
 
@@ -511,8 +547,8 @@ export function extractTitle(line: string, settings: PluginSettings): string {
     const regularEmbedRegex = /!\[(.*?)\]\((.*?)\)/g;
     line = line.replace(regularEmbedRegex, (match, caption) => caption);
 
-    // Handle headers - only if the original line was a valid heading
-    if (isHeading) {
+    // Handle headers - only if the original line was a valid heading and strip heading markup is enabled
+    if (isHeading && (!settings.enableStripMarkup || settings.stripMarkupSettings.headings)) {
         const headerArr: string[] = [
             "# ", "## ", "### ", "#### ", "##### ", "###### ",
         ];
@@ -527,22 +563,24 @@ export function extractTitle(line: string, settings: PluginSettings): string {
     // Note: Custom replacements are now handled in main.ts before calling extractTitle
     // This avoids duplicate processing and ensures proper ordering with self-reference checks
 
-    // Handle wikilinks
-    while (line.includes("[[") && line.includes("]]")) {
-        const openBracket = line.indexOf("[[");
-        const closeBracket = line.indexOf("]]", openBracket);
+    // Handle wikilinks (only if strip wikilink markup is enabled)
+    if (!settings.enableStripMarkup || settings.stripMarkupSettings.wikilinks) {
+        while (line.includes("[[") && line.includes("]]")) {
+            const openBracket = line.indexOf("[[");
+            const closeBracket = line.indexOf("]]", openBracket);
 
-        if (openBracket === -1 || closeBracket === -1) break;
+            if (openBracket === -1 || closeBracket === -1) break;
 
-        const linkText = line.slice(openBracket + 2, closeBracket);
-        const beforeLink = line.slice(0, openBracket);
-        const afterLink = line.slice(closeBracket + 2);
+            const linkText = line.slice(openBracket + 2, closeBracket);
+            const beforeLink = line.slice(0, openBracket);
+            const afterLink = line.slice(closeBracket + 2);
 
-        // Handle aliased wikilinks
-        const pipeIndex = linkText.indexOf("|");
-        const resolvedText = pipeIndex !== -1 ? linkText.slice(pipeIndex + 1) : linkText;
+            // Handle aliased wikilinks
+            const pipeIndex = linkText.indexOf("|");
+            const resolvedText = pipeIndex !== -1 ? linkText.slice(pipeIndex + 1) : linkText;
 
-        line = (beforeLink + resolvedText + afterLink).trim();
+            line = (beforeLink + resolvedText + afterLink).trim();
+        }
     }
 
     // Check for empty links that should result in "Untitled"
@@ -552,13 +590,15 @@ export function extractTitle(line: string, settings: PluginSettings): string {
         return "Untitled";
     }
 
-    // Handle regular Markdown links (non-empty)
-    const markdownLinkRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
-    line = line.replace(markdownLinkRegex, (_, title) => title);
+    // Handle regular Markdown links (only if strip markdown link markup is enabled)
+    if (!settings.enableStripMarkup || settings.stripMarkupSettings.markdownLinks) {
+        const markdownLinkRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
+        line = line.replace(markdownLinkRegex, (_, title) => title);
 
-    // Remove empty links (but keep surrounding text)
-    // This handles cases like "test [](smile.md)" -> "test"
-    line = line.replace(/!?\[\]\([^)]*\)/g, '').trim();
+        // Remove empty links (but keep surrounding text)
+        // This handles cases like "test [](smile.md)" -> "test"
+        line = line.replace(/!?\[\]\([^)]*\)/g, '').trim();
+    }
 
     // Restore escaped characters (remove escape, keep character) - only if escaping was used
     if (!backslashReplacementEnabled) {
@@ -568,4 +608,139 @@ export function extractTitle(line: string, settings: PluginSettings): string {
     }
 
     return line;
+}
+
+/**
+ * Generates a safe internal link target by applying the plugin's character replacement rules
+ * This function mimics the logic from main.ts for processing forbidden characters
+ */
+export function generateSafeLinkTarget(text: string, settings: PluginSettings): string {
+    function detectOS(): OSPreset {
+        const platform = window.navigator.platform.toLowerCase();
+        if (platform.indexOf('win') !== -1) return 'Windows';
+        if (platform.indexOf('mac') !== -1) return 'macOS';
+        return 'Linux';
+    }
+
+    const charMap: { [key: string]: string } = {
+        '/': settings.charReplacements.slash,
+        ':': settings.charReplacements.colon,
+        '|': settings.charReplacements.pipe,
+        '#': settings.charReplacements.hash,
+        '[': settings.charReplacements.leftBracket,
+        ']': settings.charReplacements.rightBracket,
+        '^': settings.charReplacements.caret,
+        '*': settings.charReplacements.asterisk,
+        '?': settings.charReplacements.question,
+        '<': settings.charReplacements.lessThan,
+        '>': settings.charReplacements.greaterThan,
+        '"': settings.charReplacements.quote,
+        [String.fromCharCode(92)]: settings.charReplacements.backslash,
+        '.': settings.charReplacements.dot
+    };
+
+    // Get forbidden chars - universal chars are always forbidden
+    const universalForbiddenChars = UNIVERSAL_FORBIDDEN_CHARS;
+    const windowsAndroidChars = WINDOWS_ANDROID_CHARS;
+    const allForbiddenChars = [...universalForbiddenChars];
+
+    // Add Windows/Android chars if current OS requires them OR user has enabled compatibility
+    const currentOS = detectOS();
+    if (currentOS === 'Windows' || settings.windowsAndroidEnabled) {
+        allForbiddenChars.push(...windowsAndroidChars);
+    }
+    const forbiddenChars = [...new Set(allForbiddenChars)].join('');
+
+    let result = "";
+
+    for (let i = 0; i < text.length; i++) {
+        let char = text[i];
+
+        if (char === '.') {
+            // Special handling for dots - only forbidden at filename start
+            if (result === '') {
+                // Dot at start of filename
+                if (settings.enableForbiddenCharReplacements && settings.charReplacementEnabled.dot) {
+                    const replacement = charMap['.'] || '';
+                    if (replacement !== '') {
+                        // Check for whitespace trimming
+                        if (settings.charReplacementTrimRight.dot) {
+                            // Skip upcoming whitespace characters
+                            while (i + 1 < text.length && /\s/.test(text[i + 1])) {
+                                i++;
+                            }
+                        }
+                        result += replacement;
+                    }
+                    // If replacement is empty, omit the dot (don't add anything)
+                }
+                // If dot replacement is disabled, omit the dot (don't add anything)
+            } else {
+                // Dot not at start - always keep it
+                result += '.';
+            }
+        } else if (forbiddenChars.includes(char)) {
+            let shouldReplace = false;
+            let replacement = '';
+
+            // Check if master toggle is on AND individual toggle is on
+            if (settings.enableForbiddenCharReplacements) {
+                // Map character to setting key
+                let settingKey: keyof typeof settings.charReplacementEnabled | null = null;
+                switch (char) {
+                    case '/': settingKey = 'slash'; break;
+                    case String.fromCharCode(92): settingKey = 'backslash'; break;
+                    case ':': settingKey = 'colon'; break;
+                    case '|': settingKey = 'pipe'; break;
+                    case '#': settingKey = 'hash'; break;
+                    case '[': settingKey = 'leftBracket'; break;
+                    case ']': settingKey = 'rightBracket'; break;
+                    case '^': settingKey = 'caret'; break;
+                    case '*': settingKey = 'asterisk'; break;
+                    case '?': settingKey = 'question'; break;
+                    case '<': settingKey = 'lessThan'; break;
+                    case '>': settingKey = 'greaterThan'; break;
+                    case '"': settingKey = 'quote'; break;
+                }
+
+                // For Windows/Android chars, also check if that toggle is enabled
+                const isWindowsAndroidChar = WINDOWS_ANDROID_CHARS.includes(char);
+                const canReplace = isWindowsAndroidChar ?
+                    (settings.windowsAndroidEnabled && settingKey && settings.charReplacementEnabled[settingKey]) :
+                    (settingKey && settings.charReplacementEnabled[settingKey]);
+
+                if (canReplace && settingKey) {
+                    shouldReplace = true;
+                    replacement = charMap[char] || '';
+
+                    // Check for whitespace trimming
+                    if (replacement !== '') {
+                        // Trim whitespace to the left
+                        if (settings.charReplacementTrimLeft[settingKey]) {
+                            // Remove trailing whitespace from result
+                            result = result.trimEnd();
+                        }
+
+                        // Check if we should trim whitespace to the right
+                        if (settings.charReplacementTrimRight[settingKey]) {
+                            // Skip upcoming whitespace characters
+                            while (i + 1 < text.length && /\s/.test(text[i + 1])) {
+                                i++;
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (shouldReplace && replacement !== '') {
+                result += replacement;
+            }
+            // If not replacing or replacement is empty, omit the character (don't add anything)
+        } else {
+            // Normal character - keep it
+            result += char;
+        }
+    }
+
+    return result.trim();
 }

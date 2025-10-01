@@ -1,13 +1,14 @@
-import { PluginSettings, OSPreset } from './types';
+import { PluginSettings, OSPreset, TagMatchingMode, FileReadMethod, ExcludedProperty } from './types';
 
 export const DEFAULT_SETTINGS: PluginSettings = {
     scopeStrategy: 'Enable in all notes except below',
     excludedFolders: [""],
     excludedTags: [""],
+    excludedProperties: [
+        { key: "no rename", value: "true" }
+    ],
     charCount: 100,
-    checkInterval: 600,
-    disableRenamingKey: 'rename',
-    disableRenamingValue: 'off',
+    checkInterval: 0,
     osPreset: 'macOS',
     charReplacements: {
         slash: ' ∕ ',
@@ -82,25 +83,49 @@ export const DEFAULT_SETTINGS: PluginSettings = {
     ],
     omitComments: false,
     omitHtmlTags: false,
+    stripTemplaterSyntax: true,
+    enableStripMarkup: true,
+    stripMarkupSettings: {
+        italic: true,
+        bold: true,
+        strikethrough: true,
+        highlight: true,
+        code: true,
+        blockquote: true,
+        comments: true,
+        headings: true,
+        wikilinks: true,
+        markdownLinks: true,
+        htmlTags: true,
+    },
+    stripMarkupInAlias: false,
+    applyCustomRulesInAlias: false,
     enableForbiddenCharReplacements: false,
     enableCustomReplacements: false,
+    applyCustomRulesAfterForbiddenChars: false,
+    applyCustomRulesAfterMarkupStripping: false,
     enableSafewords: false,
     renameOnFocus: false,
-    renameOnSave: false,
+    renameOnSave: true,
     renameNotes: "automatically",
+    renameInBackground: false,
     manualNotificationMode: 'On title change',
     windowsAndroidEnabled: false,
     hasEnabledForbiddenChars: false,
     hasEnabledWindowsAndroid: false,
     hasEnabledCustomReplacements: false,
     hasEnabledSafewords: false,
-    skipExcalidrawFiles: false,
+    hasEnabledAliases: false,
     grabTitleFromCardLink: false,
     excludeSubfolders: true,
-    excludeInlineTags: false,
+    tagMatchingMode: 'Match tags anywhere in note' as TagMatchingMode,
     excludeChildTags: true,
-    useDirectFileRead: false, // Default to cached read for performance
+    fileReadMethod: 'Editor', // Default to editor method
     verboseLogging: false, // Added default for verbose logging
+    debugOutputFullContent: false, // Default OFF for debug content output
+    hasShownFirstTimeNotice: false, // First-time notice not shown yet
+    hasSetupExclusions: false, // Exclusions tab not opened yet
+    lastUsageDate: '', // No usage date yet
     currentSettingsTab: 'general', // Default to general tab
     commandVisibility: {
         folderPutFirstLineInTitle: true,
@@ -111,7 +136,9 @@ export const DEFAULT_SETTINGS: PluginSettings = {
         fileStopExcluding: true,
         tagPutFirstLineInTitle: true,
         tagExclude: true,
-        tagStopExcluding: true
+        tagStopExcluding: true,
+        addSafeInternalLink: true,
+        addSafeInternalLinkWithCaption: true
     },
     enableContextMenus: true,
     enableVaultSearchContextMenu: true,
@@ -138,23 +165,39 @@ export const DEFAULT_SETTINGS: PluginSettings = {
     addAliasOnlyIfFirstLineDiffers: false,
     aliasPropertyKey: 'aliases',
     hideAliasProperty: 'never' as const,
-    showAliasInSidebar: true,
-    keepEmptyAliasProperty: false,
+    hideAliasInSidebar: false,
+    keepEmptyAliasProperty: true,
     whatToPutInTitle: "any_first_line_content",
     includeSubfolders: true,
     includeBodyTags: true,
     includeNestedTags: true,
-    moveCursorToFirstLine: false,
-    placeCursorAtLineEnd: false,
-    suppressMergeNotifications: false
+    moveCursorToFirstLine: true,
+    insertTitleOnCreation: false,
+    titleInsertionDelay: 1500,
+    placeCursorAtLineEnd: true,
+    suppressMergeNotifications: false,
+    fileCreationDelay: 2000
 };
 
 // OS-specific forbidden characters
 export const UNIVERSAL_FORBIDDEN_CHARS = ['/', ':', '|', String.fromCharCode(92), '#', '[', ']', '^'];
 export const WINDOWS_ANDROID_CHARS = ['*', '?', '<', '>', '"'];
 
-export const OS_FORBIDDEN_CHARS: Record<OSPreset, string[]> = {
-    'macOS': UNIVERSAL_FORBIDDEN_CHARS,
-    'Windows': [...UNIVERSAL_FORBIDDEN_CHARS, ...WINDOWS_ANDROID_CHARS],
-    'Linux': UNIVERSAL_FORBIDDEN_CHARS
+// Character reversal mapping for title insertion (reverse forbidden char replacements)
+export const TITLE_CHAR_REVERSAL_MAP: Record<string, string> = {
+    '∕': '/', // Unicode: \u2215 -> slash
+    '։': ':', // Unicode: \u0589 -> colon
+    '∗': '*', // Unicode: \u2217 -> asterisk
+    '﹖': '?', // Unicode: \uFE56 -> question
+    '‹': '<', // Unicode: \u2039 -> lessThan
+    '›': '>', // Unicode: \u203A -> greaterThan
+    '＂': '"', // Unicode: \uFF02 -> quote
+    '❘': '|', // Unicode: \u2758 -> pipe
+    '＃': '#', // Unicode: \uFF03 -> hash
+    '［': '[', // Unicode: \uFF3B -> leftBracket
+    '］': ']', // Unicode: \uFF3D -> rightBracket
+    'ˆ': '^', // Unicode: \u02C6 -> caret
+    '⧵': '\\', // Unicode: \u29F5 -> backslash
+    '․': '.' // Unicode: \u2024 -> dot
 };
+

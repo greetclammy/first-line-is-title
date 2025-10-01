@@ -14,9 +14,16 @@ export interface Safeword {
     caseSensitive: boolean;
 }
 
+export interface ExcludedProperty {
+    key: string;
+    value: string;
+}
+
 export type OSPreset = 'macOS' | 'Windows' | 'Linux';
 export type NotificationMode = 'Always' | 'On title change' | 'Never';
 export type ScopeStrategy = 'Enable in all notes except below' | 'Disable in all notes except below';
+export type TagMatchingMode = 'Match tags anywhere in note' | 'Only match tags in Properties' | 'Only match tags in note body';
+export type FileReadMethod = 'Editor' | 'Cache' | 'File';
 
 export type PropertyHidingOption = 'never' | 'always' | 'when_empty';
 
@@ -24,10 +31,9 @@ export interface PluginSettings {
     scopeStrategy: ScopeStrategy;
     excludedFolders: string[];
     excludedTags: string[];
+    excludedProperties: ExcludedProperty[];
     charCount: number;
     checkInterval: number;
-    disableRenamingKey: string;
-    disableRenamingValue: string;
     osPreset: OSPreset;
     charReplacements: {
         slash: string;
@@ -97,25 +103,49 @@ export interface PluginSettings {
     safewords: Safeword[];
     omitComments: boolean;
     omitHtmlTags: boolean;
+    stripTemplaterSyntax: boolean;
+    enableStripMarkup: boolean;
+    stripMarkupSettings: {
+        italic: boolean;
+        bold: boolean;
+        strikethrough: boolean;
+        highlight: boolean;
+        code: boolean;
+        blockquote: boolean;
+        comments: boolean;
+        headings: boolean;
+        wikilinks: boolean;
+        markdownLinks: boolean;
+        htmlTags: boolean;
+    };
+    stripMarkupInAlias: boolean;
+    applyCustomRulesInAlias: boolean;
     enableForbiddenCharReplacements: boolean;
     enableCustomReplacements: boolean;
+    applyCustomRulesAfterForbiddenChars: boolean;
+    applyCustomRulesAfterMarkupStripping: boolean;
     enableSafewords: boolean;
     renameOnFocus: boolean;
     renameOnSave: boolean;
     renameNotes: "automatically" | "manually";
+    renameInBackground: boolean;
     manualNotificationMode: NotificationMode;
     windowsAndroidEnabled: boolean;
     hasEnabledForbiddenChars: boolean;
     hasEnabledWindowsAndroid: boolean;
     hasEnabledCustomReplacements: boolean;
     hasEnabledSafewords: boolean;
-    skipExcalidrawFiles: boolean;
+    hasEnabledAliases: boolean;
     grabTitleFromCardLink: boolean;
     excludeSubfolders: boolean;
-    excludeInlineTags: boolean;
+    tagMatchingMode: TagMatchingMode;
     excludeChildTags: boolean;
-    useDirectFileRead: boolean; // Use direct file read instead of cache (slower but may resolve issues)
+    fileReadMethod: FileReadMethod; // Method for reading file content
     verboseLogging: boolean; // Added verbose logging setting
+    debugOutputFullContent: boolean; // Output full file content in console when files change
+    hasShownFirstTimeNotice: boolean; // Track if first-time setup notice has been shown
+    hasSetupExclusions: boolean; // Track if exclusions tab has been opened for first-time setup
+    lastUsageDate: string; // Last date the plugin was used (YYYY-MM-DD format)
     currentSettingsTab: string; // Track current settings tab
     commandVisibility: {
         folderPutFirstLineInTitle: boolean;
@@ -127,6 +157,8 @@ export interface PluginSettings {
         tagPutFirstLineInTitle: boolean;
         tagExclude: boolean;
         tagStopExcluding: boolean;
+        addSafeInternalLink: boolean;
+        addSafeInternalLinkWithCaption: boolean;
     };
     enableContextMenus: boolean;
     enableVaultSearchContextMenu: boolean;
@@ -153,13 +185,16 @@ export interface PluginSettings {
     addAliasOnlyIfFirstLineDiffers: boolean;
     aliasPropertyKey: string;
     hideAliasProperty: PropertyHidingOption;
-    showAliasInSidebar: boolean;
+    hideAliasInSidebar: boolean;
     keepEmptyAliasProperty: boolean;
     whatToPutInTitle: "any_first_line_content" | "headings_only";
     includeSubfolders: boolean;
     includeBodyTags: boolean;
     includeNestedTags: boolean;
     moveCursorToFirstLine: boolean;
+    insertTitleOnCreation: boolean;
+    titleInsertionDelay: number;
     placeCursorAtLineEnd: boolean;
     suppressMergeNotifications: boolean;
+    fileCreationDelay: number;
 }
