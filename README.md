@@ -2,9 +2,7 @@
 
 Automatically set the first line as note title, just like in Apple Notes! Forget about manual filename entry or nondescript timestamps. 
 
-<img src="https://github.com/user-attachments/assets/4d4bb0d5-aaa8-464a-9e00-eeb88f4235de" height="450">
-
-​
+![](https://github.com/user-attachments/assets/8ce46e27-3874-4e25-aecf-3581cf500565)
 
 > [!TIP]
 > The plugin is best used with the tab title bar enabled in Obsidian settings > Appearance > Interface.
@@ -17,17 +15,17 @@ Automatically set the first line as note title, just like in Apple Notes! Forget
 - Replace forbidden filename characters with safe alternatives.
 - Strip markdown syntax in filename.
 - Add custom replacement rules.
-- Copy the first line to the `aliases` property — make illegal characters searchable in the Quick switcher or [Omnisearch](https://obsidian.md/plugins?id=omnisearch).
+- Automatically add a first line alias property — make illegal characters searchable in the Quick switcher or [Omnisearch](https://obsidian.md/plugins?id=omnisearch).
 - Rename all notes in a folder, all notes with a tag, all search results or the entire vault.
-- Exclude certain notes, folders, tags or filenames from renaming.
-- Convert selection containing illegal characters into a safe internal link. Preserve the original text in link caption.
+- Exclude select notes, folders, tags, properties or filenames from renaming.
+- Convert selection containing forbidden characters into a safe internal link. Preserve the original text in link caption.
 
 ## ✅ Installation
 
 > [!IMPORTANT]  
-> Ensure your files are backed up before using this plugin.
+> The plugin is in beta — things can break, or change drastically between releases. Ensure your files are regularly backed up.
 
-Untill _First Line is Title_ is made availiable in the plugin directory, follow the steps below to install it.
+Untill _First Line is Title_ is made availiable in the plugin directory, follow the steps below installing.
 
 ### BRAT (recommended)
 
