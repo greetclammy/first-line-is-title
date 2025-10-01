@@ -2,7 +2,7 @@
 
 Automatically set the first line as note title, just like in Apple Notes! Forget about manual filename entry or nondescript timestamps. 
 
-![](https://github.com/user-attachments/assets/8ce46e27-3874-4e25-aecf-3581cf500565)
+![](https://github.com/user-attachments/assets/eed638e0-f695-4fdd-a0a6-2ace66585d58)
 
 > [!TIP]
 > The plugin is best used with the tab title bar enabled in Obsidian settings > Appearance > Interface.
