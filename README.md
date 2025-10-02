@@ -25,7 +25,9 @@ Only notes that are currently open in the editor are processed, along with any n
 ## ✅ Installation
 
 > [!IMPORTANT]  
-> The plugin is in active development — things can break, or change drastically between releases. **Ensure your files are regularly [backed up](https://help.obsidian.md/backup).**
+> The plugin is in active development — things can break, or change drastically between releases.
+>
+> **Ensure your files are regularly [backed up](https://help.obsidian.md/backup).**
 
 Untill _First Line is Title_ is made availiable in the plugin directory, follow the steps below to install it.
 
