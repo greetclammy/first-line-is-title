@@ -17,7 +17,7 @@ Automatically set the first line as note title, just like in Apple Notes! Forget
 - Add custom replacement rules.
 - Automatically add a first line alias property — make forbidden characters searchable in the Quick switcher or [Omnisearch](https://obsidian.md/plugins?id=omnisearch).
 - Commands to batch rename all notes in a folder, all notes with a tag, all search results or the entire vault.
-- Exclude select notes, folders, tags, properties or filenames from renaming.
+- Exclude select notes, folders, tags, properties or filenames from renaming, or only enable renaming in some.
 - Convert selection containing characters forbidden in filenames into a safe internal link. Preserve the original text in link caption.
 
 _Only notes that are currently open in the editor are processed, along with any notes you explicitly select for batch operations (like renaming all notes in a folder). Multiple safeguards are in place to prevent unintended changes or runaway operations, but regular backups remain your ultimate safety net._
