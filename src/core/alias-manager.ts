@@ -61,11 +61,6 @@ export class AliasManager {
                 content = await this.app.vault.cachedRead(file);
             }
 
-            // Rate limiting check - prevent infinite loops
-            if (!this.plugin.renameEngine.checkOperationLimit(file, content)) {
-                return;
-            }
-
             if (!content || content.trim() === '') {
                 return;
             }

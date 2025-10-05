@@ -106,9 +106,8 @@ export const DEFAULT_SETTINGS: PluginSettings = {
     applyCustomRulesAfterMarkupStripping: false,
     enableSafewords: false,
     renameOnFocus: false,
-    renameOnSave: true,
+    renameOnSave: false,
     renameNotes: "automatically",
-    renameInBackground: false,
     manualNotificationMode: 'On title change',
     windowsAndroidEnabled: false,
     hasEnabledForbiddenChars: false,
@@ -116,7 +115,7 @@ export const DEFAULT_SETTINGS: PluginSettings = {
     hasEnabledCustomReplacements: false,
     hasEnabledSafewords: false,
     hasEnabledAliases: false,
-    grabTitleFromCardLink: false,
+    grabTitleFromCardLink: true,
     excludeSubfolders: true,
     tagMatchingMode: 'Match tags anywhere in note' as TagMatchingMode,
     excludeChildTags: true,
@@ -173,10 +172,10 @@ export const DEFAULT_SETTINGS: PluginSettings = {
     includeNestedTags: true,
     moveCursorToFirstLine: true,
     insertTitleOnCreation: false,
-    titleInsertionDelay: 1500,
     placeCursorAtLineEnd: true,
     suppressMergeNotifications: false,
-    fileCreationDelay: 2000
+    newNoteDelay: 0,
+    waitForTemplate: true
 };
 
 // OS-specific forbidden characters

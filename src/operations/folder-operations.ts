@@ -22,10 +22,12 @@ export class FolderOperations {
             });
 
         if (files.length === 0) {
+            verboseLog(this, `Showing notice: No markdown files found in this folder.`);
             new Notice("No markdown files found in this folder.");
             return;
         }
 
+        verboseLog(this, `Showing notice: Processing ${files.length} files in "${folder.path}"...`);
         new Notice(`Processing ${files.length} files in "${folder.path}"...`);
 
         let processedCount = 0;
@@ -33,8 +35,9 @@ export class FolderOperations {
 
         for (const file of files) {
             try {
-                // Use the existing renameFile method with ignoreExclusions = true to force processing
-                await this.renameEngine.renameFile(file, true, true, true);
+                // Use the existing processFile method with ignoreExclusions = true to force processing
+                // Pass isBatchOperation = true to skip rate limits for batch operations
+                await this.renameEngine.processFile(file, true, true, true, undefined, true);
                 processedCount++;
             } catch (error) {
                 console.error(`Error processing file ${file.path}:`, error);
@@ -43,8 +46,10 @@ export class FolderOperations {
         }
 
         if (errorCount > 0) {
+            verboseLog(this, `Showing notice: Processed ${processedCount} files with ${errorCount} errors.`);
             new Notice(`Processed ${processedCount} files with ${errorCount} errors.`);
         } else {
+            verboseLog(this, `Showing notice: Successfully processed ${processedCount} files.`);
             new Notice(`Successfully processed ${processedCount} files.`);
         }
     }
@@ -59,6 +64,7 @@ export class FolderOperations {
             if (this.settings.excludedFolders.length === 0) {
                 this.settings.excludedFolders.push("");
             }
+            verboseLog(this, `Showing notice: Renaming enabled for folder: ${folderPath}`);
             new Notice(`Renaming enabled for folder: ${folderPath}`);
         } else {
             // If there's only an empty entry, replace it; otherwise add
@@ -67,6 +73,7 @@ export class FolderOperations {
             } else {
                 this.settings.excludedFolders.push(folderPath);
             }
+            verboseLog(this, `Showing notice: Renaming disabled for folder: ${folderPath}`);
             new Notice(`Renaming disabled for folder: ${folderPath}`);
         }
 
@@ -146,17 +153,20 @@ export class FolderOperations {
         });
 
         if (allFiles.length === 0) {
+            verboseLog(this, `Showing notice: No markdown files found in selected folders.`);
             new Notice("No markdown files found in selected folders.");
             return;
         }
 
         if (action === 'rename') {
+            verboseLog(this, `Showing notice: Processing ${allFiles.length} files from ${folders.length} folders...`);
             new Notice(`Processing ${allFiles.length} files from ${folders.length} folders...`);
 
             // Use the existing file processing logic
             await this.processMultipleFiles(allFiles, 'rename');
         } else {
             // For folder exclusion, we work with folder paths directly
+            verboseLog(this, `Showing notice: Processing ${folders.length} folders...`);
             new Notice(`Processing ${folders.length} folders...`);
 
             for (const folder of folders) {
@@ -184,10 +194,13 @@ export class FolderOperations {
             // Show completion notice
             const actionText = action === 'disable' ? 'disabled renaming for' : 'enabled renaming for';
             if (errors > 0) {
+                verboseLog(this, `Showing notice: ${actionText} ${processed} folders. ${skipped} already in desired state. ${errors} errors occurred.`);
                 new Notice(`${actionText} ${processed} folders. ${skipped} already in desired state. ${errors} errors occurred.`);
             } else if (skipped > 0) {
+                verboseLog(this, `Showing notice: ${actionText} ${processed} folders. ${skipped} already in desired state.`);
                 new Notice(`${actionText} ${processed} folders. ${skipped} already in desired state.`);
             } else {
+                verboseLog(this, `Showing notice: Successfully ${actionText} ${processed} folders.`);
                 new Notice(`Successfully ${actionText} ${processed} folders.`);
             }
         }

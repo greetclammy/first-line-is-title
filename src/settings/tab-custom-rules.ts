@@ -186,6 +186,8 @@ export class CustomReplacementsTab extends SettingsTabBase {
                 // Function to update row appearance based on enabled state
                 const updateRowAppearance = () => {
                     const isRowEnabled = this.plugin.settings.customReplacements[index].enabled;
+                    const masterEnabled = this.plugin.settings.enableCustomReplacements;
+                    const shouldApplyInlineOpacity = masterEnabled;
 
                     // Grey out and disable inputs and toggles but not reorder/delete buttons based on row enabled state
                     if (isRowEnabled) {
@@ -201,15 +203,15 @@ export class CustomReplacementsTab extends SettingsTabBase {
                         wholeToggleContainer.style.opacity = "";
                         wholeToggleContainer.style.pointerEvents = "";
                     } else {
-                        input1.style.opacity = "0.5";
+                        input1.style.opacity = shouldApplyInlineOpacity ? "0.5" : "";
                         input1.style.pointerEvents = "none";
                         input1.disabled = true;
-                        input2.style.opacity = "0.5";
+                        input2.style.opacity = shouldApplyInlineOpacity ? "0.5" : "";
                         input2.style.pointerEvents = "none";
                         input2.disabled = true;
-                        startToggleContainer.style.opacity = "0.5";
+                        startToggleContainer.style.opacity = shouldApplyInlineOpacity ? "0.5" : "";
                         startToggleContainer.style.pointerEvents = "none";
-                        wholeToggleContainer.style.opacity = "0.5";
+                        wholeToggleContainer.style.opacity = shouldApplyInlineOpacity ? "0.5" : "";
                         wholeToggleContainer.style.pointerEvents = "none";
                     }
                 };

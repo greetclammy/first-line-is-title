@@ -12,8 +12,7 @@ import {
 } from '../utils';
 
 // Access optimized cache manager
-const globals = (globalThis as any).flitGlobals;
-const getCacheManager = () => globals?.getCacheManager();
+const getCacheManager = () => (globalThis as any).flitGlobals?.getCacheManager();
 
 export class RenameEngine {
     private plugin: any; // Plugin instance
@@ -21,8 +20,11 @@ export class RenameEngine {
     // Track last processed first line content to avoid duplicate processing
     private lastProcessedContent = new Map<string, string>();
 
-    // Rate limiting: Track operations per file to prevent infinite loops
-    private operationTracker = new Map<string, {count: number, lastContent: string}>();
+    // Time-based rate limiting per file (catches loops even with content changes)
+    private fileTimeTracker = new Map<string, {timestamp: number, count: number}>();
+
+    // Global rate limiting (catches cross-file cascading loops)
+    private globalOperationTracker = {timestamp: Date.now(), count: 0};
 
     // Track files currently being renamed to prevent spurious events
     private filesBeingRenamed = new Set<TFile>();
@@ -38,27 +40,46 @@ export class RenameEngine {
         return this.filesBeingRenamed.has(file);
     }
 
-    checkOperationLimit(file: TFile, content: string): boolean {
+    checkFileTimeLimit(file: TFile): boolean {
+        const now = Date.now();
+        const windowMs = 1000; // 1 second window
+        const maxOpsPerFile = 20; // Max 20 operations per file in 1 second
+
         const key = file.path;
-        const tracker = this.operationTracker.get(key);
+        const tracker = this.fileTimeTracker.get(key);
 
-        if (!tracker) {
-            this.operationTracker.set(key, {count: 1, lastContent: content});
+        if (!tracker || now - tracker.timestamp > windowMs) {
+            // New window, reset
+            this.fileTimeTracker.set(key, {timestamp: now, count: 1});
             return true;
         }
 
-        if (tracker.lastContent !== content) {
-            // Content changed, reset counter
-            this.operationTracker.set(key, {count: 1, lastContent: content});
-            return true;
-        }
-
-        if (tracker.count >= 3) {
-            verboseLog(this.plugin, `Rate limit hit for ${file.path} - blocked operation ${tracker.count + 1}`);
+        if (tracker.count >= maxOpsPerFile) {
+            verboseLog(this.plugin, `Time-based rate limit hit for ${file.path} - ${tracker.count} operations in ${now - tracker.timestamp}ms`);
             return false;
         }
 
         tracker.count++;
+        return true;
+    }
+
+    checkGlobalRateLimit(): boolean {
+        const now = Date.now();
+        const windowMs = 1000; // 1 second window
+        const maxGlobalOps = 50; // Max 50 operations across all files in 1 second
+
+        if (now - this.globalOperationTracker.timestamp > windowMs) {
+            // New window, reset
+            this.globalOperationTracker = {timestamp: now, count: 1};
+            return true;
+        }
+
+        if (this.globalOperationTracker.count >= maxGlobalOps) {
+            verboseLog(this.plugin, `Global rate limit hit - ${this.globalOperationTracker.count} operations in ${now - this.globalOperationTracker.timestamp}ms`);
+            return false;
+        }
+
+        this.globalOperationTracker.count++;
         return true;
     }
 
@@ -109,11 +130,10 @@ export class RenameEngine {
             // Only process if first line actually changed
             if (firstLine !== lastContent) {
                 const timeSinceStart = Date.now() - startTime;
-                const keystrokeTime = Date.now();
-                verboseLog(this.plugin, `[TIMING] KEYSTROKE: ${file.path} - "${lastContent}" -> "${firstLine}" (processed in ${timeSinceStart}ms) @${keystrokeTime}`);
+                verboseLog(this.plugin, `[TIMING] KEYSTROKE: ${file.path} - "${lastContent}" -> "${firstLine}" (processed in ${timeSinceStart}ms)`);
 
                 // Process immediately using editor content
-                await this.renameFileImmediate(file, currentContent, metadata);
+                await this.processFileImmediate(file, currentContent, metadata);
 
                 // Update last processed content
                 this.lastProcessedContent.set(file.path, firstLine);
@@ -125,14 +145,9 @@ export class RenameEngine {
         }
     }
 
-    async renameFileImmediate(file: TFile, content: string, metadata: any): Promise<void> {
+    async processFileImmediate(file: TFile, content: string, metadata: any): Promise<void> {
         // Skip all the slow checks since we know this is an open editor file
         if (file.extension !== 'md') {
-            return;
-        }
-
-        // Rate limiting check - prevent infinite loops
-        if (!this.checkOperationLimit(file, content)) {
             return;
         }
 
@@ -141,16 +156,14 @@ export class RenameEngine {
             return;
         }
 
-        const timestamp = Date.now();
-        const timeStr = new Date(timestamp).toLocaleTimeString() + '.' + (timestamp % 1000).toString().padStart(3, '0') + 'ms';
-        verboseLog(this.plugin, `RENAME: Starting immediate renameFile for ${file.path} at ${timeStr}`);
+        verboseLog(this.plugin, `PROCESS: Starting immediate processFile for ${file.path}`);
 
         try {
-            // IMMEDIATE PROCESSING: Use existing renameFile but with editor content
-            await this.renameFile(file, true, false, false, content);
+            // IMMEDIATE PROCESSING: Use existing processFile but with editor content
+            await this.processFile(file, true, false, false, content);
 
         } catch (error) {
-            console.error(`Error in immediate rename for ${file.path}:`, error);
+            console.error(`Error in immediate process for ${file.path}:`, error);
         }
     }
 
@@ -175,7 +188,7 @@ export class RenameEngine {
         return content;
     }
 
-    async renameFile(file: TFile, noDelay = false, ignoreExclusions = false, showNotices = false, providedContent?: string): Promise<{ success: boolean, reason?: string }> {
+    async processFile(file: TFile, noDelay = false, ignoreExclusions = false, showNotices = false, providedContent?: string, isBatchOperation = false): Promise<{ success: boolean, reason?: string }> {
         // Track plugin usage
         this.plugin.trackUsage();
 
@@ -204,9 +217,15 @@ export class RenameEngine {
             }
         }
 
-        // Rate limiting check - prevent infinite loops
-        if (!this.checkOperationLimit(file, contentForRateLimit)) {
-            return { success: false, reason: 'rate-limited' };
+        // Time-based rate limiting (skip for batch operations)
+        if (!isBatchOperation) {
+            if (!this.checkFileTimeLimit(file)) {
+                return { success: false, reason: 'time-rate-limited' };
+            }
+
+            if (!this.checkGlobalRateLimit()) {
+                return { success: false, reason: 'global-rate-limited' };
+            }
         }
 
         // Log full file content at start of processing and use it for exclusion check
@@ -231,6 +250,10 @@ export class RenameEngine {
         console.log(`RENAME: Starting renameFile for ${file.name}`);
 
         // tempNewPaths array eliminated - using chronological processing instead
+
+        // Get previous content BEFORE cache cleanup to detect content deletion
+        const cacheManager = getCacheManager();
+        const previousFileContent = cacheManager?.getContent(file.path);
 
         // Clean up stale cache before processing
         this.cleanupStaleCache();
@@ -287,57 +310,31 @@ export class RenameEngine {
             }
         }
 
-        // If first line is empty (no content after frontmatter), rename to Untitled
+        // If first line is empty (no content after frontmatter)
         if (firstLine === '') {
-            const parentPath = file.parent?.path === "/" ? "" : file.parent?.path + "/";
-            let newPath: string = `${parentPath}Untitled.md`;
+            // Check if file had previous content
+            const previousContentWithoutFrontmatter = previousFileContent
+                ? this.stripFrontmatterFromContent(previousFileContent, file)
+                : '';
+            const hadPreviousContent = previousContentWithoutFrontmatter.trim() !== '';
 
-            let counter: number = 0;
-            const cacheManager = getCacheManager();
+            if (hadPreviousContent) {
+                // Content was deleted - rename to Untitled
+                verboseLog(this.plugin, `Content became empty - renaming to Untitled: ${file.path}`);
+                firstLine = 'Untitled';
+            } else {
+                // File was always empty - retain current filename
+                cacheManager?.setContent(file.path, content);
 
-            // Check for actual file conflicts (same as main logic)
-            let fileExists: boolean = this.checkFileExistsCaseInsensitive(newPath);
-            while (fileExists) {
-                if (file.path == newPath) {
-                    cacheManager?.setContent(file.path, content);
-                    return { success: false, reason: 'no-change' };
+                // Remove any plugin aliases since there's no content to alias
+                if (this.plugin.settings.enableAliases) {
+                    verboseLog(this.plugin, `Removing plugin aliases - file has no content`);
+                    await this.plugin.aliasManager.removePluginAliasesFromFile(file, false);
                 }
-                counter += 1;
-                newPath = `${parentPath}Untitled ${counter}.md`;
-                fileExists = this.checkFileExistsCaseInsensitive(newPath);
+
+                verboseLog(this.plugin, `Skipping rename for empty file - retaining current filename: ${file.path}`);
+                return { success: false, reason: 'empty-content-retained' };
             }
-
-            // tempNewPaths array eliminated - files processed chronologically
-
-            // Reserve path to prevent conflicts during rename
-            cacheManager?.reservePath(newPath);
-
-            const oldPath = file.path;
-            try {
-                await this.plugin.app.fileManager.renameFile(file, newPath);
-                verboseLog(this.plugin, `Renamed empty file ${file.path} to ${newPath}`);
-
-                // Update cache with new path
-                const lastContent = this.lastProcessedContent.get(oldPath);
-                if (lastContent !== undefined) {
-                    this.lastProcessedContent.delete(oldPath);
-                    this.lastProcessedContent.set(newPath, lastContent);
-                }
-            } catch (error) {
-                console.error(`Failed to rename file ${file.path} to ${newPath}:`, error);
-                cacheManager?.releasePath(newPath);
-                throw new Error(`Failed to rename file: ${error.message}`);
-            }
-
-            // Remove any plugin aliases since there's no content to alias
-            if (this.plugin.settings.enableAliases) {
-                verboseLog(this.plugin, `Removing plugin aliases - file has no content`);
-                await this.plugin.aliasManager.removePluginAliasesFromFile(file, false); // Respect keepEmptyAliasProperty setting
-            }
-
-            cacheManager?.setContent(newPath, content);
-            cacheManager?.releasePath(newPath);
-            return { success: true, reason: 'empty-content' };
         }
 
         // Check if only headings should be processed
@@ -381,63 +378,12 @@ export class RenameEngine {
             }
         }
 
-        // Check if content became empty when it wasn't before (after stripping frontmatter)
-        const cacheManager = getCacheManager();
-        const previousFileContent = cacheManager?.getContent(file.path);
-        if (contentWithoutFrontmatter.trim() === '' && previousFileContent && this.stripFrontmatterFromContent(previousFileContent, file).trim() !== '') {
-            // Content became empty, rename to Untitled
-            const parentPath = file.parent?.path === "/" ? "" : file.parent?.path + "/";
-            let newPath: string = `${parentPath}Untitled.md`;
-
-            let counter: number = 0;
-
-            // Check for actual file conflicts (same as main logic)
-            let fileExists: boolean = this.checkFileExistsCaseInsensitive(newPath);
-            while (fileExists) {
-                if (file.path == newPath) {
-                    cacheManager?.setContent(file.path, content);
-                    return { success: false, reason: 'no-change' };
-                }
-                counter += 1;
-                newPath = `${parentPath}Untitled ${counter}.md`;
-                fileExists = this.checkFileExistsCaseInsensitive(newPath);
-            }
-
-            // tempNewPaths array eliminated - files processed chronologically
-
-            // Reserve path to prevent conflicts
-            cacheManager?.reservePath(newPath);
-
-            const oldPath = file.path;
-            try {
-                await this.plugin.app.fileManager.renameFile(file, newPath);
-                verboseLog(this.plugin, `Renamed empty file ${file.path} to ${newPath}`);
-
-                // Update cache with new path
-                const lastContent = this.lastProcessedContent.get(oldPath);
-                if (lastContent !== undefined) {
-                    this.lastProcessedContent.delete(oldPath);
-                    this.lastProcessedContent.set(newPath, lastContent);
-                }
-            } catch (error) {
-                console.error(`Failed to rename file ${file.path} to ${newPath}:`, error);
-                cacheManager?.releasePath(newPath);
-                throw new Error(`Failed to rename file: ${error.message}`);
-            }
-
-            // Remove any plugin aliases since there's no content to alias
-            if (this.plugin.settings.enableAliases) {
-                verboseLog(this.plugin, `Removing plugin aliases - file became empty`);
-                await this.plugin.aliasManager.removePluginAliasesFromFile(file, false); // Respect keepEmptyAliasProperty setting
-            }
-
-            cacheManager?.setContent(newPath, content);
-            cacheManager?.releasePath(newPath);
-            return { success: true, reason: 'empty-content' };
+        // Store current content for next check in cache (only if not handled above)
+        // Don't update cache if content became empty and we're renaming to Untitled (prevents cache poisoning)
+        const contentBecameEmpty = contentWithoutFrontmatter.trim() === '' && firstLine === 'Untitled';
+        if (!contentBecameEmpty) {
+            cacheManager?.setContent(file.path, content);
         }
-
-        // Store current content for next check in cache
-        cacheManager?.setContent(file.path, content);
 
         // Preserve original content with frontmatter for alias manager
         const originalContentWithFrontmatter = content;
@@ -714,6 +660,7 @@ export class RenameEngine {
         // Only check for self-reference if filename would actually change (after handling counter)
         if (isSelfReferencing) {
             if (!suppressNotices) {
+                verboseLog(this.plugin, `Showing notice: File not renamed due to self-referential link in first line: ${file.name}`);
                 new Notice(`File not renamed due to self-referential link in first line: ${file.name}`, 0);
             }
             verboseLog(this.plugin, `Skipping self-referencing file: ${file.path}`);
@@ -721,7 +668,6 @@ export class RenameEngine {
         }
 
         if (noDelay) {
-            const cacheManager = getCacheManager();
             cacheManager?.reservePath(newPath);
         }
 
@@ -747,6 +693,9 @@ export class RenameEngine {
                 this.lastProcessedContent.set(newPath, lastContent);
             }
 
+            // Notify cache manager of rename
+            cacheManager?.notifyFileRenamed(oldPath, newPath);
+
             // Note: Alias was handled before the file rename to stay synchronized
 
             // Show notification for manual renames (unless suppressed)
@@ -757,6 +706,7 @@ export class RenameEngine {
                     (this.plugin.settings.manualNotificationMode === 'On title change' && titleChanged);
 
                 if (shouldShowNotice) {
+                    verboseLog(this.plugin, `Showing notice: Updated title: ${currentName} → ${newFileName}`);
                     new Notice(`Updated title: ${currentName} → ${newFileName}`);
                 }
             }

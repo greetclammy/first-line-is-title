@@ -87,10 +87,12 @@ export class TagOperations {
         }
 
         if (matchingFiles.length === 0) {
+            verboseLog(this, `Showing notice: No files found with tag ${tagToFind}.`);
             new Notice(`No files found with tag ${tagToFind}.`);
             return;
         }
 
+        verboseLog(this, `Showing notice: Processing ${matchingFiles.length} files with tag ${tagToFind}...`);
         new Notice(`Processing ${matchingFiles.length} files with tag ${tagToFind}...`);
 
         let processedCount = 0;
@@ -98,8 +100,9 @@ export class TagOperations {
 
         for (const file of matchingFiles) {
             try {
-                // Use the existing renameFile method with ignoreExclusions = true to force processing
-                await this.renameEngine.renameFile(file, true, true, true);
+                // Use the existing processFile method with ignoreExclusions = true to force processing
+                // Pass isBatchOperation = true to skip rate limits for batch operations
+                await this.renameEngine.processFile(file, true, true, true, undefined, true);
                 processedCount++;
             } catch (error) {
                 console.error(`Error processing file ${file.path}:`, error);
@@ -108,8 +111,10 @@ export class TagOperations {
         }
 
         if (errorCount > 0) {
+            verboseLog(this, `Showing notice: Processed ${processedCount} files with ${errorCount} errors.`);
             new Notice(`Processed ${processedCount} files with ${errorCount} errors.`);
         } else {
+            verboseLog(this, `Showing notice: Successfully processed ${processedCount} files with tag ${tagToFind}.`);
             new Notice(`Successfully processed ${processedCount} files with tag ${tagToFind}.`);
         }
     }
@@ -125,6 +130,7 @@ export class TagOperations {
             if (this.settings.excludedTags.length === 0) {
                 this.settings.excludedTags.push("");
             }
+            verboseLog(this, `Showing notice: Renaming enabled for ${tagToFind}`);
             new Notice(`Renaming enabled for ${tagToFind}`);
         } else {
             // If there's only an empty entry, replace it; otherwise add
@@ -133,6 +139,7 @@ export class TagOperations {
             } else {
                 this.settings.excludedTags.push(tagToFind);
             }
+            verboseLog(this, `Showing notice: Renaming disabled for ${tagToFind}`);
             new Notice(`Renaming disabled for ${tagToFind}`);
         }
 

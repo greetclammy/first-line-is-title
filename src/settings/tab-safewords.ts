@@ -132,6 +132,9 @@ export class SafewordsTab extends SettingsTabBase {
                 // Function to update row appearance based on enabled state
                 const updateRowAppearance = () => {
                     const isEnabled = this.plugin.settings.safewords[index].enabled;
+                    const masterEnabled = this.plugin.settings.enableSafewords;
+                    const shouldApplyInlineOpacity = masterEnabled;
+
                     // Grey out and disable inputs and toggles but not reorder/delete buttons
                     if (isEnabled) {
                         // Clear inline styles to let CSS handle it naturally
@@ -145,14 +148,14 @@ export class SafewordsTab extends SettingsTabBase {
                         caseToggleContainer.style.opacity = "";
                         caseToggleContainer.style.pointerEvents = "";
                     } else {
-                        input.style.opacity = "0.5";
+                        input.style.opacity = shouldApplyInlineOpacity ? "0.5" : "";
                         input.style.pointerEvents = "none";
                         input.disabled = true;
-                        startToggleContainer.style.opacity = "0.5";
+                        startToggleContainer.style.opacity = shouldApplyInlineOpacity ? "0.5" : "";
                         startToggleContainer.style.pointerEvents = "none";
-                        wholeToggleContainer.style.opacity = "0.5";
+                        wholeToggleContainer.style.opacity = shouldApplyInlineOpacity ? "0.5" : "";
                         wholeToggleContainer.style.pointerEvents = "none";
-                        caseToggleContainer.style.opacity = "0.5";
+                        caseToggleContainer.style.opacity = shouldApplyInlineOpacity ? "0.5" : "";
                         caseToggleContainer.style.pointerEvents = "none";
                     }
                 };

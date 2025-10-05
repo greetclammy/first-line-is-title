@@ -128,7 +128,6 @@ export interface PluginSettings {
     renameOnFocus: boolean;
     renameOnSave: boolean;
     renameNotes: "automatically" | "manually";
-    renameInBackground: boolean;
     manualNotificationMode: NotificationMode;
     windowsAndroidEnabled: boolean;
     hasEnabledForbiddenChars: boolean;
@@ -193,8 +192,8 @@ export interface PluginSettings {
     includeNestedTags: boolean;
     moveCursorToFirstLine: boolean;
     insertTitleOnCreation: boolean;
-    titleInsertionDelay: number;
     placeCursorAtLineEnd: boolean;
     suppressMergeNotifications: boolean;
-    fileCreationDelay: number;
+    newNoteDelay: number;
+    waitForTemplate: boolean;
 }

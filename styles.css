@@ -939,6 +939,11 @@ hr.flit-divider {
     opacity: 1;
 }
 
+/* Prevent opacity stacking - disabled rows inside disabled sections */
+.flit-master-disabled .flit-row-disabled {
+    opacity: 1;
+}
+
 /* Processing order container spacing */
 .flit-processing-order-container {
     margin-top: 1em;

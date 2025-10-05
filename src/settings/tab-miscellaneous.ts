@@ -47,8 +47,8 @@ export class AdvancedTab extends SettingsTabBase {
 
         // Reset button click handler
         contentReadRestoreButton.addEventListener('click', async () => {
-            this.plugin.settings.fileReadMethod = DEFAULT_SETTINGS.fileReadMethod;
             dropdown.value = DEFAULT_SETTINGS.fileReadMethod;
+            this.plugin.switchFileReadMode(DEFAULT_SETTINGS.fileReadMethod);
             this.plugin.debugLog('fileReadMethod', this.plugin.settings.fileReadMethod);
             await this.plugin.saveSettings();
             updateCheckIntervalVisibility();
@@ -56,7 +56,8 @@ export class AdvancedTab extends SettingsTabBase {
 
         // Dropdown change handler
         dropdown.addEventListener('change', async (e) => {
-            this.plugin.settings.fileReadMethod = (e.target as HTMLSelectElement).value as FileReadMethod;
+            const newMode = (e.target as HTMLSelectElement).value;
+            this.plugin.switchFileReadMode(newMode);
             this.plugin.debugLog('fileReadMethod', this.plugin.settings.fileReadMethod);
             await this.plugin.saveSettings();
             updateCheckIntervalVisibility();
@@ -146,78 +147,59 @@ export class AdvancedTab extends SettingsTabBase {
         // Initialize check interval visibility
         updateCheckIntervalVisibility();
 
-        // 2. Rename on focus (conditional on automatic mode)
-        const renameOnFocusSetting = new Setting(this.containerEl)
-            .setName("Rename on focus")
+        // New note delay
+        const newNoteDelaySetting = new Setting(this.containerEl)
+            .setName("New note delay")
             .setDesc("");
 
-        // Create styled description for rename on focus
-        const renameOnFocusDesc = renameOnFocusSetting.descEl;
-        renameOnFocusDesc.appendText("Automatically rename notes when they become focused/active. May cause errors when using ");
-        const webClipperLink1 = renameOnFocusDesc.createEl("a", { text: "Web Clipper", href: "https://obsidian.md/clipper" });
-        webClipperLink1.style.color = "var(--link-color)";
-        renameOnFocusDesc.appendText(" or if ");
-        const templaterLink1 = renameOnFocusDesc.createEl("a", { text: "Templater", href: "obsidian://show-plugin?id=templater-obsidian" });
-        templaterLink1.style.color = "var(--link-color)";
-        renameOnFocusDesc.appendText(" is set to trigger on note creation.");
+        const newNoteDelayDesc = newNoteDelaySetting.descEl;
+        newNoteDelayDesc.appendText("Delay all operations on new notes by this amount in milliseconds. Allows templates to be inserted first.");
+        newNoteDelayDesc.createEl("br");
+        newNoteDelayDesc.createEl("small").createEl("strong", { text: "Default: 0" });
 
-        renameOnFocusSetting
-            .addToggle((toggle) =>
-                toggle
-                    .setValue(this.plugin.settings.renameOnFocus)
-                    .onChange(async (value) => {
-                        this.plugin.settings.renameOnFocus = value;
-                        this.plugin.debugLog('renameOnFocus', value);
-                        await this.plugin.saveSettings();
-                    })
-            );
+        // Create container for slider with reset button
+        const newNoteDelayContainer = newNoteDelaySetting.controlEl.createDiv({ cls: "flit-char-text-input-container" });
 
-        // 3. Delay new note rename (conditional on automatic mode)
-        const fileCreationDelaySetting = new Setting(this.containerEl)
-            .setName("Delay new note rename")
-            .setDesc("");
+        const newNoteDelayRestoreButton = newNoteDelayContainer.createEl("button", {
+            cls: "clickable-icon flit-restore-icon",
+            attr: { "aria-label": "Restore default" }
+        });
+        setIcon(newNoteDelayRestoreButton, "rotate-ccw");
 
-        // Create styled description for delay renaming
-        const fileCreationDelayDesc = fileCreationDelaySetting.descEl;
-        fileCreationDelayDesc.appendText("Delay renaming new notes by a few seconds. Prevents errors when using ");
-        const webClipperLink2 = fileCreationDelayDesc.createEl("a", { text: "Web Clipper", href: "https://obsidian.md/clipper" });
-        webClipperLink2.style.color = "var(--link-color)";
-        fileCreationDelayDesc.appendText(" or if ");
-        const templaterLink2 = fileCreationDelayDesc.createEl("a", { text: "Templater", href: "obsidian://show-plugin?id=templater-obsidian" });
-        templaterLink2.style.color = "var(--link-color)";
-        fileCreationDelayDesc.appendText(" is set to trigger on note creation.");
+        // Create slider element manually and append to container
+        const newNoteDelaySliderDiv = newNoteDelayContainer.createDiv();
 
-        fileCreationDelaySetting.addToggle((toggle) =>
-            toggle
-                .setValue(this.plugin.settings.fileCreationDelay > 0)
+        newNoteDelaySetting.addSlider((slider) => {
+            slider
+                .setLimits(0, 5000, 50)
+                .setValue(this.plugin.settings.newNoteDelay)
+                .setDynamicTooltip()
                 .onChange(async (value) => {
-                    // Set to 2000ms when enabled, 0 when disabled
-                    this.plugin.settings.fileCreationDelay = value ? 2000 : 0;
-                    this.plugin.debugLog('fileCreationDelay', this.plugin.settings.fileCreationDelay);
+                    this.plugin.settings.newNoteDelay = value;
+                    this.plugin.debugLog('newNoteDelay', value);
                     await this.plugin.saveSettings();
-                })
-        );
+                });
 
-        // 4. Rename in background (conditional on automatic mode)
-        const renameInBackgroundSetting = new Setting(this.containerEl)
-            .setName("Rename in background")
-            .setDesc("Rename notes when their first line changes even if not open in editor.")
-            .addToggle((toggle) =>
-                toggle
-                    .setValue(this.plugin.settings.renameInBackground)
-                    .onChange(async (value) => {
-                        this.plugin.settings.renameInBackground = value;
-                        this.plugin.debugLog('renameInBackground', value);
-                        await this.plugin.saveSettings();
-                    })
-            );
+            // Move slider to our custom container
+            newNoteDelaySliderDiv.appendChild(slider.sliderEl);
+        });
+
+        newNoteDelayRestoreButton.addEventListener('click', async () => {
+            this.plugin.settings.newNoteDelay = DEFAULT_SETTINGS.newNoteDelay;
+            this.plugin.debugLog('newNoteDelay', this.plugin.settings.newNoteDelay);
+            await this.plugin.saveSettings();
+
+            // Update the slider value by triggering a re-render or finding the slider element
+            const sliderInput = newNoteDelaySliderDiv.querySelector('input[type="range"]') as HTMLInputElement;
+            if (sliderInput) {
+                sliderInput.value = String(DEFAULT_SETTINGS.newNoteDelay);
+                sliderInput.dispatchEvent(new Event('input', { bubbles: true }));
+            }
+        });
 
         // Store references to conditional settings for visibility control
         this.conditionalSettings = [
-            checkIntervalSetting,
-            renameOnFocusSetting,
-            fileCreationDelaySetting,
-            renameInBackgroundSetting
+            checkIntervalSetting
         ];
 
         // Grab title from card link setting
@@ -340,6 +322,7 @@ export class AdvancedTab extends SettingsTabBase {
                             await this.plugin.saveSettings();
 
                             // Show notification
+                            verboseLog(this.plugin, `Showing notice: Settings have been cleared.`);
                             new Notice("Settings have been cleared.");
 
                             // Force complete tab re-render by calling the parent's display method

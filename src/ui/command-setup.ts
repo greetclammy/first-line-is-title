@@ -108,12 +108,13 @@ export class CommandSetup {
                 callback: async () => {
                     const activeFile = this.app.workspace.getActiveFile();
                     if (!activeFile) {
+                        verboseLog(this.plugin, `Showing notice: No active editor`);
                         new Notice("No active editor");
                         return;
                     }
                     if (activeFile.extension === 'md') {
                         verboseLog(this.plugin, `Manual rename command triggered for ${activeFile.path} (ignoring exclusions)`);
-                        await this.plugin.renameEngine.renameFile(activeFile, true, true);
+                        await this.plugin.renameEngine.processFile(activeFile, true, true);
                     }
                 }
             },
@@ -151,6 +152,7 @@ export class CommandSetup {
         // Try to get active editor from any view type (markdown, canvas, etc.)
         const activeEditor = this.app.workspace.activeEditor?.editor;
         if (!activeEditor) {
+            verboseLog(this.plugin, `Showing notice: No active editor`);
             new Notice("No active editor");
             return;
         }
@@ -180,6 +182,7 @@ export class CommandSetup {
         // Try to get active editor from any view type (markdown, canvas, etc.)
         const activeEditor = this.app.workspace.activeEditor?.editor;
         if (!activeEditor) {
+            verboseLog(this.plugin, `Showing notice: No active editor`);
             new Notice("No active editor");
             return;
         }

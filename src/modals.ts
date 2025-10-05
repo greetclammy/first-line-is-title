@@ -2,8 +2,8 @@ import { Modal, App, TFile, TFolder, Notice } from "obsidian";
 import { PluginSettings } from './types';
 import { verboseLog, isFileExcluded, shouldProcessFile } from './utils';
 
-// Access global variables through globalThis
-const globals = (globalThis as any).flitGlobals;
+// Access global variables through globalThis - fetch dynamically to avoid module load order issues
+const getGlobals = () => (globalThis as any).flitGlobals;
 
 interface FirstLineIsTitlePlugin {
     settings: PluginSettings;
@@ -55,8 +55,9 @@ export class RenameAllFilesModal extends Modal {
         // Older files get clean names, newer files get numbered versions
         filesToRename.sort((a, b) => a.stat.ctime - b.stat.ctime);
 
-        globals?.setRenamedFileCount(0);
+        getGlobals()?.setRenamedFileCount(0);
         // No longer need tempNewPaths - each file checks disk state when processed
+        verboseLog(this.plugin, `Showing notice: Processing ${filesToRename.length} notes...`);
         const pleaseWaitNotice = new Notice(`Processing ${filesToRename.length} notes...`, 0);
 
         verboseLog(this.plugin, `Starting bulk rename of ${filesToRename.length} files`);
@@ -67,7 +68,7 @@ export class RenameAllFilesModal extends Modal {
 
             for (const file of filesToRename) {
                 try {
-                    await this.plugin.renameEngine.renameFile(file, true, true, true);
+                    await this.plugin.renameEngine.processFile(file, true, true, true, undefined, true);
                     renamedFileCount++;
                 } catch (error) {
                     errors.push(`Failed to rename ${file.path}: ${error}`);
@@ -76,7 +77,8 @@ export class RenameAllFilesModal extends Modal {
             }
 
             if (errors.length > 0) {
-                new Notice(`Completed with ${errors.length} errors. Check console for details.`, 5000);
+                verboseLog(this.plugin, `Showing notice: Completed with ${errors.length} errors. Check console for details.`);
+                new Notice(`Completed with ${errors.length} errors. Check console for details.`);
                 console.error('Rename errors:', errors);
             }
         } finally {
@@ -87,6 +89,7 @@ export class RenameAllFilesModal extends Modal {
             }
 
             pleaseWaitNotice.hide();
+            verboseLog(this.plugin, `Showing notice: Renamed ${renamedFileCount}/${filesToRename.length} notes.`);
             new Notice(
                 `Renamed ${renamedFileCount}/${filesToRename.length} notes.`,
                 0
@@ -297,17 +300,19 @@ export class ProcessTagModal extends Modal {
         }
 
         if (filesToProcess.length === 0) {
+            verboseLog(this.plugin, `Showing notice: No files found with tag ${this.tag}`);
             new Notice(`No files found with tag ${this.tag}`);
             return;
         }
 
+        verboseLog(this.plugin, `Showing notice: Processing ${filesToProcess.length} files with tag ${this.tag}...`);
         const pleaseWaitNotice = new Notice(`Processing ${filesToProcess.length} files with tag ${this.tag}...`, 0);
         let processedCount = 0;
 
         try {
             for (const file of filesToProcess) {
                 try {
-                    await this.plugin.renameEngine.renameFile(file, true, true, true);
+                    await this.plugin.renameEngine.processFile(file, true, true, true, undefined, true);
                     processedCount++;
                 } catch (error) {
                     console.error(`Error processing ${file.path}`, error);
@@ -315,6 +320,7 @@ export class ProcessTagModal extends Modal {
             }
         } finally {
             pleaseWaitNotice.hide();
+            verboseLog(this.plugin, `Showing notice: Processed ${processedCount}/${filesToProcess.length} files with tag ${this.tag}`);
             new Notice(`Processed ${processedCount}/${filesToProcess.length} files with tag ${this.tag}`);
         }
     }

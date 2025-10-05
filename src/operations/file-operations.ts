@@ -11,6 +11,9 @@ declare global {
 }
 
 export class FileOperations {
+    // Track files waiting for YAML with their resolve callbacks and timeout timers
+    private yamlWaiters = new Map<string, { resolve: () => void; startTime: number; timeoutTimer: NodeJS.Timeout }>();
+
     constructor(private plugin: FirstLineIsTitle) {}
 
     get app() {
@@ -46,18 +49,15 @@ export class FileOperations {
 
     /**
      * Inserts the filename as the first line of a newly created file
-     * Note: This feature is currently disabled due to template conflicts
+     * @returns true if title was inserted, false if skipped
      */
-    async insertTitleOnCreation(file: TFile): Promise<void> {
-        // DISABLED: Title insertion feature disabled due to template conflicts
-        return;
-
+    async insertTitleOnCreation(file: TFile): Promise<boolean> {
         try {
             // Check if filename is "Untitled" or "Untitled n" (where n is any integer)
             const untitledPattern = /^Untitled(\s\d+)?$/;
             if (untitledPattern.test(file.basename)) {
                 verboseLog(this.plugin, `Skipping title insertion for untitled file: ${file.path}`);
-                return;
+                return false;
             }
 
             // Read current file content
@@ -66,7 +66,7 @@ export class FileOperations {
                 content = await this.app.vault.read(file);
             } catch (error) {
                 console.error(`Failed to read file ${file.path} for title insertion:`, error);
-                return;
+                return false;
             }
 
             // Debug: log what content we found
@@ -75,7 +75,7 @@ export class FileOperations {
             // Check if file already has content (skip if not empty)
             if (content.trim() !== '') {
                 verboseLog(this.plugin, `Skipping title insertion - file already has content: ${file.path}`);
-                return;
+                return false;
             }
 
             // Get clean title by reversing forbidden character replacements
@@ -88,63 +88,64 @@ export class FileOperations {
 
             verboseLog(this.plugin, `Inserting title "${cleanTitle}" in new file: ${file.path}`);
 
-            // Check if we're in canvas view to decide cursor behavior
-            const activeLeaf = this.app.workspace.activeLeaf;
-            const inCanvas = activeLeaf?.view?.getViewType() === "canvas";
-
-            // Create content with title and cursor positioning
-            let newContent = cleanTitle;
-
-            // Only add cursor if not in canvas and moveCursorToFirstLine is enabled
-            if (!inCanvas && this.settings.moveCursorToFirstLine) {
-                if (this.settings.placeCursorAtLineEnd) {
-                    newContent += "\n"; // Place cursor at end of title line
+            // Wait for template plugins to apply templates if enabled
+            // Both newNoteDelay and waitForTemplate delays start from file creation
+            // Total wait = max(newNoteDelay, 2500ms if waitForTemplate is ON)
+            if (this.settings.waitForTemplate) {
+                const remainingWait = 2500 - this.settings.newNoteDelay;
+                if (remainingWait > 0) {
+                    // For Cache/File read methods, wait the full duration (no event-based detection)
+                    if (this.settings.fileReadMethod === 'Cache' || this.settings.fileReadMethod === 'File') {
+                        verboseLog(this.plugin, `Waiting full ${remainingWait}ms for template (${this.settings.fileReadMethod} read method)`);
+                        await new Promise(resolve => setTimeout(resolve, remainingWait));
+                    } else {
+                        // For Editor read method, use event-based YAML detection
+                        await this.waitForYamlOrTimeout(file, remainingWait);
+                    }
                 } else {
-                    newContent += "\n"; // Place cursor on new line after title
+                    verboseLog(this.plugin, `Skipping template wait - newNoteDelay (${this.settings.newNoteDelay}ms) already >= 2500ms`);
                 }
-            } else {
-                newContent += "\n"; // Always add at least one newline after title
             }
 
-            // Re-read current content with retry logic (template may still be applying)
+            // Get content from editor (always current) or fallback to vault
             let currentContent: string;
-            let retryCount = 0;
-            const maxRetries = 3;
-            const retryDelay = 500;
-
-            do {
-                try {
+            try {
+                // Try to get content from active editor first (most current)
+                const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
+                if (activeView && activeView.file?.path === file.path && activeView.editor) {
+                    currentContent = activeView.editor.getValue();
+                    verboseLog(this.plugin, `Read file content from editor. Length: ${currentContent.length} chars`);
+                } else {
+                    // Fallback to vault read
                     currentContent = await this.app.vault.read(file);
-                    verboseLog(this.plugin, `Re-read file content (attempt ${retryCount + 1}). Length: ${currentContent.length} chars`);
-
-                    if (currentContent.trim() !== '') {
-                        verboseLog(this.plugin, `Template content found after ${retryCount + 1} attempts`);
-                        break; // Template applied, stop retrying
-                    }
-
-                    if (retryCount < maxRetries - 1) {
-                        verboseLog(this.plugin, `File still empty, retrying in ${retryDelay}ms...`);
-                        await new Promise(resolve => setTimeout(resolve, retryDelay));
-                    }
-
-                } catch (error) {
-                    console.error(`Failed to re-read file ${file.path} for title insertion:`, error);
-                    return;
+                    verboseLog(this.plugin, `Read file content from vault. Length: ${currentContent.length} chars`);
                 }
-                retryCount++;
-            } while (retryCount < maxRetries && currentContent.trim() === '');
+            } catch (error) {
+                console.error(`Failed to read file ${file.path} for title insertion:`, error);
+                return false;
+            }
 
-            // If file now has content (template applied), insert title properly
+            // Check if template was applied
             if (currentContent.trim() !== '') {
-                verboseLog(this.plugin, `File now has template content, inserting title into existing content`);
+                verboseLog(this.plugin, `File has template content, inserting title into existing content`);
 
-                // Use metadata cache to find where to insert title
-                const metadata = this.app.metadataCache.getFileCache(file);
                 const lines = currentContent.split('\n');
 
-                if (metadata?.frontmatterPosition) {
-                    // Insert title after frontmatter
-                    const insertLine = metadata.frontmatterPosition.end.line + 1;
+                // Detect YAML frontmatter directly from content
+                let yamlEndLine = -1;
+                if (lines[0] === '---') {
+                    // Find closing ---
+                    for (let i = 1; i < lines.length; i++) {
+                        if (lines[i] === '---') {
+                            yamlEndLine = i;
+                            break;
+                        }
+                    }
+                }
+
+                if (yamlEndLine !== -1) {
+                    // Insert title after YAML
+                    const insertLine = yamlEndLine + 1;
                     lines.splice(insertLine, 0, cleanTitle);
                     verboseLog(this.plugin, `Inserted title after frontmatter at line ${insertLine}`);
                 } else {
@@ -156,31 +157,75 @@ export class FileOperations {
                 const finalContent = lines.join('\n');
                 await this.app.vault.modify(file, finalContent);
             } else {
-                // File still empty, use original behavior
+                // File still empty, insert title as new content
                 verboseLog(this.plugin, `File still empty, inserting title as new content`);
-                await this.app.vault.modify(file, newContent);
-            }
-
-            // Handle cursor positioning and view mode if file is currently open
-            if (!inCanvas && this.settings.moveCursorToFirstLine) {
-                setTimeout(() => {
-                    this.handleCursorPositioning(file);
-                }, 50);
+                await this.app.vault.modify(file, cleanTitle + "\n");
             }
 
             verboseLog(this.plugin, `Successfully inserted title in ${file.path}`);
+            return true;
 
         } catch (error) {
             console.error(`Error inserting title on creation for ${file.path}:`, error);
+            return false;
+        }
+    }
+
+    /**
+     * Wait for YAML to appear or timeout
+     */
+    private async waitForYamlOrTimeout(file: TFile, timeoutMs: number): Promise<void> {
+        return new Promise((resolve) => {
+            const startTime = Date.now();
+
+            // Timeout fallback
+            const timeoutTimer = setTimeout(() => {
+                const waiter = this.yamlWaiters.get(file.path);
+                if (waiter) {
+                    this.yamlWaiters.delete(file.path);
+                    verboseLog(this.plugin, `Template wait timeout (${timeoutMs}ms) reached for ${file.path}`);
+                    resolve();
+                }
+            }, timeoutMs);
+
+            // Register this file as waiting for YAML
+            this.yamlWaiters.set(file.path, { resolve, startTime, timeoutTimer });
+        });
+    }
+
+    /**
+     * Check if file has YAML and resolve waiting promise if found
+     * Called from editor-change event
+     */
+    checkYamlAndResolve(file: TFile, content: string): void {
+        const waiter = this.yamlWaiters.get(file.path);
+        if (!waiter) return;
+
+        // Check for YAML - must start at beginning of file (no whitespace allowed before)
+        if (content.startsWith('---')) {
+            const lines = content.split('\n');
+            for (let i = 1; i < lines.length; i++) {
+                if (lines[i] === '---') {
+                    // YAML detected - clear timeout and resolve
+                    const elapsed = Date.now() - waiter.startTime;
+                    verboseLog(this.plugin, `YAML detected after ${elapsed}ms for ${file.path}`);
+                    clearTimeout(waiter.timeoutTimer);
+                    this.yamlWaiters.delete(file.path);
+                    waiter.resolve();
+                    return;
+                }
+            }
         }
     }
 
     /**
      * Handles cursor positioning after title insertion
+     * @param file - The file to position cursor in
+     * @param usePlaceCursorAtLineEndSetting - Whether to respect placeCursorAtLineEnd setting (true when title insertion is OFF)
      */
-    private async handleCursorPositioning(file: TFile): Promise<void> {
+    async handleCursorPositioning(file: TFile, usePlaceCursorAtLineEndSetting: boolean = true): Promise<void> {
         try {
-            verboseLog(this.plugin, `handleCursorPositioning called for ${file.path}`);
+            verboseLog(this.plugin, `handleCursorPositioning called for ${file.path}, usePlaceCursorAtLineEndSetting: ${usePlaceCursorAtLineEndSetting}`);
             const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
             verboseLog(this.plugin, `Active view found: ${!!activeView}, file matches: ${activeView?.file?.path === file.path}`);
 
@@ -215,14 +260,17 @@ export class FileOperations {
 
                 titleLineLength = activeView.editor?.getLine(titleLineNumber)?.length || 0;
 
-                if (this.settings.placeCursorAtLineEnd) {
+                // Determine cursor position based on settings
+                const shouldPlaceAtEnd = usePlaceCursorAtLineEndSetting && this.settings.placeCursorAtLineEnd;
+
+                if (shouldPlaceAtEnd) {
                     // Move to end of title line
                     activeView.editor?.setCursor({ line: titleLineNumber, ch: titleLineLength });
                     verboseLog(this.plugin, `Moved cursor to end of title line ${titleLineNumber} (${titleLineLength} chars) via handleCursorPositioning for ${file.path}`);
                 } else {
-                    // Move to line after title
-                    activeView.editor?.setCursor({ line: titleLineNumber + 1, ch: 0 });
-                    verboseLog(this.plugin, `Moved cursor to line after title (line ${titleLineNumber + 1}) via handleCursorPositioning for ${file.path}`);
+                    // Move to start of title line
+                    activeView.editor?.setCursor({ line: titleLineNumber, ch: 0 });
+                    verboseLog(this.plugin, `Moved cursor to start of title line ${titleLineNumber} via handleCursorPositioning for ${file.path}`);
                 }
             } else {
                 verboseLog(this.plugin, `Skipping cursor positioning - no matching active view for ${file.path}`);
@@ -242,6 +290,7 @@ export class FileOperations {
         let skipped = 0;
         let errors = 0;
 
+        verboseLog(this.plugin, `Showing notice: Processing ${files.length} files...`);
         new Notice(`Processing ${files.length} files...`);
 
         for (const file of files) {
@@ -262,8 +311,10 @@ export class FileOperations {
 
         // Show completion notice
         if (errors > 0) {
+            verboseLog(this.plugin, `Showing notice: Renamed ${processed} files, skipped ${skipped}, ${errors} errors`);
             new Notice(`Renamed ${processed} files, skipped ${skipped}, ${errors} errors`);
         } else {
+            verboseLog(this.plugin, `Showing notice: Renamed ${processed} files, skipped ${skipped}`);
             new Notice(`Renamed ${processed} files, skipped ${skipped}`);
         }
     }

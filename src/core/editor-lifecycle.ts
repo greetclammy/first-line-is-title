@@ -27,11 +27,11 @@ export class EditorLifecycleManager {
     // Track active editors for tab close detection
     private activeEditorFiles = new Map<string, { file: TFile, editor: any, lastFirstLine: string }>();
 
-    // Track files in creation delay period
-    private filesInCreationDelay = new Set<string>();
-
     // Throttle timer system for checkInterval > 0
     private throttleTimers = new Map<string, NodeJS.Timeout>();
+
+    // Track files in creation delay period with their timer references
+    private creationDelayTimers = new Map<string, NodeJS.Timeout>();
 
     constructor(plugin: FirstLineIsTitle) {
         this.plugin = plugin;
@@ -51,6 +51,33 @@ export class EditorLifecycleManager {
 
     get renameEngine() {
         return this.plugin.renameEngine;
+    }
+
+    /**
+     * Set creation delay timer for a file
+     */
+    setCreationDelayTimer(filePath: string, timer: NodeJS.Timeout): void {
+        this.creationDelayTimers.set(filePath, timer);
+        verboseLog(this.plugin, `Set creation delay timer for: ${filePath}`);
+    }
+
+    /**
+     * Clear creation delay timer for a file
+     */
+    clearCreationDelayTimer(filePath: string): void {
+        const timer = this.creationDelayTimers.get(filePath);
+        if (timer) {
+            clearTimeout(timer);
+            this.creationDelayTimers.delete(filePath);
+            verboseLog(this.plugin, `Cleared creation delay timer for: ${filePath}`);
+        }
+    }
+
+    /**
+     * Check if a file is in creation delay period
+     */
+    isFileInCreationDelay(filePath: string): boolean {
+        return this.creationDelayTimers.has(filePath);
     }
 
     /**
@@ -111,7 +138,7 @@ export class EditorLifecycleManager {
     /**
      * Update tracking of active editors
      */
-    private async updateActiveEditorTracking(): Promise<void> {
+    async updateActiveEditorTracking(): Promise<void> {
         const markdownViews = this.app.workspace.getLeavesOfType("markdown");
         const newActiveFiles = new Map<string, { file: TFile, editor: any, lastFirstLine: string }>();
 
@@ -152,10 +179,10 @@ export class EditorLifecycleManager {
                         continue; // File was renamed, not actually closed
                     }
 
-                    // Tab close overrides creation delay - remove from creation delay tracking
+                    // Tab close overrides creation delay - cancel it and process immediately
                     if (this.isFileInCreationDelay(filePath)) {
                         verboseLog(this.plugin, `Tab close overriding creation delay for: ${filePath}`);
-                        this.removeFileFromCreationDelay(filePath);
+                        this.clearCreationDelayTimer(filePath);
                     }
 
                     // Tab close overrides throttle timer - clear it and process immediately
@@ -164,7 +191,7 @@ export class EditorLifecycleManager {
                     verboseLog(this.plugin, `File closed, processing immediately: ${filePath}`);
                     try {
                         // Process the file that was just closed (suppress notices for automatic processing)
-                        await this.renameEngine.renameFile(oldData.file, true, false);
+                        await this.renameEngine.processFile(oldData.file, true, false);
                     } catch (error) {
                         console.error(`Error processing closed file ${filePath}:`, error);
                     }
@@ -183,9 +210,9 @@ export class EditorLifecycleManager {
     handleEditorChangeWithThrottle(editor: any, file: TFile): void {
         const filePath = file.path;
 
-        // Skip files in creation delay period
+        // Skip files in creation delay
         if (this.isFileInCreationDelay(filePath)) {
-            verboseLog(this.plugin, `Skipping throttle for file in creation delay: ${filePath}`);
+            verboseLog(this.plugin, `File in creation delay, skipping throttle: ${filePath}`);
             return;
         }
 
@@ -242,9 +269,14 @@ export class EditorLifecycleManager {
         }
         this.throttleTimers.clear();
 
+        // Clear creation delay timers
+        for (const timer of this.creationDelayTimers.values()) {
+            clearTimeout(timer);
+        }
+        this.creationDelayTimers.clear();
+
         this.activeEditorFiles.clear();
         this.pendingChecks.clear();
-        this.filesInCreationDelay.clear();
     }
 
     /**
@@ -341,29 +373,5 @@ export class EditorLifecycleManager {
      */
     getActiveEditorFiles(): Map<string, { file: TFile, editor: any, lastFirstLine: string }> {
         return this.activeEditorFiles;
-    }
-
-
-    /**
-     * Mark a file as being in creation delay period
-     */
-    markFileInCreationDelay(filePath: string): void {
-        this.filesInCreationDelay.add(filePath);
-        verboseLog(this.plugin, `Marked file as in creation delay: ${filePath}`);
-    }
-
-    /**
-     * Remove a file from creation delay tracking
-     */
-    removeFileFromCreationDelay(filePath: string): void {
-        this.filesInCreationDelay.delete(filePath);
-        verboseLog(this.plugin, `Removed file from creation delay tracking: ${filePath}`);
-    }
-
-    /**
-     * Check if a file is in creation delay period
-     */
-    isFileInCreationDelay(filePath: string): boolean {
-        return this.filesInCreationDelay.has(filePath);
     }
 }

@@ -134,12 +134,13 @@ export class WorkspaceIntegration {
                 callback: async () => {
                     const activeFile = this.app.workspace.getActiveFile();
                     if (!activeFile) {
+                        verboseLog(this.plugin, `Showing notice: No active editor`);
                         new Notice("No active editor");
                         return;
                     }
                     if (activeFile.extension === 'md') {
                         verboseLog(this.plugin, `Manual rename command triggered for ${activeFile.path} (ignoring exclusions)`);
-                        await this.renameEngine.renameFile(activeFile, true, true, true);
+                        await this.renameEngine.processFile(activeFile, true, true, true);
                     }
                 }
             },
@@ -183,7 +184,7 @@ export class WorkspaceIntegration {
                     if (activeFile && activeFile.extension === 'md') {
                         // Run rename (unless excluded) with no delay and suppress notices
                         setTimeout(() => {
-                            this.renameEngine.renameFile(activeFile, true, false);
+                            this.renameEngine.processFile(activeFile, true, false);
                         }, 100); // Small delay to ensure save is complete
                     }
                 }
@@ -196,81 +197,119 @@ export class WorkspaceIntegration {
     }
 
     /**
-     * Setup cursor positioning on file creation
+     * Setup processing for new files - sequential execution after single delay
      */
     setupCursorPositioning(): void {
         // Listen for file creation events
         this.plugin.registerEvent(
             this.app.vault.on("create", (file) => {
                 if (!(file instanceof TFile) || file.extension !== 'md') return;
-                // Only process files created after plugin has fully loaded (prevents processing existing files on startup)
                 if (!this.isFullyLoaded) return;
 
-                // Process new files after 2000ms delay to avoid conflicts with Web Clipper/Templater
-                if (this.settings.renameNotes === "automatically") {
-                    console.log(`CREATE: New file created, processing in 2000ms: ${file.name}`);
-                    setTimeout(() => {
-                        console.log(`CREATE: Processing new file: ${file.name}`);
-                        this.renameEngine.renameFile(file, true, false).catch((error) => {
-                            console.error(`CREATE: Failed to process new file ${file.path}:`, error);
-                        });
-                    }, 2000);
+                console.log(`CREATE: New file created, processing in ${this.settings.newNoteDelay}ms: ${file.name}`);
+
+                // Check if title will be skipped (early detection)
+                const untitledPattern = /^Untitled(\s\d+)?$/;
+                const isUntitled = untitledPattern.test(file.basename);
+
+                // Step 1: Always move cursor immediately (if enabled)
+                if (this.settings.moveCursorToFirstLine) {
+                    const activeLeaf = this.app.workspace.activeLeaf;
+                    const inCanvas = activeLeaf?.view?.getViewType() === "canvas";
+                    if (!inCanvas) {
+                        setTimeout(async () => {
+                            // Check for content immediately
+                            let hasContent = false;
+                            try {
+                                const content = await this.app.vault.read(file);
+                                hasContent = content.trim() !== '';
+                            } catch (error) {
+                                // File might not be readable yet, assume no content
+                            }
+
+                            // Determine if title insertion will be skipped
+                            const willSkipTitleInsertion = !this.settings.insertTitleOnCreation || isUntitled || hasContent;
+
+                            // Position cursor with placeCursorAtLineEnd if title will be skipped
+                            this.plugin.fileOperations.handleCursorPositioning(file, willSkipTitleInsertion);
+                        }, 50);
+                    }
                 }
 
-                // Cursor positioning for new files (skip if insertTitleOnCreation handles it)
-                if (this.settings.moveCursorToFirstLine && !this.settings.insertTitleOnCreation) {
-                    setTimeout(() => {
-                        const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
-                        if (activeView && activeView.file === file) {
-                            const editor = activeView.editor;
-                            if (editor) {
-                                if (this.settings.placeCursorAtLineEnd) {
-                                    // Get the length of the first line and place cursor at the end
-                                    const firstLineLength = editor.getLine(0).length;
-                                    editor.setCursor({ line: 0, ch: firstLineLength });
-                                    verboseLog(this.plugin, `Moved cursor to end of first line (${firstLineLength} chars) for new file: ${file.path}`);
-                                } else {
-                                    // Place cursor at the beginning of the first line
-                                    editor.setCursor({ line: 0, ch: 0 });
-                                    verboseLog(this.plugin, `Moved cursor to beginning of first line for new file: ${file.path}`);
-                                }
-                                editor.focus();
+                const timer = setTimeout(async () => {
+                    console.log(`CREATE: Processing new file after delay: ${file.name}`);
+
+                    try {
+                        let titleWasInserted = false;
+
+                        // Step 2: Insert title if enabled
+                        if (this.settings.insertTitleOnCreation) {
+                            titleWasInserted = await this.plugin.fileOperations.insertTitleOnCreation(file);
+                        }
+
+                        // Step 3: Position cursor based on what happened
+                        // Only reposition if title was actually inserted and placeCursorAtLineEnd is ON
+                        // All skip cases (Untitled, has content) are already handled immediately above
+                        if (this.settings.moveCursorToFirstLine && titleWasInserted && this.settings.placeCursorAtLineEnd) {
+                            const activeLeaf = this.app.workspace.activeLeaf;
+                            const inCanvas = activeLeaf?.view?.getViewType() === "canvas";
+
+                            if (!inCanvas) {
+                                setTimeout(() => {
+                                    this.plugin.fileOperations.handleCursorPositioning(file);
+                                }, 50);
                             }
                         }
-                    }, 50);
-                }
+
+                        // Step 4: Rename file if automatic mode
+                        if (this.settings.renameNotes === "automatically") {
+                            await this.renameEngine.processFile(file, true, false);
+                        }
+
+                        console.log(`CREATE: Completed processing new file: ${file.name}`);
+                    } catch (error) {
+                        console.error(`CREATE: Failed to process new file ${file.path}:`, error);
+                    } finally {
+                        this.plugin.editorLifecycle.clearCreationDelayTimer(file.path);
+                    }
+                }, this.settings.newNoteDelay);
+
+                this.plugin.editorLifecycle.setCreationDelayTimer(file.path, timer);
             })
         );
 
-        // Also listen for when a file is opened (in case the create event doesn't catch it)
+        // Position cursor when file opens if it was just created
         this.plugin.registerEvent(
             this.app.workspace.on("file-open", (file) => {
                 if (!this.settings.moveCursorToFirstLine) return;
                 if (!file || file.extension !== 'md') return;
+                if (this.settings.insertTitleOnCreation) return; // Title insertion handles cursor
 
-                // Check if this is a newly created file (empty or very small)
-                this.app.vault.cachedRead(file).then((content) => {
-                    if (content.trim().length === 0 || content.trim().length < 10) {
-                        const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
-                        if (activeView && activeView.file === file) {
-                            const editor = activeView.editor;
-                            if (editor) {
-                                // Move cursor to first line
-                                if (this.settings.placeCursorAtLineEnd) {
-                                    // Get the length of the first line and place cursor at the end
-                                    const firstLineLength = editor.getLine(0).length;
-                                    editor.setCursor({ line: 0, ch: firstLineLength });
-                                    verboseLog(this.plugin, `Moved cursor to end of first line (${firstLineLength} chars) for opened empty file: ${file.path}`);
-                                } else {
-                                    // Place cursor at the beginning of the first line
-                                    editor.setCursor({ line: 0, ch: 0 });
-                                    verboseLog(this.plugin, `Moved cursor to beginning of first line for opened empty file: ${file.path}`);
-                                }
-                                editor.focus();
+                // Check if file was created in the last 2 seconds (using file stats)
+                const now = Date.now();
+                const createdTime = file.stat.ctime;
+                const isNewFile = (now - createdTime) < 2000;
+
+                if (!isNewFile) return;
+
+                // Wait for editor to be ready, then position cursor
+                setTimeout(() => {
+                    const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
+                    if (activeView && activeView.file === file) {
+                        const editor = activeView.editor;
+                        if (editor) {
+                            if (this.settings.placeCursorAtLineEnd) {
+                                const firstLineLength = editor.getLine(0).length;
+                                editor.setCursor({ line: 0, ch: firstLineLength });
+                                verboseLog(this.plugin, `Moved cursor to end of first line (${firstLineLength} chars): ${file.path}`);
+                            } else {
+                                editor.setCursor({ line: 0, ch: 0 });
+                                verboseLog(this.plugin, `Moved cursor to beginning of first line: ${file.path}`);
                             }
+                            editor.focus();
                         }
                     }
-                });
+                }, 50);
             })
         );
     }

@@ -9,6 +9,25 @@ export class GeneralTab extends SettingsTabBase {
     }
 
     render(): void {
+        // Dev warning banner
+        const warningEl = this.containerEl.createDiv({ cls: 'flit-dev-warning' });
+        warningEl.innerHTML = `
+            <div style="padding: 1em; margin-bottom: 1em; border: 1px solid var(--background-modifier-border); border-radius: 4px; background-color: var(--background-secondary);">
+                <strong style="color: var(--text-accent);">⚠️ IMPORTANT</strong><br>
+                The plugin is in active development — things can break, or change drastically between releases.<br><br><strong>Ensure your files are regularly <a href="https://help.obsidian.md/backup" target="_blank">backed up</a>.</strong>
+            </div>
+        `;
+
+        // Define rename on focus container and visibility function
+        let renameOnFocusContainer: HTMLElement;
+
+        const updateRenameOnFocusVisibility = () => {
+            if (this.plugin.settings.renameNotes === "automatically") {
+                renameOnFocusContainer.show();
+            } else {
+                renameOnFocusContainer.hide();
+            }
+        };
 
         // 1. rename notes
         new Setting(this.containerEl)
@@ -25,8 +44,30 @@ export class GeneralTab extends SettingsTabBase {
                         await this.plugin.saveSettings();
                         // Update visibility of automatic rename settings in advanced tab
                         (this.plugin as any).updateAutomaticRenameVisibility?.();
+                        updateRenameOnFocusVisibility();
                     })
             );
+
+        // Create sub-option for rename on focus
+        const renameOnFocusSetting = new Setting(this.containerEl)
+            .setName("Rename on focus")
+            .setDesc("Automatically rename notes when they become focused/active.")
+            .addToggle((toggle) =>
+                toggle
+                    .setValue(this.plugin.settings.renameOnFocus)
+                    .onChange(async (value) => {
+                        this.plugin.settings.renameOnFocus = value;
+                        this.plugin.debugLog('renameOnFocus', value);
+                        await this.plugin.saveSettings();
+                    })
+            );
+
+        // Create container for rename on focus sub-option
+        renameOnFocusContainer = this.containerEl.createDiv('flit-sub-settings');
+        renameOnFocusContainer.appendChild(renameOnFocusSetting.settingEl);
+
+        // Set initial visibility
+        updateRenameOnFocusVisibility();
 
         // 2. what to put in title
         new Setting(this.containerEl)
@@ -44,21 +85,7 @@ export class GeneralTab extends SettingsTabBase {
                     })
             );
 
-        // 3. rename on save
-        new Setting(this.containerEl)
-            .setName("Rename on save")
-            .setDesc("Rename notes on manual save (Ctrl/Cmd-S on desktop by default).")
-            .addToggle((toggle) =>
-                toggle
-                    .setValue(this.plugin.settings.renameOnSave)
-                    .onChange(async (value) => {
-                        this.plugin.settings.renameOnSave = value;
-                        this.plugin.debugLog('renameOnSave', value);
-                        await this.plugin.saveSettings();
-                    })
-            );
-
-        // 4. char count
+        // 3. char count
         const charCountSetting = new Setting(this.containerEl)
             .setName("Character count")
             .setDesc("");
@@ -109,55 +136,61 @@ export class GeneralTab extends SettingsTabBase {
             }
         });
 
-        // TEMPORARILY DISABLED: Insert title in first line on note creation
-        // Define title insertion function and container
-        // let titleInsertionContainer: HTMLElement;
+        // Define wait for template container and visibility function
+        let waitForTemplateContainer: HTMLElement;
 
-        // const updateTitleInsertionVisibility = () => {
-        //     if (this.plugin.settings.insertTitleOnCreation) {
-        //         titleInsertionContainer.show();
-        //     } else {
-        //         titleInsertionContainer.hide();
-        //     }
-        // };
+        const updateWaitForTemplateVisibility = () => {
+            if (this.plugin.settings.insertTitleOnCreation) {
+                waitForTemplateContainer.show();
+            } else {
+                waitForTemplateContainer.hide();
+            }
+        };
 
-        // // Insert title on creation setting
-        // new Setting(this.containerEl)
-        //     .setName("Insert title in first line on note creation")
-        //     .setDesc("Place the filename in the first line when creating a new note (unless the filename is 'Untitled' or 'Untitled n'). Convert forbidden character replacements (as configured in *Replace characters*) back to their original forms.")
-        //     .addToggle((toggle) =>
-        //         toggle
-        //             .setValue(this.plugin.settings.insertTitleOnCreation)
-        //             .onChange(async (value) => {
-        //                 this.plugin.settings.insertTitleOnCreation = value;
-        //                 this.plugin.debugLog('insertTitleOnCreation', value);
-        //                 await this.plugin.saveSettings();
-        //                 updateTitleInsertionVisibility();
-        //             })
-        //     );
+        // Insert title in first line on note creation
+        const insertTitleSetting = new Setting(this.containerEl)
+            .setName("Insert title in first line on note creation")
+            .setDesc("");
 
-        // // Title insertion delay (sub-option)
-        // const titleInsertionDelaySetting = new Setting(this.containerEl)
-        //     .setName("Title insertion delay")
-        //     .setDesc("Delay in milliseconds before inserting title. Increase this to allow template plugins (Templater, Core Templates) to apply first.")
-        //     .addSlider((slider) =>
-        //         slider
-        //             .setLimits(0, 2000, 50)
-        //             .setValue(this.plugin.settings.titleInsertionDelay)
-        //             .setDynamicTooltip()
-        //             .onChange(async (value) => {
-        //                 this.plugin.settings.titleInsertionDelay = value;
-        //                 this.plugin.debugLog('titleInsertionDelay', value);
-        //                 await this.plugin.saveSettings();
-        //             })
-        //     );
+        // Create styled description
+        const insertTitleDesc = insertTitleSetting.descEl;
+        insertTitleDesc.appendText("Place the filename in the first line when creating a new note (unless ");
+        insertTitleDesc.createEl("em", { text: "Untitled" });
+        insertTitleDesc.appendText(" or there's content below Properties). Convert forbidden character replacements back to their original forms, as set in ");
+        insertTitleDesc.createEl("em", { text: "Replace characters" });
+        insertTitleDesc.appendText(".");
 
-        // // Create container for title insertion delay sub-option
-        // titleInsertionContainer = this.containerEl.createDiv('flit-sub-settings');
-        // titleInsertionContainer.appendChild(titleInsertionDelaySetting.settingEl);
+        insertTitleSetting.addToggle((toggle) =>
+            toggle
+                .setValue(this.plugin.settings.insertTitleOnCreation)
+                .onChange(async (value) => {
+                    this.plugin.settings.insertTitleOnCreation = value;
+                    this.plugin.debugLog('insertTitleOnCreation', value);
+                    await this.plugin.saveSettings();
+                    updateWaitForTemplateVisibility();
+                })
+        );
 
-        // // Set initial visibility
-        // updateTitleInsertionVisibility();
+        // Create sub-option for wait for template
+        const waitForTemplateSetting = new Setting(this.containerEl)
+            .setName("Wait for template")
+            .setDesc("Allow a new note template to add a Properties block before inserting the filename.")
+            .addToggle((toggle) =>
+                toggle
+                    .setValue(this.plugin.settings.waitForTemplate)
+                    .onChange(async (value) => {
+                        this.plugin.settings.waitForTemplate = value;
+                        this.plugin.debugLog('waitForTemplate', value);
+                        await this.plugin.saveSettings();
+                    })
+            );
+
+        // Create container for wait for template sub-option
+        waitForTemplateContainer = this.containerEl.createDiv('flit-sub-settings');
+        waitForTemplateContainer.appendChild(waitForTemplateSetting.settingEl);
+
+        // Set initial visibility
+        updateWaitForTemplateVisibility();
 
         // Define cursor position function and container
         let cursorPositionContainer: HTMLElement;
@@ -205,6 +238,20 @@ export class GeneralTab extends SettingsTabBase {
 
         // Set initial visibility
         updateCursorPositionVisibility();
+
+        // Rename on save
+        new Setting(this.containerEl)
+            .setName("Rename on save")
+            .setDesc("Rename notes on manual save (Ctrl/Cmd-S on desktop by default).")
+            .addToggle((toggle) =>
+                toggle
+                    .setValue(this.plugin.settings.renameOnSave)
+                    .onChange(async (value) => {
+                        this.plugin.settings.renameOnSave = value;
+                        this.plugin.debugLog('renameOnSave', value);
+                        await this.plugin.saveSettings();
+                    })
+            );
 
         // Rename all notes (moved to end)
         new Setting(this.containerEl)

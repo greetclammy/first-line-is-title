@@ -57,11 +57,12 @@ export class CommandRegistrar {
             callback: async () => {
                 const activeFile = this.app.workspace.getActiveFile();
                 if (!activeFile || activeFile.extension !== 'md') {
+                    verboseLog(this.plugin, `Showing notice: No active editor`);
                     new Notice("No active editor");
                     return;
                 }
                 verboseLog(this.plugin, `Manual rename command triggered for ${activeFile.path} (ignoring exclusions)`);
-                await this.plugin.renameEngine.renameFile(activeFile, true, true);
+                await this.plugin.renameEngine.processFile(activeFile, true, true);
             }
         });
     }
@@ -81,11 +82,12 @@ export class CommandRegistrar {
             callback: async () => {
                 const activeFile = this.app.workspace.getActiveFile();
                 if (!activeFile || activeFile.extension !== 'md') {
+                    verboseLog(this.plugin, `Showing notice: No active editor`);
                     new Notice("No active editor");
                     return;
                 }
                 verboseLog(this.plugin, `Manual rename command triggered for ${activeFile.path} (unless excluded)`);
-                await this.plugin.renameEngine.renameFile(activeFile, true, false);
+                await this.plugin.renameEngine.processFile(activeFile, true, false);
             }
         });
     }
