@@ -15,7 +15,7 @@ export class IncludeExcludeTab extends SettingsTabBase {
         // Strategy selection
         new Setting(this.containerEl)
             .setName("Exclusion mode")
-            .setDesc("Configure how folders and tags should be excluded from renaming.")
+            .setDesc("Configure how notes should be excluded from processing.")
             .addDropdown((dropdown) =>
                 dropdown
                     .addOption('Enable in all notes except below', 'Enable in all notes except below')
@@ -207,13 +207,13 @@ export class IncludeExcludeTab extends SettingsTabBase {
 
         // Tag matching mode setting under Tags heading
         const tagMatchingSetting = new Setting(this.containerEl)
-            .setName("Tag matching scope")
-            .setDesc("Configure where to look for tags when checking exclusions.")
+            .setName("Match tags")
+            .setDesc("Configure how tags should be matched.")
             .addDropdown((dropdown) =>
                 dropdown
-                    .addOption('Match tags anywhere in note', 'Match tags anywhere in note')
-                    .addOption('Only match tags in Properties', 'Only match tags in Properties')
-                    .addOption('Only match tags in note body', 'Only match tags in note body')
+                    .addOption('In Properties and note body', 'In Properties and note body')
+                    .addOption('In Properties only', 'In Properties only')
+                    .addOption('In note body only', 'In note body only')
                     .setValue(this.plugin.settings.tagMatchingMode)
                     .onChange(async (value: TagMatchingMode) => {
                         this.plugin.settings.tagMatchingMode = value;
@@ -229,7 +229,7 @@ export class IncludeExcludeTab extends SettingsTabBase {
         // Exclude child tags setting
         const childTagsSetting = new Setting(this.containerEl)
             .setName("Apply to child tags")
-            .setDesc("For example, also apply to #parent/child if #parent is listed below.")
+            .setDesc("For example, also match #parent/child if #parent is listed below.")
             .addToggle((toggle) =>
                 toggle
                     .setValue(this.plugin.settings.excludeChildTags)
@@ -385,6 +385,14 @@ export class IncludeExcludeTab extends SettingsTabBase {
         // Add divider line
         this.containerEl.createEl("hr", { cls: "flit-divider" });
 
+        // Add tip as a separate description paragraph
+        const propertyTip = this.containerEl.createEl("p", { cls: "setting-item-description" });
+        propertyTip.style.marginTop = "0px";
+        propertyTip.style.marginBottom = "15px";
+        propertyTip.appendText('Tip: a property that cannot be overridden by any of the plugin\'s commands can be set in ');
+        propertyTip.createEl('em', { text: 'Miscellaneous' });
+        propertyTip.appendText(' settings.');
+
         // Add bullet list notes below divider
         const propertyNotes = this.containerEl.createEl("div", { cls: "setting-item-description" });
         propertyNotes.style.marginTop = "0px";
@@ -398,15 +406,10 @@ export class IncludeExcludeTab extends SettingsTabBase {
 
         const li2 = ul.createEl('li');
         li2.appendText('Leave ');
-        li2.createEl('em', { text: 'Value' });
-        li2.appendText(' blank to match all notes with this property.');
+        li2.createEl('em', { text: 'value' });
+        li2.appendText(' blank to match all notes with this property key.');
 
-        const li3 = ul.createEl('li');
-        li3.appendText('The ');
-        li3.createEl('code', { text: 'no rename:true' });
-        li3.appendText(' rule is always respected and can\'t get overridden by any command or batch operation.');
-
-        ul.createEl('li', { text: 'Renamed properties aren\'t reflected below. Update manually after renaming.' });
+        ul.createEl('li', { text: 'Renamed property keys aren\'t reflected below. Update manually after renaming.' });
 
         // Create a container for property settings that will stay in place
         const propertyContainer = this.containerEl.createDiv();
@@ -414,6 +417,11 @@ export class IncludeExcludeTab extends SettingsTabBase {
         const renderExcludedProperties = () => {
             // Clear only the property container
             propertyContainer.empty();
+
+            // Ensure there's always at least one entry
+            if (this.plugin.settings.excludedProperties.length === 0) {
+                this.plugin.settings.excludedProperties.push({ key: "", value: "" });
+            }
 
             // Variable to store the add button reference for state updates
             let addPropertyButton: any;
@@ -425,15 +433,12 @@ export class IncludeExcludeTab extends SettingsTabBase {
                 let valueInput: any;
                 let removeButton: any;
 
-                // Check if this is the first (reserved) rule
-                const isReservedRule = index === 0;
-
                 const updateButtonState = () => {
                     const isLastEmptyEntry = this.plugin.settings.excludedProperties.length === 1 &&
                                               this.plugin.settings.excludedProperties[0].key.trim() === "" &&
                                               this.plugin.settings.excludedProperties[0].value.trim() === "";
 
-                    if (isLastEmptyEntry || isReservedRule) {
+                    if (isLastEmptyEntry) {
                         // Don't set any tooltip, disable button
                         removeButton.setDisabled(true);
                         removeButton.extraSettingsEl.style.opacity = "0.5";
@@ -457,18 +462,9 @@ export class IncludeExcludeTab extends SettingsTabBase {
 
                 // Key input
                 keyInput = propertyInputContainer.createEl("input", { type: "text", cls: "flit-property-key-input" });
-                keyInput.placeholder = "Key";
+                keyInput.placeholder = "key";
                 keyInput.style.width = "120px";
                 keyInput.value = property.key;
-
-                // Make reserved rules non-interactive
-                if (isReservedRule) {
-                    keyInput.readOnly = true;
-                    keyInput.style.cursor = "default";
-                    keyInput.style.pointerEvents = "none";
-                    keyInput.style.userSelect = "none";
-                    keyInput.tabIndex = -1;
-                }
 
                 // Colon separator
                 const colonSpan = propertyInputContainer.createEl("span", { text: ":" });
@@ -476,35 +472,24 @@ export class IncludeExcludeTab extends SettingsTabBase {
 
                 // Value input
                 valueInput = propertyInputContainer.createEl("input", { type: "text", cls: "flit-property-value-input" });
-                valueInput.placeholder = "Value";
+                valueInput.placeholder = "value";
                 valueInput.style.width = "120px";
                 valueInput.value = property.value;
 
-                // Make reserved rules non-interactive
-                if (isReservedRule) {
-                    valueInput.readOnly = true;
-                    valueInput.style.cursor = "default";
-                    valueInput.style.pointerEvents = "none";
-                    valueInput.style.userSelect = "none";
-                    valueInput.tabIndex = -1;
-                }
+                // Event listeners for inputs
+                keyInput.addEventListener('input', async (e: any) => {
+                    this.plugin.settings.excludedProperties[index].key = e.target.value;
+                    this.plugin.debugLog('excludedProperties', this.plugin.settings.excludedProperties);
+                    await this.plugin.saveSettings();
+                    updateButtonState();
+                });
 
-                // Event listeners for inputs (only if not reserved)
-                if (!isReservedRule) {
-                    keyInput.addEventListener('input', async (e: any) => {
-                        this.plugin.settings.excludedProperties[index].key = e.target.value;
-                        this.plugin.debugLog('excludedProperties', this.plugin.settings.excludedProperties);
-                        await this.plugin.saveSettings();
-                        updateButtonState();
-                    });
-
-                    valueInput.addEventListener('input', async (e: any) => {
-                        this.plugin.settings.excludedProperties[index].value = e.target.value;
-                        this.plugin.debugLog('excludedProperties', this.plugin.settings.excludedProperties);
-                        await this.plugin.saveSettings();
-                        updateButtonState();
-                    });
-                }
+                valueInput.addEventListener('input', async (e: any) => {
+                    this.plugin.settings.excludedProperties[index].value = e.target.value;
+                    this.plugin.debugLog('excludedProperties', this.plugin.settings.excludedProperties);
+                    await this.plugin.saveSettings();
+                    updateButtonState();
+                });
 
                 // Add remove button
                 propertySetting.addExtraButton(button => {
@@ -512,22 +497,15 @@ export class IncludeExcludeTab extends SettingsTabBase {
                     button.setIcon("x");
 
                     button.onClick(async () => {
-                        // Only execute if not disabled and not a reserved rule
-                        const isLastEmptyEntry = this.plugin.settings.excludedProperties.length === 1 &&
-                                                  this.plugin.settings.excludedProperties[0].key.trim() === "" &&
-                                                  this.plugin.settings.excludedProperties[0].value.trim() === "";
-
-                        if (!isLastEmptyEntry && !isReservedRule) {
+                        // If this is the only entry, clear it instead of deleting
+                        if (this.plugin.settings.excludedProperties.length === 1) {
+                            this.plugin.settings.excludedProperties[0] = { key: "", value: "" };
+                        } else {
                             this.plugin.settings.excludedProperties.splice(index, 1);
-
-                            // If this was the last entry, add a new empty one
-                            if (this.plugin.settings.excludedProperties.length === 0) {
-                                this.plugin.settings.excludedProperties.push({ key: "", value: "" });
-                            }
-
-                            await this.plugin.saveSettings();
-                            renderExcludedProperties();
                         }
+
+                        await this.plugin.saveSettings();
+                        renderExcludedProperties();
                     });
 
                     // Initial button state
@@ -591,21 +569,11 @@ export class IncludeExcludeTab extends SettingsTabBase {
             );
 
             if (!hasExcalidrawProperty) {
-                // Add Excalidraw exclusion as the second rule
-                // Keep the first default rule (no rename:true)
-                if (this.plugin.settings.excludedProperties.length < 2) {
-                    // If we don't have 2 rules yet, add it
-                    this.plugin.settings.excludedProperties.push({
-                        key: 'excalidraw-plugin',
-                        value: 'parsed'
-                    });
-                } else {
-                    // Insert at index 1 (second position)
-                    this.plugin.settings.excludedProperties.splice(1, 0, {
-                        key: 'excalidraw-plugin',
-                        value: 'parsed'
-                    });
-                }
+                // Add Excalidraw exclusion
+                this.plugin.settings.excludedProperties.push({
+                    key: 'excalidraw-plugin',
+                    value: 'parsed'
+                });
                 await this.plugin.saveSettings();
             }
         }

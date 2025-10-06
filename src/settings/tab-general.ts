@@ -30,16 +30,32 @@ export class GeneralTab extends SettingsTabBase {
         };
 
         // 1. rename notes
-        new Setting(this.containerEl)
+        const renameNotesSetting = new Setting(this.containerEl)
             .setName("Rename notes")
-            .setDesc("Choose when notes should be renamed if the first line differs from filename.")
-            .addDropdown((dropdown) =>
+            .setDesc("");
+
+        // Create styled description for rename notes
+        const renameNotesDesc = renameNotesSetting.descEl;
+        renameNotesDesc.appendText("Choose when notes should be renamed if the first line differs from filename.");
+        renameNotesDesc.createEl("br");
+        renameNotesDesc.createEl("br");
+        renameNotesDesc.createEl("strong", { text: "Automatically:" });
+        renameNotesDesc.appendText(" process when editing notes open in the editor.");
+        renameNotesDesc.createEl("br");
+        renameNotesDesc.createEl("strong", { text: "Manually:" });
+        renameNotesDesc.appendText(" only process notes when invoking a plugin command.");
+
+        renameNotesSetting.addDropdown((dropdown) =>
                 dropdown
                     .addOption("automatically", "Automatically")
                     .addOption("manually", "Manually")
                     .setValue(this.plugin.settings.renameNotes)
                     .onChange(async (value) => {
                         this.plugin.settings.renameNotes = value as "automatically" | "manually";
+                        // Disable renameOnFocus when switching to manual mode
+                        if (value === "manually") {
+                            this.plugin.settings.renameOnFocus = false;
+                        }
                         this.plugin.debugLog('renameNotes', value);
                         await this.plugin.saveSettings();
                         // Update visibility of automatic rename settings in advanced tab
@@ -51,7 +67,7 @@ export class GeneralTab extends SettingsTabBase {
         // Create sub-option for rename on focus
         const renameOnFocusSetting = new Setting(this.containerEl)
             .setName("Rename on focus")
-            .setDesc("Automatically rename notes when they become focused/active.")
+            .setDesc("Automatically rename notes when they become active in the editor.")
             .addToggle((toggle) =>
                 toggle
                     .setValue(this.plugin.settings.renameOnFocus)
@@ -154,9 +170,9 @@ export class GeneralTab extends SettingsTabBase {
 
         // Create styled description
         const insertTitleDesc = insertTitleSetting.descEl;
-        insertTitleDesc.appendText("Place the filename in the first line when creating a new note (unless ");
+        insertTitleDesc.appendText("Place the filename in the first line when creating a new empty note (unless ");
         insertTitleDesc.createEl("em", { text: "Untitled" });
-        insertTitleDesc.appendText(" or there's content below Properties). Convert forbidden character replacements back to their original forms, as set in ");
+        insertTitleDesc.appendText("). Convert forbidden character replacements back to their original forms, as set in ");
         insertTitleDesc.createEl("em", { text: "Replace characters" });
         insertTitleDesc.appendText(".");
 
@@ -173,8 +189,8 @@ export class GeneralTab extends SettingsTabBase {
 
         // Create sub-option for wait for template
         const waitForTemplateSetting = new Setting(this.containerEl)
-            .setName("Wait for template")
-            .setDesc("Allow a new note template to add a Properties block before inserting the filename.")
+            .setName("Insert after template")
+            .setDesc("Let a new note template insert a Properties block before inserting the filename.")
             .addToggle((toggle) =>
                 toggle
                     .setValue(this.plugin.settings.waitForTemplate)
@@ -220,7 +236,7 @@ export class GeneralTab extends SettingsTabBase {
 
         // Create sub-option for cursor position
         const cursorPositionSetting = new Setting(this.containerEl)
-            .setName("Place cursor at first line end")
+            .setName("Place cursor at line end")
             .setDesc("When moving the cursor to a first line with content, place it at the end of the line instead of the start.")
             .addToggle((toggle) =>
                 toggle

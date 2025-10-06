@@ -1,6 +1,5 @@
-import { Notice, TFile, MarkdownView, setIcon } from "obsidian";
+import { TFile, MarkdownView, setIcon } from "obsidian";
 import { verboseLog } from '../utils';
-import { RenameAllFilesModal } from '../modals';
 import FirstLineIsTitle from '../../main';
 
 /**
@@ -131,17 +130,8 @@ export class WorkspaceIntegration {
                 condition: this.settings.ribbonVisibility.renameCurrentFile,
                 icon: 'file-pen',
                 title: 'Put first line in title',
-                callback: async () => {
-                    const activeFile = this.app.workspace.getActiveFile();
-                    if (!activeFile) {
-                        verboseLog(this.plugin, `Showing notice: No active editor`);
-                        new Notice("No active editor");
-                        return;
-                    }
-                    if (activeFile.extension === 'md') {
-                        verboseLog(this.plugin, `Manual rename command triggered for ${activeFile.path} (ignoring exclusions)`);
-                        await this.renameEngine.processFile(activeFile, true, true, true);
-                    }
+                callback: () => {
+                    (this.app as any).commands.executeCommandById('first-line-is-title:rename-current-file');
                 }
             },
             {
@@ -149,8 +139,7 @@ export class WorkspaceIntegration {
                 icon: 'files',
                 title: 'Put first line in title in all notes',
                 callback: () => {
-                    verboseLog(this.plugin, 'Bulk rename command triggered');
-                    new RenameAllFilesModal(this.app, this.plugin).open();
+                    (this.app as any).commands.executeCommandById('first-line-is-title:rename-all-files');
                 }
             }
         ];
@@ -209,7 +198,7 @@ export class WorkspaceIntegration {
                 console.log(`CREATE: New file created, processing in ${this.settings.newNoteDelay}ms: ${file.name}`);
 
                 // Check if title will be skipped (early detection)
-                const untitledPattern = /^Untitled(\s\d+)?$/;
+                const untitledPattern = /^Untitled(\s[1-9]\d*)?$/;
                 const isUntitled = untitledPattern.test(file.basename);
 
                 // Step 1: Always move cursor immediately (if enabled)

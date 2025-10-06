@@ -29,6 +29,9 @@ export class RenameEngine {
     // Track files currently being renamed to prevent spurious events
     private filesBeingRenamed = new Set<TFile>();
 
+    // Track last self-reference notice time per file (rate limit: 2s)
+    private lastSelfRefNotice = new Map<string, number>();
+
     constructor(plugin: any) {
         this.plugin = plugin;
     }
@@ -284,8 +287,8 @@ export class RenameEngine {
             throw new Error(`Failed to read file: ${error.message}`);
         }
 
-        // Check if this file has the disable property (always respect "no rename: true")
-        if (hasDisableProperty(content)) {
+        // Check if this file has the disable property (always respect the property setting)
+        if (hasDisableProperty(content, this.plugin.settings.disableRenamingKey, this.plugin.settings.disableRenamingValue)) {
             verboseLog(this.plugin, `Skipping file with disable property: ${file.path}`);
             return { success: false, reason: 'property-disabled' };
         }
@@ -393,7 +396,12 @@ export class RenameEngine {
 
         // Check for self-referencing links BEFORE custom replacements to prevent character mismatch
         const escapedName = currentName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        const wikiLinkRegex = new RegExp(`\\[\\[${escapedName}(\\|.*?)?\\]\\]`);
+        const pathWithoutExt = file.path.replace(/\.md$/, '');
+        const escapedPath = pathWithoutExt.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+        // Match [[filename]], [[filename#heading]], [[filename#^block]], [[path/filename#heading]], with optional |alias
+        // Need to check both basename and full path (some users link with path)
+        const wikiLinkRegex = new RegExp(`\\[\\[(${escapedName}|${escapedPath})(#[^\\]|]*?)?(\\|.*?)?\\]\\]`);
         const markdownLinkRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
 
         let isSelfReferencing = false;
@@ -659,9 +667,13 @@ export class RenameEngine {
 
         // Only check for self-reference if filename would actually change (after handling counter)
         if (isSelfReferencing) {
-            if (!suppressNotices) {
+            // Rate limit: show notice max once per 2 seconds per file
+            const now = Date.now();
+            const lastNoticeTime = this.lastSelfRefNotice.get(file.path) || 0;
+            if (now - lastNoticeTime >= 2000) {
                 verboseLog(this.plugin, `Showing notice: File not renamed due to self-referential link in first line: ${file.name}`);
-                new Notice(`File not renamed due to self-referential link in first line: ${file.name}`, 0);
+                new Notice(`File not renamed due to self-referential link in first line: ${file.name}`);
+                this.lastSelfRefNotice.set(file.path, now);
             }
             verboseLog(this.plugin, `Skipping self-referencing file: ${file.path}`);
             return { success: false, reason: 'self-referential' };
@@ -680,11 +692,27 @@ export class RenameEngine {
             // Mark file as being renamed before operation
             this.filesBeingRenamed.add(file);
 
+            // Mark as batch operation for debug output exclusion
+            if (isBatchOperation) {
+                this.plugin.markBatchOperationStart(file.path);
+            }
+
+            // Mark as FLIT modification for debug output
+            this.plugin.markFlitModificationStart(file.path);
+
             const oldPath = file.path;
             await this.plugin.app.fileManager.renameFile(file, newPath);
             // Renamed file counter removed - not needed with optimized system
             const processingTime = Date.now() - startTime;
             verboseLog(this.plugin, `Successfully renamed ${file.path} to ${newPath} (${processingTime}ms)`);
+
+            // Mark FLIT modification end
+            this.plugin.markFlitModificationEnd(newPath);
+
+            // Mark batch operation end
+            if (isBatchOperation) {
+                this.plugin.markBatchOperationEnd(newPath);
+            }
 
             // Update cache with new path
             const lastContent = this.lastProcessedContent.get(oldPath);

@@ -22,7 +22,7 @@ export interface ExcludedProperty {
 export type OSPreset = 'macOS' | 'Windows' | 'Linux';
 export type NotificationMode = 'Always' | 'On title change' | 'Never';
 export type ScopeStrategy = 'Enable in all notes except below' | 'Disable in all notes except below';
-export type TagMatchingMode = 'Match tags anywhere in note' | 'Only match tags in Properties' | 'Only match tags in note body';
+export type TagMatchingMode = 'In Properties and note body' | 'In Properties only' | 'In note body only';
 export type FileReadMethod = 'Editor' | 'Cache' | 'File';
 
 export type PropertyHidingOption = 'never' | 'always' | 'when_empty';
@@ -112,13 +112,17 @@ export interface PluginSettings {
         highlight: boolean;
         code: boolean;
         blockquote: boolean;
+        callouts: boolean;
         comments: boolean;
         headings: boolean;
         wikilinks: boolean;
         markdownLinks: boolean;
         htmlTags: boolean;
+        tasks: boolean;
+        footnotes: boolean;
     };
     stripMarkupInAlias: boolean;
+    stripCommentsEntirely: boolean;
     applyCustomRulesInAlias: boolean;
     enableForbiddenCharReplacements: boolean;
     enableCustomReplacements: boolean;
@@ -196,4 +200,6 @@ export interface PluginSettings {
     suppressMergeNotifications: boolean;
     newNoteDelay: number;
     waitForTemplate: boolean;
+    disableRenamingKey: string;
+    disableRenamingValue: string;
 }

@@ -109,8 +109,8 @@ export function fileHasTargetTags(file: TFile, settings: PluginSettings, app: Ap
 
     const fileCache = app.metadataCache.getFileCache(file);
 
-    // Check YAML frontmatter tags (unless mode is 'Only match tags in note body')
-    if (settings.tagMatchingMode !== 'Only match tags in note body' &&
+    // Check YAML frontmatter tags (unless mode is 'In note body only')
+    if (settings.tagMatchingMode !== 'In note body only' &&
         fileCache && fileCache.frontmatter && fileCache.frontmatter.tags) {
         const frontmatterTags = fileCache.frontmatter.tags;
         // Handle both string arrays and single strings
@@ -139,13 +139,13 @@ export function fileHasTargetTags(file: TFile, settings: PluginSettings, app: Ap
     }
 
     // Check tags based on matching mode
-    if (settings.tagMatchingMode !== 'Only match tags in Properties') {
+    if (settings.tagMatchingMode !== 'In Properties only') {
         let inlineTagsInContent: string[] = [];
 
-        if (content && settings.tagMatchingMode === 'Match tags anywhere in note') {
+        if (content && settings.tagMatchingMode === 'In Properties and note body') {
             // Use provided content (real-time) - check both frontmatter and body
             inlineTagsInContent = parseInlineTagsFromText(content);
-        } else if (content && settings.tagMatchingMode === 'Only match tags in note body') {
+        } else if (content && settings.tagMatchingMode === 'In note body only') {
             // Only check content after frontmatter
             const bodyContent = stripFrontmatter(content);
             inlineTagsInContent = parseInlineTagsFromText(bodyContent);
@@ -239,8 +239,8 @@ export function isFileExcluded(file: TFile, settings: PluginSettings, app: App, 
     if (nonEmptyTags.length > 0) {
         const fileCache = app.metadataCache.getFileCache(file);
 
-        // Check YAML frontmatter tags (unless mode is 'Only match tags in note body')
-        if (settings.tagMatchingMode !== 'Only match tags in note body' &&
+        // Check YAML frontmatter tags (unless mode is 'In note body only')
+        if (settings.tagMatchingMode !== 'In note body only' &&
             fileCache && fileCache.frontmatter && fileCache.frontmatter.tags) {
             const frontmatterTags = fileCache.frontmatter.tags;
             // Handle both string arrays and single strings
@@ -269,13 +269,13 @@ export function isFileExcluded(file: TFile, settings: PluginSettings, app: App, 
         }
 
         // Check tags based on matching mode
-        if (settings.tagMatchingMode !== 'Only match tags in Properties') {
+        if (settings.tagMatchingMode !== 'In Properties only') {
             let inlineTagsInContent: string[] = [];
 
-            if (content && settings.tagMatchingMode === 'Match tags anywhere in note') {
+            if (content && settings.tagMatchingMode === 'In Properties and note body') {
                 // Use provided content (real-time) - check both frontmatter and body
                 inlineTagsInContent = parseInlineTagsFromText(content);
-            } else if (content && settings.tagMatchingMode === 'Only match tags in note body') {
+            } else if (content && settings.tagMatchingMode === 'In note body only') {
                 // Only check content after frontmatter
                 const bodyContent = stripFrontmatter(content);
                 inlineTagsInContent = parseInlineTagsFromText(bodyContent);
@@ -355,9 +355,7 @@ function stripFrontmatter(content: string): string {
     return lines.slice(endIndex + 1).join('\n');
 }
 
-export function hasDisableProperty(content: string): boolean {
-    // Hardcoded to check for "no rename: true"
-
+export function hasDisableProperty(content: string, disableKey: string, disableValue: string): boolean {
     // Check if content starts with frontmatter
     if (!content.startsWith("---")) return false;
 
@@ -368,20 +366,25 @@ export function hasDisableProperty(content: string): boolean {
     // Extract frontmatter content
     const frontmatter = content.slice(3, frontmatterEnd);
 
-    // Check for "no rename: true" (case-insensitive, with or without quotes)
+    // Escape special regex characters in key and value
+    const escapeRegex = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const escapedKey = escapeRegex(disableKey);
+    const escapedValue = escapeRegex(disableValue);
+
+    // Check for the property (case-insensitive, with or without quotes)
     const patterns = [
-        /^\s*no\s+rename\s*:\s*"true"\s*$/im,
-        /^\s*no\s+rename\s*:\s*'true'\s*$/im,
-        /^\s*no\s+rename\s*:\s*true\s*$/im
+        new RegExp(`^\\s*${escapedKey}\\s*:\\s*"${escapedValue}"\\s*$`, 'im'),
+        new RegExp(`^\\s*${escapedKey}\\s*:\\s*'${escapedValue}'\\s*$`, 'im'),
+        new RegExp(`^\\s*${escapedKey}\\s*:\\s*${escapedValue}\\s*$`, 'im')
     ];
 
     return patterns.some(regex => regex.test(frontmatter));
 }
 
-export async function hasDisablePropertyInFile(file: TFile, app: App): Promise<boolean> {
+export async function hasDisablePropertyInFile(file: TFile, app: App, disableKey: string, disableValue: string): Promise<boolean> {
     try {
         const content = await app.vault.read(file);
-        return hasDisableProperty(content);
+        return hasDisableProperty(content, disableKey, disableValue);
     } catch (error) {
         return false;
     }
@@ -524,6 +527,11 @@ export function extractTitle(line: string, settings: PluginSettings): string {
             });
         }
 
+        // Strip callout markup (check before blockquote to avoid conflicts)
+        if (settings.enableStripMarkup && settings.stripMarkupSettings.callouts) {
+            line = line.replace(/^>\s*\[![^\]]+\]\s*(.*)$/gm, '$1');
+        }
+
         // Strip blockquote markup
         if (settings.enableStripMarkup && settings.stripMarkupSettings.blockquote) {
             line = line.replace(/^>\s*(.*)$/gm, '$1');
@@ -536,6 +544,19 @@ export function extractTitle(line: string, settings: PluginSettings): string {
                 previousLine = line;
                 line = line.replace(/<([a-zA-Z][a-zA-Z0-9]*)\b[^>]*>(.*?)<\/\1>/g, '$2');
             }
+        }
+
+        // Strip task markup
+        if (settings.enableStripMarkup && settings.stripMarkupSettings.tasks) {
+            line = line.replace(/^-\s*\[.\]\s*/gm, '');
+        }
+
+        // Strip footnote markup
+        if (settings.enableStripMarkup && settings.stripMarkupSettings.footnotes) {
+            // Strip [^1] style footnotes (but not if followed by colon)
+            line = line.replace(/\[\^[^\]]+\](?!:)/g, '');
+            // Strip ^[note] style footnotes (but not if followed by colon)
+            line = line.replace(/\^\[[^\]]+\](?!:)/g, '');
         }
     }
 

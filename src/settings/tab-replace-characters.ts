@@ -139,18 +139,14 @@ export class ForbiddenCharsTab extends SettingsTabBase {
                             this.plugin.settings.charReplacementEnabled[setting.key] = value;
                             this.plugin.debugLog(`charReplacementEnabled.${setting.key}`, value);
                             await this.plugin.saveSettings();
-                            // Update row styling based on enabled state
                             updateRowAppearance();
                         });
                     toggle.toggleEl.style.margin = "0";
                     toggleContainer.appendChild(toggle.toggleEl);
                 });
 
-                // Function to update row appearance based on enabled state
                 const updateRowAppearance = () => {
-                    const isEnabled = this.plugin.settings.charReplacementEnabled[setting.key];
-                    const masterEnabled = this.plugin.settings.enableForbiddenCharReplacements;
-                    if (isEnabled || !masterEnabled) {
+                    if (this.plugin.settings.charReplacementEnabled[setting.key]) {
                         rowEl.classList.remove('flit-row-disabled');
                     } else {
                         rowEl.classList.add('flit-row-disabled');
@@ -218,7 +214,6 @@ export class ForbiddenCharsTab extends SettingsTabBase {
                     trimRightContainer.appendChild(toggle.toggleEl);
                 });
 
-                // Initialize row appearance
                 updateRowAppearance();
             });
 
@@ -244,7 +239,6 @@ export class ForbiddenCharsTab extends SettingsTabBase {
                             updateCharacterSettings();
                         });
                 });
-            windowsAndroidHeaderSetting.settingEl.addClass('flit-master-toggle');
             charSettingsContainer.createEl("br");
 
             // Create Windows/Android character table
@@ -286,18 +280,14 @@ export class ForbiddenCharsTab extends SettingsTabBase {
                                 this.plugin.settings.charReplacementEnabled[setting.key] = value;
                                 this.plugin.debugLog(`charReplacementEnabled.${setting.key}`, value);
                                 await this.plugin.saveSettings();
-                                // Update row styling based on enabled state
                                 updateRowAppearance();
                             });
                         toggle.toggleEl.style.margin = "0";
                         toggleContainer.appendChild(toggle.toggleEl);
                     });
 
-                    // Function to update row appearance based on enabled state
                     const updateRowAppearance = () => {
-                        const isEnabled = this.plugin.settings.charReplacementEnabled[setting.key];
-                        const masterEnabled = this.plugin.settings.enableForbiddenCharReplacements;
-                        if (isEnabled || !masterEnabled) {
+                        if (this.plugin.settings.charReplacementEnabled[setting.key]) {
                             rowEl.classList.remove('flit-row-disabled');
                         } else {
                             rowEl.classList.add('flit-row-disabled');
@@ -361,7 +351,6 @@ export class ForbiddenCharsTab extends SettingsTabBase {
                         trimRightContainer.appendChild(toggle.toggleEl);
                     });
 
-                    // Initialize row appearance
                     updateRowAppearance();
                 });
             }

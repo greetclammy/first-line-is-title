@@ -53,28 +53,10 @@ export class FileOperations {
      */
     async insertTitleOnCreation(file: TFile): Promise<boolean> {
         try {
-            // Check if filename is "Untitled" or "Untitled n" (where n is any integer)
-            const untitledPattern = /^Untitled(\s\d+)?$/;
+            // Check if filename is "Untitled" or "Untitled n" (where n is a positive integer)
+            const untitledPattern = /^Untitled(\s[1-9]\d*)?$/;
             if (untitledPattern.test(file.basename)) {
                 verboseLog(this.plugin, `Skipping title insertion for untitled file: ${file.path}`);
-                return false;
-            }
-
-            // Read current file content
-            let content: string;
-            try {
-                content = await this.app.vault.read(file);
-            } catch (error) {
-                console.error(`Failed to read file ${file.path} for title insertion:`, error);
-                return false;
-            }
-
-            // Debug: log what content we found
-            verboseLog(this.plugin, `Title insertion delay complete. File content length: ${content.length} chars, trimmed: "${content.trim()}"`);
-
-            // Check if file already has content (skip if not empty)
-            if (content.trim() !== '') {
-                verboseLog(this.plugin, `Skipping title insertion - file already has content: ${file.path}`);
                 return false;
             }
 
@@ -90,9 +72,9 @@ export class FileOperations {
 
             // Wait for template plugins to apply templates if enabled
             // Both newNoteDelay and waitForTemplate delays start from file creation
-            // Total wait = max(newNoteDelay, 2500ms if waitForTemplate is ON)
+            // Total wait = max(newNoteDelay, 600ms if waitForTemplate is ON)
             if (this.settings.waitForTemplate) {
-                const remainingWait = 2500 - this.settings.newNoteDelay;
+                const remainingWait = 600 - this.settings.newNoteDelay;
                 if (remainingWait > 0) {
                     // For Cache/File read methods, wait the full duration (no event-based detection)
                     if (this.settings.fileReadMethod === 'Cache' || this.settings.fileReadMethod === 'File') {
@@ -103,7 +85,7 @@ export class FileOperations {
                         await this.waitForYamlOrTimeout(file, remainingWait);
                     }
                 } else {
-                    verboseLog(this.plugin, `Skipping template wait - newNoteDelay (${this.settings.newNoteDelay}ms) already >= 2500ms`);
+                    verboseLog(this.plugin, `Skipping template wait - newNoteDelay (${this.settings.newNoteDelay}ms) already >= 600ms`);
                 }
             }
 
@@ -125,40 +107,42 @@ export class FileOperations {
                 return false;
             }
 
-            // Check if template was applied
-            if (currentContent.trim() !== '') {
-                verboseLog(this.plugin, `File has template content, inserting title into existing content`);
+            const lines = currentContent.split('\n');
 
-                const lines = currentContent.split('\n');
-
-                // Detect YAML frontmatter directly from content
-                let yamlEndLine = -1;
-                if (lines[0] === '---') {
-                    // Find closing ---
-                    for (let i = 1; i < lines.length; i++) {
-                        if (lines[i] === '---') {
-                            yamlEndLine = i;
-                            break;
-                        }
+            // Detect YAML frontmatter directly from content
+            let yamlEndLine = -1;
+            if (lines[0] === '---') {
+                // Find closing ---
+                for (let i = 1; i < lines.length; i++) {
+                    if (lines[i] === '---') {
+                        yamlEndLine = i;
+                        break;
                     }
                 }
+            }
 
-                if (yamlEndLine !== -1) {
-                    // Insert title after YAML
-                    const insertLine = yamlEndLine + 1;
-                    lines.splice(insertLine, 0, cleanTitle);
-                    verboseLog(this.plugin, `Inserted title after frontmatter at line ${insertLine}`);
-                } else {
-                    // Insert title at beginning
-                    lines.unshift(cleanTitle);
-                    verboseLog(this.plugin, `Inserted title at beginning of file`);
-                }
+            // Get content after YAML (if present) or all content (if no YAML)
+            const contentAfterYaml = yamlEndLine !== -1
+                ? lines.slice(yamlEndLine + 1).join('\n').trim()
+                : currentContent.trim();
 
+            // Only insert title if file is empty (excluding YAML)
+            if (contentAfterYaml !== '') {
+                verboseLog(this.plugin, `File has content (excluding YAML), skipping title insertion for ${file.path}`);
+                return false;
+            }
+
+            // File is empty (excluding YAML), insert title
+            if (yamlEndLine !== -1) {
+                // Insert title after YAML
+                const insertLine = yamlEndLine + 1;
+                lines.splice(insertLine, 0, cleanTitle);
+                verboseLog(this.plugin, `Inserted title after frontmatter at line ${insertLine}`);
                 const finalContent = lines.join('\n');
                 await this.app.vault.modify(file, finalContent);
             } else {
-                // File still empty, insert title as new content
-                verboseLog(this.plugin, `File still empty, inserting title as new content`);
+                // No YAML, insert title at beginning
+                verboseLog(this.plugin, `File empty, inserting title directly`);
                 await this.app.vault.modify(file, cleanTitle + "\n");
             }
 

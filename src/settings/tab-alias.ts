@@ -122,7 +122,7 @@ export class PropertiesTab extends SettingsTabBase {
 
         // Create styled description for alias property key
         const aliasKeyDesc = aliasPropertyKeySetting.descEl;
-        aliasKeyDesc.appendText("Configure the property key in which to insert the alias.\nUse the default to make it searchable in the Quick switcher. You can also set this property as note title in ");
+        aliasKeyDesc.appendText("Configure the property key in which to insert the alias. Use comma-separated values to populate multiple properties at once (e.g., 'aliases, title').\nUse the default to make it searchable in the Quick switcher. You can also set this property as note title in ");
         const omnisearchLink = aliasKeyDesc.createEl("a", { text: "Omnisearch" });
         omnisearchLink.href = "obsidian://show-plugin?id=obsidian-omnisearch";
         omnisearchLink.style.color = "var(--text-accent)";
@@ -310,6 +310,12 @@ export class PropertiesTab extends SettingsTabBase {
 
         // Initialize UI
         renderAliasSettings();
+
+        // Ensure conditional settings are updated on initial render
+        updateAliasConditionalSettings();
+
+        // Register update function on plugin for cross-tab communication
+        (this.plugin as any).updateAliasConditionalSettings = updateAliasConditionalSettings;
     }
 
     private updatePropertyVisibility(): void {

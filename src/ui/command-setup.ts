@@ -1,7 +1,7 @@
 import { Notice, setIcon } from "obsidian";
 import { PluginSettings } from '../types';
 import { verboseLog, generateSafeLinkTarget } from '../utils';
-import { RenameAllFilesModal, InternalLinkModal } from '../modals';
+import { InternalLinkModal } from '../modals';
 import FirstLineIsTitle from '../../main';
 
 export class CommandSetup {
@@ -105,17 +105,8 @@ export class CommandSetup {
                 condition: this.settings.ribbonVisibility.renameCurrentFile,
                 icon: 'file-pen',
                 title: 'Put first line in title',
-                callback: async () => {
-                    const activeFile = this.app.workspace.getActiveFile();
-                    if (!activeFile) {
-                        verboseLog(this.plugin, `Showing notice: No active editor`);
-                        new Notice("No active editor");
-                        return;
-                    }
-                    if (activeFile.extension === 'md') {
-                        verboseLog(this.plugin, `Manual rename command triggered for ${activeFile.path} (ignoring exclusions)`);
-                        await this.plugin.renameEngine.processFile(activeFile, true, true);
-                    }
+                callback: () => {
+                    (this.app as any).commands.executeCommandById('first-line-is-title:rename-current-file');
                 }
             },
             {
@@ -123,8 +114,7 @@ export class CommandSetup {
                 icon: 'files',
                 title: 'Put first line in title in all notes',
                 callback: () => {
-                    verboseLog(this.plugin, 'Bulk rename command triggered');
-                    new RenameAllFilesModal(this.app, this.plugin).open();
+                    (this.app as any).commands.executeCommandById('first-line-is-title:rename-all-files');
                 }
             }
         ];

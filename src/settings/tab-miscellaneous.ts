@@ -3,6 +3,7 @@ import { SettingsTabBase, FirstLineIsTitlePlugin } from './settings-base';
 import { NotificationMode, FileReadMethod } from '../types';
 import { DEFAULT_SETTINGS } from '../constants';
 import { ClearSettingsModal } from '../modals';
+import { verboseLog } from '../utils';
 
 export class AdvancedTab extends SettingsTabBase {
     private conditionalSettings: Setting[] = [];
@@ -15,7 +16,157 @@ export class AdvancedTab extends SettingsTabBase {
 
     render(): void {
 
-        // Content read method setting (top-most setting)
+        // Property to disable renaming
+        const propertyDisableSetting = new Setting(this.containerEl)
+            .setName("Property to disable renaming")
+            .setDesc("");
+
+        // Create styled description
+        const propertyDesc = propertyDisableSetting.descEl;
+        propertyDesc.appendText("Set the key:property pair that will disable renaming for notes that contain it. Case-insensitive. Always respected — cannot get overriden by any command.");
+        propertyDesc.createEl("br");
+        propertyDesc.appendText("Note: changing this won't automatically update properties that have been previously added.");
+        propertyDesc.createEl("br");
+        propertyDesc.createEl("small").createEl("strong", { text: "Default: no rename:true" });
+
+        // Create input container with reset button
+        const propertyContainer = propertyDisableSetting.controlEl.createDiv({ cls: "flit-property-disable-container" });
+        propertyContainer.style.display = "flex";
+        propertyContainer.style.gap = "10px";
+
+        const propertyRestoreButton = propertyContainer.createEl("button", {
+            cls: "clickable-icon flit-restore-icon",
+            attr: { "aria-label": "Restore default" }
+        });
+        setIcon(propertyRestoreButton, "rotate-ccw");
+
+        const keyInput = propertyContainer.createEl("input", { type: "text" });
+        keyInput.placeholder = "key";
+        keyInput.style.width = "120px";
+        keyInput.value = this.plugin.settings.disableRenamingKey;
+        keyInput.addEventListener('input', async (e) => {
+            this.plugin.settings.disableRenamingKey = (e.target as HTMLInputElement).value;
+            await this.plugin.saveSettings();
+        });
+
+        const valueInput = propertyContainer.createEl("input", { type: "text" });
+        valueInput.placeholder = "value";
+        valueInput.style.width = "120px";
+        valueInput.value = this.plugin.settings.disableRenamingValue;
+        valueInput.addEventListener('input', async (e) => {
+            this.plugin.settings.disableRenamingValue = (e.target as HTMLInputElement).value;
+            await this.plugin.saveSettings();
+        });
+
+        propertyRestoreButton.addEventListener('click', async () => {
+            this.plugin.settings.disableRenamingKey = DEFAULT_SETTINGS.disableRenamingKey;
+            this.plugin.settings.disableRenamingValue = DEFAULT_SETTINGS.disableRenamingValue;
+            keyInput.value = DEFAULT_SETTINGS.disableRenamingKey;
+            valueInput.value = DEFAULT_SETTINGS.disableRenamingValue;
+            await this.plugin.saveSettings();
+        });
+
+        // Show notification setting (moved from General)
+        const notificationSetting = new Setting(this.containerEl)
+            .setName("Show notification when renaming manually")
+            .setDesc("");
+
+        // Create styled description
+        const notificationDesc = notificationSetting.descEl;
+        notificationDesc.appendText("Controls when to show notifications for the ");
+        notificationDesc.createEl("em", { text: "Put first line in title" });
+        notificationDesc.appendText(" commands.");
+
+        notificationSetting.addDropdown((dropdown) =>
+            dropdown
+                .addOption('Always', 'Always')
+                .addOption('On title change', 'On title change')
+                .addOption('Never', 'Never')
+                .setValue(this.plugin.settings.manualNotificationMode)
+                .onChange(async (value: NotificationMode) => {
+                    this.plugin.settings.manualNotificationMode = value;
+                    this.plugin.debugLog('manualNotificationMode', value);
+                    await this.plugin.saveSettings();
+                })
+        );
+
+        // Grab title from card link setting
+        const cardLinkSetting = new Setting(this.containerEl)
+            .setName("Grab title from card link");
+
+        const cardLinkDesc = cardLinkSetting.descEl;
+        cardLinkDesc.appendText("If a note starts with a card link created with ");
+        cardLinkDesc.createEl("a", {
+            text: "Auto Card Link",
+            href: "obsidian://show-plugin?id=auto-card-link"
+        });
+        cardLinkDesc.appendText(" or ");
+        cardLinkDesc.createEl("a", {
+            text: "Link Embed",
+            href: "obsidian://show-plugin?id=obsidian-link-embed"
+        });
+        cardLinkDesc.appendText(", the card link title will be put in title.");
+
+        cardLinkSetting.addToggle((toggle) =>
+            toggle
+                .setValue(this.plugin.settings.grabTitleFromCardLink)
+                .onChange(async (value) => {
+                    this.plugin.settings.grabTitleFromCardLink = value;
+                    await this.plugin.saveSettings();
+                })
+        );
+
+        // New note delay
+        const newNoteDelaySetting = new Setting(this.containerEl)
+            .setName("New note delay")
+            .setDesc("");
+
+        const newNoteDelayDesc = newNoteDelaySetting.descEl;
+        newNoteDelayDesc.appendText("Delay all operations on new notes by this amount in milliseconds. May resolve issues on note creation.");
+        newNoteDelayDesc.createEl("br");
+        newNoteDelayDesc.createEl("small").createEl("strong", { text: "Default: 0" });
+
+        // Create container for slider with reset button
+        const newNoteDelayContainer = newNoteDelaySetting.controlEl.createDiv({ cls: "flit-char-text-input-container" });
+
+        const newNoteDelayRestoreButton = newNoteDelayContainer.createEl("button", {
+            cls: "clickable-icon flit-restore-icon",
+            attr: { "aria-label": "Restore default" }
+        });
+        setIcon(newNoteDelayRestoreButton, "rotate-ccw");
+
+        // Create slider element manually and append to container
+        const newNoteDelaySliderDiv = newNoteDelayContainer.createDiv();
+
+        newNoteDelaySetting.addSlider((slider) => {
+            slider
+                .setLimits(0, 5000, 50)
+                .setValue(this.plugin.settings.newNoteDelay)
+                .setDynamicTooltip()
+                .onChange(async (value) => {
+                    this.plugin.settings.newNoteDelay = value;
+                    this.plugin.debugLog('newNoteDelay', value);
+                    await this.plugin.saveSettings();
+                });
+
+            // Move slider to our custom container
+            newNoteDelaySliderDiv.appendChild(slider.sliderEl);
+        });
+
+        newNoteDelayRestoreButton.addEventListener('click', async () => {
+            this.plugin.settings.newNoteDelay = DEFAULT_SETTINGS.newNoteDelay;
+            this.plugin.debugLog('newNoteDelay', this.plugin.settings.newNoteDelay);
+            await this.plugin.saveSettings();
+
+            // Update the slider value by triggering a re-render or finding the slider element
+            const sliderInput = newNoteDelaySliderDiv.querySelector('input[type="range"]') as HTMLInputElement;
+            if (sliderInput) {
+                sliderInput.value = String(DEFAULT_SETTINGS.newNoteDelay);
+                sliderInput.dispatchEvent(new Event('input', { bubbles: true }));
+            }
+        });
+
+        // Content read method setting
         const contentReadMethodSetting = new Setting(this.containerEl)
             .setName("Content read method")
             .setDesc("");
@@ -79,7 +230,7 @@ export class AdvancedTab extends SettingsTabBase {
 
         // Create styled description for check interval
         const delayDesc = checkIntervalSetting.descEl;
-        delayDesc.appendText("Set how often to check the first line for changes. Increase in case of issues.");
+        delayDesc.appendText("Interval in milliseconds for checking first-line changes.  Increase in case of issues.");
         delayDesc.createEl("br");
         delayDesc.createEl("small").createEl("strong", { text: "Default: 0" });
 
@@ -147,104 +298,10 @@ export class AdvancedTab extends SettingsTabBase {
         // Initialize check interval visibility
         updateCheckIntervalVisibility();
 
-        // New note delay
-        const newNoteDelaySetting = new Setting(this.containerEl)
-            .setName("New note delay")
-            .setDesc("");
-
-        const newNoteDelayDesc = newNoteDelaySetting.descEl;
-        newNoteDelayDesc.appendText("Delay all operations on new notes by this amount in milliseconds. Allows templates to be inserted first.");
-        newNoteDelayDesc.createEl("br");
-        newNoteDelayDesc.createEl("small").createEl("strong", { text: "Default: 0" });
-
-        // Create container for slider with reset button
-        const newNoteDelayContainer = newNoteDelaySetting.controlEl.createDiv({ cls: "flit-char-text-input-container" });
-
-        const newNoteDelayRestoreButton = newNoteDelayContainer.createEl("button", {
-            cls: "clickable-icon flit-restore-icon",
-            attr: { "aria-label": "Restore default" }
-        });
-        setIcon(newNoteDelayRestoreButton, "rotate-ccw");
-
-        // Create slider element manually and append to container
-        const newNoteDelaySliderDiv = newNoteDelayContainer.createDiv();
-
-        newNoteDelaySetting.addSlider((slider) => {
-            slider
-                .setLimits(0, 5000, 50)
-                .setValue(this.plugin.settings.newNoteDelay)
-                .setDynamicTooltip()
-                .onChange(async (value) => {
-                    this.plugin.settings.newNoteDelay = value;
-                    this.plugin.debugLog('newNoteDelay', value);
-                    await this.plugin.saveSettings();
-                });
-
-            // Move slider to our custom container
-            newNoteDelaySliderDiv.appendChild(slider.sliderEl);
-        });
-
-        newNoteDelayRestoreButton.addEventListener('click', async () => {
-            this.plugin.settings.newNoteDelay = DEFAULT_SETTINGS.newNoteDelay;
-            this.plugin.debugLog('newNoteDelay', this.plugin.settings.newNoteDelay);
-            await this.plugin.saveSettings();
-
-            // Update the slider value by triggering a re-render or finding the slider element
-            const sliderInput = newNoteDelaySliderDiv.querySelector('input[type="range"]') as HTMLInputElement;
-            if (sliderInput) {
-                sliderInput.value = String(DEFAULT_SETTINGS.newNoteDelay);
-                sliderInput.dispatchEvent(new Event('input', { bubbles: true }));
-            }
-        });
-
         // Store references to conditional settings for visibility control
         this.conditionalSettings = [
             checkIntervalSetting
         ];
-
-        // Grab title from card link setting
-        const cardLinkSetting = new Setting(this.containerEl)
-            .setName("Grab title from card link");
-
-        const cardLinkDesc = cardLinkSetting.descEl;
-        cardLinkDesc.appendText("If a note starts with a card link created with ");
-        cardLinkDesc.createEl("a", {
-            text: "Auto Card Link",
-            href: "obsidian://show-plugin?id=auto-card-link"
-        });
-        cardLinkDesc.appendText(" or ");
-        cardLinkDesc.createEl("a", {
-            text: "Link Embed",
-            href: "obsidian://show-plugin?id=obsidian-link-embed"
-        });
-        cardLinkDesc.appendText(", the card link title will be put in title.");
-
-        cardLinkSetting.addToggle((toggle) =>
-            toggle
-                .setValue(this.plugin.settings.grabTitleFromCardLink)
-                .onChange(async (value) => {
-                    this.plugin.settings.grabTitleFromCardLink = value;
-                    await this.plugin.saveSettings();
-                })
-        );
-
-
-        // Show notification setting (moved from General)
-        new Setting(this.containerEl)
-            .setName("Show notification when renaming manually")
-            .setDesc("Controls when to show notifications for the 'Put first line in title' commands.")
-            .addDropdown((dropdown) =>
-                dropdown
-                    .addOption('Always', 'Always')
-                    .addOption('On title change', 'On title change')
-                    .addOption('Never', 'Never')
-                    .setValue(this.plugin.settings.manualNotificationMode)
-                    .onChange(async (value: NotificationMode) => {
-                        this.plugin.settings.manualNotificationMode = value;
-                        this.plugin.debugLog('manualNotificationMode', value);
-                        await this.plugin.saveSettings();
-                    })
-            );
 
         // Define debug function and container first
         let debugSubSettingsContainer: HTMLElement;

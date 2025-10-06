@@ -4,9 +4,7 @@ export const DEFAULT_SETTINGS: PluginSettings = {
     scopeStrategy: 'Enable in all notes except below',
     excludedFolders: [""],
     excludedTags: [""],
-    excludedProperties: [
-        { key: "no rename", value: "true" }
-    ],
+    excludedProperties: [],
     charCount: 100,
     checkInterval: 0,
     osPreset: 'macOS',
@@ -92,13 +90,17 @@ export const DEFAULT_SETTINGS: PluginSettings = {
         highlight: true,
         code: true,
         blockquote: true,
+        callouts: true,
         comments: true,
         headings: true,
         wikilinks: true,
         markdownLinks: true,
         htmlTags: true,
+        tasks: true,
+        footnotes: true,
     },
     stripMarkupInAlias: false,
+    stripCommentsEntirely: true,
     applyCustomRulesInAlias: false,
     enableForbiddenCharReplacements: false,
     enableCustomReplacements: false,
@@ -117,7 +119,7 @@ export const DEFAULT_SETTINGS: PluginSettings = {
     hasEnabledAliases: false,
     grabTitleFromCardLink: true,
     excludeSubfolders: true,
-    tagMatchingMode: 'Match tags anywhere in note' as TagMatchingMode,
+    tagMatchingMode: 'In Properties and note body' as TagMatchingMode,
     excludeChildTags: true,
     fileReadMethod: 'Editor', // Default to editor method
     verboseLogging: false, // Added default for verbose logging
@@ -172,10 +174,12 @@ export const DEFAULT_SETTINGS: PluginSettings = {
     includeNestedTags: true,
     moveCursorToFirstLine: true,
     insertTitleOnCreation: false,
-    placeCursorAtLineEnd: true,
+    placeCursorAtLineEnd: false,
     suppressMergeNotifications: false,
     newNoteDelay: 0,
-    waitForTemplate: true
+    waitForTemplate: false,
+    disableRenamingKey: "no rename",
+    disableRenamingValue: "true"
 };
 
 // OS-specific forbidden characters

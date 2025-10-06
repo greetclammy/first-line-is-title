@@ -25,9 +25,18 @@ export class CustomReplacementsTab extends SettingsTabBase {
                             this.plugin.settings.hasEnabledCustomReplacements = true;
                         }
 
+                        // Auto-toggle OFF dependent settings when disabling
+                        if (!value) {
+                            if (this.plugin.settings.applyCustomRulesInAlias) {
+                                this.plugin.settings.applyCustomRulesInAlias = false;
+                            }
+                        }
+
                         await this.plugin.saveSettings();
                         updateCustomReplacementUI();
                         renderCustomReplacements();
+                        // Notify other tabs to update dependent settings
+                        (this.plugin as any).updateAliasConditionalSettings?.();
                     });
             });
 
@@ -474,9 +483,17 @@ export class CustomReplacementsTab extends SettingsTabBase {
         processingOrderContainer = this.containerEl.createDiv({ cls: 'flit-processing-order-container' });
 
         // Apply after stripping or replacing forbidden characters
-        new Setting(processingOrderContainer)
+        const applyAfterForbiddenSetting = new Setting(processingOrderContainer)
             .setName("Apply after stripping or replacing forbidden characters")
-            .setDesc("When enabled, custom rules are applied after forbidden character replacements. When disabled, custom rules are applied before forbidden character replacements.")
+            .setDesc("");
+
+        // Create styled description
+        const applyAfterForbiddenDesc = applyAfterForbiddenSetting.descEl;
+        applyAfterForbiddenDesc.appendText("As set in ");
+        applyAfterForbiddenDesc.createEl("em", { text: "Replace characters" });
+        applyAfterForbiddenDesc.appendText(".");
+
+        applyAfterForbiddenSetting
             .addToggle((toggle) =>
                 toggle
                     .setValue(this.plugin.settings.applyCustomRulesAfterForbiddenChars)
@@ -509,7 +526,15 @@ export class CustomReplacementsTab extends SettingsTabBase {
         // Apply after markup stripping
         markupToggleSetting = new Setting(processingOrderContainer)
             .setName("Apply after markup stripping")
-            .setDesc("When enabled, custom rules are applied after markup stripping. When disabled, custom rules are applied before markup stripping. This option is only available when 'Strip markup' is enabled.")
+            .setDesc("");
+
+        // Create styled description
+        const applyAfterMarkupDesc = markupToggleSetting.descEl;
+        applyAfterMarkupDesc.appendText("As set in ");
+        applyAfterMarkupDesc.createEl("em", { text: "Strip markup" });
+        applyAfterMarkupDesc.appendText(".");
+
+        markupToggleSetting
             .addToggle((toggle) =>
                 toggle
                     .setValue(this.plugin.settings.applyCustomRulesAfterMarkupStripping)

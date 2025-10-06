@@ -909,10 +909,27 @@ hr.flit-divider {
     font-size: 16px !important;
 }
 
-/* Disabled row styling */
+/* Disabled row styling - only apply opacity to non-toggle elements */
 .flit-row-disabled {
-    opacity: 0.5;
     pointer-events: none;
+}
+
+/* For custom table rows (Replace Characters section) */
+.flit-row-disabled .flit-char-name-column,
+.flit-row-disabled .flit-char-text-input-container,
+.flit-row-disabled .flit-toggle-column {
+    opacity: 0.5;
+}
+
+/* For regular settings (Alias section) */
+.setting-item.flit-row-disabled .setting-item-name,
+.setting-item.flit-row-disabled .setting-item-description {
+    opacity: 0.5;
+}
+
+/* Also grey out the control toggle when disabled */
+.setting-item.flit-row-disabled .setting-item-control {
+    opacity: 0.6;
 }
 
 /* Keep the toggle itself interactive even in disabled rows */
@@ -1127,6 +1144,11 @@ hr.flit-divider {
 /* Bullet point styling */
 .setting-item-description ul li {
     list-style-type: disc;
+}
+
+/* Prevent toggle focus outline clipping on right edge */
+.flit-settings-page .setting-item-control {
+    padding-right: 4px;
 }
 
 /* RESTORE table horizontal scrolling - tables MUST remain scrollable */
