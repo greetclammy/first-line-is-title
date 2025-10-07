@@ -70,7 +70,7 @@ Note: to get updates for _First Line is Title_, you will have to check for and i
 
 ## 🙏 Acknowledgements
 
-- This plugin builds on [Auto Filename](https://obsidian.md/plugins?id=auto-filename) and employs some of its code.
+- This plugin builds on [Auto Filename](https://github.com/rcsaquino/obsidian-auto-filename) and employs some of its code.
 - Tag context menu functionality implements patterns from [Tag Wrangler](https://github.com/pjeby/tag-wrangler).
 
 ## 👨‍💻 What else I made
