@@ -75,6 +75,7 @@ Note: to get updates for _First Line is Title_, you will have to check for and i
 
 ## 👨‍💻 What else I made
 
+- [Copy Link](https://github.com/greetclammy/copy-link)
 - [Adapt to Current View](https://github.com/greetclammy/adapt-to-current-view/)
 
 <br>
