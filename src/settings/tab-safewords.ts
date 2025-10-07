@@ -50,11 +50,9 @@ export class SafewordsTab extends SettingsTabBase {
 
         const updateSafewordsUI = () => {
             // Update master disable state for entire section
-            if (this.plugin.settings.enableSafewords) {
-                safewordsContainer.classList.remove('flit-master-disabled');
-            } else {
-                safewordsContainer.classList.add('flit-master-disabled');
-            }
+            this.updateInteractiveState(safewordsContainer, this.plugin.settings.enableSafewords);
+            // Also update any disabled rows
+            this.updateDisabledRowsAccessibility(safewordsContainer);
         };
 
         const renderSafewords = () => {
@@ -135,28 +133,51 @@ export class SafewordsTab extends SettingsTabBase {
                     const masterEnabled = this.plugin.settings.enableSafewords;
                     const shouldApplyInlineOpacity = masterEnabled;
 
-                    // Grey out and disable inputs and toggles but not reorder/delete buttons
                     if (isEnabled) {
+                        rowEl.classList.remove('flit-row-disabled');
                         // Clear inline styles to let CSS handle it naturally
                         input.style.opacity = "";
                         input.style.pointerEvents = "";
                         input.disabled = false;
+                        input.tabIndex = 0;
+                        input.removeAttribute('aria-disabled');
                         startToggleContainer.style.opacity = "";
                         startToggleContainer.style.pointerEvents = "";
                         wholeToggleContainer.style.opacity = "";
                         wholeToggleContainer.style.pointerEvents = "";
                         caseToggleContainer.style.opacity = "";
                         caseToggleContainer.style.pointerEvents = "";
+
+                        // Re-enable toggles in containers
+                        [startToggleContainer, wholeToggleContainer, caseToggleContainer].forEach(container => {
+                            const toggleEls = container.querySelectorAll('input[type="checkbox"]');
+                            toggleEls.forEach((el: HTMLElement) => {
+                                el.tabIndex = 0;
+                                el.removeAttribute('aria-disabled');
+                            });
+                        });
                     } else {
+                        rowEl.classList.add('flit-row-disabled');
                         input.style.opacity = shouldApplyInlineOpacity ? "0.5" : "";
                         input.style.pointerEvents = "none";
                         input.disabled = true;
+                        input.tabIndex = -1;
+                        input.setAttribute('aria-disabled', 'true');
                         startToggleContainer.style.opacity = shouldApplyInlineOpacity ? "0.5" : "";
                         startToggleContainer.style.pointerEvents = "none";
                         wholeToggleContainer.style.opacity = shouldApplyInlineOpacity ? "0.5" : "";
                         wholeToggleContainer.style.pointerEvents = "none";
                         caseToggleContainer.style.opacity = shouldApplyInlineOpacity ? "0.5" : "";
                         caseToggleContainer.style.pointerEvents = "none";
+
+                        // Disable toggles in containers
+                        [startToggleContainer, wholeToggleContainer, caseToggleContainer].forEach(container => {
+                            const toggleEls = container.querySelectorAll('input[type="checkbox"]');
+                            toggleEls.forEach((el: HTMLElement) => {
+                                el.tabIndex = -1;
+                                el.setAttribute('aria-disabled', 'true');
+                            });
+                        });
                     }
                 };
 
@@ -317,7 +338,7 @@ export class SafewordsTab extends SettingsTabBase {
 
                 // Create delete button matching ExtraButton structure
                 deleteButton = buttonContainer.createEl("button", {
-                    cls: "flit-delete-button",
+                    cls: "clickable-icon flit-delete-button",
                     attr: { "aria-label": "Delete", "type": "button" }
                 });
                 setIcon(deleteButton, "x");

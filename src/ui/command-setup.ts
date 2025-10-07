@@ -105,16 +105,23 @@ export class CommandSetup {
                 condition: this.settings.ribbonVisibility.renameCurrentFile,
                 icon: 'file-pen',
                 title: 'Put first line in title',
-                callback: () => {
-                    (this.app as any).commands.executeCommandById('first-line-is-title:rename-current-file');
+                callback: async () => {
+                    const activeFile = this.app.workspace.getActiveFile();
+                    if (!activeFile || activeFile.extension !== 'md') {
+                        verboseLog(this.plugin, `Showing notice: No active editor`);
+                        new Notice("No active editor");
+                        return;
+                    }
+                    verboseLog(this.plugin, `Ribbon command triggered for ${activeFile.path} (ignoring exclusions)`);
+                    await this.plugin.renameEngine.processFile(activeFile, true, true, true);
                 }
             },
             {
                 condition: this.settings.ribbonVisibility.renameAllNotes,
                 icon: 'files',
                 title: 'Put first line in title in all notes',
-                callback: () => {
-                    (this.app as any).commands.executeCommandById('first-line-is-title:rename-all-files');
+                callback: async () => {
+                    await this.plugin.folderOperations.renameAllFiles();
                 }
             }
         ];

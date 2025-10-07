@@ -22,6 +22,34 @@ export function isValidHeading(line: string): boolean {
     return /^#{1,6}\s+.*/.test(line);
 }
 
+/**
+ * Normalize property value for frontmatter insertion
+ * Converts string values to appropriate types to avoid quotes in YAML
+ * - "true"/"false" → boolean
+ * - Numeric strings → number
+ * - "null" → null
+ * - Other strings → keep as string (YAML writes unquoted when possible)
+ */
+export function normalizePropertyValue(value: any): any {
+    // Already not a string, return as-is
+    if (typeof value !== 'string') return value;
+
+    // Convert boolean strings
+    if (value === 'true') return true;
+    if (value === 'false') return false;
+
+    // Convert null string
+    if (value === 'null') return null;
+
+    // Convert numeric strings
+    if (value !== '' && !isNaN(Number(value))) {
+        return Number(value);
+    }
+
+    // Return string as-is (YAML will write unquoted for simple strings)
+    return value;
+}
+
 // OS detection function
 export function detectOS(): OSPreset {
     // Check if we're on mobile (Android/iOS)
@@ -88,6 +116,60 @@ export function isFileInTargetFolders(file: TFile, settings: PluginSettings): bo
         for (const targetFolder of nonEmptyFolders) {
             if (filePath && filePath.startsWith(targetFolder + "/")) {
                 return true;
+            }
+        }
+    }
+
+    return false;
+}
+
+/**
+ * Check if a file has any of the excluded properties
+ * @param file The file to check
+ * @param settings Plugin settings containing excluded properties list
+ * @param app The Obsidian app instance
+ * @returns true if file has any excluded property
+ */
+export function fileHasExcludedProperties(file: TFile, settings: PluginSettings, app: App): boolean {
+    const nonEmptyProperties = settings.excludedProperties.filter(
+        prop => prop.key.trim() !== ""
+    );
+    if (nonEmptyProperties.length === 0) return false;
+
+    const fileCache = app.metadataCache.getFileCache(file);
+    if (!fileCache || !fileCache.frontmatter) return false;
+
+    const frontmatter = fileCache.frontmatter;
+
+    for (const excludedProp of nonEmptyProperties) {
+        const propKey = excludedProp.key.trim();
+        const propValue = excludedProp.value.trim();
+
+        // Check if property key exists in frontmatter
+        if (propKey in frontmatter) {
+            // If value is empty, match any value for this key
+            if (propValue === "") {
+                return true;
+            }
+
+            // If value is specified, check for exact match
+            const frontmatterValue = frontmatter[propKey];
+
+            // Handle different value types
+            if (typeof frontmatterValue === 'string') {
+                if (frontmatterValue === propValue) {
+                    return true;
+                }
+            } else if (Array.isArray(frontmatterValue)) {
+                // Check if any array element matches
+                if (frontmatterValue.some(val => String(val) === propValue)) {
+                    return true;
+                }
+            } else if (frontmatterValue != null) {
+                // Handle numbers, booleans, etc.
+                if (String(frontmatterValue) === propValue) {
+                    return true;
+                }
             }
         }
     }
@@ -186,16 +268,16 @@ export function fileHasTargetTags(file: TFile, settings: PluginSettings, app: Ap
  * Determines whether a file should be processed based on the include/exclude strategy
  *
  * Logic summary:
- * - "Enable in all notes except below": Process all files EXCEPT those in target folders/tags
+ * - "Enable in all notes except below": Process all files EXCEPT those in target folders/tags/properties
  *   - If no targets specified: Process ALL files (default enabled)
  *   - If targets specified: Process files NOT in targets (traditional exclude)
  *
- * - "Disable in all notes except below": Process ONLY files in target folders/tags
+ * - "Disable in all notes except below": Process ONLY files in target folders/tags/properties
  *   - If no targets specified: Process NO files (default disabled)
  *   - If targets specified: Process ONLY files in targets (include-only mode)
  *
  * @param file The file to check
- * @param settings Plugin settings containing strategy, folders, and tags
+ * @param settings Plugin settings containing strategy, folders, tags, and properties
  * @param app The Obsidian app instance
  * @param content Optional file content for real-time checking
  * @returns true if the file should be processed, false otherwise
@@ -203,32 +285,39 @@ export function fileHasTargetTags(file: TFile, settings: PluginSettings, app: Ap
 export function shouldProcessFile(file: TFile, settings: PluginSettings, app: App, content?: string): boolean {
     const isInTargetFolders = isFileInTargetFolders(file, settings);
     const hasTargetTags = fileHasTargetTags(file, settings, app, content);
+    const hasTargetProperties = fileHasExcludedProperties(file, settings, app);
 
-    // If file is in target folders OR has target tags, it's "targeted"
-    const isTargeted = isInTargetFolders || hasTargetTags;
+    // If file is in target folders OR has target tags OR has target properties, it's "targeted"
+    const isTargeted = isInTargetFolders || hasTargetTags || hasTargetProperties;
 
     // Check if any targets are actually specified
     const hasAnyTargets = (
         settings.excludedFolders.some(folder => folder.trim() !== "") ||
-        settings.excludedTags.some(tag => tag.trim() !== "")
+        settings.excludedTags.some(tag => tag.trim() !== "") ||
+        settings.excludedProperties.some(prop => prop.key.trim() !== "")
     );
 
     // Apply strategy logic
     if (settings.scopeStrategy === 'Enable in all notes except below') {
-        // Enable renaming in all notes EXCEPT those in the specified folders/tags
-        // The list contains folders/tags where renaming should be DISABLED
+        // Enable renaming in all notes EXCEPT those in the specified folders/tags/properties
+        // The list contains folders/tags/properties where renaming should be DISABLED
         // If no targets specified, enable renaming for all files
         return hasAnyTargets ? !isTargeted : true;
     } else {
         // 'Disable in all notes except below'
-        // Disable renaming in all notes EXCEPT those in the specified folders/tags
-        // The list contains folders/tags where renaming should be ENABLED
+        // Disable renaming in all notes EXCEPT those in the specified folders/tags/properties
+        // The list contains folders/tags/properties where renaming should be ENABLED
         // If no targets specified, disable renaming for all files
         return hasAnyTargets ? isTargeted : false;
     }
 }
 
 export function isFileExcluded(file: TFile, settings: PluginSettings, app: App, content?: string): boolean {
+    // Check property exclusions
+    if (fileHasExcludedProperties(file, settings, app)) {
+        return true;
+    }
+
     // Check folder exclusions
     if (inExcludedFolder(file, settings)) {
         return true;
@@ -355,36 +444,40 @@ function stripFrontmatter(content: string): string {
     return lines.slice(endIndex + 1).join('\n');
 }
 
-export function hasDisableProperty(content: string, disableKey: string, disableValue: string): boolean {
-    // Check if content starts with frontmatter
-    if (!content.startsWith("---")) return false;
-
-    // Find the end of the first frontmatter block
-    const frontmatterEnd = content.indexOf("---", 3);
-    if (frontmatterEnd === -1) return false;
-
-    // Extract frontmatter content
-    const frontmatter = content.slice(3, frontmatterEnd);
-
-    // Escape special regex characters in key and value
-    const escapeRegex = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const escapedKey = escapeRegex(disableKey);
-    const escapedValue = escapeRegex(disableValue);
-
-    // Check for the property (case-insensitive, with or without quotes)
-    const patterns = [
-        new RegExp(`^\\s*${escapedKey}\\s*:\\s*"${escapedValue}"\\s*$`, 'im'),
-        new RegExp(`^\\s*${escapedKey}\\s*:\\s*'${escapedValue}'\\s*$`, 'im'),
-        new RegExp(`^\\s*${escapedKey}\\s*:\\s*${escapedValue}\\s*$`, 'im')
-    ];
-
-    return patterns.some(regex => regex.test(frontmatter));
-}
-
 export async function hasDisablePropertyInFile(file: TFile, app: App, disableKey: string, disableValue: string): Promise<boolean> {
     try {
-        const content = await app.vault.read(file);
-        return hasDisableProperty(content, disableKey, disableValue);
+        // Use Obsidian's metadata cache to read frontmatter (already parsed YAML)
+        const metadata = app.metadataCache.getFileCache(file);
+        const frontmatter = metadata?.frontmatter;
+
+        if (!frontmatter) return false;
+
+        // Get the property value
+        const propertyValue = frontmatter[disableKey];
+
+        if (propertyValue === undefined || propertyValue === null) return false;
+
+        // Normalize disableValue for comparison
+        const normalizedDisableValue = normalizePropertyValue(disableValue);
+
+        // Handle array/list values
+        if (Array.isArray(propertyValue)) {
+            // Check if any item in the array matches (case-insensitive for strings)
+            return propertyValue.some(item => {
+                if (typeof item === 'string' && typeof normalizedDisableValue === 'string') {
+                    return item.toLowerCase() === normalizedDisableValue.toLowerCase();
+                }
+                return item === normalizedDisableValue;
+            });
+        }
+
+        // Handle single values (case-insensitive comparison for strings)
+        if (typeof propertyValue === 'string' && typeof normalizedDisableValue === 'string') {
+            return propertyValue.toLowerCase() === normalizedDisableValue.toLowerCase();
+        }
+
+        // Direct comparison for non-string types
+        return propertyValue === normalizedDisableValue;
     } catch (error) {
         return false;
     }

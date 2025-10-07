@@ -129,6 +129,7 @@ export interface PluginSettings {
     applyCustomRulesAfterForbiddenChars: boolean;
     applyCustomRulesAfterMarkupStripping: boolean;
     enableSafewords: boolean;
+    renameOnTabClose: boolean;
     renameOnFocus: boolean;
     renameOnSave: boolean;
     renameNotes: "automatically" | "manually";
@@ -148,6 +149,7 @@ export interface PluginSettings {
     debugOutputFullContent: boolean; // Output full file content in console when files change
     hasShownFirstTimeNotice: boolean; // Track if first-time setup notice has been shown
     hasSetupExclusions: boolean; // Track if exclusions tab has been opened for first-time setup
+    hasSetPropertyType: boolean; // Track if property type has been set in types.json on first load
     lastUsageDate: string; // Last date the plugin was used (YYYY-MM-DD format)
     currentSettingsTab: string; // Track current settings tab
     commandVisibility: {

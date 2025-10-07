@@ -47,6 +47,8 @@ export class AdvancedTab extends SettingsTabBase {
         keyInput.addEventListener('input', async (e) => {
             this.plugin.settings.disableRenamingKey = (e.target as HTMLInputElement).value;
             await this.plugin.saveSettings();
+            // Update property type when key changes
+            await this.plugin.propertyManager.updatePropertyTypeFromSettings();
         });
 
         const valueInput = propertyContainer.createEl("input", { type: "text" });
@@ -56,6 +58,8 @@ export class AdvancedTab extends SettingsTabBase {
         valueInput.addEventListener('input', async (e) => {
             this.plugin.settings.disableRenamingValue = (e.target as HTMLInputElement).value;
             await this.plugin.saveSettings();
+            // Update property type when value changes
+            await this.plugin.propertyManager.updatePropertyTypeFromSettings();
         });
 
         propertyRestoreButton.addEventListener('click', async () => {
@@ -64,6 +68,8 @@ export class AdvancedTab extends SettingsTabBase {
             keyInput.value = DEFAULT_SETTINGS.disableRenamingKey;
             valueInput.value = DEFAULT_SETTINGS.disableRenamingValue;
             await this.plugin.saveSettings();
+            // Update property type when restored to default
+            await this.plugin.propertyManager.updatePropertyTypeFromSettings();
         });
 
         // Show notification setting (moved from General)
@@ -122,7 +128,7 @@ export class AdvancedTab extends SettingsTabBase {
             .setDesc("");
 
         const newNoteDelayDesc = newNoteDelaySetting.descEl;
-        newNoteDelayDesc.appendText("Delay all operations on new notes by this amount in milliseconds. May resolve issues on note creation.");
+        newNoteDelayDesc.appendText("Delay operations on new notes by this amount in milliseconds. May resolve issues on note creation.");
         newNoteDelayDesc.createEl("br");
         newNoteDelayDesc.createEl("small").createEl("strong", { text: "Default: 0" });
 
@@ -376,6 +382,11 @@ export class AdvancedTab extends SettingsTabBase {
                             this.plugin.settings.lastUsageDate = this.plugin.getTodayDateString();
 
                             // Save the cleared settings
+                            await this.plugin.saveSettings();
+
+                            // Set default property type in types.json
+                            await this.plugin.propertyManager.updatePropertyTypeFromSettings();
+                            this.plugin.settings.hasSetPropertyType = true;
                             await this.plugin.saveSettings();
 
                             // Show notification

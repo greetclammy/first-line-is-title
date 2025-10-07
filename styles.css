@@ -216,7 +216,6 @@
 
 .flit-table-wrapper {
     width: fit-content;
-    min-width: 735px; /* Match our table width */
     max-width: none; /* Allow tables to be wider than viewport */
 }
 
@@ -228,8 +227,7 @@
     font-weight: bold;
     font-size: 0.9em;
     gap: 8px;
-    width: fit-content;
-    min-width: 735px;
+    width: 100%;
 }
 
 .flit-custom-replacement-header .flit-toggle-column:first-of-type,
@@ -252,8 +250,7 @@
     padding: 8px 0;
     border-bottom: 1px solid var(--background-modifier-border);
     gap: 8px;
-    width: fit-content;
-    min-width: 735px;
+    width: 100%;
 }
 
 .flit-custom-replacement-setting .flit-toggle-column:first-of-type,
@@ -268,8 +265,7 @@
 
 .flit-custom-replacement-setting:last-of-type, .flit-safeword-setting:last-of-type {
     border-bottom: 1px solid var(--background-modifier-border);
-    width: fit-content;
-    min-width: 735px;
+    width: 100%;
 }
 
 .flit-custom-replacement-setting.hidden, .flit-safeword-setting.hidden {
@@ -285,18 +281,18 @@
 }
 
 .flit-text-column {
-    width: 200px;
-    min-width: 200px;
-    max-width: 200px;
+    width: 184px;
+    min-width: 184px;
+    max-width: 184px;
     flex-shrink: 0;
     text-align: left;
     overflow: hidden;
 }
 
 .flit-text-column.flit-safeword-input {
-    width: 330px;
-    min-width: 330px;
-    max-width: 330px;
+    width: 298px;
+    min-width: 298px;
+    max-width: 298px;
 }
 
 .flit-text-column input {
@@ -322,9 +318,9 @@
 }
 
 .flit-actions-column {
-    width: 80px;
-    min-width: 80px;
-    max-width: 80px;
+    width: 104px;
+    min-width: 104px;
+    max-width: 104px;
     flex-shrink: 0;
 }
 
@@ -423,37 +419,7 @@
     opacity: 0.5;
 }
 
-/* Replicate Obsidian's native extra button styling */
-.flit-delete-button {
-    background: none !important;
-    border: none !important;
-    outline: none !important;
-    box-shadow: none !important;
-    color: currentColor;
-    cursor: pointer;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    padding: 3px;
-    border-radius: 3px;
-    opacity: 0.6;
-    font-size: 16px;
-    transition: opacity 100ms ease-in-out;
-}
-.flit-delete-button:focus {
-    outline: none !important;
-    box-shadow: none !important;
-    border: none !important;
-}
-.flit-delete-button:active {
-    outline: none !important;
-    box-shadow: none !important;
-    border: none !important;
-}
-.flit-delete-button:hover {
-    opacity: 1;
-    background: var(--background-modifier-hover);
-}
+/* Delete button inherits from clickable-icon, no additional styling needed */
 
 /* Maximize excluded folder text input width */
 .flit-excluded-folder-setting {
@@ -589,6 +555,7 @@
 .flit-settings-tab-bar {
     display: grid;
     gap: 4px;
+    padding: 4px;
     padding-bottom: 1rem;
     width: 100%;
     max-width: 100%;
@@ -704,6 +671,15 @@
 
 .flit-settings-tab:hover:not(.flit-settings-tab-active) {
     background-color: var(--background-modifier-hover);
+}
+
+.flit-settings-tab:focus {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+}
+
+.flit-settings-tab:focus:not(:focus-visible) {
+    outline: none;
 }
 
 .flit-settings-tab-active {
@@ -891,12 +867,20 @@ hr.flit-divider {
     flex-shrink: 0 !important;
     width: 32px !important;
     height: 32px !important;
-    min-width: 32px !important;
-    min-height: 32px !important;
-    display: flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    font-size: 16px !important;
+}
+
+/* Property container - ensure it doesn't push X button off screen */
+.flit-property-container {
+    flex: 1 !important;
+    min-width: 0 !important;
+    width: auto !important;
+}
+
+/* Property inputs - make them flexible at narrow widths */
+.flit-property-key-input,
+.flit-property-value-input {
+    flex: 1 !important;
+    min-width: 60px !important;
 }
 
 
@@ -937,6 +921,17 @@ hr.flit-divider {
     pointer-events: auto;
 }
 
+/* Keep reorder and delete buttons interactive even in disabled rows */
+.flit-row-disabled .flit-actions-column {
+    pointer-events: auto;
+    opacity: 1;
+}
+
+/* But disable enable column when master toggle is OFF */
+.flit-master-disabled .flit-enable-column {
+    pointer-events: none;
+}
+
 /* Master disabled section styling */
 .flit-master-disabled {
     opacity: 0.5;
@@ -958,6 +953,17 @@ hr.flit-divider {
 
 /* Prevent opacity stacking - disabled rows inside disabled sections */
 .flit-master-disabled .flit-row-disabled {
+    opacity: 1;
+}
+
+/* Prevent opacity stacking for child elements - when master is disabled, child elements
+   inside disabled rows should not get additional opacity (universal fix for all sections) */
+.flit-master-disabled .flit-row-disabled .flit-char-name-column,
+.flit-master-disabled .flit-row-disabled .flit-char-text-input-container,
+.flit-master-disabled .flit-row-disabled .flit-toggle-column,
+.flit-master-disabled .setting-item.flit-row-disabled .setting-item-name,
+.flit-master-disabled .setting-item.flit-row-disabled .setting-item-description,
+.flit-master-disabled .setting-item.flit-row-disabled .setting-item-control {
     opacity: 1;
 }
 
@@ -1151,6 +1157,21 @@ hr.flit-divider {
     padding-right: 4px;
 }
 
+/* Property disable container - wrap to vertical layout earlier */
+@media (max-width: 950px) {
+    .setting-item:has(.flit-property-disable-container) {
+        flex-wrap: wrap !important;
+    }
+
+    .setting-item:has(.flit-property-disable-container) .setting-item-info {
+        flex-basis: 100%;
+    }
+
+    .setting-item:has(.flit-property-disable-container) .setting-item-control {
+        justify-content: flex-start;
+    }
+}
+
 /* RESTORE table horizontal scrolling - tables MUST remain scrollable */
 .flit-table-container {
     overflow-x: auto !important;
@@ -1191,4 +1212,26 @@ hr.flit-divider {
     position: absolute !important;
     z-index: 9999 !important;
     overflow: visible !important;
+}
+
+/* ==========================================================================
+   Link and Button Focus Accessibility
+   ========================================================================== */
+
+/* Make focused links in setting descriptions look the same as hovered links */
+.setting-item-description a:focus {
+    color: var(--link-color-hover, var(--text-accent-hover));
+    text-decoration: underline;
+}
+
+/* Ensure link focus styling works in all contexts */
+.mod-settings a:focus {
+    color: var(--link-color-hover, var(--text-accent-hover));
+    text-decoration: underline;
+}
+
+/* Fix Leave feedback button focus outline clipping */
+.flit-leave-feedback-button {
+    /* Add margin to create space for outline */
+    margin: 4px 0 !important;
 }

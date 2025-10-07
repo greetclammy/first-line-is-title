@@ -11,16 +11,31 @@ export class PropertyVisibility {
     }
 
     /**
-     * Sets up property hiding for a specific property key using DOM observation
+     * Parse comma-separated property keys from settings
+     * @returns Array of property keys, defaults to ['aliases'] if empty
      */
-    private setupPropertyHiding(propertyKey: string): void {
+    private getAliasPropertyKeys(): string[] {
+        const aliasPropertyKey = this.settings.aliasPropertyKey || 'aliases';
+        return aliasPropertyKey
+            .split(',')
+            .map(key => key.trim())
+            .filter(key => key.length > 0);
+    }
+
+    /**
+     * Sets up property hiding for specified property keys using DOM observation
+     */
+    private setupPropertyHiding(propertyKeys: string[]): void {
         // Clean up existing observer
         this.cleanupPropertyObserver();
 
         // Create new observer to watch for property changes
         this.propertyObserver = new MutationObserver((mutations) => {
             mutations.forEach(() => {
-                this.hideProperties(propertyKey);
+                // Hide all specified properties
+                propertyKeys.forEach(propertyKey => {
+                    this.hideProperties(propertyKey);
+                });
             });
         });
 
@@ -32,8 +47,10 @@ export class PropertyVisibility {
             attributeFilter: ['data-property-key']
         });
 
-        // Initial hide
-        this.hideProperties(propertyKey);
+        // Initial hide for all properties
+        propertyKeys.forEach(propertyKey => {
+            this.hideProperties(propertyKey);
+        });
     }
 
     /**
@@ -177,11 +194,11 @@ export class PropertyVisibility {
             return; // No hiding needed
         }
 
-        const propertyKey = this.settings.aliasPropertyKey || 'aliases';
+        const propertyKeys = this.getAliasPropertyKeys();
 
         if (this.settings.hideAliasProperty === 'always' || this.settings.hideAliasProperty === 'when_empty') {
             // Use DOM observation for both modes to handle container hiding properly
-            this.setupPropertyHiding(propertyKey);
+            this.setupPropertyHiding(propertyKeys);
         }
     }
 

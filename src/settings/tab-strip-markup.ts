@@ -39,11 +39,9 @@ export class StripMarkupTab extends SettingsTabBase {
         const stripMarkupContainer = this.containerEl.createDiv({ cls: 'flit-strip-markup-container' });
 
         const updateStripMarkupUI = () => {
-            if (this.plugin.settings.enableStripMarkup) {
-                stripMarkupContainer.classList.remove('flit-master-disabled');
-            } else {
-                stripMarkupContainer.classList.add('flit-master-disabled');
-            }
+            this.updateInteractiveState(stripMarkupContainer, this.plugin.settings.enableStripMarkup);
+            // Also update any disabled rows
+            this.updateDisabledRowsAccessibility(stripMarkupContainer);
         };
 
         // Individual markup toggles

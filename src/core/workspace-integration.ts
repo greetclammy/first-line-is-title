@@ -1,4 +1,4 @@
-import { TFile, MarkdownView, setIcon } from "obsidian";
+import { TFile, MarkdownView, setIcon, Notice } from "obsidian";
 import { verboseLog } from '../utils';
 import FirstLineIsTitle from '../../main';
 
@@ -130,16 +130,23 @@ export class WorkspaceIntegration {
                 condition: this.settings.ribbonVisibility.renameCurrentFile,
                 icon: 'file-pen',
                 title: 'Put first line in title',
-                callback: () => {
-                    (this.app as any).commands.executeCommandById('first-line-is-title:rename-current-file');
+                callback: async () => {
+                    const activeFile = this.app.workspace.getActiveFile();
+                    if (!activeFile || activeFile.extension !== 'md') {
+                        verboseLog(this.plugin, `Showing notice: No active editor`);
+                        new Notice("No active editor");
+                        return;
+                    }
+                    verboseLog(this.plugin, `Ribbon command triggered for ${activeFile.path} (ignoring exclusions)`);
+                    await this.renameEngine.processFile(activeFile, true, true, true);
                 }
             },
             {
                 condition: this.settings.ribbonVisibility.renameAllNotes,
                 icon: 'files',
                 title: 'Put first line in title in all notes',
-                callback: () => {
-                    (this.app as any).commands.executeCommandById('first-line-is-title:rename-all-files');
+                callback: async () => {
+                    await this.plugin.folderOperations.renameAllFiles();
                 }
             }
         ];
@@ -171,9 +178,9 @@ export class WorkspaceIntegration {
                 if (!checking && this.settings.renameOnSave) {
                     const activeFile = this.app.workspace.getActiveFile();
                     if (activeFile && activeFile.extension === 'md') {
-                        // Run rename (unless excluded) with no delay and suppress notices
+                        // Run rename (unless excluded) with no delay and show notices like manual command
                         setTimeout(() => {
-                            this.renameEngine.processFile(activeFile, true, false);
+                            this.renameEngine.processFile(activeFile, true, false, true);
                         }, 100); // Small delay to ensure save is complete
                     }
                 }
@@ -264,41 +271,6 @@ export class WorkspaceIntegration {
                 }, this.settings.newNoteDelay);
 
                 this.plugin.editorLifecycle.setCreationDelayTimer(file.path, timer);
-            })
-        );
-
-        // Position cursor when file opens if it was just created
-        this.plugin.registerEvent(
-            this.app.workspace.on("file-open", (file) => {
-                if (!this.settings.moveCursorToFirstLine) return;
-                if (!file || file.extension !== 'md') return;
-                if (this.settings.insertTitleOnCreation) return; // Title insertion handles cursor
-
-                // Check if file was created in the last 2 seconds (using file stats)
-                const now = Date.now();
-                const createdTime = file.stat.ctime;
-                const isNewFile = (now - createdTime) < 2000;
-
-                if (!isNewFile) return;
-
-                // Wait for editor to be ready, then position cursor
-                setTimeout(() => {
-                    const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
-                    if (activeView && activeView.file === file) {
-                        const editor = activeView.editor;
-                        if (editor) {
-                            if (this.settings.placeCursorAtLineEnd) {
-                                const firstLineLength = editor.getLine(0).length;
-                                editor.setCursor({ line: 0, ch: firstLineLength });
-                                verboseLog(this.plugin, `Moved cursor to end of first line (${firstLineLength} chars): ${file.path}`);
-                            } else {
-                                editor.setCursor({ line: 0, ch: 0 });
-                                verboseLog(this.plugin, `Moved cursor to beginning of first line: ${file.path}`);
-                            }
-                            editor.focus();
-                        }
-                    }
-                }, 50);
             })
         );
     }

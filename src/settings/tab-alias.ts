@@ -15,8 +15,14 @@ export class PropertiesTab extends SettingsTabBase {
             applyCustomRulesInAliasSetting.components[0].setDisabled(!customRulesEnabled);
             if (customRulesEnabled) {
                 applyCustomRulesInAliasSetting.settingEl.classList.remove('flit-row-disabled');
+                applyCustomRulesToggle.toggleEl.tabIndex = 0;
+                applyCustomRulesToggle.toggleEl.removeAttribute('aria-disabled');
+                applyCustomRulesToggle.toggleEl.style.pointerEvents = '';
             } else {
                 applyCustomRulesInAliasSetting.settingEl.classList.add('flit-row-disabled');
+                applyCustomRulesToggle.toggleEl.tabIndex = -1;
+                applyCustomRulesToggle.toggleEl.setAttribute('aria-disabled', 'true');
+                applyCustomRulesToggle.toggleEl.style.pointerEvents = 'none';
                 // Force setting to OFF when master toggle is disabled
                 if (this.plugin.settings.applyCustomRulesInAlias) {
                     this.plugin.settings.applyCustomRulesInAlias = false;
@@ -30,8 +36,14 @@ export class PropertiesTab extends SettingsTabBase {
             stripMarkupInAliasSetting.components[0].setDisabled(!stripMarkupEnabled);
             if (stripMarkupEnabled) {
                 stripMarkupInAliasSetting.settingEl.classList.remove('flit-row-disabled');
+                stripMarkupToggle.toggleEl.tabIndex = 0;
+                stripMarkupToggle.toggleEl.removeAttribute('aria-disabled');
+                stripMarkupToggle.toggleEl.style.pointerEvents = '';
             } else {
                 stripMarkupInAliasSetting.settingEl.classList.add('flit-row-disabled');
+                stripMarkupToggle.toggleEl.tabIndex = -1;
+                stripMarkupToggle.toggleEl.setAttribute('aria-disabled', 'true');
+                stripMarkupToggle.toggleEl.style.pointerEvents = 'none';
                 // Force setting to OFF when master toggle is disabled
                 if (this.plugin.settings.stripMarkupInAlias) {
                     this.plugin.settings.stripMarkupInAlias = false;
@@ -81,11 +93,9 @@ export class PropertiesTab extends SettingsTabBase {
 
         const renderAliasSettings = () => {
             // Update master disable state for entire section
-            if (this.plugin.settings.enableAliases) {
-                aliasContainer.classList.remove('flit-master-disabled');
-            } else {
-                aliasContainer.classList.add('flit-master-disabled');
-            }
+            this.updateInteractiveState(aliasContainer, this.plugin.settings.enableAliases);
+            // Also update any disabled rows
+            this.updateDisabledRowsAccessibility(aliasContainer);
 
             // Update visual state of all toggles
             const showActualState = this.plugin.settings.hasEnabledAliases;
@@ -122,11 +132,12 @@ export class PropertiesTab extends SettingsTabBase {
 
         // Create styled description for alias property key
         const aliasKeyDesc = aliasPropertyKeySetting.descEl;
-        aliasKeyDesc.appendText("Configure the property key in which to insert the alias. Use comma-separated values to populate multiple properties at once (e.g., 'aliases, title').\nUse the default to make it searchable in the Quick switcher. You can also set this property as note title in ");
-        const omnisearchLink = aliasKeyDesc.createEl("a", { text: "Omnisearch" });
-        omnisearchLink.href = "obsidian://show-plugin?id=obsidian-omnisearch";
-        omnisearchLink.style.color = "var(--text-accent)";
-        aliasKeyDesc.appendText(" settings.");
+        aliasKeyDesc.appendText("Set the property key in which to insert the alias. Use 'aliases' to make the alias searchable in the Quick switcher. You can also set this property as note title in ");
+        aliasKeyDesc.createEl("a", {
+            text: "Omnisearch",
+            href: "obsidian://show-plugin?id=obsidian-omnisearch"
+        });
+        aliasKeyDesc.appendText(" settings. To populate multiple properties, separate by comma (e.g. 'aliases, title').");
         aliasKeyDesc.createEl("br");
         aliasKeyDesc.createEl("small").createEl("strong", { text: "Default: aliases" });
 
@@ -215,6 +226,13 @@ export class PropertiesTab extends SettingsTabBase {
                         this.plugin.debugLog('applyCustomRulesInAlias', value);
                         await this.plugin.saveSettings();
                     });
+
+                // Set initial accessibility state
+                if (!this.plugin.settings.enableCustomReplacements) {
+                    toggle.toggleEl.tabIndex = -1;
+                    toggle.toggleEl.setAttribute('aria-disabled', 'true');
+                    toggle.toggleEl.style.pointerEvents = 'none';
+                }
             });
 
         const stripMarkupInAliasSetting = new Setting(aliasContainer)
@@ -238,6 +256,13 @@ export class PropertiesTab extends SettingsTabBase {
                         this.plugin.debugLog('stripMarkupInAlias', value);
                         await this.plugin.saveSettings();
                     });
+
+                // Set initial accessibility state
+                if (!this.plugin.settings.enableStripMarkup) {
+                    toggle.toggleEl.tabIndex = -1;
+                    toggle.toggleEl.setAttribute('aria-disabled', 'true');
+                    toggle.toggleEl.style.pointerEvents = 'none';
+                }
             });
 
         const keepEmptyAliasPropertySetting = new Setting(aliasContainer)

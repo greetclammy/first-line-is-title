@@ -43,7 +43,7 @@ export class IncludeExcludeTab extends SettingsTabBase {
 
         // Exclude subfolders setting
         const subfolderSetting = new Setting(this.containerEl)
-            .setName("Apply to subfolders")
+            .setName("Match subfolders")
             .setDesc("Also apply to all subfolders of folders listed below.")
             .addToggle((toggle) =>
                 toggle
@@ -208,7 +208,7 @@ export class IncludeExcludeTab extends SettingsTabBase {
         // Tag matching mode setting under Tags heading
         const tagMatchingSetting = new Setting(this.containerEl)
             .setName("Match tags")
-            .setDesc("Configure how tags should be matched.")
+            .setDesc("Configure where tags should be matched.")
             .addDropdown((dropdown) =>
                 dropdown
                     .addOption('In Properties and note body', 'In Properties and note body')
@@ -228,7 +228,7 @@ export class IncludeExcludeTab extends SettingsTabBase {
 
         // Exclude child tags setting
         const childTagsSetting = new Setting(this.containerEl)
-            .setName("Apply to child tags")
+            .setName("Match child tags")
             .setDesc("For example, also match #parent/child if #parent is listed below.")
             .addToggle((toggle) =>
                 toggle
@@ -389,7 +389,7 @@ export class IncludeExcludeTab extends SettingsTabBase {
         const propertyTip = this.containerEl.createEl("p", { cls: "setting-item-description" });
         propertyTip.style.marginTop = "0px";
         propertyTip.style.marginBottom = "15px";
-        propertyTip.appendText('Tip: a property that cannot be overridden by any of the plugin\'s commands can be set in ');
+        propertyTip.appendText('Tip: a property to disable renaming that cannot be overridden by any of the plugin\'s commands can be set in ');
         propertyTip.createEl('em', { text: 'Miscellaneous' });
         propertyTip.appendText(' settings.');
 
@@ -458,22 +458,20 @@ export class IncludeExcludeTab extends SettingsTabBase {
                 propertyInputContainer.style.display = "flex";
                 propertyInputContainer.style.gap = "10px";
                 propertyInputContainer.style.alignItems = "center";
-                propertyInputContainer.style.width = "100%";
 
                 // Key input
                 keyInput = propertyInputContainer.createEl("input", { type: "text", cls: "flit-property-key-input" });
                 keyInput.placeholder = "key";
-                keyInput.style.width = "120px";
                 keyInput.value = property.key;
 
                 // Colon separator
                 const colonSpan = propertyInputContainer.createEl("span", { text: ":" });
                 colonSpan.style.color = "var(--text-muted)";
+                colonSpan.style.flexShrink = "0";
 
                 // Value input
                 valueInput = propertyInputContainer.createEl("input", { type: "text", cls: "flit-property-value-input" });
                 valueInput.placeholder = "value";
-                valueInput.style.width = "120px";
                 valueInput.value = property.value;
 
                 // Event listeners for inputs

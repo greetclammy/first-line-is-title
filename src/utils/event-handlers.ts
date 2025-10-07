@@ -38,7 +38,7 @@ export class EventHandlers {
                     if (activeFile && activeFile.extension === 'md') {
                         // Use a small delay to ensure save is completed
                         setTimeout(() => {
-                            this.plugin.renameEngine.processFile(activeFile, true, false).catch((error) => {
+                            this.plugin.renameEngine.processFile(activeFile, true, false, true).catch((error) => {
                                 console.error(`SAVE: Failed to process file ${activeFile.path}:`, error);
                             });
                         }, 50);

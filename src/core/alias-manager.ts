@@ -1,6 +1,6 @@
 import { TFile, MarkdownView } from "obsidian";
 import { PluginSettings } from '../types';
-import { verboseLog, shouldProcessFile, extractTitle } from '../utils';
+import { verboseLog, shouldProcessFile, extractTitle, hasDisablePropertyInFile } from '../utils';
 import FirstLineIsTitle from '../../main';
 
 // Global variables for alias management
@@ -33,7 +33,7 @@ export class AliasManager {
             .filter(key => key.length > 0);
     }
 
-    async updateAliasIfNeeded(file: TFile, providedContent?: string): Promise<void> {
+    async updateAliasIfNeeded(file: TFile, providedContent?: string, targetFileName?: string): Promise<void> {
         // Track plugin usage
         this.plugin.trackUsage();
 
@@ -61,6 +61,12 @@ export class AliasManager {
                 return;
             }
 
+            // Skip if file has the disable property
+            if (await hasDisablePropertyInFile(file, this.app, this.settings.disableRenamingKey, this.settings.disableRenamingValue)) {
+                verboseLog(this.plugin, `Skipping alias update - file has disable property: ${file.path}`);
+                return;
+            }
+
             // Get the current content
             let content: string;
             if (providedContent !== undefined) {
@@ -85,6 +91,10 @@ export class AliasManager {
             const firstLine = lines.length > 0 ? lines[0] : '';
 
             if (!firstLine || firstLine.trim() === '') {
+                // Content is empty - remove any existing aliases if aliases are enabled
+                if (this.settings.enableAliases) {
+                    await this.removePluginAliasesFromFile(file);
+                }
                 return;
             }
 
@@ -99,9 +109,9 @@ export class AliasManager {
 
             // Process the first line to get what would become the filename/alias
             const processedFirstLine = extractTitle(firstLine, this.settings);
-            // By this point, file has been renamed, so compare processed first line to current filename
-            const currentFileName = file.basename.trim();
-            const processedLineMatchesFilename = (processedFirstLine.trim() === currentFileName);
+            // Use target filename if provided (before rename), otherwise use current filename (after rename)
+            const fileNameToCompare = targetFileName !== undefined ? targetFileName.trim() : file.basename.trim();
+            const processedLineMatchesFilename = (processedFirstLine.trim() === fileNameToCompare);
 
             // Determine if we should have an alias based on settings
             const shouldHaveAlias = !this.settings.addAliasOnlyIfFirstLineDiffers || !processedLineMatchesFilename;
@@ -153,12 +163,8 @@ export class AliasManager {
             try {
                 verboseLog(this.plugin, `Adding alias to ${file.path} - no correct alias found`);
 
-                // Use the actual current filename (file has already been renamed at this point)
-                // This ensures we compare alias against the actual filename with forbidden chars replaced
-                const currentFileName = file.basename.trim();
-
                 // Update the alias using existing logic
-                await this.addAliasToFile(file, firstLine, currentFileName, content);
+                await this.addAliasToFile(file, firstLine, fileNameToCompare, content);
 
             } finally {
                 // Always remove the lock, even if there was an error
@@ -405,7 +411,14 @@ export class AliasManager {
             verboseLog(this.plugin, `Updated alias \`${aliasToAdd}\` in ${currentFileForUpdate.path}`);
 
         } catch (error) {
-            console.error(`Failed to add alias to file ${file.path}:`, error);
+            // Check if this is an ENOENT error (file was renamed during async operation)
+            if ((error as any).code === 'ENOENT') {
+                // File was renamed during operation - this is expected race condition, log as info
+                console.log(`[FLIT] Skipping alias addition - file was renamed during operation: ${file.path}`);
+            } else {
+                // Unexpected error, log it
+                console.error(`Failed to add alias to file ${file.path}:`, error);
+            }
             // Don't throw - alias addition failure shouldn't prevent the rename
         }
     }
@@ -482,7 +495,14 @@ export class AliasManager {
             this.plugin.pendingMetadataUpdates.add(currentFileForRemoval.path);
             verboseLog(this.plugin, `Removed plugin aliases from ${currentFileForRemoval.path}`);
         } catch (error) {
-            console.error(`Failed to remove plugin aliases from ${file.path}:`, error);
+            // Check if this is an ENOENT error (file was renamed during async operation)
+            if ((error as any).code === 'ENOENT') {
+                // File was renamed during operation - this is expected race condition, log as info
+                console.log(`[FLIT] Skipping alias removal - file was renamed during operation: ${file.path}`);
+            } else {
+                // Unexpected error, log it
+                console.error(`Failed to remove plugin aliases from ${file.path}:`, error);
+            }
         }
     }
 

@@ -87,6 +87,9 @@ export class EditorLifecycleManager {
         // Clear any existing system
         this.clearCheckingSystems();
 
+        // Always track active editors for tab close detection
+        this.trackActiveEditors();
+
         if (this.settings.checkInterval === 0) {
             // Use event-based immediate checking
             this.setupEventBasedChecking();
@@ -109,9 +112,6 @@ export class EditorLifecycleManager {
      */
     private setupThrottleBasedChecking(): void {
         verboseLog(this.plugin, `Setting up throttle-based checking (${this.settings.checkInterval}ms delay)`);
-
-        // Track active editors for tab close detection
-        this.trackActiveEditors();
     }
 
     /**
@@ -162,7 +162,7 @@ export class EditorLifecycleManager {
         }
 
         // Process files that were closed (in old map but not in new map)
-        if (this.isFullyLoaded && this.settings.renameNotes === "automatically") {
+        if (this.isFullyLoaded && this.settings.renameNotes === "automatically" && this.settings.renameOnTabClose) {
             for (const [filePath, oldData] of this.activeEditorFiles) {
                 if (!newActiveFiles.has(filePath)) {
                     // Check if this TFile object still exists in new tracking (just renamed, not closed)

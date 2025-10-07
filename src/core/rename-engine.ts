@@ -5,7 +5,7 @@ import {
     verboseLog,
     detectOS,
     shouldProcessFile,
-    hasDisableProperty,
+    hasDisablePropertyInFile,
     containsSafeword,
     extractTitle,
     isValidHeading
@@ -288,7 +288,7 @@ export class RenameEngine {
         }
 
         // Check if this file has the disable property (always respect the property setting)
-        if (hasDisableProperty(content, this.plugin.settings.disableRenamingKey, this.plugin.settings.disableRenamingValue)) {
+        if (await hasDisablePropertyInFile(file, this.plugin.app, this.plugin.settings.disableRenamingKey, this.plugin.settings.disableRenamingValue)) {
             verboseLog(this.plugin, `Skipping file with disable property: ${file.path}`);
             return { success: false, reason: 'property-disabled' };
         }
@@ -685,7 +685,7 @@ export class RenameEngine {
 
         // File passed exclusion checks - process aliases when enabled
         if (this.plugin.settings.enableAliases) {
-            await this.plugin.aliasManager.updateAliasIfNeeded(file, originalContentWithFrontmatter);
+            await this.plugin.aliasManager.updateAliasIfNeeded(file, originalContentWithFrontmatter, newFileName);
         }
 
         try {

@@ -18,13 +18,16 @@ export class GeneralTab extends SettingsTabBase {
             </div>
         `;
 
-        // Define rename on focus container and visibility function
+        // Define rename on tab close container and rename on focus container and visibility function
+        let renameOnTabCloseContainer: HTMLElement;
         let renameOnFocusContainer: HTMLElement;
 
-        const updateRenameOnFocusVisibility = () => {
+        const updateAutomaticRenameVisibility = () => {
             if (this.plugin.settings.renameNotes === "automatically") {
+                renameOnTabCloseContainer.show();
                 renameOnFocusContainer.show();
             } else {
+                renameOnTabCloseContainer.hide();
                 renameOnFocusContainer.hide();
             }
         };
@@ -52,22 +55,43 @@ export class GeneralTab extends SettingsTabBase {
                     .setValue(this.plugin.settings.renameNotes)
                     .onChange(async (value) => {
                         this.plugin.settings.renameNotes = value as "automatically" | "manually";
-                        // Disable renameOnFocus when switching to manual mode
+                        // Disable automatic rename options when switching to manual mode
                         if (value === "manually") {
+                            this.plugin.settings.renameOnTabClose = false;
                             this.plugin.settings.renameOnFocus = false;
                         }
                         this.plugin.debugLog('renameNotes', value);
                         await this.plugin.saveSettings();
                         // Update visibility of automatic rename settings in advanced tab
                         (this.plugin as any).updateAutomaticRenameVisibility?.();
-                        updateRenameOnFocusVisibility();
+                        updateAutomaticRenameVisibility();
                     })
             );
 
+        // Create shared container for automatic rename sub-options
+        const automaticRenameContainer = this.containerEl.createDiv('flit-sub-settings');
+
+        // Create sub-option for rename on tab close
+        const renameOnTabCloseSetting = new Setting(automaticRenameContainer)
+            .setName("Rename when closing tab")
+            .setDesc("Rename notes when their tab gets closed.")
+            .addToggle((toggle) =>
+                toggle
+                    .setValue(this.plugin.settings.renameOnTabClose)
+                    .onChange(async (value) => {
+                        this.plugin.settings.renameOnTabClose = value;
+                        this.plugin.debugLog('renameOnTabClose', value);
+                        await this.plugin.saveSettings();
+                    })
+            );
+
+        // Add divider
+        automaticRenameContainer.createDiv({ cls: 'setting-item-divider' });
+
         // Create sub-option for rename on focus
-        const renameOnFocusSetting = new Setting(this.containerEl)
+        const renameOnFocusSetting = new Setting(automaticRenameContainer)
             .setName("Rename on focus")
-            .setDesc("Automatically rename notes when they become active in the editor.")
+            .setDesc("Rename notes when they get opened in the editor.")
             .addToggle((toggle) =>
                 toggle
                     .setValue(this.plugin.settings.renameOnFocus)
@@ -78,12 +102,12 @@ export class GeneralTab extends SettingsTabBase {
                     })
             );
 
-        // Create container for rename on focus sub-option
-        renameOnFocusContainer = this.containerEl.createDiv('flit-sub-settings');
-        renameOnFocusContainer.appendChild(renameOnFocusSetting.settingEl);
+        // Alias containers for visibility updates
+        renameOnTabCloseContainer = automaticRenameContainer;
+        renameOnFocusContainer = automaticRenameContainer;
 
         // Set initial visibility
-        updateRenameOnFocusVisibility();
+        updateAutomaticRenameVisibility();
 
         // 2. what to put in title
         new Setting(this.containerEl)
@@ -287,10 +311,12 @@ export class GeneralTab extends SettingsTabBase {
             align-items: center;
             width: 100%;
             margin: 20px 0;
+            padding: 4px 0;
+            overflow: visible;
         `;
 
         const button = feedbackContainer.createEl("button", {
-            cls: "mod-cta"
+            cls: "mod-cta flit-leave-feedback-button"
         });
         button.style.display = "flex";
         button.style.alignItems = "center";

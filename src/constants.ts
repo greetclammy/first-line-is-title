@@ -107,6 +107,7 @@ export const DEFAULT_SETTINGS: PluginSettings = {
     applyCustomRulesAfterForbiddenChars: false,
     applyCustomRulesAfterMarkupStripping: false,
     enableSafewords: false,
+    renameOnTabClose: true,
     renameOnFocus: false,
     renameOnSave: false,
     renameNotes: "automatically",
@@ -126,6 +127,7 @@ export const DEFAULT_SETTINGS: PluginSettings = {
     debugOutputFullContent: false, // Default OFF for debug content output
     hasShownFirstTimeNotice: false, // First-time notice not shown yet
     hasSetupExclusions: false, // Exclusions tab not opened yet
+    hasSetPropertyType: false, // Property type not set yet
     lastUsageDate: '', // No usage date yet
     currentSettingsTab: 'general', // Default to general tab
     commandVisibility: {
