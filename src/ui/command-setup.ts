@@ -27,7 +27,8 @@ export class CommandSetup {
             ['Put first line in title (unless excluded)', 'file-pen'],
             ['Put first line in title in all notes', 'files'],
             ['Disable renaming for note', 'square-x'],
-            ['Enable renaming for note', 'square-check']
+            ['Enable renaming for note', 'square-check'],
+            ['Toggle automatic renaming', 'file-cog']
         ]);
 
         // Observer to watch for command palette suggestions
@@ -108,8 +109,8 @@ export class CommandSetup {
                 callback: async () => {
                     const activeFile = this.app.workspace.getActiveFile();
                     if (!activeFile || activeFile.extension !== 'md') {
-                        verboseLog(this.plugin, `Showing notice: No active editor`);
-                        new Notice("No active editor");
+                        verboseLog(this.plugin, `Showing notice: Error: no active note.`);
+                        new Notice("Error: no active note.");
                         return;
                     }
                     verboseLog(this.plugin, `Ribbon command triggered for ${activeFile.path} (ignoring exclusions)`);
@@ -120,8 +121,20 @@ export class CommandSetup {
                 condition: this.settings.ribbonVisibility.renameAllNotes,
                 icon: 'files',
                 title: 'Put first line in title in all notes',
+                callback: () => {
+                    const { RenameAllFilesModal } = require('../modals');
+                    new RenameAllFilesModal(this.app, this.plugin).open();
+                }
+            },
+            {
+                condition: this.settings.ribbonVisibility.toggleAutomaticRenaming,
+                icon: 'file-cog',
+                title: 'Toggle automatic renaming',
                 callback: async () => {
-                    await this.plugin.folderOperations.renameAllFiles();
+                    const newValue = this.settings.renameNotes === "automatically" ? "manually" : "automatically";
+                    this.settings.renameNotes = newValue;
+                    await this.plugin.saveSettings();
+                    new Notice(`Automatic renaming ${newValue === "automatically" ? "enabled" : "disabled"}.`);
                 }
             }
         ];
@@ -149,8 +162,8 @@ export class CommandSetup {
         // Try to get active editor from any view type (markdown, canvas, etc.)
         const activeEditor = this.app.workspace.activeEditor?.editor;
         if (!activeEditor) {
-            verboseLog(this.plugin, `Showing notice: No active editor`);
-            new Notice("No active editor");
+            verboseLog(this.plugin, `Showing notice: Error: no active note.`);
+            new Notice("Error: no active note.");
             return;
         }
 
@@ -179,8 +192,8 @@ export class CommandSetup {
         // Try to get active editor from any view type (markdown, canvas, etc.)
         const activeEditor = this.app.workspace.activeEditor?.editor;
         if (!activeEditor) {
-            verboseLog(this.plugin, `Showing notice: No active editor`);
-            new Notice("No active editor");
+            verboseLog(this.plugin, `Showing notice: Error: no active note.`);
+            new Notice("Error: no active note.");
             return;
         }
 

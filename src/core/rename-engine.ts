@@ -26,8 +26,6 @@ export class RenameEngine {
     // Global rate limiting (catches cross-file cascading loops)
     private globalOperationTracker = {timestamp: Date.now(), count: 0};
 
-    // Track files currently being renamed to prevent spurious events
-    private filesBeingRenamed = new Set<TFile>();
 
     // Track last self-reference notice time per file (rate limit: 2s)
     private lastSelfRefNotice = new Map<string, number>();
@@ -36,17 +34,11 @@ export class RenameEngine {
         this.plugin = plugin;
     }
 
-    /**
-     * Check if a file is currently being renamed by this plugin
-     */
-    isFileBeingRenamed(file: TFile): boolean {
-        return this.filesBeingRenamed.has(file);
-    }
 
     checkFileTimeLimit(file: TFile): boolean {
         const now = Date.now();
-        const windowMs = 1000; // 1 second window
-        const maxOpsPerFile = 20; // Max 20 operations per file in 1 second
+        const windowMs = 500; // 0.5 second window
+        const maxOpsPerFile = 15; // Max 15 operations per file in 0.5 second
 
         const key = file.path;
         const tracker = this.fileTimeTracker.get(key);
@@ -58,7 +50,7 @@ export class RenameEngine {
         }
 
         if (tracker.count >= maxOpsPerFile) {
-            verboseLog(this.plugin, `Time-based rate limit hit for ${file.path} - ${tracker.count} operations in ${now - tracker.timestamp}ms`);
+            console.log(`Per-file rate limit hit for ${file.path} - ${tracker.count} operations in ${now - tracker.timestamp}ms`);
             return false;
         }
 
@@ -68,8 +60,8 @@ export class RenameEngine {
 
     checkGlobalRateLimit(): boolean {
         const now = Date.now();
-        const windowMs = 1000; // 1 second window
-        const maxGlobalOps = 50; // Max 50 operations across all files in 1 second
+        const windowMs = 500; // 0.5 second window
+        const maxGlobalOps = 30; // Max 30 operations across all files in 0.5 second
 
         if (now - this.globalOperationTracker.timestamp > windowMs) {
             // New window, reset
@@ -78,7 +70,7 @@ export class RenameEngine {
         }
 
         if (this.globalOperationTracker.count >= maxGlobalOps) {
-            verboseLog(this.plugin, `Global rate limit hit - ${this.globalOperationTracker.count} operations in ${now - this.globalOperationTracker.timestamp}ms`);
+            console.log(`Global rate limit hit - ${this.globalOperationTracker.count} operations in ${now - this.globalOperationTracker.timestamp}ms`);
             return false;
         }
 
@@ -140,6 +132,9 @@ export class RenameEngine {
 
                 // Update last processed content
                 this.lastProcessedContent.set(file.path, firstLine);
+
+                // Update editor lifecycle tracking to sync lastFirstLine
+                this.plugin.editorLifecycle.updateLastFirstLine(file.path, firstLine);
             } else {
                 verboseLog(this.plugin, `Editor change ignored - no first line change: ${file.path}`);
             }
@@ -220,12 +215,13 @@ export class RenameEngine {
             }
         }
 
-        // Time-based rate limiting (skip for batch operations)
-        if (!isBatchOperation) {
-            if (!this.checkFileTimeLimit(file)) {
-                return { success: false, reason: 'time-rate-limited' };
-            }
+        // Time-based rate limiting (per-file always enforced, global bypassed for batches)
+        if (!this.checkFileTimeLimit(file)) {
+            return { success: false, reason: 'time-rate-limited' };
+        }
 
+        // Global rate limiting bypassed for batch operations to avoid blocking legitimate bulk operations
+        if (!isBatchOperation) {
             if (!this.checkGlobalRateLimit()) {
                 return { success: false, reason: 'global-rate-limited' };
             }
@@ -250,7 +246,7 @@ export class RenameEngine {
 
         // Skip all delay logic - process immediately
         const startTime = Date.now();
-        console.log(`RENAME: Starting renameFile for ${file.name}`);
+        verboseLog(this.plugin, `RENAME: Starting renameFile for ${file.name}`);
 
         // tempNewPaths array eliminated - using chronological processing instead
 
@@ -329,11 +325,8 @@ export class RenameEngine {
                 // File was always empty - retain current filename
                 cacheManager?.setContent(file.path, content);
 
-                // Remove any plugin aliases since there's no content to alias
-                if (this.plugin.settings.enableAliases) {
-                    verboseLog(this.plugin, `Removing plugin aliases - file has no content`);
-                    await this.plugin.aliasManager.removePluginAliasesFromFile(file, false);
-                }
+                // Don't call removePluginAliasesFromFile - no content means no plugin aliases exist
+                // Calling processFrontMatter here races with template plugins (Templater)
 
                 verboseLog(this.plugin, `Skipping rename for empty file - retaining current filename: ${file.path}`);
                 return { success: false, reason: 'empty-content-retained' };
@@ -402,7 +395,8 @@ export class RenameEngine {
         // Match [[filename]], [[filename#heading]], [[filename#^block]], [[path/filename#heading]], with optional |alias
         // Need to check both basename and full path (some users link with path)
         const wikiLinkRegex = new RegExp(`\\[\\[(${escapedName}|${escapedPath})(#[^\\]|]*?)?(\\|.*?)?\\]\\]`);
-        const markdownLinkRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
+        // Match markdown links including empty link text: [text](url) or [](url)
+        const markdownLinkRegex = /\[([^\]]*)\]\(([^)]+)\)/g;
 
         let isSelfReferencing = false;
 
@@ -416,9 +410,35 @@ export class RenameEngine {
         let match;
         while ((match = markdownLinkRegex.exec(firstLine)) !== null) {
             const url = match[2];
+
+            // Decode percent-encoding for comparison
+            let decodedUrl = url;
+            try {
+                decodedUrl = decodeURIComponent(url);
+            } catch (e) {
+                // Invalid encoding, use original
+            }
+
+            // Check various self-reference patterns:
+            // 1. Fragment-only: #heading
+            // 2. Relative path with .md: filename.md or path/filename.md
+            // 3. Relative path without extension: filename
             if (url.startsWith("#") && url.includes(currentName)) {
                 isSelfReferencing = true;
-                verboseLog(this.plugin, `Found self-referencing markdown link in ${file.path} before custom replacements`);
+                verboseLog(this.plugin, `Found self-referencing markdown link (fragment) in ${file.path} before custom replacements`);
+                break;
+            }
+
+            // Check if decoded URL matches current file (with or without .md extension)
+            const urlWithoutFragment = decodedUrl.split('#')[0];
+            if (urlWithoutFragment && (
+                urlWithoutFragment === `${currentName}.md` ||
+                urlWithoutFragment === currentName ||
+                urlWithoutFragment === `${pathWithoutExt}.md` ||
+                urlWithoutFragment === pathWithoutExt
+            )) {
+                isSelfReferencing = true;
+                verboseLog(this.plugin, `Found self-referencing markdown link (percent-encoded) in ${file.path} before custom replacements`);
                 break;
             }
         }
@@ -659,21 +679,24 @@ export class RenameEngine {
                 counter += 1;
                 newPath = `${parentPath}${newFileName} ${counter}.md`;
                 fileExists = this.checkFileExistsCaseInsensitive(newPath);
-                verboseLog(this.plugin, `Counter loop: counter=${counter}, newPath=${newPath}, fileExists=${fileExists}`);
             }
+            verboseLog(this.plugin, `Found available filename with counter ${counter}: ${newPath}`);
         } else {
             verboseLog(this.plugin, `No conflicts found for ${newPath}, proceeding without counter`);
         }
 
         // Only check for self-reference if filename would actually change (after handling counter)
         if (isSelfReferencing) {
-            // Rate limit: show notice max once per 2 seconds per file
-            const now = Date.now();
-            const lastNoticeTime = this.lastSelfRefNotice.get(file.path) || 0;
-            if (now - lastNoticeTime >= 2000) {
-                verboseLog(this.plugin, `Showing notice: File not renamed due to self-referential link in first line: ${file.name}`);
-                new Notice(`File not renamed due to self-referential link in first line: ${file.name}`);
-                this.lastSelfRefNotice.set(file.path, now);
+            // Only show notice if not a batch operation
+            if (!isBatchOperation) {
+                // Rate limit: show notice max once per 2 seconds per file
+                const now = Date.now();
+                const lastNoticeTime = this.lastSelfRefNotice.get(file.path) || 0;
+                if (now - lastNoticeTime >= 2000) {
+                    verboseLog(this.plugin, `Showing notice: File not renamed due to self-referential link in first line: ${file.basename}`);
+                    new Notice(`Note not renamed due to self-referential link in first line: ${file.basename}`);
+                    this.lastSelfRefNotice.set(file.path, now);
+                }
             }
             verboseLog(this.plugin, `Skipping self-referencing file: ${file.path}`);
             return { success: false, reason: 'self-referential' };
@@ -689,8 +712,6 @@ export class RenameEngine {
         }
 
         try {
-            // Mark file as being renamed before operation
-            this.filesBeingRenamed.add(file);
 
             // Mark as batch operation for debug output exclusion
             if (isBatchOperation) {
@@ -704,7 +725,7 @@ export class RenameEngine {
             await this.plugin.app.fileManager.renameFile(file, newPath);
             // Renamed file counter removed - not needed with optimized system
             const processingTime = Date.now() - startTime;
-            verboseLog(this.plugin, `Successfully renamed ${file.path} to ${newPath} (${processingTime}ms)`);
+            verboseLog(this.plugin, `Successfully renamed ${oldPath} to ${newPath} (${processingTime}ms)`);
 
             // Mark FLIT modification end
             this.plugin.markFlitModificationEnd(newPath);
@@ -726,8 +747,8 @@ export class RenameEngine {
 
             // Note: Alias was handled before the file rename to stay synchronized
 
-            // Show notification for manual renames (unless suppressed)
-            if (showNotices) {
+            // Show notification for manual renames only (not batch operations)
+            if (showNotices && !isBatchOperation) {
                 const titleChanged = currentName !== newFileName;
                 const shouldShowNotice =
                     this.plugin.settings.manualNotificationMode === 'Always' ||
@@ -735,18 +756,13 @@ export class RenameEngine {
 
                 if (shouldShowNotice) {
                     verboseLog(this.plugin, `Showing notice: Updated title: ${currentName} → ${newFileName}`);
-                    new Notice(`Updated title: ${currentName} → ${newFileName}`);
+                    new Notice(`Renamed to: ${newFileName}`);
                 }
             }
-
-            // Unmark file after rename (no cooldown needed - using object identity checking)
-            this.filesBeingRenamed.delete(file);
 
             return { success: true };
         } catch (error) {
             console.error(`Failed to rename file ${file.path} to ${newPath}:`, error);
-            // Clean up tracking even on error
-            this.filesBeingRenamed.delete(file);
             return { success: false, reason: 'error' };
         }
     }

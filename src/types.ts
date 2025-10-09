@@ -21,14 +21,17 @@ export interface ExcludedProperty {
 
 export type OSPreset = 'macOS' | 'Windows' | 'Linux';
 export type NotificationMode = 'Always' | 'On title change' | 'Never';
-export type ScopeStrategy = 'Enable in all notes except below' | 'Disable in all notes except below';
+export type ExclusionStrategy = 'Only exclude...' | 'Exclude all except...';
+export type TagPropertyExclusionStrategy = 'Only exclude...' | 'Exclude all except...';
 export type TagMatchingMode = 'In Properties and note body' | 'In Properties only' | 'In note body only';
 export type FileReadMethod = 'Editor' | 'Cache' | 'File';
 
 export type PropertyHidingOption = 'never' | 'always' | 'when_empty';
 
 export interface PluginSettings {
-    scopeStrategy: ScopeStrategy;
+    folderScopeStrategy: ExclusionStrategy;
+    tagScopeStrategy: TagPropertyExclusionStrategy;
+    propertyScopeStrategy: TagPropertyExclusionStrategy;
     excludedFolders: string[];
     excludedTags: string[];
     excludedProperties: ExcludedProperty[];
@@ -129,7 +132,6 @@ export interface PluginSettings {
     applyCustomRulesAfterForbiddenChars: boolean;
     applyCustomRulesAfterMarkupStripping: boolean;
     enableSafewords: boolean;
-    renameOnTabClose: boolean;
     renameOnFocus: boolean;
     renameOnSave: boolean;
     renameNotes: "automatically" | "manually";
@@ -179,11 +181,13 @@ export interface PluginSettings {
         renameAllFiles: boolean;
         disableRenaming: boolean;
         enableRenaming: boolean;
+        toggleAutomaticRenaming: boolean;
     };
     enableRibbon: boolean;
     ribbonVisibility: {
         renameCurrentFile: boolean;
         renameAllNotes: boolean;
+        toggleAutomaticRenaming: boolean;
     };
     enableAliases: boolean;
     truncateAlias: boolean;
@@ -199,9 +203,36 @@ export interface PluginSettings {
     moveCursorToFirstLine: boolean;
     insertTitleOnCreation: boolean;
     placeCursorAtLineEnd: boolean;
+    waitForCursorTemplate: boolean;
     suppressMergeNotifications: boolean;
     newNoteDelay: number;
     waitForTemplate: boolean;
+    addHeadingToTitle: boolean;
     disableRenamingKey: string;
     disableRenamingValue: string;
+    modalCheckboxStates: {
+        folderRename: {
+            includeSubfolders: boolean;
+            renameExcludedFolders: boolean;
+            renameExcludedTags: boolean;
+            renameExcludedProperties: boolean;
+        };
+        tagRename: {
+            includeChildTags: boolean;
+            renameExcludedFolders: boolean;
+            renameExcludedTags: boolean;
+            renameExcludedProperties: boolean;
+        };
+        searchRename: {
+            renameExcludedFolders: boolean;
+            renameExcludedTags: boolean;
+            renameExcludedProperties: boolean;
+        };
+        folderDisable: {
+            includeSubfolders: boolean;
+        };
+        tagDisable: {
+            includeChildTags: boolean;
+        };
+    };
 }

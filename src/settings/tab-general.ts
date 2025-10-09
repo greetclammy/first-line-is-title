@@ -18,16 +18,13 @@ export class GeneralTab extends SettingsTabBase {
             </div>
         `;
 
-        // Define rename on tab close container and rename on focus container and visibility function
-        let renameOnTabCloseContainer: HTMLElement;
+        // Define rename on focus container and visibility function
         let renameOnFocusContainer: HTMLElement;
 
         const updateAutomaticRenameVisibility = () => {
             if (this.plugin.settings.renameNotes === "automatically") {
-                renameOnTabCloseContainer.show();
                 renameOnFocusContainer.show();
             } else {
-                renameOnTabCloseContainer.hide();
                 renameOnFocusContainer.hide();
             }
         };
@@ -39,59 +36,30 @@ export class GeneralTab extends SettingsTabBase {
 
         // Create styled description for rename notes
         const renameNotesDesc = renameNotesSetting.descEl;
-        renameNotesDesc.appendText("Choose when notes should be renamed if the first line differs from filename.");
-        renameNotesDesc.createEl("br");
-        renameNotesDesc.createEl("br");
-        renameNotesDesc.createEl("strong", { text: "Automatically:" });
-        renameNotesDesc.appendText(" process when editing notes open in the editor.");
-        renameNotesDesc.createEl("br");
-        renameNotesDesc.createEl("strong", { text: "Manually:" });
-        renameNotesDesc.appendText(" only process notes when invoking a plugin command.");
+        renameNotesDesc.appendText("Set how notes should be processed.");
 
         renameNotesSetting.addDropdown((dropdown) =>
                 dropdown
-                    .addOption("automatically", "Automatically")
-                    .addOption("manually", "Manually")
+                    .addOption("automatically", "Automatically if open and modified")
+                    .addOption("manually", "Manually via command only")
                     .setValue(this.plugin.settings.renameNotes)
                     .onChange(async (value) => {
                         this.plugin.settings.renameNotes = value as "automatically" | "manually";
-                        // Disable automatic rename options when switching to manual mode
-                        if (value === "manually") {
-                            this.plugin.settings.renameOnTabClose = false;
-                            this.plugin.settings.renameOnFocus = false;
-                        }
                         this.plugin.debugLog('renameNotes', value);
                         await this.plugin.saveSettings();
-                        // Update visibility of automatic rename settings in advanced tab
-                        (this.plugin as any).updateAutomaticRenameVisibility?.();
                         updateAutomaticRenameVisibility();
+                        updateCursorPositionVisibility();
+                        (this.plugin as any).updateAutomaticRenameVisibility?.();
                     })
             );
 
         // Create shared container for automatic rename sub-options
         const automaticRenameContainer = this.containerEl.createDiv('flit-sub-settings');
 
-        // Create sub-option for rename on tab close
-        const renameOnTabCloseSetting = new Setting(automaticRenameContainer)
-            .setName("Rename when closing tab")
-            .setDesc("Rename notes when their tab gets closed.")
-            .addToggle((toggle) =>
-                toggle
-                    .setValue(this.plugin.settings.renameOnTabClose)
-                    .onChange(async (value) => {
-                        this.plugin.settings.renameOnTabClose = value;
-                        this.plugin.debugLog('renameOnTabClose', value);
-                        await this.plugin.saveSettings();
-                    })
-            );
-
-        // Add divider
-        automaticRenameContainer.createDiv({ cls: 'setting-item-divider' });
-
         // Create sub-option for rename on focus
         const renameOnFocusSetting = new Setting(automaticRenameContainer)
             .setName("Rename on focus")
-            .setDesc("Rename notes when they get opened in the editor.")
+            .setDesc("Process notes when they get opened in the editor.")
             .addToggle((toggle) =>
                 toggle
                     .setValue(this.plugin.settings.renameOnFocus)
@@ -102,8 +70,64 @@ export class GeneralTab extends SettingsTabBase {
                     })
             );
 
-        // Alias containers for visibility updates
-        renameOnTabCloseContainer = automaticRenameContainer;
+        // Move cursor to first line
+        new Setting(automaticRenameContainer)
+            .setName("Move cursor to first line")
+            .setDesc("Place the cursor in the first line when creating a new note unless in excluded note.")
+            .addToggle((toggle) =>
+                toggle
+                    .setValue(this.plugin.settings.moveCursorToFirstLine)
+                    .onChange(async (value) => {
+                        this.plugin.settings.moveCursorToFirstLine = value;
+                        this.plugin.debugLog('moveCursorToFirstLine', value);
+                        await this.plugin.saveSettings();
+                        updateCursorOptionsVisibility();
+                    })
+            );
+
+        // Place cursor at line end
+        const placeCursorSetting = new Setting(automaticRenameContainer)
+            .setName("Place cursor at line end")
+            .setDesc("When moving the cursor to a first line with content, place it at the end of the line instead of the start.")
+            .addToggle((toggle) =>
+                toggle
+                    .setValue(this.plugin.settings.placeCursorAtLineEnd)
+                    .onChange(async (value) => {
+                        this.plugin.settings.placeCursorAtLineEnd = value;
+                        this.plugin.debugLog('placeCursorAtLineEnd', value);
+                        await this.plugin.saveSettings();
+                    })
+            );
+
+        // Wait for cursor template
+        const waitForTemplateCursorSetting = new Setting(automaticRenameContainer)
+            .setName("Wait for template")
+            .setDesc("Move the cursor after a new note template is applied and it does not have an excluded tag or property.")
+            .addToggle((toggle) =>
+                toggle
+                    .setValue(this.plugin.settings.waitForCursorTemplate)
+                    .onChange(async (value) => {
+                        this.plugin.settings.waitForCursorTemplate = value;
+                        this.plugin.debugLog('waitForCursorTemplate', value);
+                        await this.plugin.saveSettings();
+                    })
+            );
+
+        // Define cursor options visibility function
+        const updateCursorOptionsVisibility = () => {
+            if (this.plugin.settings.moveCursorToFirstLine) {
+                placeCursorSetting.settingEl.show();
+                waitForTemplateCursorSetting.settingEl.show();
+            } else {
+                placeCursorSetting.settingEl.hide();
+                waitForTemplateCursorSetting.settingEl.hide();
+            }
+        };
+
+        // Set initial visibility for cursor options
+        updateCursorOptionsVisibility();
+
+        // Alias container for visibility updates
         renameOnFocusContainer = automaticRenameContainer;
 
         // Set initial visibility
@@ -112,7 +136,7 @@ export class GeneralTab extends SettingsTabBase {
         // 2. what to put in title
         new Setting(this.containerEl)
             .setName("What to put in title")
-            .setDesc("Choose what first line content should be copied to filename.")
+            .setDesc("Set what first line content should be copied to filename.")
             .addDropdown((dropdown) =>
                 dropdown
                     .addOption("any_first_line_content", "Any text")
@@ -125,56 +149,6 @@ export class GeneralTab extends SettingsTabBase {
                     })
             );
 
-        // 3. char count
-        const charCountSetting = new Setting(this.containerEl)
-            .setName("Character count")
-            .setDesc("");
-
-        // Create styled description for character count
-        const charCountDesc = charCountSetting.descEl;
-        charCountDesc.appendText("The maximum number of characters to put in filename.");
-        charCountDesc.createEl("br");
-        charCountDesc.createEl("small").createEl("strong", { text: "Default: 100" });
-
-        // Create container for slider with reset button
-        const charCountContainer = charCountSetting.controlEl.createDiv({ cls: "flit-char-text-input-container" });
-
-        const charCountRestoreButton = charCountContainer.createEl("button", {
-            cls: "clickable-icon flit-restore-icon",
-            attr: { "aria-label": "Restore default" }
-        });
-        setIcon(charCountRestoreButton, "rotate-ccw");
-
-        // Create slider element manually and append to container
-        const sliderDiv = charCountContainer.createDiv();
-
-        charCountSetting.addSlider((slider) => {
-            slider
-                .setLimits(1, 255, 1)
-                .setValue(this.plugin.settings.charCount)
-                .setDynamicTooltip()
-                .onChange(async (value) => {
-                    this.plugin.settings.charCount = value;
-                    this.plugin.debugLog('charCount', value);
-                    await this.plugin.saveSettings();
-                });
-
-            // Move slider to our custom container
-            sliderDiv.appendChild(slider.sliderEl);
-        });
-
-        charCountRestoreButton.addEventListener('click', async () => {
-            this.plugin.settings.charCount = DEFAULT_SETTINGS.charCount;
-            this.plugin.debugLog('charCount', this.plugin.settings.charCount);
-            await this.plugin.saveSettings();
-
-            // Update the slider value by triggering a re-render or finding the slider element
-            const sliderInput = sliderDiv.querySelector('input[type="range"]') as HTMLInputElement;
-            if (sliderInput) {
-                sliderInput.value = String(DEFAULT_SETTINGS.charCount);
-                sliderInput.dispatchEvent(new Event('input', { bubbles: true }));
-            }
-        });
 
         // Define wait for template container and visibility function
         let waitForTemplateContainer: HTMLElement;
@@ -211,8 +185,11 @@ export class GeneralTab extends SettingsTabBase {
                 })
         );
 
+        // Create container for wait for template sub-option
+        waitForTemplateContainer = this.containerEl.createDiv('flit-sub-settings');
+
         // Create sub-option for wait for template
-        const waitForTemplateSetting = new Setting(this.containerEl)
+        const waitForTemplateSetting = new Setting(waitForTemplateContainer)
             .setName("Insert after template")
             .setDesc("Let a new note template insert a Properties block before inserting the filename.")
             .addToggle((toggle) =>
@@ -225,59 +202,22 @@ export class GeneralTab extends SettingsTabBase {
                     })
             );
 
-        // Create container for wait for template sub-option
-        waitForTemplateContainer = this.containerEl.createDiv('flit-sub-settings');
-        waitForTemplateContainer.appendChild(waitForTemplateSetting.settingEl);
+        // Create sub-option for add heading
+        new Setting(waitForTemplateContainer)
+            .setName("Add heading")
+            .setDesc("Make the first line a heading.")
+            .addToggle((toggle) =>
+                toggle
+                    .setValue(this.plugin.settings.addHeadingToTitle)
+                    .onChange(async (value) => {
+                        this.plugin.settings.addHeadingToTitle = value;
+                        this.plugin.debugLog('addHeadingToTitle', value);
+                        await this.plugin.saveSettings();
+                    })
+            );
 
         // Set initial visibility
         updateWaitForTemplateVisibility();
-
-        // Define cursor position function and container
-        let cursorPositionContainer: HTMLElement;
-
-        const updateCursorPositionVisibility = () => {
-            if (this.plugin.settings.moveCursorToFirstLine) {
-                cursorPositionContainer.show();
-            } else {
-                cursorPositionContainer.hide();
-            }
-        };
-
-        // 8. move cursor
-        new Setting(this.containerEl)
-            .setName("Move cursor to first line")
-            .setDesc("Place the cursor in the first line when creating a new note.")
-            .addToggle((toggle) =>
-                toggle
-                    .setValue(this.plugin.settings.moveCursorToFirstLine)
-                    .onChange(async (value) => {
-                        this.plugin.settings.moveCursorToFirstLine = value;
-                        this.plugin.debugLog('moveCursorToFirstLine', value);
-                        await this.plugin.saveSettings();
-                        updateCursorPositionVisibility();
-                    })
-            );
-
-        // Create sub-option for cursor position
-        const cursorPositionSetting = new Setting(this.containerEl)
-            .setName("Place cursor at line end")
-            .setDesc("When moving the cursor to a first line with content, place it at the end of the line instead of the start.")
-            .addToggle((toggle) =>
-                toggle
-                    .setValue(this.plugin.settings.placeCursorAtLineEnd)
-                    .onChange(async (value) => {
-                        this.plugin.settings.placeCursorAtLineEnd = value;
-                        this.plugin.debugLog('placeCursorAtLineEnd', value);
-                        await this.plugin.saveSettings();
-                    })
-            );
-
-        // Create container for cursor position sub-option
-        cursorPositionContainer = this.containerEl.createDiv('flit-sub-settings');
-        cursorPositionContainer.appendChild(cursorPositionSetting.settingEl);
-
-        // Set initial visibility
-        updateCursorPositionVisibility();
 
         // Rename on save
         new Setting(this.containerEl)

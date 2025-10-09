@@ -57,7 +57,7 @@ export class AliasManager {
             }
 
             // Skip if file is excluded or should not be processed
-            if (!shouldProcessFile(file, this.settings)) {
+            if (!shouldProcessFile(file, this.settings, this.app)) {
                 return;
             }
 
@@ -259,6 +259,18 @@ export class AliasManager {
                 return;
             }
 
+            // Prevent "Untitled" or "Untitled n" aliases UNLESS first line is literally that
+            const untitledPattern = /^Untitled(\s+[1-9]\d*)?$/;
+            if (untitledPattern.test(aliasToAdd.trim())) {
+                // Check if original first line (before processing) was literally "Untitled" or "Untitled n"
+                const originalFirstLineTrimmed = firstLine.trim();
+                if (!untitledPattern.test(originalFirstLineTrimmed)) {
+                    verboseLog(this.plugin, `Removing plugin alias - extracted title is "${aliasToAdd}" but first line is not literally Untitled`);
+                    await this.removePluginAliasesFromFile(file);
+                    return;
+                }
+            }
+
             // Mark alias with ZWSP for identification
             const markedAlias = '\u200B' + aliasToAdd + '\u200B';
 
@@ -414,7 +426,7 @@ export class AliasManager {
             // Check if this is an ENOENT error (file was renamed during async operation)
             if ((error as any).code === 'ENOENT') {
                 // File was renamed during operation - this is expected race condition, log as info
-                console.log(`[FLIT] Skipping alias addition - file was renamed during operation: ${file.path}`);
+                verboseLog(this.plugin, `Skipping alias addition - file was renamed during operation: ${file.path}`);
             } else {
                 // Unexpected error, log it
                 console.error(`Failed to add alias to file ${file.path}:`, error);
@@ -498,7 +510,7 @@ export class AliasManager {
             // Check if this is an ENOENT error (file was renamed during async operation)
             if ((error as any).code === 'ENOENT') {
                 // File was renamed during operation - this is expected race condition, log as info
-                console.log(`[FLIT] Skipping alias removal - file was renamed during operation: ${file.path}`);
+                verboseLog(this.plugin, `Skipping alias removal - file was renamed during operation: ${file.path}`);
             } else {
                 // Unexpected error, log it
                 console.error(`Failed to remove plugin aliases from ${file.path}:`, error);

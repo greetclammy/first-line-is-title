@@ -37,6 +37,7 @@ export class CommandRegistrar {
         this.registerRenameAllFilesCommand();
         this.registerSafeInternalLinkCommand();
         this.registerSafeInternalLinkWithCaptionCommand();
+        this.registerToggleAutomaticRenamingCommand();
 
         // Dynamic commands that depend on current file state
         this.plugin.registerDynamicCommands();
@@ -57,8 +58,8 @@ export class CommandRegistrar {
             callback: async () => {
                 const activeFile = this.app.workspace.getActiveFile();
                 if (!activeFile || activeFile.extension !== 'md') {
-                    verboseLog(this.plugin, `Showing notice: No active editor`);
-                    new Notice("No active editor");
+                    verboseLog(this.plugin, `Showing notice: Error: no active note.`);
+                    new Notice("Error: no active note.");
                     return;
                 }
                 verboseLog(this.plugin, `Manual rename command triggered for ${activeFile.path} (ignoring exclusions)`);
@@ -82,8 +83,8 @@ export class CommandRegistrar {
             callback: async () => {
                 const activeFile = this.app.workspace.getActiveFile();
                 if (!activeFile || activeFile.extension !== 'md') {
-                    verboseLog(this.plugin, `Showing notice: No active editor`);
-                    new Notice("No active editor");
+                    verboseLog(this.plugin, `Showing notice: Error: no active note.`);
+                    new Notice("Error: no active note.");
                     return;
                 }
                 verboseLog(this.plugin, `Manual rename command triggered for ${activeFile.path} (unless excluded)`);
@@ -143,6 +144,27 @@ export class CommandRegistrar {
             icon: 'link',
             callback: async () => {
                 await this.plugin.addSafeInternalLinkWithCaption();
+            }
+        });
+    }
+
+    /**
+     * Register command: Toggle automatic renaming
+     */
+    private registerToggleAutomaticRenamingCommand(): void {
+        if (!this.settings.commandPaletteVisibility.toggleAutomaticRenaming) {
+            return;
+        }
+
+        this.plugin.addCommand({
+            id: 'toggle-automatic-renaming',
+            name: 'Toggle automatic renaming',
+            icon: 'file-cog',
+            callback: async () => {
+                const newValue = this.settings.renameNotes === "automatically" ? "manually" : "automatically";
+                this.settings.renameNotes = newValue;
+                await this.plugin.saveSettings();
+                new Notice(`Automatic renaming ${newValue === "automatically" ? "enabled" : "disabled"}.`);
             }
         });
     }

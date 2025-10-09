@@ -1,7 +1,9 @@
 import { PluginSettings, OSPreset, TagMatchingMode, FileReadMethod, ExcludedProperty } from './types';
 
 export const DEFAULT_SETTINGS: PluginSettings = {
-    scopeStrategy: 'Enable in all notes except below',
+    folderScopeStrategy: 'Only exclude...',
+    tagScopeStrategy: 'Only exclude...',
+    propertyScopeStrategy: 'Only exclude...',
     excludedFolders: [""],
     excludedTags: [""],
     excludedProperties: [],
@@ -107,7 +109,6 @@ export const DEFAULT_SETTINGS: PluginSettings = {
     applyCustomRulesAfterForbiddenChars: false,
     applyCustomRulesAfterMarkupStripping: false,
     enableSafewords: false,
-    renameOnTabClose: true,
     renameOnFocus: false,
     renameOnSave: false,
     renameNotes: "automatically",
@@ -156,12 +157,14 @@ export const DEFAULT_SETTINGS: PluginSettings = {
         renameCurrentFile: true,
         renameAllFiles: true,
         disableRenaming: true,
-        enableRenaming: true
+        enableRenaming: true,
+        toggleAutomaticRenaming: true
     },
     enableRibbon: true,
     ribbonVisibility: {
         renameCurrentFile: true,
-        renameAllNotes: false
+        renameAllNotes: false,
+        toggleAutomaticRenaming: false
     },
     enableAliases: false,
     truncateAlias: false,
@@ -177,11 +180,38 @@ export const DEFAULT_SETTINGS: PluginSettings = {
     moveCursorToFirstLine: true,
     insertTitleOnCreation: false,
     placeCursorAtLineEnd: false,
+    waitForCursorTemplate: false,
     suppressMergeNotifications: false,
     newNoteDelay: 0,
     waitForTemplate: false,
+    addHeadingToTitle: false,
     disableRenamingKey: "no rename",
-    disableRenamingValue: "true"
+    disableRenamingValue: "true",
+    modalCheckboxStates: {
+        folderRename: {
+            includeSubfolders: true,
+            renameExcludedFolders: false,
+            renameExcludedTags: false,
+            renameExcludedProperties: false
+        },
+        tagRename: {
+            includeChildTags: true,
+            renameExcludedFolders: false,
+            renameExcludedTags: false,
+            renameExcludedProperties: false
+        },
+        searchRename: {
+            renameExcludedFolders: false,
+            renameExcludedTags: false,
+            renameExcludedProperties: false
+        },
+        folderDisable: {
+            includeSubfolders: true
+        },
+        tagDisable: {
+            includeChildTags: true
+        }
+    }
 };
 
 // OS-specific forbidden characters

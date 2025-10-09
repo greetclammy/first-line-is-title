@@ -132,12 +132,29 @@ export class PropertiesTab extends SettingsTabBase {
 
         // Create styled description for alias property key
         const aliasKeyDesc = aliasPropertyKeySetting.descEl;
-        aliasKeyDesc.appendText("Set the property key in which to insert the alias. Use 'aliases' to make the alias searchable in the Quick switcher. You can also set this property as note title in ");
-        aliasKeyDesc.createEl("a", {
+        aliasKeyDesc.appendText("Set the property key in which to insert the alias.");
+
+        // Create bullet list for notes within descEl
+        const aliasNotesDesc = aliasKeyDesc.createEl("div");
+        aliasNotesDesc.style.marginTop = "6px";
+        aliasNotesDesc.style.marginBottom = "0px";
+
+        const ul = aliasNotesDesc.createEl('ul');
+        ul.style.margin = '0';
+        ul.style.paddingLeft = '20px';
+
+        ul.createEl('li', { text: 'Use \'aliases\' to make the alias searchable in the Quick switcher.' });
+
+        const li2 = ul.createEl('li');
+        li2.appendText('You can also set this property as note title in ');
+        li2.createEl("a", {
             text: "Omnisearch",
             href: "obsidian://show-plugin?id=obsidian-omnisearch"
         });
-        aliasKeyDesc.appendText(" settings. To populate multiple properties, separate by comma (e.g. 'aliases, title').");
+        li2.appendText(' settings.');
+
+        ul.createEl('li', { text: 'To populate multiple properties, separate by comma (e.g. \'aliases, title\').' });
+
         aliasKeyDesc.createEl("br");
         aliasKeyDesc.createEl("small").createEl("strong", { text: "Default: aliases" });
 
@@ -212,7 +229,7 @@ export class PropertiesTab extends SettingsTabBase {
 
         // Create styled description for apply custom rules
         const customRulesDesc = applyCustomRulesInAliasSetting.descEl;
-        customRulesDesc.appendText("Apply custom text replacements to alias, as configured in ");
+        customRulesDesc.appendText("Apply custom text replacements to alias, as set in ");
         customRulesDesc.createEl("em", { text: "Custom rules" });
         customRulesDesc.appendText(" settings.");
 
@@ -241,7 +258,7 @@ export class PropertiesTab extends SettingsTabBase {
 
         // Create styled description for strip markup
         const stripMarkupDesc = stripMarkupInAliasSetting.descEl;
-        stripMarkupDesc.appendText("Omit markup syntax in alias, as configured in ");
+        stripMarkupDesc.appendText("Omit markup syntax in alias, as set in ");
         stripMarkupDesc.createEl("em", { text: "Strip markup" });
         stripMarkupDesc.appendText(" settings.");
 
@@ -332,6 +349,24 @@ export class PropertiesTab extends SettingsTabBase {
                         await this.plugin.saveSettings();
                     });
             });
+
+        // Limitations subsection
+        const limitationsSetting = new Setting(aliasContainer)
+            .setName("Limitations")
+            .setDesc("");
+
+        limitationsSetting.settingEl.addClass('flit-section-header');
+
+        // Create limitations description
+        const limitationsContainer = aliasContainer.createDiv();
+        const limitationsDesc = limitationsContainer.createEl("p", { cls: "setting-item-description" });
+        limitationsDesc.style.marginTop = "12px";
+        limitationsDesc.appendText("First line alias can be unreliable if editing in a page preview. Using ");
+        limitationsDesc.createEl("a", {
+            text: "Hover Editor",
+            href: "obsidian://show-plugin?id=obsidian-hover-editor"
+        });
+        limitationsDesc.appendText(" is recommended.");
 
         // Initialize UI
         renderAliasSettings();

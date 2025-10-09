@@ -19,7 +19,7 @@ export abstract class SettingsTabBase {
         this.containerEl = containerEl;
     }
 
-    abstract render(): void;
+    abstract render(): void | Promise<void>;
 
     /**
      * Updates the interactive state of all elements within a container

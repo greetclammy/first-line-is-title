@@ -133,8 +133,8 @@ export class WorkspaceIntegration {
                 callback: async () => {
                     const activeFile = this.app.workspace.getActiveFile();
                     if (!activeFile || activeFile.extension !== 'md') {
-                        verboseLog(this.plugin, `Showing notice: No active editor`);
-                        new Notice("No active editor");
+                        verboseLog(this.plugin, `Showing notice: Error: no active note.`);
+                        new Notice("Error: no active note.");
                         return;
                     }
                     verboseLog(this.plugin, `Ribbon command triggered for ${activeFile.path} (ignoring exclusions)`);
@@ -145,8 +145,20 @@ export class WorkspaceIntegration {
                 condition: this.settings.ribbonVisibility.renameAllNotes,
                 icon: 'files',
                 title: 'Put first line in title in all notes',
+                callback: () => {
+                    const { RenameAllFilesModal } = require('../modals');
+                    new RenameAllFilesModal(this.app, this.plugin).open();
+                }
+            },
+            {
+                condition: this.settings.ribbonVisibility.toggleAutomaticRenaming,
+                icon: 'file-cog',
+                title: 'Toggle automatic renaming',
                 callback: async () => {
-                    await this.plugin.folderOperations.renameAllFiles();
+                    const newValue = this.settings.renameNotes === "automatically" ? "manually" : "automatically";
+                    this.settings.renameNotes = newValue;
+                    await this.plugin.saveSettings();
+                    new Notice(`Automatic renaming ${newValue === "automatically" ? "enabled" : "disabled"}.`);
                 }
             }
         ];
@@ -198,71 +210,159 @@ export class WorkspaceIntegration {
     setupCursorPositioning(): void {
         // Listen for file creation events
         this.plugin.registerEvent(
-            this.app.vault.on("create", (file) => {
+            this.app.vault.on("create", async (file) => {
                 if (!(file instanceof TFile) || file.extension !== 'md') return;
                 if (!this.isFullyLoaded) return;
 
-                console.log(`CREATE: New file created, processing in ${this.settings.newNoteDelay}ms: ${file.name}`);
+                // Define processing function first
+                const processFileCreation = async () => {
+                // Capture initial content immediately from the specific file's editor
+                let initialContent = '';
+                try {
+                    const leaves = this.app.workspace.getLeavesOfType("markdown");
+                    for (const leaf of leaves) {
+                        const view = leaf.view as MarkdownView;
+                        if (view && view.file?.path === file.path && view.editor) {
+                            initialContent = view.editor.getValue();
+                            verboseLog(this.plugin, `CREATE: Captured initial editor content for ${file.path}: ${initialContent.length} chars`);
+                            break;
+                        }
+                    }
+                } catch (error) {
+                    verboseLog(this.plugin, `CREATE: Could not read initial editor content`);
+                }
+
+                verboseLog(this.plugin, `CREATE: New file created, processing in ${this.settings.newNoteDelay}ms: ${file.name}`);
 
                 // Check if title will be skipped (early detection)
                 const untitledPattern = /^Untitled(\s[1-9]\d*)?$/;
                 const isUntitled = untitledPattern.test(file.basename);
 
-                // Step 1: Always move cursor immediately (if enabled)
-                if (this.settings.moveCursorToFirstLine) {
-                    const activeLeaf = this.app.workspace.activeLeaf;
-                    const inCanvas = activeLeaf?.view?.getViewType() === "canvas";
-                    if (!inCanvas) {
-                        setTimeout(async () => {
-                            // Check for content immediately
-                            let hasContent = false;
-                            try {
-                                const content = await this.app.vault.read(file);
-                                hasContent = content.trim() !== '';
-                            } catch (error) {
-                                // File might not be readable yet, assume no content
+                // Step 1: Move cursor based on waitForCursorTemplate setting
+                if (this.settings.renameNotes === "automatically" && this.settings.moveCursorToFirstLine) {
+                    // If waitForCursorTemplate is OFF, move cursor immediately
+                    if (!this.settings.waitForCursorTemplate) {
+                        // Check if file is excluded from processing (folder/tag/property exclusions)
+                        const isExcluded = await this.plugin.fileOperations.isFileExcludedForCursorPositioning(file, initialContent);
+
+                        if (!isExcluded) {
+                            const activeLeaf = this.app.workspace.activeLeaf;
+                            const inCanvas = activeLeaf?.view?.getViewType() === "canvas";
+                            if (!inCanvas) {
+                                setTimeout(async () => {
+                                    // Use captured initial content to check if file has content
+                                    const hasContent = initialContent.trim() !== '';
+
+                                    // Determine if title insertion will be skipped
+                                    const willSkipTitleInsertion = !this.settings.insertTitleOnCreation || isUntitled || hasContent;
+
+                                    // Position cursor with placeCursorAtLineEnd if title will be skipped
+                                    this.plugin.fileOperations.handleCursorPositioning(file, willSkipTitleInsertion);
+                                }, 50);
                             }
+                        } else {
+                            verboseLog(this.plugin, `Skipping cursor positioning - file is excluded: ${file.path}`);
+                        }
+                    } else {
+                        // waitForCursorTemplate is ON - wait for YAML (600ms timeout), then move cursor
+                        verboseLog(this.plugin, `Waiting for template before cursor positioning: ${file.path}`);
 
-                            // Determine if title insertion will be skipped
-                            const willSkipTitleInsertion = !this.settings.insertTitleOnCreation || isUntitled || hasContent;
+                        // Wait for YAML or timeout (600ms for Editor mode)
+                        const templateWaitTime = 600;
+                        await this.plugin.fileOperations.waitForYamlOrTimeout(file, templateWaitTime);
 
-                            // Position cursor with placeCursorAtLineEnd if title will be skipped
-                            this.plugin.fileOperations.handleCursorPositioning(file, willSkipTitleInsertion);
-                        }, 50);
+                        // Get current content after template
+                        const leaves = this.app.workspace.getLeavesOfType("markdown");
+                        let currentContent: string | undefined;
+                        for (const leaf of leaves) {
+                            const view = leaf.view as MarkdownView;
+                            if (view && view.file?.path === file.path && view.editor) {
+                                currentContent = view.editor.getValue();
+                                break;
+                            }
+                        }
+
+                        // Check exclusions with current content (may have template tags/properties)
+                        const isExcluded = await this.plugin.fileOperations.isFileExcludedForCursorPositioning(file, currentContent);
+
+                        if (!isExcluded) {
+                            const activeLeaf = this.app.workspace.activeLeaf;
+                            const inCanvas = activeLeaf?.view?.getViewType() === "canvas";
+                            if (!inCanvas) {
+                                setTimeout(() => {
+                                    // Determine if we should use placeCursorAtLineEnd setting
+                                    const hasContent = currentContent && currentContent.trim() !== '';
+                                    const willSkipTitleInsertion = !this.settings.insertTitleOnCreation || isUntitled || hasContent;
+                                    this.plugin.fileOperations.handleCursorPositioning(file, willSkipTitleInsertion);
+                                }, 50);
+                            }
+                        } else {
+                            verboseLog(this.plugin, `Skipping cursor positioning after template - file is excluded: ${file.path}`);
+                        }
                     }
                 }
 
                 const timer = setTimeout(async () => {
-                    console.log(`CREATE: Processing new file after delay: ${file.name}`);
+                    verboseLog(this.plugin, `CREATE: Processing new file after delay: ${file.name}`);
 
                     try {
                         let titleWasInserted = false;
 
-                        // Step 2: Insert title if enabled
+                        // Step 2: Insert title if enabled (pass initial content captured at creation time)
                         if (this.settings.insertTitleOnCreation) {
-                            titleWasInserted = await this.plugin.fileOperations.insertTitleOnCreation(file);
+                            titleWasInserted = await this.plugin.fileOperations.insertTitleOnCreation(file, initialContent);
+                            verboseLog(this.plugin, `CREATE: insertTitleOnCreation returned ${titleWasInserted}`);
                         }
 
-                        // Step 3: Position cursor based on what happened
-                        // Only reposition if title was actually inserted and placeCursorAtLineEnd is ON
-                        // All skip cases (Untitled, has content) are already handled immediately above
-                        if (this.settings.moveCursorToFirstLine && titleWasInserted && this.settings.placeCursorAtLineEnd) {
-                            const activeLeaf = this.app.workspace.activeLeaf;
-                            const inCanvas = activeLeaf?.view?.getViewType() === "canvas";
+                        // Step 3: Reposition cursor if title was inserted and placeCursorAtLineEnd is ON
+                        if (this.settings.renameNotes === "automatically" && this.settings.moveCursorToFirstLine) {
+                            // Reposition to end of title if title was inserted and placeCursorAtLineEnd is ON
+                            if (titleWasInserted && this.settings.placeCursorAtLineEnd) {
+                                // Get current content after title insertion
+                                const leaves = this.app.workspace.getLeavesOfType("markdown");
+                                let currentContent: string | undefined;
+                                for (const leaf of leaves) {
+                                    const view = leaf.view as MarkdownView;
+                                    if (view && view.file?.path === file.path && view.editor) {
+                                        currentContent = view.editor.getValue();
+                                        break;
+                                    }
+                                }
 
-                            if (!inCanvas) {
-                                setTimeout(() => {
-                                    this.plugin.fileOperations.handleCursorPositioning(file);
-                                }, 50);
+                                // Check exclusion after title insertion
+                                const isExcluded = await this.plugin.fileOperations.isFileExcludedForCursorPositioning(file, currentContent);
+
+                                if (!isExcluded) {
+                                    const activeLeaf = this.app.workspace.activeLeaf;
+                                    const inCanvas = activeLeaf?.view?.getViewType() === "canvas";
+
+                                    if (!inCanvas) {
+                                        setTimeout(() => {
+                                            this.plugin.fileOperations.handleCursorPositioning(file);
+                                        }, 50);
+                                    }
+                                } else {
+                                    verboseLog(this.plugin, `Skipping post-title cursor repositioning - file is excluded: ${file.path}`);
+                                }
                             }
                         }
 
                         // Step 4: Rename file if automatic mode
                         if (this.settings.renameNotes === "automatically") {
-                            await this.renameEngine.processFile(file, true, false);
+                            // Get current editor content if file is open
+                            let editorContent: string | undefined;
+                            const leaves = this.app.workspace.getLeavesOfType("markdown");
+                            for (const leaf of leaves) {
+                                const view = leaf.view as any;
+                                if (view && view.file && view.file.path === file.path && view.editor) {
+                                    editorContent = view.editor.getValue();
+                                    break;
+                                }
+                            }
+                            await this.renameEngine.processFile(file, true, false, false, editorContent);
                         }
 
-                        console.log(`CREATE: Completed processing new file: ${file.name}`);
+                        verboseLog(this.plugin, `CREATE: Completed processing new file: ${file.name}`);
                     } catch (error) {
                         console.error(`CREATE: Failed to process new file ${file.path}:`, error);
                     } finally {
@@ -271,6 +371,40 @@ export class WorkspaceIntegration {
                 }, this.settings.newNoteDelay);
 
                 this.plugin.editorLifecycle.setCreationDelayTimer(file.path, timer);
+                }; // End processFileCreation
+
+                // Wait for markdown view to be ready (handles both existing tabs and new first file)
+                const checkViewReady = async () => {
+                    const leaves = this.app.workspace.getLeavesOfType("markdown");
+                    for (const leaf of leaves) {
+                        const view = leaf.view as MarkdownView;
+                        if (view && view.file?.path === file.path) {
+                            verboseLog(this.plugin, `CREATE: Markdown view ready for ${file.name}`);
+                            return true;
+                        }
+                    }
+                    return false;
+                };
+
+                // Try immediate check first
+                const immediateCheck = await checkViewReady();
+                if (!immediateCheck) {
+                    // View not ready, wait and retry
+                    setTimeout(async () => {
+                        const delayedCheck = await checkViewReady();
+                        if (!delayedCheck) {
+                            verboseLog(this.plugin, `CREATE: No markdown view found for ${file.name} after delay, skipping`);
+                            return;
+                        }
+                        // Process after view is ready
+                        await processFileCreation();
+                    }, 100);
+                    return;
+                }
+
+                // View is ready immediately, process now
+                verboseLog(this.plugin, `CREATE: File created ${file.name}, markdown view ready`);
+                await processFileCreation();
             })
         );
     }

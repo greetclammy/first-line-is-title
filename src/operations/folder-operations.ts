@@ -23,21 +23,21 @@ export class FolderOperations {
 
         if (files.length === 0) {
             verboseLog(this, `Showing notice: No markdown files found in this folder.`);
-            new Notice("No markdown files found in this folder.");
+            new Notice(`No notes found in: ${folder.name}`);
             return;
         }
 
-        verboseLog(this, `Showing notice: Processing ${files.length} files in "${folder.path}"...`);
-        new Notice(`Processing ${files.length} files in "${folder.path}"...`);
+        verboseLog(this, `Showing notice: Renaming ${files.length} files in "${folder.path}"...`);
+        new Notice(`Renaming ${files.length} notes...`);
 
         let processedCount = 0;
         let errorCount = 0;
 
         for (const file of files) {
             try {
-                // Use the existing processFile method with ignoreExclusions = true to force processing
-                // Pass isBatchOperation = true to skip rate limits for batch operations
-                await this.renameEngine.processFile(file, true, true, true, undefined, true);
+                // processFile(file, noDelay, ignoreExclusions, showNotices, providedContent, isBatchOperation)
+                // noDelay=true, ignoreExclusions=true, showNotices=false, providedContent=undefined, isBatchOperation=true
+                await this.renameEngine.processFile(file, true, true, false, undefined, true);
                 processedCount++;
             } catch (error) {
                 console.error(`Error processing file ${file.path}:`, error);
@@ -46,11 +46,11 @@ export class FolderOperations {
         }
 
         if (errorCount > 0) {
-            verboseLog(this, `Showing notice: Processed ${processedCount} files with ${errorCount} errors.`);
-            new Notice(`Processed ${processedCount} files with ${errorCount} errors.`);
+            verboseLog(this, `Showing notice: Renamed ${processedCount}/${files.length} notes with ${errorCount} errors. Check console for details.`);
+            new Notice(`Renamed ${processedCount}/${files.length} notes with ${errorCount} errors. Check console for details.`, 0);
         } else {
             verboseLog(this, `Showing notice: Successfully processed ${processedCount} files.`);
-            new Notice(`Successfully processed ${processedCount} files.`);
+            new Notice(`Renamed ${processedCount}/${files.length} notes.`, 0);
         }
     }
 
@@ -65,7 +65,7 @@ export class FolderOperations {
                 this.settings.excludedFolders.push("");
             }
             verboseLog(this, `Showing notice: Renaming enabled for folder: ${folderPath}`);
-            new Notice(`Renaming enabled for folder: ${folderPath}`);
+            new Notice(`Enabled renaming in: ${folderPath}`);
         } else {
             // If there's only an empty entry, replace it; otherwise add
             if (this.settings.excludedFolders.length === 1 && this.settings.excludedFolders[0] === "") {
@@ -74,7 +74,7 @@ export class FolderOperations {
                 this.settings.excludedFolders.push(folderPath);
             }
             verboseLog(this, `Showing notice: Renaming disabled for folder: ${folderPath}`);
-            new Notice(`Renaming disabled for folder: ${folderPath}`);
+            new Notice(`Disabled renaming in: ${folderPath}`);
         }
 
         this.debugLog('excludedFolders', this.settings.excludedFolders);
@@ -154,20 +154,20 @@ export class FolderOperations {
 
         if (allFiles.length === 0) {
             verboseLog(this, `Showing notice: No markdown files found in selected folders.`);
-            new Notice("No markdown files found in selected folders.");
+            new Notice("No notes found in selected folders.");
             return;
         }
 
         if (action === 'rename') {
-            verboseLog(this, `Showing notice: Processing ${allFiles.length} files from ${folders.length} folders...`);
-            new Notice(`Processing ${allFiles.length} files from ${folders.length} folders...`);
+            verboseLog(this, `Showing notice: Renaming ${allFiles.length} files from ${folders.length} folders...`);
+            new Notice(`Renaming ${allFiles.length} notes...`);
 
             // Use the existing file processing logic
             await this.processMultipleFiles(allFiles, 'rename');
         } else {
             // For folder exclusion, we work with folder paths directly
-            verboseLog(this, `Showing notice: Processing ${folders.length} folders...`);
-            new Notice(`Processing ${folders.length} folders...`);
+            verboseLog(this, `Showing notice: Renaming ${folders.length} folders...`);
+            new Notice(`Renaming ${folders.length} notes...`);
 
             for (const folder of folders) {
                 try {
@@ -192,17 +192,9 @@ export class FolderOperations {
             }
 
             // Show completion notice
-            const actionText = action === 'disable' ? 'disabled renaming for' : 'enabled renaming for';
-            if (errors > 0) {
-                verboseLog(this, `Showing notice: ${actionText} ${processed} folders. ${skipped} already in desired state. ${errors} errors occurred.`);
-                new Notice(`${actionText} ${processed} folders. ${skipped} already in desired state. ${errors} errors occurred.`);
-            } else if (skipped > 0) {
-                verboseLog(this, `Showing notice: ${actionText} ${processed} folders. ${skipped} already in desired state.`);
-                new Notice(`${actionText} ${processed} folders. ${skipped} already in desired state.`);
-            } else {
-                verboseLog(this, `Showing notice: Successfully ${actionText} ${processed} folders.`);
-                new Notice(`Successfully ${actionText} ${processed} folders.`);
-            }
+            const actionText = action === 'disable' ? 'Disabled' : 'Enabled';
+            verboseLog(this, `Showing notice: ${actionText} renaming for ${processed} folders.`);
+            new Notice(`${actionText} renaming in ${processed} folders.`);
         }
     }
 }

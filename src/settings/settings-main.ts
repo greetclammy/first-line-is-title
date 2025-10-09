@@ -192,9 +192,35 @@ export class FirstLineIsTitleSettings extends PluginSettingTab {
 
         // Render initial tab
         this.renderTab(this.plugin.settings.currentSettingsTab);
+
+        // Remove focus from active tab to prevent outline on initial display
+        setTimeout(() => {
+            if (document.activeElement instanceof HTMLElement) {
+                document.activeElement.blur();
+            }
+        }, 0);
+
+        // Handle first Tab press to focus active tab
+        let hasHandledFirstTab = false;
+        const handleFirstTab = (e: KeyboardEvent) => {
+            if (e.key === 'Tab' && !hasHandledFirstTab) {
+                const focusedElement = document.activeElement;
+                const isOnTab = focusedElement && focusedElement.classList.contains('flit-settings-tab');
+
+                if (!isOnTab) {
+                    hasHandledFirstTab = true;
+                    const activeTab = tabBar.querySelector('.flit-settings-tab-active') as HTMLElement;
+                    if (activeTab) {
+                        e.preventDefault();
+                        activeTab.focus();
+                    }
+                }
+            }
+        };
+        this.containerEl.addEventListener('keydown', handleFirstTab);
     }
 
-    private renderTab(tabId: string): void {
+    private async renderTab(tabId: string): Promise<void> {
         if (!this.settingsPage) return;
 
         this.settingsPage.empty();
@@ -205,11 +231,11 @@ export class FirstLineIsTitleSettings extends PluginSettingTab {
         if (tabConfig) {
             // Create and render the tab
             const tabInstance = new tabConfig.class(this.plugin, this.settingsPage);
-            tabInstance.render();
+            await tabInstance.render();
         } else {
             // Default to general tab
             const generalTab = new GeneralTab(this.plugin, this.settingsPage);
-            generalTab.render();
+            await generalTab.render();
         }
     }
 }

@@ -10,8 +10,7 @@ import {
     containsSafeword,
     extractTitle,
     isValidHeading,
-    generateSafeLinkTarget,
-    normalizePropertyValue
+    generateSafeLinkTarget
 } from './src/utils';
 import { RenameAllFilesModal, RenameFolderModal, ClearSettingsModal, ProcessTagModal, InternalLinkModal } from './src/modals';
 import { FirstLineIsTitleSettings } from './src/settings/settings-main';
@@ -102,15 +101,6 @@ export default class FirstLineIsTitle extends Plugin {
     // Track files with pending metadata cache updates (for alias manager sync)
     pendingMetadataUpdates: Set<string> = new Set();
 
-    // Dynamic event listener references for mode-based switching
-    private editorChangeListeners: any[] = [];
-    private modifyEventListener: any = null;
-
-    // Debug file content tracking for change detection
-    private fileContentBeforeChange: Map<string, string> = new Map();
-    private flitModifiedFiles: Set<string> = new Set();
-    private batchOperationFiles: Set<string> = new Set();
-
     isTagWranglerEnabled(): boolean {
         return this.app.plugins.enabledPlugins.has("tag-wrangler");
     }
@@ -147,99 +137,18 @@ export default class FirstLineIsTitle extends Plugin {
         }
     }
 
-    // Track FLIT modifications
-    markFlitModificationStart(filePath: string): void {
-        this.flitModifiedFiles.add(filePath);
-    }
-
-    markFlitModificationEnd(filePath: string): void {
-        // Keep the flag for a short time to catch the modify event
-        setTimeout(() => {
-            this.flitModifiedFiles.delete(filePath);
-        }, 1000);
-    }
-
-    isFlitModification(filePath: string): boolean {
-        return this.flitModifiedFiles.has(filePath);
-    }
-
-    // Track batch operations
-    markBatchOperationStart(filePath: string): void {
-        this.batchOperationFiles.add(filePath);
-    }
-
-    markBatchOperationEnd(filePath: string): void {
-        this.batchOperationFiles.delete(filePath);
-    }
-
-    isInBatchOperation(filePath: string): boolean {
-        return this.batchOperationFiles.has(filePath);
-    }
-
     // Debug file content output
-    async outputDebugFileContent(file: TFile, action: string, providedContent?: string): Promise<void> {
+    async outputDebugFileContent(file: TFile, action: string): Promise<void> {
         if (!this.settings.verboseLogging || !this.settings.debugOutputFullContent) {
             return;
         }
 
-        // Skip output for batch operations
-        if (this.isInBatchOperation(file.path)) {
-            return;
-        }
-
         try {
-            const content = providedContent !== undefined ? providedContent : await this.app.vault.read(file);
-
-            // For OPENED and CREATED actions, output full content
-            if (action === 'OPENED' || action === 'CREATED') {
-                console.debug(`CONTENT [${action}] ${file.path}:`);
-                console.debug('--- FILE CONTENT START ---');
-                console.debug(content);
-                console.debug('--- FILE CONTENT END ---');
-                return;
-            }
-
-            // For MODIFIED action, output only changed lines
-            if (action === 'MODIFIED') {
-                const previousContent = this.fileContentBeforeChange.get(file.path);
-
-                if (!previousContent) {
-                    // No previous content tracked, output full content
-                    console.debug(`CONTENT [${action}] ${file.path}:`);
-                    console.debug('--- FILE CONTENT START ---');
-                    console.debug(content);
-                    console.debug('--- FILE CONTENT END ---');
-                } else {
-                    // Compare and output only changed lines
-                    const previousLines = previousContent.split('\n');
-                    const currentLines = content.split('\n');
-                    const changedLines: {lineNum: number, content: string}[] = [];
-
-                    const maxLines = Math.max(previousLines.length, currentLines.length);
-                    for (let i = 0; i < maxLines; i++) {
-                        if (previousLines[i] !== currentLines[i]) {
-                            changedLines.push({
-                                lineNum: i + 1,
-                                content: currentLines[i] || ''
-                            });
-                        }
-                    }
-
-                    if (changedLines.length > 0) {
-                        const isFlitMod = this.isFlitModification(file.path);
-                        const modSource = isFlitMod ? 'MODIFYING' : 'MODIFIED';
-                        console.debug(`CONTENT [${modSource}] ${file.path}:`);
-                        console.debug('--- MODIFIED LINES START ---');
-                        for (const change of changedLines) {
-                            console.debug(`Line ${change.lineNum}: ${change.content}`);
-                        }
-                        console.debug('--- MODIFIED LINES END ---');
-                    }
-                }
-
-                // Update stored content for next comparison
-                this.fileContentBeforeChange.set(file.path, content);
-            }
+            const content = await this.app.vault.read(file);
+            console.debug(`CONTENT [${action}] ${file.path}:`);
+            console.debug('--- FILE CONTENT START ---');
+            console.debug(content);
+            console.debug('--- FILE CONTENT END ---');
         } catch (error) {
             console.debug(`CONTENT [${action}] ${file.path}: Failed to read file:`, error);
         }
@@ -258,6 +167,185 @@ export default class FirstLineIsTitle extends Plugin {
     }
 
 
+
+    async insertTitleOnCreation(file: TFile): Promise<void> {
+
+        try {
+            // Check if filename is "Untitled" or "Untitled n" (where n is any integer)
+            const untitledPattern = /^Untitled(\s\d+)?$/;
+            if (untitledPattern.test(file.basename)) {
+                verboseLog(this, `Skipping title insertion for untitled file: ${file.path}`);
+                return;
+            }
+
+            // Read current file content
+            let content: string;
+            try {
+                content = await this.app.vault.read(file);
+            } catch (error) {
+                console.error(`Failed to read file ${file.path} for title insertion:`, error);
+                return;
+            }
+
+            // Debug: log what content we found
+            verboseLog(this, `Title insertion delay complete. File content length: ${content.length} chars, trimmed: "${content.trim()}"`);
+
+            // Check if file already has content (skip if not empty)
+            if (content.trim() !== '') {
+                verboseLog(this, `Skipping title insertion - file already has content: ${file.path}`);
+                return;
+            }
+
+            // Get clean title by reversing forbidden character replacements
+            let cleanTitle = file.basename;
+
+            // Apply character reversal mapping
+            for (const [forbiddenChar, normalChar] of Object.entries(TITLE_CHAR_REVERSAL_MAP)) {
+                cleanTitle = cleanTitle.replaceAll(forbiddenChar, normalChar);
+            }
+
+            verboseLog(this, `Inserting title "${cleanTitle}" in new file: ${file.path}`);
+
+            // Check if we're in canvas view to decide cursor behavior
+            const activeLeaf = this.app.workspace.activeLeaf;
+            const inCanvas = activeLeaf?.view?.getViewType() === "canvas";
+
+            // Create content with title and cursor positioning
+            let newContent = cleanTitle;
+
+            // Only add cursor if not in canvas and moveCursorToFirstLine is enabled
+            if (!inCanvas && this.settings.moveCursorToFirstLine) {
+                if (this.settings.placeCursorAtLineEnd) {
+                    newContent += "\n"; // Place cursor at end of title line
+                } else {
+                    newContent += "\n"; // Place cursor on new line after title
+                }
+            } else {
+                newContent += "\n"; // Always add at least one newline after title
+            }
+
+            // Re-read current content with retry logic (template may still be applying)
+            let currentContent: string;
+            let retryCount = 0;
+            const maxRetries = 3;
+            const retryDelay = 500;
+
+            do {
+                try {
+                    currentContent = await this.app.vault.read(file);
+                    verboseLog(this, `Re-read file content (attempt ${retryCount + 1}). Length: ${currentContent.length} chars`);
+
+                    if (currentContent.trim() !== '') {
+                        verboseLog(this, `Template content found after ${retryCount + 1} attempts`);
+                        break; // Template applied, stop retrying
+                    }
+
+                    if (retryCount < maxRetries - 1) {
+                        verboseLog(this, `File still empty, retrying in ${retryDelay}ms...`);
+                        await new Promise(resolve => setTimeout(resolve, retryDelay));
+                    }
+
+                } catch (error) {
+                    console.error(`Failed to re-read file ${file.path} for title insertion:`, error);
+                    return;
+                }
+                retryCount++;
+            } while (retryCount < maxRetries && currentContent.trim() === '');
+
+            // If file now has content (template applied), insert title properly
+            if (currentContent.trim() !== '') {
+                verboseLog(this, `File now has template content, inserting title into existing content`);
+
+                // Use metadata cache to find where to insert title
+                const metadata = this.app.metadataCache.getFileCache(file);
+                const lines = currentContent.split('\n');
+
+                if (metadata?.frontmatterPosition) {
+                    // Insert title after frontmatter
+                    const insertLine = metadata.frontmatterPosition.end.line + 1;
+                    lines.splice(insertLine, 0, cleanTitle);
+                    verboseLog(this, `Inserted title after frontmatter at line ${insertLine}`);
+                } else {
+                    // Insert title at beginning
+                    lines.unshift(cleanTitle);
+                    verboseLog(this, `Inserted title at beginning of file`);
+                }
+
+                const finalContent = lines.join('\n');
+                await this.app.vault.modify(file, finalContent);
+            } else {
+                // File still empty, use original behavior
+                verboseLog(this, `File still empty, inserting title as new content`);
+                await this.app.vault.modify(file, newContent);
+            }
+
+            // Handle cursor positioning and view mode if file is currently open
+            if (!inCanvas && this.settings.moveCursorToFirstLine) {
+                setTimeout(() => {
+                    this.handleCursorPositioning(file);
+                }, 50);
+            }
+
+            verboseLog(this, `Successfully inserted title in ${file.path}`);
+
+        } catch (error) {
+            console.error(`Error inserting title on creation for ${file.path}:`, error);
+        }
+    }
+
+    private async handleCursorPositioning(file: TFile): Promise<void> {
+        try {
+            verboseLog(this, `handleCursorPositioning called for ${file.path}`);
+            const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
+            verboseLog(this, `Active view found: ${!!activeView}, file matches: ${activeView?.file?.path === file.path}`);
+
+            if (activeView && activeView.file?.path === file.path) {
+                // Set to source mode
+                await activeView.leaf.setViewState({
+                    type: "markdown",
+                    state: {
+                        mode: "source",
+                        source: false
+                    }
+                });
+
+                // Focus the editor
+                await activeView.editor?.focus();
+
+                // Position cursor - find actual title line using metadata cache
+                let titleLineNumber = 0;
+                let titleLineLength = 0;
+
+                // Use metadata cache to determine frontmatter position
+                const metadata = this.app.metadataCache.getFileCache(file);
+                if (metadata?.frontmatterPosition) {
+                    // Title is on the line after frontmatter
+                    titleLineNumber = metadata.frontmatterPosition.end.line + 1;
+                    verboseLog(this, `Found frontmatter ending at line ${metadata.frontmatterPosition.end.line}, title on line ${titleLineNumber}`);
+                } else {
+                    // No frontmatter, title is on first line
+                    titleLineNumber = 0;
+                    verboseLog(this, `No frontmatter found, title on line ${titleLineNumber}`);
+                }
+
+                titleLineLength = activeView.editor?.getLine(titleLineNumber)?.length || 0;
+
+                if (this.settings.placeCursorAtLineEnd) {
+                    // Move to end of title line
+                    activeView.editor?.setCursor({ line: titleLineNumber, ch: titleLineLength });
+                    verboseLog(this, `Moved cursor to end of title line ${titleLineNumber} (${titleLineLength} chars) via handleCursorPositioning for ${file.path}`);
+                } else {
+                    // Move to line after title
+                    activeView.editor?.setCursor({ line: titleLineNumber + 1, ch: 0 });
+                    verboseLog(this, `Moved cursor to line after title (line ${titleLineNumber + 1}) via handleCursorPositioning for ${file.path}`);
+                }
+            } else {
+                verboseLog(this, `Skipping cursor positioning - no matching active view for ${file.path}`);
+            }
+        } catch (error) {
+            console.error(`Error positioning cursor for ${file.path}:`, error);
+        }
+    }
 
 
     getSelectedFolders(): TFolder[] {
@@ -279,14 +367,13 @@ export default class FirstLineIsTitle extends Plugin {
         let skipped = 0;
         let errors = 0;
 
-        verboseLog(this, `Showing notice: Processing ${files.length} files...`);
-        new Notice(`Processing ${files.length} files...`);
+        new Notice(`Renaming ${files.length} notes...`);
 
         for (const file of files) {
             try {
                 if (action === 'rename') {
-                    // Run the "even if excluded" version with batch operation flag
-                    const result = await this.renameEngine.processFile(file, true, true, true, undefined, true);
+                    // Run the "even if excluded" version
+                    const result = await this.renameEngine.renameFile(file, true, true, true);
                     if (result.success) {
                         processed++;
                     } else {
@@ -301,11 +388,9 @@ export default class FirstLineIsTitle extends Plugin {
 
         // Show completion notice
         if (errors > 0) {
-            verboseLog(this, `Showing notice: Completed: ${processed} renamed, ${skipped} skipped, ${errors} errors`);
-            new Notice(`Completed: ${processed} renamed, ${skipped} skipped, ${errors} errors`);
+            new Notice(`Renamed ${processed}/${files.length} notes with ${errors} errors. Check console for details.`, 0);
         } else {
-            verboseLog(this, `Showing notice: Successfully processed ${processed} files. ${skipped} skipped.`);
-            new Notice(`Successfully processed ${processed} files. ${skipped} skipped.`);
+            new Notice(`Renamed ${processed}/${files.length} notes.`, 0);
         }
     }
 
@@ -320,7 +405,7 @@ export default class FirstLineIsTitle extends Plugin {
         if (!activeFile || activeFile.extension !== 'md') return;
 
         // Check if the disable property exists in the current file
-        const hasDisableProperty = await hasDisablePropertyInFile(activeFile, this.app, this.settings.disableRenamingKey, this.settings.disableRenamingValue);
+        const hasDisableProperty = await hasDisablePropertyInFile(activeFile, this.app);
 
         // Remove existing dynamic commands
         const commandsToRemove = ['disable-renaming-for-note', 'enable-renaming-for-note'];
@@ -362,56 +447,52 @@ export default class FirstLineIsTitle extends Plugin {
     async disableRenamingForNote(): Promise<void> {
         const activeFile = this.app.workspace.getActiveFile();
         if (!activeFile || activeFile.extension !== 'md') {
-            verboseLog(this, `Showing notice: No active editor`);
-            new Notice("No active editor");
+            new Notice("Error: no active note.");
             return;
         }
 
         // Check if property already exists
-        const hasProperty = await hasDisablePropertyInFile(activeFile, this.app, this.settings.disableRenamingKey, this.settings.disableRenamingValue);
+        const hasProperty = await hasDisablePropertyInFile(activeFile, this.app);
 
         try {
             if (!hasProperty) {
                 await this.app.fileManager.processFrontMatter(activeFile, (frontmatter) => {
-                    frontmatter[this.settings.disableRenamingKey] = normalizePropertyValue(this.settings.disableRenamingValue);
+                    frontmatter["no rename"] = "true";
                 });
                 // Re-register commands to reflect new state
                 await this.registerDynamicCommands();
             }
 
-            verboseLog(this, `Showing notice: Disabled renaming for ${activeFile.name}`);
-            new Notice(`Disabled renaming for ${activeFile.name}`);
+            new Notice(`Disabled renaming for: ${activeFile.basename}`);
         } catch (error) {
-            verboseLog(this, `Showing notice: Failed to disable renaming: ${error.message}`);
-            new Notice(`Failed to disable renaming: ${error.message}`);
+            console.error('Failed to disable renaming:', error);
+            new Notice(`Failed to disable renaming. Check console for details.`);
         }
     }
 
     async enableRenamingForNote(): Promise<void> {
         const activeFile = this.app.workspace.getActiveFile();
         if (!activeFile || activeFile.extension !== 'md') {
-            verboseLog(this, `Showing notice: No active editor`);
-            new Notice("No active editor");
+            new Notice("Error: no active note.");
             return;
         }
 
         // Check if property exists
-        const hasProperty = await hasDisablePropertyInFile(activeFile, this.app, this.settings.disableRenamingKey, this.settings.disableRenamingValue);
+        const hasProperty = await hasDisablePropertyInFile(activeFile, this.app);
 
         try {
             if (hasProperty) {
                 await this.app.fileManager.processFrontMatter(activeFile, (frontmatter) => {
-                    delete frontmatter[this.settings.disableRenamingKey];
+                    delete frontmatter["no rename"];
                 });
                 // Re-register commands to reflect new state
                 await this.registerDynamicCommands();
             }
 
-            verboseLog(this, `Showing notice: Enabled renaming for ${activeFile.name}`);
-            new Notice(`Enabled renaming for ${activeFile.name}`);
+            new Notice(`Enabled renaming for: ${activeFile.basename}`);
         } catch (error) {
-            verboseLog(this, `Showing notice: Failed to enable renaming: ${error.message}`);
-            new Notice(`Failed to enable renaming: ${error.message}`);
+            console.error('Failed to enable renaming:', error);
+            new Notice(`Failed to enable renaming. Check console for details.`);
         }
     }
 
@@ -419,8 +500,7 @@ export default class FirstLineIsTitle extends Plugin {
         // Try to get active editor from any view type (markdown, canvas, etc.)
         const activeEditor = this.app.workspace.activeEditor?.editor;
         if (!activeEditor) {
-            verboseLog(this, `Showing notice: No active editor`);
-            new Notice("No active editor");
+            new Notice("Error: no active note.");
             return;
         }
 
@@ -446,8 +526,7 @@ export default class FirstLineIsTitle extends Plugin {
         // Try to get active editor from any view type (markdown, canvas, etc.)
         const activeEditor = this.app.workspace.activeEditor?.editor;
         if (!activeEditor) {
-            verboseLog(this, `Showing notice: No active editor`);
-            new Notice("No active editor");
+            new Notice("Error: no active note.");
             return;
         }
 
@@ -474,13 +553,176 @@ export default class FirstLineIsTitle extends Plugin {
         }
     }
 
+    private propertyObserver?: MutationObserver;
+
+    private setupPropertyHiding(propertyKey: string): void {
+        // Clean up existing observer
+        this.cleanupPropertyObserver();
+
+        // Create new observer to watch for property changes
+        this.propertyObserver = new MutationObserver((mutations) => {
+            mutations.forEach(() => {
+                this.hideProperties(propertyKey);
+            });
+        });
+
+        // Start observing
+        this.propertyObserver.observe(document.body, {
+            childList: true,
+            subtree: true,
+            attributes: true,
+            attributeFilter: ['data-property-key']
+        });
+
+        // Initial hide
+        this.hideProperties(propertyKey);
+    }
+
+    private hideProperties(propertyKey: string): void {
+        // Find all property elements with the target key
+        const properties = document.querySelectorAll(`[data-property-key="${propertyKey}"]`);
+
+        properties.forEach((property) => {
+            // Skip if in source view (check for CodeMirror editor context)
+            const isInSourceView = property.closest('.cm-editor') &&
+                                   !property.closest('.metadata-container');
+            if (isInSourceView) {
+                return;
+            }
+
+            // Detect context: sidebar vs in-note
+            // Sidebar properties are typically in workspace-leaf-content but NOT in markdown views
+            const isInSidebar = property.closest('.workspace-leaf-content') &&
+                               !property.closest('.workspace-leaf-content[data-type="markdown"]') &&
+                               !property.closest('.markdown-source-view') &&
+                               !property.closest('.markdown-preview-view');
+
+            // Determine if this property should be hidden based on the mode and context
+            let shouldHide = false;
+
+            if (this.settings.hideAliasProperty === 'always') {
+                // Always hide, regardless of emptiness, but consider sidebar setting
+                if (isInSidebar && !this.settings.hideAliasInSidebar) {
+                    // In sidebar but sidebar hiding is disabled - don't hide
+                    shouldHide = false;
+                } else {
+                    // Either not in sidebar, or sidebar hiding is enabled - hide it
+                    shouldHide = true;
+                }
+            } else if (this.settings.hideAliasProperty === 'when_empty') {
+                // Only hide if property is empty, and consider sidebar setting
+                const valueContainer = property.querySelector('.metadata-property-value');
+                const isEmpty = !valueContainer ||
+                               valueContainer.textContent?.trim() === '' ||
+                               valueContainer.children.length === 0;
+
+                if (isEmpty) {
+                    if (isInSidebar && !this.settings.hideAliasInSidebar) {
+                        // In sidebar but sidebar hiding is disabled - don't hide even if empty
+                        shouldHide = false;
+                    } else {
+                        // Either not in sidebar, or sidebar hiding is enabled - hide it
+                        shouldHide = true;
+                    }
+                } else {
+                    // Not empty - don't hide
+                    shouldHide = false;
+                }
+            }
+
+            const metadataContainer = property.closest('.metadata-container');
+            const metadataProperties = property.closest('.metadata-properties');
+
+            if (shouldHide) {
+                // Property should be hidden - apply context-specific logic
+                if (metadataProperties) {
+                    const allProperties = metadataProperties.querySelectorAll('.metadata-property[data-property-key]');
+
+                    if (allProperties.length === 1 && allProperties[0] === property) {
+                        // This is the only property and it should be hidden
+                        if (isInSidebar) {
+                            // SIDEBAR: Only hide .metadata-properties, preserve "Add property" button
+                            (metadataProperties as HTMLElement).style.display = 'none';
+                        } else {
+                            // IN-NOTE: Hide entire .metadata-container including "Add property" button
+                            if (metadataContainer) {
+                                (metadataContainer as HTMLElement).style.display = 'none';
+                            } else {
+                                // Fallback if no container found
+                                (metadataProperties as HTMLElement).style.display = 'none';
+                            }
+                        }
+                    } else {
+                        // There are other properties - just hide this individual property
+                        (property as HTMLElement).style.display = 'none';
+                        // Ensure properties section remains visible since there are other properties
+                        (metadataProperties as HTMLElement).style.display = '';
+                        if (metadataContainer) {
+                            (metadataContainer as HTMLElement).style.display = '';
+                        }
+                    }
+                } else {
+                    // Fallback: just hide the individual property
+                    (property as HTMLElement).style.display = 'none';
+                }
+            } else {
+                // Property should be shown
+                (property as HTMLElement).style.display = '';
+
+                // Ensure containers are visible since we have a property that should be shown
+                if (metadataProperties) {
+                    (metadataProperties as HTMLElement).style.display = '';
+                }
+                if (metadataContainer) {
+                    (metadataContainer as HTMLElement).style.display = '';
+                }
+            }
+        });
+    }
+
+    private cleanupPropertyObserver(): void {
+        if (this.propertyObserver) {
+            this.propertyObserver.disconnect();
+            this.propertyObserver = undefined;
+        }
+
+        // Remove any hiding styles applied by the observer
+        const hiddenProperties = document.querySelectorAll('[data-property-key][style*="display: none"]');
+        hiddenProperties.forEach((property) => {
+            (property as HTMLElement).style.display = '';
+        });
+
+        // Also restore any hidden properties sections
+        const hiddenContainers = document.querySelectorAll('.metadata-container[style*="display: none"], .frontmatter-container[style*="display: none"], .metadata-properties[style*="display: none"]');
+        hiddenContainers.forEach((container) => {
+            (container as HTMLElement).style.display = '';
+        });
+    }
+
     updatePropertyVisibility(): void {
-        // Delegate to PropertyVisibility class
-        this.propertyVisibility.updatePropertyVisibility();
+        // Remove any existing property hiding styles
+        document.head.querySelector('#flit-hide-property-style')?.remove();
+
+        // Clean up any existing observer
+        this.cleanupPropertyObserver();
+
+        if (this.settings.hideAliasProperty === 'never') {
+            return; // No hiding needed
+        }
+
+        const propertyKey = this.settings.aliasPropertyKey || 'aliases';
+
+        if (this.settings.hideAliasProperty === 'always' || this.settings.hideAliasProperty === 'when_empty') {
+            // Use DOM observation for both modes to handle container hiding properly
+            this.setupPropertyHiding(propertyKey);
+        }
     }
 
     private checkAndShowNotices(): void {
         const today = this.getTodayDateString();
+
+        // Update last usage date
+        this.updateLastUsageDate(today);
 
         // Check for first-time setup
         if (!this.settings.hasShownFirstTimeNotice) {
@@ -491,12 +733,9 @@ export default class FirstLineIsTitle extends Plugin {
         // Check for long inactivity (30+ days) - only if automatic renaming is enabled
         if (this.settings.lastUsageDate &&
             this.isInactive(this.settings.lastUsageDate, today) &&
-            this.settings.renameNotes === 'automatically') {
+            this.settings.renameNotes === 'Automatically') {
             this.showInactivityNotice();
         }
-
-        // Update last usage date (after checks to avoid overwriting old dates)
-        this.updateLastUsageDate(today);
     }
 
     getTodayDateString(): string {
@@ -514,15 +753,13 @@ export default class FirstLineIsTitle extends Plugin {
     }
 
     private showFirstTimeNotice(): void {
-        verboseLog(this, `Showing notice: Please open First Line is Title settings to set your preferences. Ensure your files are regularly backed up.`);
-        new Notice("Please open First Line is Title settings to set your preferences. Ensure your files are regularly backed up.", 10000);
+        new Notice("Please open First Line is Title settings to set your preferences. Ensure your files are backed up.");
         this.settings.hasShownFirstTimeNotice = true;
         this.saveSettings();
     }
 
     private showInactivityNotice(): void {
-        verboseLog(this, `Showing notice: Please open First Line is Title settings to set your preferences. Ensure your files are regularly backed up.`);
-        new Notice("Please open First Line is Title settings to set your preferences. Ensure your files are regularly backed up.", 10000);
+        new Notice("Please open First Line is Title settings to set your preferences. Ensure your files are backed up.");
     }
 
     private updateLastUsageDate(today: string): void {
@@ -545,13 +782,6 @@ export default class FirstLineIsTitle extends Plugin {
         this.cacheManager = new CacheManager(this);
         globalCacheManager = this.cacheManager;
 
-        // Disable debug if last used on a different day
-        const today = this.getTodayDateString();
-        if (this.settings.lastUsageDate !== today && this.settings.verboseLogging) {
-            this.settings.verboseLogging = false;
-            await this.saveSettings();
-        }
-
         // Check for first-time setup or long inactivity
         this.checkAndShowNotices();
 
@@ -560,9 +790,6 @@ export default class FirstLineIsTitle extends Plugin {
 
         // Initialize the alias manager
         this.aliasManager = new AliasManager(this);
-
-        // Initialize property visibility manager
-        this.propertyVisibility = new PropertyVisibility(this);
 
         this.contextMenuManager = new ContextMenuManager(this);
 
@@ -590,15 +817,15 @@ export default class FirstLineIsTitle extends Plugin {
         // Initialize workspace integration manager
         this.workspaceIntegration = new WorkspaceIntegration(this);
 
-        // Initialize file operations
-        this.fileOperations = new FileOperations(this);
-
         // Initialize property manager
         this.propertyManager = new PropertyManager(this);
 
         // Always disable debug mode on plugin load (don't preserve ON state)
         // TODO: Re-enable this later if needed
         // this.settings.verboseLogging = false;
+
+        // DISABLED: Force disable title insertion due to template conflicts
+        this.settings.insertTitleOnCreation = false;
 
         // Auto-detect OS every time plugin loads
         this.settings.osPreset = detectOS();
@@ -650,7 +877,7 @@ export default class FirstLineIsTitle extends Plugin {
                                 .setIcon("file-pen")
                                 .onClick(async () => {
                                     // Run the "even if excluded" version
-                                    await this.renameEngine.processFile(file, true, true, true);
+                                    await this.renameEngine.renameFile(file, true, true, true);
                                 });
                         });
                     }
@@ -662,11 +889,11 @@ export default class FirstLineIsTitle extends Plugin {
 
                     if (fileCache && fileCache.frontmatter) {
                         const frontmatter = fileCache.frontmatter;
-                        const value = frontmatter[this.settings.disableRenamingKey];
+                        const value = frontmatter["no rename"];
                         if (value !== undefined) {
                             // Handle different value formats (string, number, boolean)
                             const valueStr = String(value).toLowerCase();
-                            hasDisableProperty = valueStr === this.settings.disableRenamingValue.toLowerCase();
+                            hasDisableProperty = valueStr === "true";
                         }
                     }
 
@@ -682,13 +909,12 @@ export default class FirstLineIsTitle extends Plugin {
                                 .onClick(async () => {
                                     try {
                                         await this.app.fileManager.processFrontMatter(file, (frontmatter) => {
-                                            frontmatter[this.settings.disableRenamingKey] = normalizePropertyValue(this.settings.disableRenamingValue);
+                                            frontmatter["no rename"] = "true";
                                         });
-                                        verboseLog(this, `Showing notice: Disabled renaming for ${file.name}`);
-                                        new Notice(`Disabled renaming for ${file.name}`);
+                                        new Notice(`Disabled renaming for: ${file.basename}`);
                                     } catch (error) {
-                                        verboseLog(this, `Showing notice: Failed to disable renaming: ${error.message}`);
-                                        new Notice(`Failed to disable renaming: ${error.message}`);
+                                        console.error('Failed to disable renaming:', error);
+                                        new Notice(`Failed to disable renaming. Check console for details.`);
                                     }
                                 });
                         });
@@ -704,13 +930,12 @@ export default class FirstLineIsTitle extends Plugin {
                                 .onClick(async () => {
                                     try {
                                         await this.app.fileManager.processFrontMatter(file, (frontmatter) => {
-                                            delete frontmatter[this.settings.disableRenamingKey];
+                                            delete frontmatter["no rename"];
                                         });
-                                        verboseLog(this, `Showing notice: Enabled renaming for ${file.name}`);
-                                        new Notice(`Enabled renaming for ${file.name}`);
+                                        new Notice(`Enabled renaming for: ${file.basename}`);
                                     } catch (error) {
-                                        verboseLog(this, `Showing notice: Failed to enable renaming: ${error.message}`);
-                                        new Notice(`Failed to enable renaming: ${error.message}`);
+                                        console.error('Failed to enable renaming:', error);
+                                        new Notice(`Failed to enable renaming. Check console for details.`);
                                     }
                                 });
                         });
@@ -790,88 +1015,10 @@ export default class FirstLineIsTitle extends Plugin {
                     }
                     menu.addItem((item) => {
                         item
-                            .setTitle("Put first line in title")
+                            .setTitle(`Put first line in title (${markdownFiles.length} files)`)
                             .setIcon("file-pen")
                             .onClick(async () => {
                                 await this.processMultipleFiles(markdownFiles, 'rename');
-                            });
-                    });
-                }
-
-                // Add "Disable renaming for notes" command for multiple files
-                if (this.settings.commandVisibility.fileExclude) {
-                    if (!hasVisibleItems) {
-                        menu.addSeparator();
-                        hasVisibleItems = true;
-                    }
-                    menu.addItem((item) => {
-                        item
-                            .setTitle("Disable renaming for notes")
-                            .setIcon("square-x")
-                            .onClick(async () => {
-                                let successCount = 0;
-                                let errorCount = 0;
-
-                                for (const file of markdownFiles) {
-                                    try {
-                                        const hasProperty = await hasDisablePropertyInFile(file, this.app, this.settings.disableRenamingKey, this.settings.disableRenamingValue);
-                                        if (!hasProperty) {
-                                            await this.app.fileManager.processFrontMatter(file, (frontmatter) => {
-                                                frontmatter[this.settings.disableRenamingKey] = normalizePropertyValue(this.settings.disableRenamingValue);
-                                            });
-                                            successCount++;
-                                        }
-                                    } catch (error) {
-                                        errorCount++;
-                                    }
-                                }
-
-                                if (errorCount > 0) {
-                                    verboseLog(this, `Showing notice: Disabled renaming for ${successCount} notes with ${errorCount} errors`);
-                                    new Notice(`Disabled renaming for ${successCount} notes with ${errorCount} errors`);
-                                } else {
-                                    verboseLog(this, `Showing notice: Disabled renaming for ${successCount} notes`);
-                                    new Notice(`Disabled renaming for ${successCount} notes`);
-                                }
-                            });
-                    });
-                }
-
-                // Add "Enable renaming for notes" command for multiple files
-                if (this.settings.commandVisibility.fileStopExcluding) {
-                    if (!hasVisibleItems) {
-                        menu.addSeparator();
-                        hasVisibleItems = true;
-                    }
-                    menu.addItem((item) => {
-                        item
-                            .setTitle("Enable renaming for notes")
-                            .setIcon("square-check")
-                            .onClick(async () => {
-                                let successCount = 0;
-                                let errorCount = 0;
-
-                                for (const file of markdownFiles) {
-                                    try {
-                                        const hasProperty = await hasDisablePropertyInFile(file, this.app, this.settings.disableRenamingKey, this.settings.disableRenamingValue);
-                                        if (hasProperty) {
-                                            await this.app.fileManager.processFrontMatter(file, (frontmatter) => {
-                                                delete frontmatter[this.settings.disableRenamingKey];
-                                            });
-                                            successCount++;
-                                        }
-                                    } catch (error) {
-                                        errorCount++;
-                                    }
-                                }
-
-                                if (errorCount > 0) {
-                                    verboseLog(this, `Showing notice: Enabled renaming for ${successCount} notes with ${errorCount} errors`);
-                                    new Notice(`Enabled renaming for ${successCount} notes with ${errorCount} errors`);
-                                } else {
-                                    verboseLog(this, `Showing notice: Enabled renaming for ${successCount} notes`);
-                                    new Notice(`Enabled renaming for ${successCount} notes`);
-                                }
                             });
                     });
                 }
@@ -1057,24 +1204,10 @@ export default class FirstLineIsTitle extends Plugin {
                                 let processedCount = 0;
 
                                 for (const file of files) {
-                                    const result = await this.renameEngine.processFile(file, true, true, true, undefined, true);
+                                    const result = await this.renameEngine.renameFile(file, true, true, true);
                                     if (result.success) {
                                         processedCount++;
-                                    } else if (result.reason === 'self-referential') {
-                                        selfReferentialFiles.push(file.name);
                                     }
-                                }
-
-                                // Show summary notice for self-referential files
-                                if (selfReferentialFiles.length > 0) {
-                                    const fileList = selfReferentialFiles.length === 1
-                                        ? selfReferentialFiles[0]
-                                        : selfReferentialFiles.length === 2
-                                        ? selfReferentialFiles.join(' and ')
-                                        : `${selfReferentialFiles.slice(0, -1).join(', ')}, and ${selfReferentialFiles.slice(-1)[0]}`;
-
-                                    verboseLog(this, `Showing notice: ${selfReferentialFiles.length} file${selfReferentialFiles.length === 1 ? '' : 's'} not renamed due to self-referential link${selfReferentialFiles.length === 1 ? '' : 's'} in first line: ${fileList}`);
-                                    new Notice(`${selfReferentialFiles.length} file${selfReferentialFiles.length === 1 ? '' : 's'} not renamed due to self-referential link${selfReferentialFiles.length === 1 ? '' : 's'} in first line: ${fileList}`, 0);
                                 }
                             });
                     });
@@ -1096,25 +1229,21 @@ export default class FirstLineIsTitle extends Plugin {
 
                                 for (const file of files) {
                                     try {
-                                        const hasProperty = await hasDisablePropertyInFile(file, this.app, this.settings.disableRenamingKey, this.settings.disableRenamingValue);
+                                        const hasProperty = await hasDisablePropertyInFile(file, this.app);
                                         if (!hasProperty) {
                                             await this.app.fileManager.processFrontMatter(file, (frontmatter) => {
-                                                frontmatter[this.settings.disableRenamingKey] = normalizePropertyValue(this.settings.disableRenamingValue);
+                                                frontmatter["no rename"] = "true";
                                             });
                                             successCount++;
                                         }
                                     } catch (error) {
+                                        console.error('Failed to disable renaming:', error);
                                         errorCount++;
+                                        new Notice(`Failed to disable renaming. Check console for details.`);
                                     }
                                 }
 
-                                if (errorCount > 0) {
-                                    verboseLog(this, `Showing notice: Disabled renaming for ${successCount} notes with ${errorCount} errors`);
-                                    new Notice(`Disabled renaming for ${successCount} notes with ${errorCount} errors`);
-                                } else {
-                                    verboseLog(this, `Showing notice: Disabled renaming for ${successCount} notes`);
-                                    new Notice(`Disabled renaming for ${successCount} notes`);
-                                }
+                                new Notice(`Disabled renaming for ${successCount} notes.`);
                             });
                     });
                 }
@@ -1134,51 +1263,50 @@ export default class FirstLineIsTitle extends Plugin {
 
                                 for (const file of files) {
                                     try {
-                                        const hasProperty = await hasDisablePropertyInFile(file, this.app, this.settings.disableRenamingKey, this.settings.disableRenamingValue);
+                                        const hasProperty = await hasDisablePropertyInFile(file, this.app);
                                         if (hasProperty) {
                                             await this.app.fileManager.processFrontMatter(file, (frontmatter) => {
-                                                delete frontmatter[this.settings.disableRenamingKey];
+                                                delete frontmatter["no rename"];
                                             });
                                             successCount++;
                                         }
                                     } catch (error) {
+                                        console.error('Failed to enable renaming:', error);
                                         errorCount++;
+                                        new Notice(`Failed to enable renaming. Check console for details.`);
                                     }
                                 }
 
-                                if (errorCount > 0) {
-                                    verboseLog(this, `Showing notice: Enabled renaming for ${successCount} notes with ${errorCount} errors`);
-                                    new Notice(`Enabled renaming for ${successCount} notes with ${errorCount} errors`);
-                                } else {
-                                    verboseLog(this, `Showing notice: Enabled renaming for ${successCount} notes`);
-                                    new Notice(`Enabled renaming for ${successCount} notes`);
-                                }
+                                new Notice(`Enabled renaming for ${successCount} notes.`);
                             });
                     });
                 }
             })
         );
 
-        // Dynamic event listeners - setup based on fileReadMethod
-        // Editor mode → editor-change events
-        // Cache/File modes → modify events
-        this.setupEventListeners();
+        // REMOVED: Unauthorized modify event processing (violates FLIT Commandments)
+        // Only user-initiated changes in open editors are allowed
 
-        // Debug file content monitoring for opened files
+        // Debug file content monitoring - separate listener for debug output
         this.registerEvent(
-            this.app.workspace.on("file-open", async (file) => {
+            this.app.vault.on("modify", (abstractFile) => {
                 if (this.settings.verboseLogging && this.settings.debugOutputFullContent) {
-                    if (file && file.extension === 'md') {
-                        // Output full content when file opens
-                        await this.outputDebugFileContent(file, 'OPENED');
+                    if (abstractFile instanceof TFile && abstractFile.extension === 'md') {
+                        this.outputDebugFileContent(abstractFile, 'MODIFIED');
+                    }
+                }
+            })
+        );
 
-                        // Store content for later comparison
-                        try {
-                            const content = await this.app.vault.read(file);
-                            this.fileContentBeforeChange.set(file.path, content);
-                        } catch (error) {
-                            console.debug(`Failed to store content for ${file.path}:`, error);
-                        }
+        // Debug file content monitoring for created files
+        this.registerEvent(
+            this.app.vault.on("create", (abstractFile) => {
+                if (this.settings.verboseLogging && this.settings.debugOutputFullContent) {
+                    if (abstractFile instanceof TFile && abstractFile.extension === 'md') {
+                        // Small delay to ensure file content is available
+                        setTimeout(() => {
+                            this.outputDebugFileContent(abstractFile, 'CREATED');
+                        }, 100);
                     }
                 }
             })
@@ -1192,7 +1320,7 @@ export default class FirstLineIsTitle extends Plugin {
                     // Small delay to ensure file is fully created and can be processed
                     setTimeout(() => {
                         this.insertTitleOnCreation(abstractFile);
-                    }, this.settings.newNoteDelay);
+                    }, this.settings.titleInsertionDelay);
                 }
             })
         );
@@ -1201,32 +1329,19 @@ export default class FirstLineIsTitle extends Plugin {
         this.registerEvent(
             this.app.workspace.on("active-leaf-change", (leaf) => {
                 // Handle rename on focus if enabled - process immediately regardless of check interval
-                if (this.settings.renameNotes === "automatically" && this.settings.renameOnFocus && leaf && leaf.view && leaf.view.file && leaf.view.file instanceof TFile && leaf.view.file.extension === 'md') {
-                    // Skip files in creation delay
-                    if (this.editorLifecycle.isFileInCreationDelay(leaf.view.file.path)) {
-                        verboseLog(this, `File in creation delay, skipping rename on focus: ${leaf.view.file.path}`);
-                    } else {
-                        verboseLog(this, `File focused: ${leaf.view.file.path}`);
-                        this.renameEngine.processFile(leaf.view.file, true, false);
-                    }
+                if (this.settings.renameOnFocus && leaf && leaf.view && leaf.view.file && leaf.view.file instanceof TFile && leaf.view.file.extension === 'md') {
+                    verboseLog(this, `File focused: ${leaf.view.file.path}`);
+                    this.renameEngine.renameFile(leaf.view.file, true, false);
                 }
 
-                // Check for tab closures with pending throttle timers
-                if (this.settings.checkInterval > 0 && this.editorLifecycle) {
-                    verboseLog(this, 'active-leaf-change event: checking for closed tabs with pending throttles');
-                    this.editorLifecycle.updateActiveEditorTracking();
-                }
+                // No pending changes with immediate processing
             })
         );
 
         // Additional events to catch file closing scenarios
         this.registerEvent(
             this.app.workspace.on("file-open", (file) => {
-                // Check for tab closures with pending throttle timers
-                if (this.settings.checkInterval > 0 && this.editorLifecycle) {
-                    verboseLog(this, 'file-open event: checking for closed tabs with pending throttles');
-                    this.editorLifecycle.updateActiveEditorTracking();
-                }
+                // No pending changes with immediate processing
             })
         );
 
@@ -1235,11 +1350,7 @@ export default class FirstLineIsTitle extends Plugin {
         // Listen for layout changes that might indicate file closing
         this.registerEvent(
             this.app.workspace.on("layout-change", () => {
-                // Check for tab closures with pending throttle timers
-                if (this.settings.checkInterval > 0 && this.editorLifecycle) {
-                    verboseLog(this, 'layout-change event: checking for closed tabs with pending throttles');
-                    this.editorLifecycle.updateActiveEditorTracking();
-                }
+                // No pending changes with immediate processing
             })
         );
 
@@ -1249,6 +1360,42 @@ export default class FirstLineIsTitle extends Plugin {
             verboseLog(this, 'App closing - immediate processing completed all changes');
         });
 
+        // Keyboard event listeners no longer needed since we process on editor-change events
+        // checkInterval = 0: Process immediately on each change
+        // checkInterval > 0: Start throttle timer on first change (process N ms after first change, not last)
+        this.registerEvent(
+            this.app.workspace.on("editor-change", async (editor, info) => {
+                verboseLog(this, `Editor change detected for file: ${info.file?.path || 'unknown'}`);
+
+                // Only process if automatic renaming is enabled
+                if (this.settings.renameNotes !== "automatically") {
+                    verboseLog(this, `Skipping: automatic renaming disabled (${this.settings.renameNotes})`);
+                    return;
+                }
+
+                // Only process markdown files
+                if (!info.file || info.file.extension !== 'md') {
+                    verboseLog(this, `Skipping: not markdown file (${info.file?.extension || 'no file'})`);
+                    return;
+                }
+
+                // Don't process files being created during plugin startup
+                if (!this.isFullyLoaded) {
+                    verboseLog(this, `Skipping: plugin not fully loaded`);
+                    return;
+                }
+
+                if (this.settings.checkInterval === 0) {
+                    // Process immediately for 0ms interval
+                    verboseLog(this, `Processing immediate change for: ${info.file.path}`);
+                    await this.renameEngine.processEditorChangeOptimal(editor, info.file);
+                } else {
+                    // Use throttle for checkInterval > 0
+                    verboseLog(this, `Editor changed, starting/checking throttle timer for: ${info.file.path}`);
+                    this.editorLifecycle.handleEditorChangeWithThrottle(editor, info.file);
+                }
+            })
+        );
 
         // Listen for file deletion events to clean up cache
         this.registerEvent(
@@ -1302,7 +1449,7 @@ export default class FirstLineIsTitle extends Plugin {
 
         // Mark plugin as fully loaded after layout is ready to prevent processing existing files on startup
         this.app.workspace.onLayoutReady(() => {
-            setTimeout(async () => {
+            setTimeout(() => {
                 this.isFullyLoaded = true;
 
                 // Initialize the appropriate checking system based on settings after plugin is fully loaded
@@ -1310,14 +1457,6 @@ export default class FirstLineIsTitle extends Plugin {
 
                 // Event-driven system: 0ms = immediate, >0ms = throttle (process N ms after editor change)
                 verboseLog(this, 'Checking system initialized based on checkInterval setting');
-
-                // Set default property type in types.json on first load only
-                if (!this.settings.hasSetPropertyType) {
-                    await this.propertyManager.updatePropertyTypeFromSettings();
-                    this.settings.hasSetPropertyType = true;
-                    await this.saveSettings();
-                    verboseLog(this, 'Set property type on first load');
-                }
             }, 1000); // Additional delay to ensure all initial file events have been processed
         });
     }
@@ -1345,7 +1484,12 @@ export default class FirstLineIsTitle extends Plugin {
         }
 
         // Clean up property hiding styles and observer
-        this.propertyVisibility.cleanup();
+        document.head.querySelector('#flit-hide-property-style')?.remove();
+        this.cleanupPropertyObserver();
+
+        // Clean up any pending alias update timers
+        aliasUpdateTimers.forEach((timer) => clearTimeout(timer));
+        aliasUpdateTimers.clear();
 
         verboseLog(this, 'Plugin unloaded');
     }
@@ -1375,145 +1519,6 @@ export default class FirstLineIsTitle extends Plugin {
 
     async saveSettings(): Promise<void> {
         await this.saveData(this.settings);
-    }
-
-    /**
-     * Setup event listeners based on fileReadMethod
-     * Editor mode → editor-change events
-     * Cache/File modes → modify events
-     */
-    private setupEventListeners(): void {
-        // Clean up any existing listeners first
-        this.teardownDynamicListeners();
-
-        if (this.settings.fileReadMethod === 'Editor') {
-            this.setupEditorModeListeners();
-        } else {
-            this.setupFileSystemModeListeners();
-        }
-    }
-
-    /**
-     * Setup editor-change listeners for Editor mode
-     */
-    private setupEditorModeListeners(): void {
-        // YAML template detection
-        const yamlListener = this.registerEvent(
-            this.app.workspace.on("editor-change", async (editor, info) => {
-                if (info.file && info.file.extension === 'md') {
-                    const content = editor.getValue();
-                    this.fileOperations.checkYamlAndResolve(info.file, content);
-                }
-            })
-        );
-        this.editorChangeListeners.push(yamlListener);
-
-        // Rename processing
-        const renameListener = this.registerEvent(
-            this.app.workspace.on("editor-change", async (editor, info) => {
-                verboseLog(this, `Editor change detected for file: ${info.file?.path || 'unknown'}`);
-
-                // Debug output for editor changes
-                if (this.settings.verboseLogging && this.settings.debugOutputFullContent && info.file && info.file.extension === 'md') {
-                    // Output modified lines with current editor content
-                    await this.outputDebugFileContent(info.file, 'MODIFIED', editor.getValue());
-                }
-
-                if (this.settings.renameNotes !== "automatically") {
-                    verboseLog(this, `Skipping: automatic renaming disabled (${this.settings.renameNotes})`);
-                    return;
-                }
-
-                if (!info.file || info.file.extension !== 'md') {
-                    verboseLog(this, `Skipping: not markdown file (${info.file?.extension || 'no file'})`);
-                    return;
-                }
-
-                if (!this.isFullyLoaded) {
-                    verboseLog(this, `Skipping: plugin not fully loaded`);
-                    return;
-                }
-
-                if (this.editorLifecycle.isFileInCreationDelay(info.file.path)) {
-                    verboseLog(this, `Skipping: file in creation delay - ${info.file.path}`);
-                    return;
-                }
-
-                if (this.settings.checkInterval === 0) {
-                    verboseLog(this, `Processing immediate change for: ${info.file.path}`);
-                    await this.renameEngine.processEditorChangeOptimal(editor, info.file);
-                } else {
-                    verboseLog(this, `Editor changed, starting/checking throttle timer for: ${info.file.path}`);
-                    this.editorLifecycle.handleEditorChangeWithThrottle(editor, info.file);
-                }
-            })
-        );
-        this.editorChangeListeners.push(renameListener);
-
-        verboseLog(this, 'Setup complete: Editor mode listeners registered');
-    }
-
-    /**
-     * Setup modify listeners for Cache/File modes
-     */
-    private setupFileSystemModeListeners(): void {
-        this.modifyEventListener = this.registerEvent(
-            this.app.vault.on("modify", async (abstractFile) => {
-                if (!(abstractFile instanceof TFile) || abstractFile.extension !== 'md') {
-                    return;
-                }
-
-                // Debug output - store content before change and output modified lines
-                if (this.settings.verboseLogging && this.settings.debugOutputFullContent) {
-                    await this.outputDebugFileContent(abstractFile, 'MODIFIED');
-                }
-
-                if (this.settings.renameNotes !== "automatically") {
-                    return;
-                }
-
-                if (!this.isFullyLoaded) {
-                    return;
-                }
-
-                if (this.editorLifecycle.isFileInCreationDelay(abstractFile.path)) {
-                    return;
-                }
-
-                verboseLog(this, `File modify event - processing with ${this.settings.fileReadMethod} mode: ${abstractFile.path}`);
-                await this.renameEngine.processFile(abstractFile, true, false, false);
-            })
-        );
-
-        verboseLog(this, `Setup complete: ${this.settings.fileReadMethod} mode listener registered`);
-    }
-
-    /**
-     * Teardown dynamic event listeners (mode-specific ones)
-     */
-    private teardownDynamicListeners(): void {
-        // Unregister editor-change listeners
-        for (const listener of this.editorChangeListeners) {
-            this.app.workspace.offref(listener);
-        }
-        this.editorChangeListeners = [];
-
-        // Unregister modify listener
-        if (this.modifyEventListener) {
-            this.app.vault.offref(this.modifyEventListener);
-            this.modifyEventListener = null;
-        }
-
-        verboseLog(this, 'Teardown complete: Dynamic listeners unregistered');
-    }
-
-    /**
-     * Switch event listeners when fileReadMethod changes
-     */
-    switchFileReadMode(newMode: string): void {
-        verboseLog(this, `Switching file read mode from ${this.settings.fileReadMethod} to ${newMode}`);
-        this.settings.fileReadMethod = newMode as any;
-        this.setupEventListeners();
     }
 
 

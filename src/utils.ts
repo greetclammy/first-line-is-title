@@ -192,11 +192,17 @@ export function fileHasTargetTags(file: TFile, settings: PluginSettings, app: Ap
     const fileCache = app.metadataCache.getFileCache(file);
 
     // Check YAML frontmatter tags (unless mode is 'In note body only')
-    if (settings.tagMatchingMode !== 'In note body only' &&
-        fileCache && fileCache.frontmatter && fileCache.frontmatter.tags) {
-        const frontmatterTags = fileCache.frontmatter.tags;
-        // Handle both string arrays and single strings
-        const fileTags = Array.isArray(frontmatterTags) ? frontmatterTags : [frontmatterTags];
+    if (settings.tagMatchingMode !== 'In note body only') {
+        let fileTags: string[] = [];
+
+        // Parse tags from content if provided, otherwise use cache
+        if (content) {
+            fileTags = parseTagsFromYAML(content);
+        } else if (fileCache && fileCache.frontmatter && fileCache.frontmatter.tags) {
+            const frontmatterTags = fileCache.frontmatter.tags;
+            fileTags = Array.isArray(frontmatterTags) ? frontmatterTags.map(String) : [String(frontmatterTags)];
+        }
+
         for (const targetTag of nonEmptyTags) {
             // Normalize both sides: remove # prefix for comparison
             const normalizedTargetTag = targetTag.startsWith('#') ? targetTag.slice(1) : targetTag;
@@ -268,11 +274,11 @@ export function fileHasTargetTags(file: TFile, settings: PluginSettings, app: Ap
  * Determines whether a file should be processed based on the include/exclude strategy
  *
  * Logic summary:
- * - "Enable in all notes except below": Process all files EXCEPT those in target folders/tags/properties
+ * - "Only exclude...": Process all files EXCEPT those in target folders/tags/properties
  *   - If no targets specified: Process ALL files (default enabled)
  *   - If targets specified: Process files NOT in targets (traditional exclude)
  *
- * - "Disable in all notes except below": Process ONLY files in target folders/tags/properties
+ * - "Exclude all except...": Process ONLY files in target folders/tags/properties
  *   - If no targets specified: Process NO files (default disabled)
  *   - If targets specified: Process ONLY files in targets (include-only mode)
  *
@@ -287,29 +293,47 @@ export function shouldProcessFile(file: TFile, settings: PluginSettings, app: Ap
     const hasTargetTags = fileHasTargetTags(file, settings, app, content);
     const hasTargetProperties = fileHasExcludedProperties(file, settings, app);
 
-    // If file is in target folders OR has target tags OR has target properties, it's "targeted"
-    const isTargeted = isInTargetFolders || hasTargetTags || hasTargetProperties;
+    // Helper function to apply strategy logic for a single exclusion type
+    // Returns TRUE if file should be EXCLUDED (don't process)
+    const applyStrategy = (
+        isTargeted: boolean,
+        hasTargets: boolean,
+        strategy: string
+    ): boolean => {
+        if (strategy === 'Only exclude...') {
+            // Only exclude: exclude files matching the targets
+            // If no targets specified, don't exclude anything (process all)
+            return hasTargets ? isTargeted : false;
+        } else {
+            // 'Exclude all except...'
+            // Exclude all except: exclude files NOT matching the targets
+            // If no targets specified, exclude everything (process none)
+            return hasTargets ? !isTargeted : true;
+        }
+    };
 
-    // Check if any targets are actually specified
-    const hasAnyTargets = (
-        settings.excludedFolders.some(folder => folder.trim() !== "") ||
-        settings.excludedTags.some(tag => tag.trim() !== "") ||
-        settings.excludedProperties.some(prop => prop.key.trim() !== "")
+    // Apply strategy for each exclusion type independently
+    const shouldExcludeFromFolders = applyStrategy(
+        isInTargetFolders,
+        settings.excludedFolders.some(folder => folder.trim() !== ""),
+        settings.folderScopeStrategy
     );
 
-    // Apply strategy logic
-    if (settings.scopeStrategy === 'Enable in all notes except below') {
-        // Enable renaming in all notes EXCEPT those in the specified folders/tags/properties
-        // The list contains folders/tags/properties where renaming should be DISABLED
-        // If no targets specified, enable renaming for all files
-        return hasAnyTargets ? !isTargeted : true;
-    } else {
-        // 'Disable in all notes except below'
-        // Disable renaming in all notes EXCEPT those in the specified folders/tags/properties
-        // The list contains folders/tags/properties where renaming should be ENABLED
-        // If no targets specified, disable renaming for all files
-        return hasAnyTargets ? isTargeted : false;
-    }
+    const shouldExcludeFromTags = applyStrategy(
+        hasTargetTags,
+        settings.excludedTags.some(tag => tag.trim() !== ""),
+        settings.tagScopeStrategy
+    );
+
+    const shouldExcludeFromProperties = applyStrategy(
+        hasTargetProperties,
+        settings.excludedProperties.some(prop => prop.key.trim() !== ""),
+        settings.propertyScopeStrategy
+    );
+
+    // A file should be processed if it doesn't meet the exclusion criteria for ANY exclusion type
+    // OR logic: if ANY exclusion type says "exclude" (returns true), then we exclude
+    return !(shouldExcludeFromFolders || shouldExcludeFromTags || shouldExcludeFromProperties);
 }
 
 export function isFileExcluded(file: TFile, settings: PluginSettings, app: App, content?: string): boolean {
@@ -442,6 +466,96 @@ function stripFrontmatter(content: string): string {
 
     // Return content after frontmatter
     return lines.slice(endIndex + 1).join('\n');
+}
+
+function parseTagsFromYAML(content: string): string[] {
+    const tags: string[] = [];
+
+    if (!content.startsWith('---')) {
+        return tags;
+    }
+
+    const lines = content.split('\n');
+    let yamlEndLine = -1;
+
+    // Find closing ---
+    for (let i = 1; i < lines.length; i++) {
+        if (lines[i] === '---') {
+            yamlEndLine = i;
+            break;
+        }
+    }
+
+    if (yamlEndLine === -1) return tags;
+
+    const yamlLines = lines.slice(1, yamlEndLine);
+    let currentKey = '';
+    let inArray = false;
+
+    for (const line of yamlLines) {
+        const trimmed = line.trim();
+
+        // Skip empty lines and comments
+        if (trimmed === '' || trimmed.startsWith('#')) continue;
+
+        // Check if line starts array items (- item)
+        if (trimmed.startsWith('- ')) {
+            if (inArray && currentKey === 'tags') {
+                let tagValue = trimmed.substring(2).trim();
+
+                // Remove quotes if present
+                if ((tagValue.startsWith('"') && tagValue.endsWith('"')) ||
+                    (tagValue.startsWith("'") && tagValue.endsWith("'"))) {
+                    tagValue = tagValue.substring(1, tagValue.length - 1);
+                }
+
+                // Remove # prefix if present
+                if (tagValue.startsWith('#')) {
+                    tagValue = tagValue.substring(1);
+                }
+
+                tags.push(tagValue);
+            }
+            continue;
+        }
+
+        // Check for key: value pattern
+        if (trimmed.includes(':')) {
+            const colonIndex = trimmed.indexOf(':');
+            const key = trimmed.substring(0, colonIndex).trim();
+            const value = trimmed.substring(colonIndex + 1).trim();
+
+            currentKey = key;
+
+            // Check if value is empty (array follows)
+            if (value === '' || value === '[') {
+                inArray = true;
+                continue;
+            } else {
+                inArray = false;
+            }
+
+            // Handle single tag value
+            if (key === 'tags' && value) {
+                let tagValue = value;
+
+                // Remove quotes if present
+                if ((tagValue.startsWith('"') && tagValue.endsWith('"')) ||
+                    (tagValue.startsWith("'") && tagValue.endsWith("'"))) {
+                    tagValue = tagValue.substring(1, tagValue.length - 1);
+                }
+
+                // Remove # prefix if present
+                if (tagValue.startsWith('#')) {
+                    tagValue = tagValue.substring(1);
+                }
+
+                tags.push(tagValue);
+            }
+        }
+    }
+
+    return tags;
 }
 
 export async function hasDisablePropertyInFile(file: TFile, app: App, disableKey: string, disableValue: string): Promise<boolean> {

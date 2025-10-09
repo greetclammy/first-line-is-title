@@ -35,20 +35,20 @@ export class ContextMenuManager {
         const isInList = this.plugin.settings.excludedFolders.includes(folderPath);
 
         let result: boolean;
-        if (this.plugin.settings.scopeStrategy === 'Enable in all notes except below') {
-            // Enable strategy: list contains DISABLED folders
+        if (this.plugin.settings.folderScopeStrategy === 'Don\'t rename in...') {
+            // Don't rename strategy: list contains DISABLED folders
             // folder in list (disabled) → show "enable" → return false
             // folder not in list (enabled) → show "disable" → return true
             result = !isInList;
         } else {
-            // Disable strategy: list contains ENABLED folders
+            // Only rename strategy: list contains ENABLED folders
             // folder in list (enabled) → show "disable" → return true
             // folder not in list (disabled) → show "enable" → return false
             result = isInList;
         }
 
         verboseLog(this.plugin, `shouldShowDisableMenuForFolder(${folderPath})`, {
-            scopeStrategy: this.plugin.settings.scopeStrategy,
+            folderScopeStrategy: this.plugin.settings.folderScopeStrategy,
             isInList,
             result,
             willShow: result ? 'DISABLE menu' : 'ENABLE menu'
@@ -65,20 +65,20 @@ export class ContextMenuManager {
         const isInList = this.plugin.settings.excludedTags.includes(tagToFind);
 
         let result: boolean;
-        if (this.plugin.settings.scopeStrategy === 'Enable in all notes except below') {
-            // Enable strategy: list contains DISABLED tags
+        if (this.plugin.settings.tagScopeStrategy === 'Don\'t rename with...') {
+            // Don't rename strategy: list contains DISABLED tags
             // tag in list (disabled) → show "enable" → return false
             // tag not in list (enabled) → show "disable" → return true
             result = !isInList;
         } else {
-            // Disable strategy: list contains ENABLED tags
+            // Only rename strategy: list contains ENABLED tags
             // tag in list (enabled) → show "disable" → return true
             // tag not in list (disabled) → show "enable" → return false
             result = isInList;
         }
 
         verboseLog(this.plugin, `shouldShowDisableMenuForTag(${tagName})`, {
-            scopeStrategy: this.plugin.settings.scopeStrategy,
+            folderScopeStrategy: this.plugin.settings.folderScopeStrategy,
             tagToFind,
             isInList,
             result,
@@ -92,14 +92,14 @@ export class ContextMenuManager {
      * Gets the appropriate menu text for folder operations based on scope strategy.
      */
     getFolderMenuText(folderPath: string): { disable: string, enable: string } {
-        if (this.plugin.settings.scopeStrategy === 'Enable in all notes except below') {
-            // Enable strategy: list contains DISABLED folders
+        if (this.plugin.settings.folderScopeStrategy === 'Don\'t rename in...') {
+            // Don't rename strategy: list contains DISABLED folders
             return {
                 disable: "Disable renaming in folder",
                 enable: "Enable renaming in folder"
             };
         } else {
-            // Disable strategy: list contains ENABLED folders
+            // Only rename strategy: list contains ENABLED folders
             return {
                 disable: "Disable renaming in folder",
                 enable: "Enable renaming in folder"
@@ -111,8 +111,8 @@ export class ContextMenuManager {
      * Gets the appropriate menu text for tag operations based on scope strategy.
      */
     getTagMenuText(tagName: string): { disable: string, enable: string } {
-        if (this.plugin.settings.scopeStrategy === 'Enable in all notes except below') {
-            // Enable strategy: list contains DISABLED tags
+        if (this.plugin.settings.tagScopeStrategy === 'Don\'t rename with...') {
+            // Don't rename strategy: list contains DISABLED tags
             return {
                 disable: "Disable renaming for tag",
                 enable: "Enable renaming for tag"

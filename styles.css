@@ -102,17 +102,19 @@
 .flit-char-replacement-header, .flit-char-replacement-setting {
     display: flex;
     align-items: flex-start;
-    padding: 8px 0;
+    padding: 8px 16px;
     border-bottom: 1px solid var(--background-modifier-border);
     gap: 8px;
     width: fit-content;
     min-width: 735px;
+    background-color: var(--background-primary);
 }
 
 .flit-char-replacement-header {
     border-bottom: 1px solid var(--background-modifier-border);
     font-weight: bold;
     font-size: 0.9em;
+    padding-top: 9px;
 }
 
 .flit-char-replacement-header.hidden {
@@ -207,27 +209,44 @@
 
 .flit-table-container {
     overflow-x: auto;
-    overflow-y: hidden;
+    overflow-y: visible;
     width: 100%;
     margin-bottom: 10px;
-    /* Create a new stacking context to isolate scroll */
-    isolation: isolate;
+    padding: 0;
+    border: 1px solid var(--background-modifier-border);
+    border-radius: var(--radius-s);
+}
+
+/* Add spacing when table follows a br element (Windows/Android table case) */
+br + .flit-table-container {
+    margin-top: 2px;
+}
+
+/* Fix Windows/Android table border visibility
+   Root cause: Border painting issue when table follows toggle-containing Setting
+   Solution: Use outline instead of border for Windows/Android table specifically */
+.flit-windows-android-table {
+    border: none !important;
+    outline: 1px solid var(--background-modifier-border);
+    outline-offset: -1px;
 }
 
 .flit-table-wrapper {
     width: fit-content;
     max-width: none; /* Allow tables to be wider than viewport */
+    padding: 1px;
 }
 
 .flit-custom-replacement-header, .flit-safeword-header {
     display: flex;
     align-items: center;
-    padding: 8px 0;
+    padding: 9px 16px 8px 16px;
     border-bottom: 1px solid var(--background-modifier-border);
     font-weight: bold;
     font-size: 0.9em;
     gap: 8px;
     width: 100%;
+    background-color: var(--background-primary);
 }
 
 .flit-custom-replacement-header .flit-toggle-column:first-of-type,
@@ -247,10 +266,11 @@
 .flit-custom-replacement-setting, .flit-safeword-setting {
     display: flex;
     align-items: flex-start;
-    padding: 8px 0;
+    padding: 8px 16px;
     border-bottom: 1px solid var(--background-modifier-border);
     gap: 8px;
     width: 100%;
+    background-color: var(--background-primary);
 }
 
 .flit-custom-replacement-setting .flit-toggle-column:first-of-type,
@@ -362,13 +382,6 @@
 
 /* Let Obsidian handle all input styling naturally */
 
-/* Ensure table containers don't clip overflowing content and have space for outlines */
-.flit-table-container,
-.flit-table-wrapper {
-    overflow: visible !important;
-    padding: 4px !important;
-}
-
 /* Add margin to input elements in tables to prevent outline clipping */
 .flit-custom-replacement-setting input[type="text"],
 .flit-safeword-setting input[type="text"],
@@ -382,8 +395,6 @@
 .flit-custom-replacement-setting,
 .flit-safeword-setting {
     align-items: stretch !important;
-    /* Add slight padding to rows to accommodate input margins */
-    padding: 6px 0 !important;
 }
 
 /* Remove all container-level disabled styling */
@@ -673,13 +684,9 @@
     background-color: var(--background-modifier-hover);
 }
 
-.flit-settings-tab:focus {
+.flit-settings-tab:focus-visible {
     outline: 2px solid var(--color-accent);
     outline-offset: 2px;
-}
-
-.flit-settings-tab:focus:not(:focus-visible) {
-    outline: none;
 }
 
 .flit-settings-tab-active {
@@ -1175,7 +1182,7 @@ hr.flit-divider {
 /* RESTORE table horizontal scrolling - tables MUST remain scrollable */
 .flit-table-container {
     overflow-x: auto !important;
-    overflow-y: hidden !important;
+    overflow-y: visible !important;
     position: relative;
 }
 
@@ -1234,4 +1241,26 @@ hr.flit-divider {
 .flit-leave-feedback-button {
     /* Add margin to create space for outline */
     margin: 4px 0 !important;
+}
+
+/* ==========================================================================
+   Progress Bar (Batch Operations)
+   ========================================================================== */
+
+.flit-progress-container {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 4px 0;
+}
+
+.flit-progress-message {
+    font-size: 0.95em;
+    color: var(--text-normal);
+    text-align: center;
+}
+
+.flit-progress-bar-wrapper {
+    width: 100%;
+    min-width: 200px;
 }

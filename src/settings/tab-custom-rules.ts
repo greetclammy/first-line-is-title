@@ -51,7 +51,7 @@ export class CustomReplacementsTab extends SettingsTabBase {
             customBulletListEl.empty();
 
             // Main description (always visible)
-            customDescEl.createEl('span', { text: 'Configure custom text replacements.' });
+            customDescEl.createEl('span', { text: 'Set custom text replacements.' });
             customDescEl.createEl('br');
             customDescEl.createEl('br');
 

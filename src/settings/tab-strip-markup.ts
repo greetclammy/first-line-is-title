@@ -10,7 +10,7 @@ export class StripMarkupTab extends SettingsTabBase {
         // Master toggle
         const masterToggleSetting = new Setting(this.containerEl)
             .setName("Strip markup")
-            .setDesc("Configure markup syntax to omit in filenames.")
+            .setDesc("Set markup syntax to omit in filenames.")
             .addToggle((toggle) => {
                 toggle.setValue(this.plugin.settings.enableStripMarkup)
                     .onChange(async (value) => {

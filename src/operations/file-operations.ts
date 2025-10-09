@@ -1,6 +1,6 @@
 import { TFile, TFolder, MarkdownView, Notice } from "obsidian";
 import { PluginSettings } from '../types';
-import { verboseLog } from '../utils';
+import { verboseLog, shouldProcessFile, hasDisablePropertyInFile } from '../utils';
 import { TITLE_CHAR_REVERSAL_MAP } from '../constants';
 import FirstLineIsTitle from '../../main';
 
@@ -49,9 +49,10 @@ export class FileOperations {
 
     /**
      * Inserts the filename as the first line of a newly created file
+     * @param initialContent - Optional initial content captured at file creation time
      * @returns true if title was inserted, false if skipped
      */
-    async insertTitleOnCreation(file: TFile): Promise<boolean> {
+    async insertTitleOnCreation(file: TFile, initialContent?: string): Promise<boolean> {
         try {
             // Check if filename is "Untitled" or "Untitled n" (where n is a positive integer)
             const untitledPattern = /^Untitled(\s[1-9]\d*)?$/;
@@ -63,48 +64,140 @@ export class FileOperations {
             // Get clean title by reversing forbidden character replacements
             let cleanTitle = file.basename;
 
-            // Apply character reversal mapping
-            for (const [forbiddenChar, normalChar] of Object.entries(TITLE_CHAR_REVERSAL_MAP)) {
-                cleanTitle = cleanTitle.replaceAll(forbiddenChar, normalChar);
+            // Create mapping from replacement char to setting key for trim settings lookup
+            const replacementCharToKey: Record<string, keyof typeof this.settings.charReplacements> = {
+                '∕': 'slash',
+                '։': 'colon',
+                '∗': 'asterisk',
+                '﹖': 'question',
+                '‹': 'lessThan',
+                '›': 'greaterThan',
+                '＂': 'quote',
+                '❘': 'pipe',
+                '＃': 'hash',
+                '［': 'leftBracket',
+                '］': 'rightBracket',
+                'ˆ': 'caret',
+                '⧵': 'backslash',
+                '․': 'dot'
+            };
+
+            // Punctuation characters that should not have space added before them
+            const punctuation = ',.?;:!"\'""\'\'»«¡¿‽';
+
+            // Apply character reversal mapping with whitespace restoration
+            for (const [replacementChar, originalChar] of Object.entries(TITLE_CHAR_REVERSAL_MAP)) {
+                // Check if this replacement char exists in the filename
+                if (!cleanTitle.includes(replacementChar)) continue;
+
+                const settingKey = replacementCharToKey[replacementChar];
+                if (!settingKey) continue;
+
+                // Check if this replacement is enabled and has trim settings
+                const replacementEnabled = this.settings.charReplacementEnabled[settingKey];
+                const trimLeft = this.settings.charReplacementTrimLeft[settingKey];
+                const trimRight = this.settings.charReplacementTrimRight[settingKey];
+
+                if (!replacementEnabled) {
+                    cleanTitle = cleanTitle.replaceAll(replacementChar, originalChar);
+                    continue;
+                }
+
+                // Process each occurrence individually to check context
+                let result = '';
+                let remaining = cleanTitle;
+                while (remaining.includes(replacementChar)) {
+                    const index = remaining.indexOf(replacementChar);
+
+                    // Add everything before this replacement char
+                    result += remaining.substring(0, index);
+
+                    // Build replacement with context-aware spacing
+                    let replacement = originalChar;
+
+                    // Add left space if trimLeft enabled
+                    if (trimLeft) {
+                        replacement = ' ' + replacement;
+                    }
+
+                    // Add right space if trimRight enabled and right char is not punctuation
+                    if (trimRight) {
+                        const charToRight = remaining.length > index + 1 ? remaining[index + 1] : '';
+                        if (!punctuation.includes(charToRight)) {
+                            replacement = replacement + ' ';
+                        }
+                    }
+
+                    result += replacement;
+                    remaining = remaining.substring(index + 1);
+                }
+
+                // Add any remaining content
+                result += remaining;
+                cleanTitle = result;
+            }
+
+            // Add heading if setting enabled
+            if (this.settings.addHeadingToTitle) {
+                cleanTitle = '# ' + cleanTitle;
             }
 
             verboseLog(this.plugin, `Inserting title "${cleanTitle}" in new file: ${file.path}`);
 
             // Wait for template plugins to apply templates if enabled
             // Both newNoteDelay and waitForTemplate delays start from file creation
-            // Total wait = max(newNoteDelay, 600ms if waitForTemplate is ON)
-            if (this.settings.waitForTemplate) {
-                const remainingWait = 600 - this.settings.newNoteDelay;
+            // Cache/File modes: Total wait = max(newNoteDelay, 2500ms if waitForTemplate is ON)
+            //   - 2500ms = Templater insertion (300ms) + Obsidian modify debounce (2000ms) + buffer (200ms)
+            // Editor mode: Total wait = max(newNoteDelay, 600ms if waitForTemplate is ON)
+            if (this.settings.insertTitleOnCreation && this.settings.waitForTemplate) {
+                const templateWaitTime = (this.settings.fileReadMethod === 'Cache' || this.settings.fileReadMethod === 'File') ? 2500 : 600;
+                const remainingWait = templateWaitTime - this.settings.newNoteDelay;
                 if (remainingWait > 0) {
                     // For Cache/File read methods, wait the full duration (no event-based detection)
                     if (this.settings.fileReadMethod === 'Cache' || this.settings.fileReadMethod === 'File') {
-                        verboseLog(this.plugin, `Waiting full ${remainingWait}ms for template (${this.settings.fileReadMethod} read method)`);
+                        verboseLog(this.plugin, `Waiting full ${remainingWait}ms for template (${this.settings.fileReadMethod} read method, total: ${templateWaitTime}ms)`);
                         await new Promise(resolve => setTimeout(resolve, remainingWait));
                     } else {
                         // For Editor read method, use event-based YAML detection
                         await this.waitForYamlOrTimeout(file, remainingWait);
                     }
                 } else {
-                    verboseLog(this.plugin, `Skipping template wait - newNoteDelay (${this.settings.newNoteDelay}ms) already >= 600ms`);
+                    verboseLog(this.plugin, `Skipping template wait - newNoteDelay (${this.settings.newNoteDelay}ms) already >= ${templateWaitTime}ms`);
                 }
             }
 
-            // Get content from editor (always current) or fallback to vault
+            // After waiting for template, always re-read content from editor to get latest state
             let currentContent: string;
-            try {
-                // Try to get content from active editor first (most current)
-                const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
-                if (activeView && activeView.file?.path === file.path && activeView.editor) {
-                    currentContent = activeView.editor.getValue();
-                    verboseLog(this.plugin, `Read file content from editor. Length: ${currentContent.length} chars`);
-                } else {
-                    // Fallback to vault read
-                    currentContent = await this.app.vault.read(file);
-                    verboseLog(this.plugin, `Read file content from vault. Length: ${currentContent.length} chars`);
+            if (this.settings.insertTitleOnCreation && this.settings.waitForTemplate) {
+                // Template may have been inserted, read fresh content from editor
+                const leaves = this.app.workspace.getLeavesOfType("markdown");
+                let foundEditor = false;
+                for (const leaf of leaves) {
+                    const view = leaf.view as MarkdownView;
+                    if (view && view.file?.path === file.path && view.editor) {
+                        currentContent = view.editor.getValue();
+                        verboseLog(this.plugin, `Read fresh content from editor after template wait. Length: ${currentContent.length} chars`);
+                        foundEditor = true;
+                        break;
+                    }
                 }
-            } catch (error) {
-                console.error(`Failed to read file ${file.path} for title insertion:`, error);
-                return false;
+                if (!foundEditor) {
+                    // Fallback to vault
+                    currentContent = await this.app.vault.read(file);
+                    verboseLog(this.plugin, `Read fresh content from vault after template wait. Length: ${currentContent.length} chars`);
+                }
+            } else if (initialContent !== undefined) {
+                // No template wait, use captured initial content
+                currentContent = initialContent;
+                verboseLog(this.plugin, `Using provided initial content for title insertion. Length: ${currentContent.length} chars`);
+            } else {
+                try {
+                    currentContent = await this.app.vault.read(file);
+                    verboseLog(this.plugin, `Read file content from vault for title insertion. Length: ${currentContent.length} chars`);
+                } catch (error) {
+                    console.error(`Failed to read file ${file.path} for title insertion:`, error);
+                    return false;
+                }
             }
 
             const lines = currentContent.split('\n');
@@ -157,8 +250,9 @@ export class FileOperations {
 
     /**
      * Wait for YAML to appear or timeout
+     * Public method for use by workspace-integration
      */
-    private async waitForYamlOrTimeout(file: TFile, timeoutMs: number): Promise<void> {
+    async waitForYamlOrTimeout(file: TFile, timeoutMs: number): Promise<void> {
         return new Promise((resolve) => {
             const startTime = Date.now();
 
@@ -210,12 +304,23 @@ export class FileOperations {
     async handleCursorPositioning(file: TFile, usePlaceCursorAtLineEndSetting: boolean = true): Promise<void> {
         try {
             verboseLog(this.plugin, `handleCursorPositioning called for ${file.path}, usePlaceCursorAtLineEndSetting: ${usePlaceCursorAtLineEndSetting}`);
-            const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
-            verboseLog(this.plugin, `Active view found: ${!!activeView}, file matches: ${activeView?.file?.path === file.path}`);
 
-            if (activeView && activeView.file?.path === file.path) {
+            // Find the specific view for this file (not just active view)
+            let targetView: MarkdownView | null = null;
+            const leaves = this.app.workspace.getLeavesOfType("markdown");
+            for (const leaf of leaves) {
+                const view = leaf.view as MarkdownView;
+                if (view && view.file?.path === file.path) {
+                    targetView = view;
+                    break;
+                }
+            }
+
+            verboseLog(this.plugin, `Target view found: ${!!targetView}, file matches: ${targetView?.file?.path === file.path}`);
+
+            if (targetView && targetView.file?.path === file.path) {
                 // Set to source mode
-                await activeView.leaf.setViewState({
+                await targetView.leaf.setViewState({
                     type: "markdown",
                     state: {
                         mode: "source",
@@ -224,36 +329,49 @@ export class FileOperations {
                 });
 
                 // Focus the editor
-                await activeView.editor?.focus();
+                await targetView.editor?.focus();
 
-                // Position cursor - find actual title line using metadata cache
+                // Position cursor - find actual title line by parsing content
                 let titleLineNumber = 0;
                 let titleLineLength = 0;
 
-                // Use metadata cache to determine frontmatter position
-                const metadata = this.app.metadataCache.getFileCache(file);
-                if (metadata?.frontmatterPosition) {
+                // Parse content directly to detect frontmatter
+                const content = targetView.editor?.getValue() || '';
+                const lines = content.split('\n');
+
+                // Detect YAML frontmatter
+                let yamlEndLine = -1;
+                if (lines[0] === '---') {
+                    for (let i = 1; i < lines.length; i++) {
+                        if (lines[i] === '---') {
+                            yamlEndLine = i;
+                            break;
+                        }
+                    }
+                }
+
+                if (yamlEndLine !== -1) {
                     // Title is on the line after frontmatter
-                    titleLineNumber = metadata.frontmatterPosition.end.line + 1;
-                    verboseLog(this.plugin, `Found frontmatter ending at line ${metadata.frontmatterPosition.end.line}, title on line ${titleLineNumber}`);
+                    titleLineNumber = yamlEndLine + 1;
+                    verboseLog(this.plugin, `Found frontmatter ending at line ${yamlEndLine}, title on line ${titleLineNumber}`);
                 } else {
                     // No frontmatter, title is on first line
                     titleLineNumber = 0;
                     verboseLog(this.plugin, `No frontmatter found, title on line ${titleLineNumber}`);
                 }
 
-                titleLineLength = activeView.editor?.getLine(titleLineNumber)?.length || 0;
+                titleLineLength = targetView.editor?.getLine(titleLineNumber)?.length || 0;
 
                 // Determine cursor position based on settings
-                const shouldPlaceAtEnd = usePlaceCursorAtLineEndSetting && this.settings.placeCursorAtLineEnd;
+                const shouldPlaceAtEnd = usePlaceCursorAtLineEndSetting && this.settings.moveCursorToFirstLine && this.settings.placeCursorAtLineEnd;
 
                 if (shouldPlaceAtEnd) {
                     // Move to end of title line
-                    activeView.editor?.setCursor({ line: titleLineNumber, ch: titleLineLength });
+                    targetView.editor?.setCursor({ line: titleLineNumber, ch: titleLineLength });
                     verboseLog(this.plugin, `Moved cursor to end of title line ${titleLineNumber} (${titleLineLength} chars) via handleCursorPositioning for ${file.path}`);
                 } else {
                     // Move to start of title line
-                    activeView.editor?.setCursor({ line: titleLineNumber, ch: 0 });
+                    targetView.editor?.setCursor({ line: titleLineNumber, ch: 0 });
                     verboseLog(this.plugin, `Moved cursor to start of title line ${titleLineNumber} via handleCursorPositioning for ${file.path}`);
                 }
             } else {
@@ -261,45 +379,6 @@ export class FileOperations {
             }
         } catch (error) {
             console.error(`Error positioning cursor for ${file.path}:`, error);
-        }
-    }
-
-    /**
-     * Processes multiple files with the specified action
-     */
-    async processMultipleFiles(files: TFile[], action: 'rename'): Promise<void> {
-        if (files.length === 0) return;
-
-        let processed = 0;
-        let skipped = 0;
-        let errors = 0;
-
-        verboseLog(this.plugin, `Showing notice: Processing ${files.length} files...`);
-        new Notice(`Processing ${files.length} files...`);
-
-        for (const file of files) {
-            try {
-                if (action === 'rename') {
-                    const result = await this.plugin.renameEngine.attemptRename(file);
-                    if (result.success) {
-                        processed++;
-                    } else {
-                        skipped++;
-                    }
-                }
-            } catch (error) {
-                console.error(`Error processing file ${file.path}:`, error);
-                errors++;
-            }
-        }
-
-        // Show completion notice
-        if (errors > 0) {
-            verboseLog(this.plugin, `Showing notice: Renamed ${processed} files, skipped ${skipped}, ${errors} errors`);
-            new Notice(`Renamed ${processed} files, skipped ${skipped}, ${errors} errors`);
-        } else {
-            verboseLog(this.plugin, `Showing notice: Renamed ${processed} files, skipped ${skipped}`);
-            new Notice(`Renamed ${processed} files, skipped ${skipped}`);
         }
     }
 
@@ -314,5 +393,159 @@ export class FileOperations {
             }
         });
         return isOpen;
+    }
+
+    /**
+     * Check if file is excluded from processing (folder/tag/property exclusions + disable property)
+     * Uses real-time content checking for tags if content provided
+     */
+    async isFileExcludedForCursorPositioning(file: TFile, content?: string): Promise<boolean> {
+        // Check folder/tag/property exclusions
+        if (!shouldProcessFile(file, this.settings, this.app, content)) {
+            return true;
+        }
+
+        // Check disable property by parsing content directly
+        if (content) {
+            const hasDisableProperty = this.checkDisablePropertyInContent(content);
+            if (hasDisableProperty) {
+                return true;
+            }
+        } else {
+            // Fallback to cache-based check if no content provided
+            if (await hasDisablePropertyInFile(file, this.app, this.settings.disableRenamingKey, this.settings.disableRenamingValue)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Check for disable property and excluded properties by parsing YAML directly from content
+     */
+    private checkDisablePropertyInContent(content: string): boolean {
+        const lines = content.split('\n');
+
+        // Check for YAML frontmatter
+        if (lines[0] !== '---') return false;
+
+        let yamlEndLine = -1;
+        for (let i = 1; i < lines.length; i++) {
+            if (lines[i] === '---') {
+                yamlEndLine = i;
+                break;
+            }
+        }
+
+        if (yamlEndLine === -1) return false;
+
+        // Parse YAML for both disable property and excluded properties
+        const yamlLines = lines.slice(1, yamlEndLine);
+
+        // Check disable property
+        const disableKey = this.settings.disableRenamingKey;
+        const disableValue = this.settings.disableRenamingValue.toLowerCase();
+
+        // Check excluded properties from settings
+        const nonEmptyExcludedProps = this.settings.excludedProperties.filter(
+            prop => prop.key.trim() !== ""
+        );
+
+        // Simple YAML parser - handles key: value and key: [array, items]
+        let currentKey = '';
+        let inArray = false;
+
+        for (const line of yamlLines) {
+            const trimmed = line.trim();
+
+            // Skip empty lines and comments
+            if (trimmed === '' || trimmed.startsWith('#')) continue;
+
+            // Check if line starts array items (- item)
+            if (trimmed.startsWith('- ')) {
+                if (inArray && currentKey) {
+                    let arrayValue = trimmed.substring(2).trim();
+
+                    // Remove quotes if present
+                    if ((arrayValue.startsWith('"') && arrayValue.endsWith('"')) ||
+                        (arrayValue.startsWith("'") && arrayValue.endsWith("'"))) {
+                        arrayValue = arrayValue.substring(1, arrayValue.length - 1);
+                    }
+
+                    // Normalize tag values - remove # prefix for comparison
+                    const normalizedArrayValue = arrayValue.startsWith('#') ? arrayValue.substring(1) : arrayValue;
+
+                    // Check against disable property
+                    if (currentKey === disableKey && arrayValue.toLowerCase() === disableValue) {
+                        verboseLog(this.plugin, `Found disable property in array: ${currentKey}: [${arrayValue}]`);
+                        return true;
+                    }
+
+                    // Check against excluded properties
+                    for (const excludedProp of nonEmptyExcludedProps) {
+                        const propKey = excludedProp.key.trim();
+                        const propValue = excludedProp.value.trim();
+
+                        if (currentKey === propKey) {
+                            // For tags property, normalize both sides (remove #)
+                            if (propKey === 'tags') {
+                                const normalizedPropValue = propValue.startsWith('#') ? propValue.substring(1) : propValue;
+                                if (propValue === '' || normalizedArrayValue === normalizedPropValue) {
+                                    verboseLog(this.plugin, `Found excluded tag in array: ${propKey}: [${arrayValue}]`);
+                                    return true;
+                                }
+                            } else {
+                                // For other properties, exact match
+                                if (propValue === '' || arrayValue === propValue) {
+                                    verboseLog(this.plugin, `Found excluded property in array: ${propKey}: [${arrayValue}]`);
+                                    return true;
+                                }
+                            }
+                        }
+                    }
+                }
+                continue;
+            }
+
+            // Check for key: value pattern
+            if (trimmed.includes(':')) {
+                const colonIndex = trimmed.indexOf(':');
+                const key = trimmed.substring(0, colonIndex).trim();
+                const value = trimmed.substring(colonIndex + 1).trim();
+
+                currentKey = key;
+
+                // Check if value is empty (array follows)
+                if (value === '' || value === '[') {
+                    inArray = true;
+                    continue;
+                } else {
+                    inArray = false;
+                }
+
+                // Check against disable property
+                if (key === disableKey && value.toLowerCase() === disableValue) {
+                    verboseLog(this.plugin, `Found disable property: ${key}: ${value}`);
+                    return true;
+                }
+
+                // Check against excluded properties
+                for (const excludedProp of nonEmptyExcludedProps) {
+                    const propKey = excludedProp.key.trim();
+                    const propValue = excludedProp.value.trim();
+
+                    if (key === propKey) {
+                        // Match if value is empty (any value) or exact match
+                        if (propValue === '' || value === propValue) {
+                            verboseLog(this.plugin, `Found excluded property: ${propKey}: ${value}`);
+                            return true;
+                        }
+                    }
+                }
+            }
+        }
+
+        return false;
     }
 }

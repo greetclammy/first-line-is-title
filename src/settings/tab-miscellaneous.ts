@@ -15,62 +15,57 @@ export class AdvancedTab extends SettingsTabBase {
     }
 
     render(): void {
-
-        // Property to disable renaming
-        const propertyDisableSetting = new Setting(this.containerEl)
-            .setName("Property to disable renaming")
+        // Character count
+        const charCountSetting = new Setting(this.containerEl)
+            .setName("Character count")
             .setDesc("");
 
-        // Create styled description
-        const propertyDesc = propertyDisableSetting.descEl;
-        propertyDesc.appendText("Set the key:property pair that will disable renaming for notes that contain it. Case-insensitive. Always respected — cannot get overriden by any command.");
-        propertyDesc.createEl("br");
-        propertyDesc.appendText("Note: changing this won't automatically update properties that have been previously added.");
-        propertyDesc.createEl("br");
-        propertyDesc.createEl("small").createEl("strong", { text: "Default: no rename:true" });
+        // Create styled description for character count
+        const charCountDesc = charCountSetting.descEl;
+        charCountDesc.appendText("The maximum number of characters to put in filename.");
+        charCountDesc.createEl("br");
+        charCountDesc.createEl("small").createEl("strong", { text: "Default: 100" });
 
-        // Create input container with reset button
-        const propertyContainer = propertyDisableSetting.controlEl.createDiv({ cls: "flit-property-disable-container" });
-        propertyContainer.style.display = "flex";
-        propertyContainer.style.gap = "10px";
+        // Create container for slider with reset button
+        const charCountContainer = charCountSetting.controlEl.createDiv({ cls: "flit-char-text-input-container" });
 
-        const propertyRestoreButton = propertyContainer.createEl("button", {
+        const charCountRestoreButton = charCountContainer.createEl("button", {
             cls: "clickable-icon flit-restore-icon",
             attr: { "aria-label": "Restore default" }
         });
-        setIcon(propertyRestoreButton, "rotate-ccw");
+        setIcon(charCountRestoreButton, "rotate-ccw");
 
-        const keyInput = propertyContainer.createEl("input", { type: "text" });
-        keyInput.placeholder = "key";
-        keyInput.style.width = "120px";
-        keyInput.value = this.plugin.settings.disableRenamingKey;
-        keyInput.addEventListener('input', async (e) => {
-            this.plugin.settings.disableRenamingKey = (e.target as HTMLInputElement).value;
-            await this.plugin.saveSettings();
-            // Update property type when key changes
-            await this.plugin.propertyManager.updatePropertyTypeFromSettings();
+        // Create slider element manually and append to container
+        const sliderDiv = charCountContainer.createDiv();
+
+        charCountSetting.addSlider((slider) => {
+            slider
+                .setLimits(1, 255, 1)
+                .setValue(this.plugin.settings.charCount)
+                .setDynamicTooltip()
+                .onChange(async (value) => {
+                    this.plugin.settings.charCount = value;
+                    this.plugin.debugLog('charCount', value);
+                    await this.plugin.saveSettings();
+                });
+
+            // Move slider to our custom container
+            sliderDiv.appendChild(slider.sliderEl);
         });
 
-        const valueInput = propertyContainer.createEl("input", { type: "text" });
-        valueInput.placeholder = "value";
-        valueInput.style.width = "120px";
-        valueInput.value = this.plugin.settings.disableRenamingValue;
-        valueInput.addEventListener('input', async (e) => {
-            this.plugin.settings.disableRenamingValue = (e.target as HTMLInputElement).value;
+        charCountRestoreButton.addEventListener('click', async () => {
+            this.plugin.settings.charCount = DEFAULT_SETTINGS.charCount;
+            this.plugin.debugLog('charCount', this.plugin.settings.charCount);
             await this.plugin.saveSettings();
-            // Update property type when value changes
-            await this.plugin.propertyManager.updatePropertyTypeFromSettings();
+
+            // Update the slider value by triggering a re-render or finding the slider element
+            const sliderInput = sliderDiv.querySelector('input[type="range"]') as HTMLInputElement;
+            if (sliderInput) {
+                sliderInput.value = String(DEFAULT_SETTINGS.charCount);
+                sliderInput.dispatchEvent(new Event('input', { bubbles: true }));
+            }
         });
 
-        propertyRestoreButton.addEventListener('click', async () => {
-            this.plugin.settings.disableRenamingKey = DEFAULT_SETTINGS.disableRenamingKey;
-            this.plugin.settings.disableRenamingValue = DEFAULT_SETTINGS.disableRenamingValue;
-            keyInput.value = DEFAULT_SETTINGS.disableRenamingKey;
-            valueInput.value = DEFAULT_SETTINGS.disableRenamingValue;
-            await this.plugin.saveSettings();
-            // Update property type when restored to default
-            await this.plugin.propertyManager.updatePropertyTypeFromSettings();
-        });
 
         // Show notification setting (moved from General)
         const notificationSetting = new Setting(this.containerEl)
@@ -79,7 +74,7 @@ export class AdvancedTab extends SettingsTabBase {
 
         // Create styled description
         const notificationDesc = notificationSetting.descEl;
-        notificationDesc.appendText("Controls when to show notifications for the ");
+        notificationDesc.appendText("Set when to show notifications for the ");
         notificationDesc.createEl("em", { text: "Put first line in title" });
         notificationDesc.appendText(" commands.");
 
@@ -374,7 +369,7 @@ export class AdvancedTab extends SettingsTabBase {
                             this.plugin.settings = JSON.parse(JSON.stringify(DEFAULT_SETTINGS));
 
                             // Ensure scope strategy is explicitly set to default
-                            this.plugin.settings.scopeStrategy = 'Enable in all notes except below';
+                            this.plugin.settings.scopeStrategy = 'Don\'t rename in...';
 
                             // Keep tracking that settings have been shown (don't show first-time notice again)
                             this.plugin.settings.hasShownFirstTimeNotice = true;

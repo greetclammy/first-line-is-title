@@ -88,21 +88,21 @@ export class TagOperations {
 
         if (matchingFiles.length === 0) {
             verboseLog(this, `Showing notice: No files found with tag ${tagToFind}.`);
-            new Notice(`No files found with tag ${tagToFind}.`);
+            new Notice(`No notes found with #${tagToFind}.`);
             return;
         }
 
-        verboseLog(this, `Showing notice: Processing ${matchingFiles.length} files with tag ${tagToFind}...`);
-        new Notice(`Processing ${matchingFiles.length} files with tag ${tagToFind}...`);
+        verboseLog(this, `Showing notice: Renaming ${matchingFiles.length} files with tag ${tagToFind}...`);
+        new Notice(`Renaming ${matchingFiles.length} notes...`);
 
         let processedCount = 0;
         let errorCount = 0;
 
         for (const file of matchingFiles) {
             try {
-                // Use the existing processFile method with ignoreExclusions = true to force processing
-                // Pass isBatchOperation = true to skip rate limits for batch operations
-                await this.renameEngine.processFile(file, true, true, true, undefined, true);
+                // processFile(file, noDelay, ignoreExclusions, showNotices, providedContent, isBatchOperation)
+                // noDelay=true, ignoreExclusions=true, showNotices=false, providedContent=undefined, isBatchOperation=true
+                await this.renameEngine.processFile(file, true, true, false, undefined, true);
                 processedCount++;
             } catch (error) {
                 console.error(`Error processing file ${file.path}:`, error);
@@ -111,11 +111,11 @@ export class TagOperations {
         }
 
         if (errorCount > 0) {
-            verboseLog(this, `Showing notice: Processed ${processedCount} files with ${errorCount} errors.`);
-            new Notice(`Processed ${processedCount} files with ${errorCount} errors.`);
+            verboseLog(this, `Showing notice: Renamed ${processedCount}/${matchingFiles.length} notes with ${errorCount} errors. Check console for details.`);
+            new Notice(`Renamed ${processedCount}/${matchingFiles.length} notes with ${errorCount} errors. Check console for details.`, 0);
         } else {
             verboseLog(this, `Showing notice: Successfully processed ${processedCount} files with tag ${tagToFind}.`);
-            new Notice(`Successfully processed ${processedCount} files with tag ${tagToFind}.`);
+            new Notice(`Renamed ${processedCount}/${matchingFiles.length} notes.`, 0);
         }
     }
 
@@ -131,7 +131,7 @@ export class TagOperations {
                 this.settings.excludedTags.push("");
             }
             verboseLog(this, `Showing notice: Renaming enabled for ${tagToFind}`);
-            new Notice(`Renaming enabled for ${tagToFind}`);
+            new Notice(`Enabled renaming for #{tagToFind}.`);
         } else {
             // If there's only an empty entry, replace it; otherwise add
             if (this.settings.excludedTags.length === 1 && this.settings.excludedTags[0] === "") {
@@ -140,7 +140,7 @@ export class TagOperations {
                 this.settings.excludedTags.push(tagToFind);
             }
             verboseLog(this, `Showing notice: Renaming disabled for ${tagToFind}`);
-            new Notice(`Renaming disabled for ${tagToFind}`);
+            new Notice(`Disabled renaming for #{tagToFind}.`);
         }
 
         this.debugLog('excludedTags', this.settings.excludedTags);

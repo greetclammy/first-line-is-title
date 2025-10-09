@@ -19,7 +19,7 @@ export class ForbiddenCharsTab extends SettingsTabBase {
                         this.plugin.settings.enableForbiddenCharReplacements = value;
                         this.plugin.debugLog('enableForbiddenCharReplacements', value);
 
-                        // On first enable, turn on all All OSes options
+                        // On first enable, turn on all 'All OSes' options
                         if (value && !this.plugin.settings.hasEnabledForbiddenChars) {
                             const allOSesKeys = ['leftBracket', 'rightBracket', 'hash', 'caret', 'pipe', 'slash', 'colon'];
                             allOSesKeys.forEach(key => {
@@ -27,7 +27,7 @@ export class ForbiddenCharsTab extends SettingsTabBase {
                             });
                             this.plugin.settings.hasEnabledForbiddenChars = true;
 
-                            // If OS is Windows or Android, also enable Windows/Android section
+                            // If OS is Windows or Android, also enable 'Windows/Android' section
                             const currentOS = detectOS();
                             if (currentOS === 'Windows' && !this.plugin.settings.hasEnabledWindowsAndroid) {
                                 this.plugin.settings.windowsAndroidEnabled = true;
@@ -67,7 +67,7 @@ export class ForbiddenCharsTab extends SettingsTabBase {
         const charDescEl = this.containerEl.createEl("div", { cls: "setting-item-description" });
 
         const updateCharDescriptionContent = () => {
-            charDescEl.setText("Configure replacements for illegal filename characters. Characters are omitted entirely if disabled.");
+            charDescEl.setText("Set replacements for characters which are not allowed in filenames. Forbidden characters are omitted entirely if disabled.");
         };
 
         updateCharDescriptionContent();
@@ -271,10 +271,11 @@ export class ForbiddenCharsTab extends SettingsTabBase {
                     }
                 });
             windowsAndroidHeaderSetting.settingEl.addClass('flit-master-toggle');
+            windowsAndroidHeaderSetting.settingEl.addClass('flit-windows-android-header');
             charSettingsContainer.createEl("br");
 
             // Create Windows/Android character table
-            windowsAndroidTableContainer = charSettingsContainer.createEl('div', { cls: 'flit-table-container' });
+            windowsAndroidTableContainer = charSettingsContainer.createEl('div', { cls: 'flit-table-container flit-windows-android-table' });
             const windowsAndroidTableWrapper = windowsAndroidTableContainer.createEl('div', { cls: 'flit-table-wrapper' });
 
             // Create header row
