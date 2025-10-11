@@ -24,11 +24,6 @@ _Only notes that are currently open in the editor are processed, along with any 
 
 ## ✅ Install
 
-> [!IMPORTANT]  
-> The plugin is in active development — things can break, or change drastically between releases.
->
-> **Ensure your files are regularly [backed up](https://help.obsidian.md/backup).**
-
 Untill _First Line is Title_ is [made availiable](https://github.com/obsidianmd/obsidian-releases/pull/7429) in the plugin directory, follow the steps below to install it.
 
 ### BRAT (recommended)
@@ -67,6 +62,7 @@ Note: to get updates for _First Line is Title_, you will have to check for and i
 - [File Title Updater](https://obsidian.md/plugins?id=file-title-updater)
 - [Filename Heading Sync](https://obsidian.md/plugins?id=obsidian-filename-heading-sync)
 - [Linter](https://obsidian.md/plugins?id=obsidian-linter)
+- [Filename Sanitizer](https://github.com/devHudi/obsidian-filename-sanitizer)
 
 ## 🙏 Acknowledgements
 
