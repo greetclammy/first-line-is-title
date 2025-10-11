@@ -20,7 +20,7 @@ Automatically set the first line as note title, just like in Apple Notes! Forget
 - Exclude select notes, folders, tags, properties or filenames from renaming, or only enable renaming in some.
 - Convert a selection containing characters forbidden in filenames into a valid internal link. Preserve the original text in link caption.
 
-_Only notes that are currently open in the editor are processed, along with any notes you explicitly select for batch operations (like renaming all notes in a folder). Multiple safeguards are in place to prevent unintended changes or runaway operations, but regular backups remain your ultimate safety net._
+_Only notes that are currently open in the editor are processed, along with any notes you explicitly select for batch operations (like renaming all notes in a folder). Multiple safeguards are in place to prevent unintended changes or runaway operations, but [regular backups](https://help.obsidian.md/backup) remain your ultimate safety net._
 
 ## ✅ Install
 
