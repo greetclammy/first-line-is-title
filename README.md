@@ -1,6 +1,6 @@
 # First Line is Title
 
-Automatically set the first line as note title, just like in Apple Notes! Forget about manual filename entry or nondescript timestamps. 
+Automatically set the first line as note title, just like in Apple Notes! Forget about manual filename entry or nondescript timestamps.
 
 ![](https://github.com/user-attachments/assets/eed638e0-f695-4fdd-a0a6-2ace66585d58)
 
@@ -15,14 +15,19 @@ Automatically set the first line as note title, just like in Apple Notes! Forget
 - Replace characters forbidden in filenames with safe alternatives, or omit them entirely.
 - Strip markdown syntax from filenames.
 - Add custom replacement rules.
-- Automatically add a first line alias property — make forbidden characters searchable in the Quick switcher or [Omnisearch](https://obsidian.md/plugins?id=omnisearch).
+- Automatically populate a first line alias property — make forbidden characters searchable in the Quick switcher or [Omnisearch](https://obsidian.md/plugins?id=omnisearch).
 - Commands to batch rename all notes in a folder, all notes with a tag, all search results, or the entire vault.
 - Exclude select notes, folders, tags, properties or filenames from renaming, or only enable renaming in some.
-- Convert a selection containing characters forbidden in filenames into a safe internal link. Preserve the original text in link caption.
+- Convert a selection containing characters forbidden in filenames into a valid internal link. Preserve the original text in link caption.
 
 _Only notes that are currently open in the editor are processed, along with any notes you explicitly select for batch operations (like renaming all notes in a folder). Multiple safeguards are in place to prevent unintended changes or runaway operations, but regular backups remain your ultimate safety net._
 
-## ✅ Installation
+## ✅ Install
+
+> [!IMPORTANT]  
+> The plugin is in active development — things can break, or change drastically between releases.
+>
+> **Ensure your files are regularly [backed up](https://help.obsidian.md/backup).**
 
 Untill _First Line is Title_ is [made availiable](https://github.com/obsidianmd/obsidian-releases/pull/7429) in the plugin directory, follow the steps below to install it.
 
@@ -52,7 +57,7 @@ Note: to get updates for _First Line is Title_, you will have to check for and i
 - [Contribute improvements](https://github.com/greetclammy/first-line-is-title/pulls)
 - Share your thoughts on:
   - [Obsidian Forum](https://forum.obsidian.md/t/plugin-to-automatically-copy-first-line-in-note-to-note-title/103558)
-  - [Obsidian Members Group](https://discord.com/channels/686053708261228577/707816848615407697)
+  - [Discord](https://discord.com/channels/686053708261228577/707816848615407697) • [Join](https://discord.com/invite/obsidianmd)
   - [r/ObsidianMD](https://www.reddit.com/r/ObsidianMD/comments/1nwmq0x/comment/nhm2x61/)
   - [GitHub discussions](https://github.com/greetclammy/first-line-is-title/discussions)
 
@@ -62,16 +67,16 @@ Note: to get updates for _First Line is Title_, you will have to check for and i
 - [File Title Updater](https://obsidian.md/plugins?id=file-title-updater)
 - [Filename Heading Sync](https://obsidian.md/plugins?id=obsidian-filename-heading-sync)
 - [Linter](https://obsidian.md/plugins?id=obsidian-linter)
-- [Filename Sanitizer](https://github.com/devHudi/obsidian-filename-sanitizer)
 
 ## 🙏 Acknowledgements
 
-- This plugin builds on [Auto Filename](https://obsidian.md/plugins?id=auto-filename) and employs some of its code.
+- This plugin builds on [Auto Filename](https://github.com/rcsaquino/obsidian-auto-filename) and employs some of its code.
 - Tag context menu functionality implements patterns from [Tag Wrangler](https://github.com/pjeby/tag-wrangler).
 
 ## 👨‍💻 What else I made
 
-- [Adapt to Current View](https://github.com/greetclammy/adapt-to-current-view/)
+- [Copy Link](https://github.com/greetclammy/copy-link) - Add commands to quickly copy links to files, headings and blocks.
+- [Adapt to Current View](https://github.com/greetclammy/adapt-to-current-view/) - Set different accent colors for Reading view, Live Preview and Source view.
 
 <br>
 
