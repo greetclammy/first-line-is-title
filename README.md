@@ -62,6 +62,7 @@ Note: to get updates for _First Line is Title_, you will have to check for and i
 - [File Title Updater](https://obsidian.md/plugins?id=file-title-updater)
 - [Filename Heading Sync](https://obsidian.md/plugins?id=obsidian-filename-heading-sync)
 - [Linter](https://obsidian.md/plugins?id=obsidian-linter)
+- [Filename Sanitizer](https://github.com/devHudi/obsidian-filename-sanitizer)
 
 ## 🙏 Acknowledgements
 
