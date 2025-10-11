@@ -52,16 +52,6 @@ export class CommandSetup {
                                             // Create icon element
                                             const iconElement = document.createElement('div');
                                             iconElement.classList.add('flit-command-icon');
-                                            iconElement.style.cssText = `
-                                                display: inline-flex;
-                                                align-items: center;
-                                                justify-content: center;
-                                                width: 16px;
-                                                height: 16px;
-                                                margin-right: 8px;
-                                                color: var(--text-muted);
-                                                flex-shrink: 0;
-                                            `;
 
                                             // Use Obsidian's setIcon function to add the icon
                                             setIcon(iconElement, iconName);
@@ -113,8 +103,9 @@ export class CommandSetup {
                         new Notice("Error: no active note.");
                         return;
                     }
-                    verboseLog(this.plugin, `Ribbon command triggered for ${activeFile.path} (ignoring exclusions)`);
-                    await this.plugin.renameEngine.processFile(activeFile, true, true, true);
+                    verboseLog(this.plugin, `Ribbon command triggered for ${activeFile.path} (ignoring folder/tag/property exclusions)`);
+                    const exclusionOverrides = { ignoreFolder: true, ignoreTag: true, ignoreProperty: true };
+                    await this.plugin.renameEngine.processFile(activeFile, true, true, undefined, false, exclusionOverrides);
                 }
             },
             {

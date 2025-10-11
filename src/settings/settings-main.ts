@@ -10,7 +10,7 @@ import { StripMarkupTab } from './tab-strip-markup';
 import { CustomReplacementsTab } from './tab-custom-rules';
 import { SafewordsTab } from './tab-safewords';
 import { CommandsTab } from './tab-commands';
-import { AdvancedTab } from './tab-miscellaneous';
+import { MiscellaneousTab } from './tab-miscellaneous';
 
 export class FirstLineIsTitleSettings extends PluginSettingTab {
     plugin: FirstLineIsTitlePlugin;
@@ -25,7 +25,7 @@ export class FirstLineIsTitleSettings extends PluginSettingTab {
         STRIP_MARKUP: { id: 'strip-markup', name: 'Strip markup', class: StripMarkupTab },
         PROPERTIES: { id: 'properties', name: 'Alias', class: PropertiesTab },
         COMMANDS: { id: 'commands', name: 'Commands', class: CommandsTab },
-        ADVANCED: { id: 'advanced', name: 'Miscellaneous', class: AdvancedTab }
+        MISCELLANEOUS: { id: 'miscellaneous', name: 'Miscellaneous', class: MiscellaneousTab }
     };
 
     constructor(app: App, plugin: FirstLineIsTitlePlugin) {
@@ -70,8 +70,7 @@ export class FirstLineIsTitleSettings extends PluginSettingTab {
             tabEl.setAttribute('tabindex', isActive ? '0' : '-1');
             tabEl.setAttribute('aria-selected', isActive ? 'true' : 'false');
 
-            const tabNameEl = tabEl.createEl('div', { cls: 'flit-settings-tab-name' });
-            tabNameEl.innerHTML = tabInfo.name; // Use innerHTML to support line breaks
+            const tabNameEl = tabEl.createEl('div', { cls: 'flit-settings-tab-name', text: tabInfo.name });
 
             if (isActive) {
                 tabEl.addClass('flit-settings-tab-active');

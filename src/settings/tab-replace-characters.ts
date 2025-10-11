@@ -85,6 +85,16 @@ export class ForbiddenCharsTab extends SettingsTabBase {
             );
             // Also update any disabled rows
             this.updateDisabledRowsAccessibility(charSettingsContainer);
+
+            // Update table containers scrollbar visibility
+            const tableContainers = charSettingsContainer.querySelectorAll('.flit-table-container');
+            tableContainers.forEach((container: HTMLElement) => {
+                if (this.plugin.settings.enableForbiddenCharReplacements) {
+                    container.classList.remove('flit-master-disabled');
+                } else {
+                    container.classList.add('flit-master-disabled');
+                }
+            });
         };
 
         // Define character arrays first (moved outside updateCharacterSettings)
@@ -179,7 +189,7 @@ export class ForbiddenCharsTab extends SettingsTabBase {
                 const nameEl = nameContainer.createEl("div", { text: setting.name, cls: "setting-item-name" });
                 if (setting.description) {
                     const descEl = nameContainer.createEl("div", { cls: "setting-item-description" });
-                    descEl.innerHTML = setting.description;
+                    descEl.textContent = setting.description;
                 }
 
                 // Text input with restore icon

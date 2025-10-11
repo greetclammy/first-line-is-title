@@ -28,14 +28,16 @@ export class DebugUtils {
      * Outputs complete file content for debugging purposes
      * @param file The file to output content for
      * @param action The action being performed (e.g., "MODIFIED", "CREATED")
+     * @param editorContent Optional editor content to output directly
      */
-    async outputDebugFileContent(file: TFile, action: string): Promise<void> {
+    outputDebugFileContent(file: TFile, action: string, editorContent?: string): void {
         if (!this.settings.verboseLogging || !this.settings.debugOutputFullContent) {
             return;
         }
 
         try {
-            const content = await this.app.vault.read(file);
+            const content = editorContent ?? 'N/A (no editor content available)';
+
             console.debug(`CONTENT [${action}] ${file.path}:`);
             console.debug('--- FILE CONTENT START ---');
             console.debug(content);

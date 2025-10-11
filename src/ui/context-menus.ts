@@ -20,9 +20,9 @@ export class ContextMenuManager {
      */
     menuForEvent(evt: MouseEvent): Menu {
         // Use Tag Wrangler's menuForEvent pattern
-        let menu = (evt as any).obsidian_contextmenu;
+        let menu = evt.obsidian_contextmenu;
         if (!menu) {
-            menu = (evt as any).obsidian_contextmenu = new Menu();
+            menu = evt.obsidian_contextmenu = new Menu();
             setTimeout(() => menu.showAtPosition({x: evt.pageX, y: evt.pageY}), 0);
         }
         return menu;
@@ -35,13 +35,13 @@ export class ContextMenuManager {
         const isInList = this.plugin.settings.excludedFolders.includes(folderPath);
 
         let result: boolean;
-        if (this.plugin.settings.folderScopeStrategy === 'Don\'t rename in...') {
-            // Don't rename strategy: list contains DISABLED folders
+        if (this.plugin.settings.folderScopeStrategy === 'Only exclude...') {
+            // Only exclude strategy: list contains DISABLED folders
             // folder in list (disabled) → show "enable" → return false
             // folder not in list (enabled) → show "disable" → return true
             result = !isInList;
         } else {
-            // Only rename strategy: list contains ENABLED folders
+            // Exclude all except strategy: list contains ENABLED folders
             // folder in list (enabled) → show "disable" → return true
             // folder not in list (disabled) → show "enable" → return false
             result = isInList;
@@ -65,13 +65,13 @@ export class ContextMenuManager {
         const isInList = this.plugin.settings.excludedTags.includes(tagToFind);
 
         let result: boolean;
-        if (this.plugin.settings.tagScopeStrategy === 'Don\'t rename with...') {
-            // Don't rename strategy: list contains DISABLED tags
+        if (this.plugin.settings.tagScopeStrategy === 'Only exclude...') {
+            // Only exclude strategy: list contains DISABLED tags
             // tag in list (disabled) → show "enable" → return false
             // tag not in list (enabled) → show "disable" → return true
             result = !isInList;
         } else {
-            // Only rename strategy: list contains ENABLED tags
+            // Exclude all except strategy: list contains ENABLED tags
             // tag in list (enabled) → show "disable" → return true
             // tag not in list (disabled) → show "enable" → return false
             result = isInList;
@@ -92,14 +92,14 @@ export class ContextMenuManager {
      * Gets the appropriate menu text for folder operations based on scope strategy.
      */
     getFolderMenuText(folderPath: string): { disable: string, enable: string } {
-        if (this.plugin.settings.folderScopeStrategy === 'Don\'t rename in...') {
-            // Don't rename strategy: list contains DISABLED folders
+        if (this.plugin.settings.folderScopeStrategy === 'Only exclude...') {
+            // Only exclude strategy: list contains DISABLED folders
             return {
                 disable: "Disable renaming in folder",
                 enable: "Enable renaming in folder"
             };
         } else {
-            // Only rename strategy: list contains ENABLED folders
+            // Exclude all except strategy: list contains ENABLED folders
             return {
                 disable: "Disable renaming in folder",
                 enable: "Enable renaming in folder"
@@ -111,14 +111,14 @@ export class ContextMenuManager {
      * Gets the appropriate menu text for tag operations based on scope strategy.
      */
     getTagMenuText(tagName: string): { disable: string, enable: string } {
-        if (this.plugin.settings.tagScopeStrategy === 'Don\'t rename with...') {
-            // Don't rename strategy: list contains DISABLED tags
+        if (this.plugin.settings.tagScopeStrategy === 'Only exclude...') {
+            // Only exclude strategy: list contains DISABLED tags
             return {
                 disable: "Disable renaming for tag",
                 enable: "Enable renaming for tag"
             };
         } else {
-            // Disable strategy: list contains ENABLED tags
+            // Exclude all except strategy: list contains ENABLED tags
             return {
                 disable: "Disable renaming for tag",
                 enable: "Enable renaming for tag"
@@ -249,7 +249,7 @@ export class ContextMenuManager {
         if (this.plugin.settings.commandVisibility.folderPutFirstLineInTitle) {
             menu.addItem((item) => {
                 item
-                    .setTitle(`Put first line in title (${totalFiles} files in ${folders.length} folders)`)
+                    .setTitle(`Put first line in title (${folders.length} folders)`)
                     .setIcon("folder-pen")
                     .onClick(async () => {
                         await this.plugin.processMultipleFolders(folders, 'rename');

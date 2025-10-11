@@ -40,7 +40,7 @@ export const DEFAULT_SETTINGS: PluginSettings = {
         rightBracket: false,
         caret: false,
         backslash: false,
-        dot: false
+        dot: true
     },
     charReplacementTrimLeft: {
         slash: false,
@@ -91,6 +91,7 @@ export const DEFAULT_SETTINGS: PluginSettings = {
         strikethrough: true,
         highlight: true,
         code: true,
+        codeBlocks: true,
         blockquote: true,
         callouts: true,
         comments: true,
@@ -126,6 +127,7 @@ export const DEFAULT_SETTINGS: PluginSettings = {
     fileReadMethod: 'Editor', // Default to editor method
     verboseLogging: false, // Added default for verbose logging
     debugOutputFullContent: false, // Default OFF for debug content output
+    debugEnabledTimestamp: '', // No debug enabled timestamp yet
     hasShownFirstTimeNotice: false, // First-time notice not shown yet
     hasSetupExclusions: false, // Exclusions tab not opened yet
     hasSetPropertyType: false, // Property type not set yet

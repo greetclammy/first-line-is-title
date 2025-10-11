@@ -98,11 +98,11 @@ export class TagOperations {
         let processedCount = 0;
         let errorCount = 0;
 
+        const exclusionOverrides = { ignoreFolder: true, ignoreTag: true, ignoreProperty: true };
+
         for (const file of matchingFiles) {
             try {
-                // processFile(file, noDelay, ignoreExclusions, showNotices, providedContent, isBatchOperation)
-                // noDelay=true, ignoreExclusions=true, showNotices=false, providedContent=undefined, isBatchOperation=true
-                await this.renameEngine.processFile(file, true, true, false, undefined, true);
+                await this.renameEngine.processFile(file, true, false, undefined, true, exclusionOverrides);
                 processedCount++;
             } catch (error) {
                 console.error(`Error processing file ${file.path}:`, error);
@@ -121,30 +121,49 @@ export class TagOperations {
 
     async toggleTagExclusion(tagName: string): Promise<void> {
         const tagToFind = tagName.startsWith('#') ? tagName : `#${tagName}`;
-        const isExcluded = this.settings.excludedTags.includes(tagToFind);
+        const isInList = this.settings.excludedTags.includes(tagToFind);
+        const isInverted = this.settings.tagScopeStrategy === 'Exclude all except...';
 
-        if (isExcluded) {
-            // Remove from excluded tags
+        if (isInList) {
+            // Remove from list
             this.settings.excludedTags = this.settings.excludedTags.filter(tag => tag !== tagToFind);
             // Ensure there's always at least one entry (even if empty)
             if (this.settings.excludedTags.length === 0) {
                 this.settings.excludedTags.push("");
             }
-            verboseLog(this, `Showing notice: Renaming enabled for ${tagToFind}`);
-            new Notice(`Enabled renaming for #{tagToFind}.`);
+
+            // Determine action based on scope strategy
+            if (isInverted) {
+                // In inverted mode, removing from list = disabling renaming
+                verboseLog(this, `Showing notice: Renaming disabled for ${tagToFind}`);
+                new Notice(`Disabled renaming for ${tagToFind}.`);
+            } else {
+                // In normal mode, removing from list = enabling renaming
+                verboseLog(this, `Showing notice: Renaming enabled for ${tagToFind}`);
+                new Notice(`Enabled renaming for ${tagToFind}.`);
+            }
         } else {
-            // If there's only an empty entry, replace it; otherwise add
+            // Add to list
             if (this.settings.excludedTags.length === 1 && this.settings.excludedTags[0] === "") {
                 this.settings.excludedTags[0] = tagToFind;
             } else {
                 this.settings.excludedTags.push(tagToFind);
             }
-            verboseLog(this, `Showing notice: Renaming disabled for ${tagToFind}`);
-            new Notice(`Disabled renaming for #{tagToFind}.`);
+
+            // Determine action based on scope strategy
+            if (isInverted) {
+                // In inverted mode, adding to list = enabling renaming
+                verboseLog(this, `Showing notice: Renaming enabled for ${tagToFind}`);
+                new Notice(`Enabled renaming for ${tagToFind}.`);
+            } else {
+                // In normal mode, adding to list = disabling renaming
+                verboseLog(this, `Showing notice: Renaming disabled for ${tagToFind}`);
+                new Notice(`Disabled renaming for ${tagToFind}.`);
+            }
         }
 
         this.debugLog('excludedTags', this.settings.excludedTags);
         await this.saveSettings();
-        verboseLog(this, `Tag exclusion toggled for: ${tagToFind}`, { isNowExcluded: !isExcluded });
+        verboseLog(this, `Tag exclusion toggled for: ${tagToFind}`, { isNowInList: !isInList });
     }
 }

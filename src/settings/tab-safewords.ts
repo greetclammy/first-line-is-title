@@ -53,6 +53,16 @@ export class SafewordsTab extends SettingsTabBase {
             this.updateInteractiveState(safewordsContainer, this.plugin.settings.enableSafewords);
             // Also update any disabled rows
             this.updateDisabledRowsAccessibility(safewordsContainer);
+
+            // Update table containers scrollbar visibility
+            const tableContainers = safewordsContainer.querySelectorAll('.flit-table-container');
+            tableContainers.forEach((container: HTMLElement) => {
+                if (this.plugin.settings.enableSafewords) {
+                    container.classList.remove('flit-master-disabled');
+                } else {
+                    container.classList.add('flit-master-disabled');
+                }
+            });
         };
 
         const renderSafewords = () => {

@@ -22,7 +22,7 @@ export class EventHandlers {
      */
     setupSaveEventHook(): void {
         // Get the save command
-        const saveCommand = (this.app as any).commands?.commands?.['editor:save-file'];
+        const saveCommand = this.app.commands?.commands?.['editor:save-file'];
         if (saveCommand) {
             // Store the original callback
             this.originalSaveCallback = saveCommand.checkCallback;
@@ -38,7 +38,7 @@ export class EventHandlers {
                     if (activeFile && activeFile.extension === 'md') {
                         // Use a small delay to ensure save is completed
                         setTimeout(() => {
-                            this.plugin.renameEngine.processFile(activeFile, true, false, true).catch((error) => {
+                            this.plugin.renameEngine.processFile(activeFile, true, true).catch((error) => {
                                 console.error(`SAVE: Failed to process file ${activeFile.path}:`, error);
                             });
                         }, 50);
@@ -111,7 +111,7 @@ export class EventHandlers {
      */
     cleanupSaveEventHook(): void {
         if (this.originalSaveCallback) {
-            const saveCommand = (this.app as any).commands?.commands?.['editor:save-file'];
+            const saveCommand = this.app.commands?.commands?.['editor:save-file'];
             if (saveCommand) {
                 saveCommand.checkCallback = this.originalSaveCallback;
             }

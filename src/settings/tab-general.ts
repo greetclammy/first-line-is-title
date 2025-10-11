@@ -9,16 +9,6 @@ export class GeneralTab extends SettingsTabBase {
     }
 
     render(): void {
-        // Dev warning banner
-        const warningEl = this.containerEl.createDiv({ cls: 'flit-dev-warning' });
-        warningEl.innerHTML = `
-            <div style="padding: 1em; margin-bottom: 1em; border: 1px solid var(--background-modifier-border); border-radius: 4px; background-color: var(--background-secondary);">
-                <strong style="color: var(--text-accent);">⚠️ IMPORTANT</strong><br>
-                The plugin is in active development — things can break, or change drastically between releases.<br><br><strong>Ensure your files are regularly <a href="https://help.obsidian.md/backup" target="_blank">backed up</a>.</strong>
-            </div>
-        `;
-
-        // Define rename on focus container and visibility function
         let renameOnFocusContainer: HTMLElement;
 
         const updateAutomaticRenameVisibility = () => {
@@ -236,7 +226,7 @@ export class GeneralTab extends SettingsTabBase {
         // Rename all notes (moved to end)
         new Setting(this.containerEl)
             .setName("Rename all notes")
-            .setDesc("Process the whole vault. Can also be run from the Command palette.")
+            .setDesc("Process all notes in vault. Can also be run from the Command palette.")
             .addButton((button) =>
                 button.setButtonText("Rename").onClick(() => {
                     new RenameAllFilesModal(this.plugin.app, this.plugin).open();

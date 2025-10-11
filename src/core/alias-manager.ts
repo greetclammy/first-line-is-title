@@ -1,4 +1,5 @@
 import { TFile, MarkdownView } from "obsidian";
+import { NodeError } from './obsidian-ex';
 import { PluginSettings } from '../types';
 import { verboseLog, shouldProcessFile, extractTitle, hasDisablePropertyInFile } from '../utils';
 import FirstLineIsTitle from '../../main';
@@ -21,10 +22,6 @@ export class AliasManager {
         return aliasUpdateInProgress.has(filePath);
     }
 
-    /**
-     * Parse comma-separated property keys from settings
-     * @returns Array of property keys, defaults to ['aliases'] if empty
-     */
     private getAliasPropertyKeys(): string[] {
         const aliasPropertyKey = this.settings.aliasPropertyKey || 'aliases';
         return aliasPropertyKey
@@ -40,34 +37,28 @@ export class AliasManager {
         try {
             const fileKey = file.path;
 
-            // Check if file still exists (may have been renamed/deleted during processing)
             const currentFile = this.app.vault.getAbstractFileByPath(file.path);
             if (!currentFile || !(currentFile instanceof TFile)) {
                 verboseLog(this.plugin, `Skipping alias update - file no longer exists: ${file.path}`);
                 return;
             }
 
-            // Update our file reference to the current one from vault
             file = currentFile;
 
-            // Skip if an alias update is already in progress for this file
             if (aliasUpdateInProgress.has(fileKey)) {
                 verboseLog(this.plugin, `Skipping alias update for ${file.path} - update already in progress`);
                 return;
             }
 
-            // Skip if file is excluded or should not be processed
-            if (!shouldProcessFile(file, this.settings, this.app)) {
-                return;
-            }
-
-            // Skip if file has the disable property
+            // Check disable property FIRST - this cannot be overridden by any command
             if (await hasDisablePropertyInFile(file, this.app, this.settings.disableRenamingKey, this.settings.disableRenamingValue)) {
                 verboseLog(this.plugin, `Skipping alias update - file has disable property: ${file.path}`);
                 return;
             }
 
-            // Get the current content
+            if (!shouldProcessFile(file, this.settings, this.app)) {
+                return;
+            }
             let content: string;
             if (providedContent !== undefined) {
                 content = providedContent;
@@ -75,7 +66,6 @@ export class AliasManager {
             } else if (this.settings.fileReadMethod === 'File') {
                 content = await this.app.vault.read(file);
             } else {
-                // Both 'Editor' and 'Cache' use cachedRead here since no editor content available
                 content = await this.app.vault.cachedRead(file);
             }
 
@@ -83,53 +73,40 @@ export class AliasManager {
                 return;
             }
 
-            // Strip frontmatter to get actual content using shared utility function
             const contentWithoutFrontmatter = this.plugin.renameEngine.stripFrontmatterFromContent(content, file);
-
-            // Extract first line from actual content (not frontmatter)
             const lines = contentWithoutFrontmatter.split('\n');
             const firstLine = lines.length > 0 ? lines[0] : '';
 
             if (!firstLine || firstLine.trim() === '') {
-                // Content is empty - remove any existing aliases if aliases are enabled
                 if (this.settings.enableAliases) {
                     await this.removePluginAliasesFromFile(file);
                 }
                 return;
             }
 
-            // Check if we need to process aliases for this file
             if (!this.settings.enableAliases) {
                 return;
             }
 
-            // Get current metadata to check for existing aliases
             const metadata = this.app.metadataCache.getFileCache(file);
             const frontmatter = metadata?.frontmatter;
 
-            // Process the first line to get what would become the filename/alias
             const processedFirstLine = extractTitle(firstLine, this.settings);
-            // Use target filename if provided (before rename), otherwise use current filename (after rename)
             const fileNameToCompare = targetFileName !== undefined ? targetFileName.trim() : file.basename.trim();
             const processedLineMatchesFilename = (processedFirstLine.trim() === fileNameToCompare);
 
-            // Determine if we should have an alias based on settings
             const shouldHaveAlias = !this.settings.addAliasOnlyIfFirstLineDiffers || !processedLineMatchesFilename;
 
             if (!shouldHaveAlias) {
-                // Settings say we shouldn't have an alias - remove any existing plugin aliases
                 await this.removePluginAliasesFromFile(file);
                 return;
             }
-
-            // We should have an alias - check if we already have the correct one in ALL specified properties
             const aliasPropertyKeys = this.getAliasPropertyKeys();
             const zwspMarker = String.fromCharCode(8203);
             const expectedAlias = this.settings.stripMarkupInAlias ?
                 extractTitle(firstLine, this.settings) : firstLine;
             const expectedAliasWithMarker = expectedAlias + zwspMarker;
 
-            // Check if all properties have the correct alias
             let allPropertiesHaveCorrectAlias = true;
             for (const aliasPropertyKey of aliasPropertyKeys) {
                 let existingAliases: string[] = [];
@@ -152,28 +129,21 @@ export class AliasManager {
             }
 
             if (allPropertiesHaveCorrectAlias) {
-                // We already have the correct alias in all properties, no need to update
                 verboseLog(this.plugin, `File ${file.path} already has correct alias in all properties`);
                 return;
             }
 
-            // Mark this file as having an update in progress
             aliasUpdateInProgress.add(fileKey);
 
             try {
                 verboseLog(this.plugin, `Adding alias to ${file.path} - no correct alias found`);
-
-                // Update the alias using existing logic
                 await this.addAliasToFile(file, firstLine, fileNameToCompare, content);
-
             } finally {
-                // Always remove the lock, even if there was an error
                 aliasUpdateInProgress.delete(fileKey);
             }
 
         } catch (error) {
             console.error('Error updating alias:', error);
-            // Make sure to clean up the lock on error
             aliasUpdateInProgress.delete(file.path);
         }
     }

@@ -51,6 +51,7 @@ export class StripMarkupTab extends SettingsTabBase {
             { key: 'strikethrough', name: 'Strip strikethrough markup', desc: 'For example, turn ~~Hello~~ into Hello.' },
             { key: 'highlight', name: 'Strip highlight markup', desc: 'For example, turn ==Hello== into Hello.' },
             { key: 'code', name: 'Strip code markup', desc: 'For example, turn `Hello` into Hello.' },
+            { key: 'codeBlocks', name: 'Strip code block markup', desc: 'Instead, put the first line within code block in title.' },
             { key: 'comments', name: 'Strip comment markup', desc: 'For example, turn %%Hello%% or <!--Hello--> into Hello.' },
             { key: 'tasks', name: 'Strip task markup', desc: 'For example, turn - [x] Hello into Hello.' },
             { key: 'headings', name: 'Strip heading markup', desc: 'For example, turn ### Hello into Hello.' },
@@ -96,7 +97,7 @@ export class StripMarkupTab extends SettingsTabBase {
             if (toggle.key === 'comments') {
                 const stripCommentsEntirelySetting = new Setting(stripMarkupContainer)
                     .setName("Strip comments entirely")
-                    .setDesc("Don't put the comment itself in title.")
+                    .setDesc("Also strip comment content in title.")
                     .addToggle((toggle) =>
                         toggle
                             .setValue(this.plugin.settings.stripCommentsEntirely)
@@ -138,6 +139,7 @@ export class StripMarkupTab extends SettingsTabBase {
                     .setValue(this.plugin.settings.stripTemplaterSyntax)
                     .onChange(async (value) => {
                         this.plugin.settings.stripTemplaterSyntax = value;
+                        this.plugin.debugLog('stripTemplaterSyntax', value);
                         await this.plugin.saveSettings();
                     })
             );

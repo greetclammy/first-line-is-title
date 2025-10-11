@@ -4,12 +4,6 @@ import { verboseLog, shouldProcessFile, hasDisablePropertyInFile } from '../util
 import { TITLE_CHAR_REVERSAL_MAP } from '../constants';
 import FirstLineIsTitle from '../../main';
 
-// Global variables for file operations (imported from main)
-declare global {
-    var tempNewPaths: string[];
-    var previousContent: Map<string, string>;
-}
-
 export class FileOperations {
     // Track files waiting for YAML with their resolve callbacks and timeout timers
     private yamlWaiters = new Map<string, { resolve: () => void; startTime: number; timeoutTimer: NodeJS.Timeout }>();
@@ -25,34 +19,20 @@ export class FileOperations {
     }
 
     /**
-     * Cleans up stale entries from global caches
+     * Cleans up stale entries from caches (deprecated - now handled by cache manager)
      */
     cleanupStaleCache(): void {
-        // Clean up tempNewPaths - remove paths that don't exist anymore
-        if (typeof tempNewPaths !== 'undefined') {
-            tempNewPaths = tempNewPaths.filter(path => {
-                return this.app.vault.getAbstractFileByPath(path) !== null;
-            });
-        }
-
-        // Clean up previousContent - remove entries for files that don't exist anymore
-        if (typeof previousContent !== 'undefined') {
-            for (const [path, content] of previousContent) {
-                if (!this.app.vault.getAbstractFileByPath(path)) {
-                    previousContent.delete(path);
-                }
-            }
-        }
-
-        verboseLog(this.plugin, 'Cache cleanup completed');
+        // Cache cleanup now handled by CacheManager
+        verboseLog(this.plugin, 'Cache cleanup delegated to CacheManager');
     }
 
     /**
      * Inserts the filename as the first line of a newly created file
      * @param initialContent - Optional initial content captured at file creation time
+     * @param templateContent - Optional template content captured after template wait (skips internal wait)
      * @returns true if title was inserted, false if skipped
      */
-    async insertTitleOnCreation(file: TFile, initialContent?: string): Promise<boolean> {
+    async insertTitleOnCreation(file: TFile, initialContent?: string, templateContent?: string): Promise<boolean> {
         try {
             // Check if filename is "Untitled" or "Untitled n" (where n is a positive integer)
             const untitledPattern = /^Untitled(\s[1-9]\d*)?$/;
@@ -144,39 +124,49 @@ export class FileOperations {
 
             verboseLog(this.plugin, `Inserting title "${cleanTitle}" in new file: ${file.path}`);
 
-            // Wait for template plugins to apply templates if enabled
-            // Both newNoteDelay and waitForTemplate delays start from file creation
-            // Cache/File modes: Total wait = max(newNoteDelay, 2500ms if waitForTemplate is ON)
-            //   - 2500ms = Templater insertion (300ms) + Obsidian modify debounce (2000ms) + buffer (200ms)
-            // Editor mode: Total wait = max(newNoteDelay, 600ms if waitForTemplate is ON)
-            if (this.settings.insertTitleOnCreation && this.settings.waitForTemplate) {
+            // Determine content to use for title insertion
+            let currentContent: string;
+
+            if (templateContent !== undefined) {
+                // Template content provided by caller (already waited for template)
+                currentContent = templateContent;
+                verboseLog(this.plugin, `[TITLE-INSERT] Using provided template content. Length: ${currentContent.length} chars`);
+            } else if (this.settings.insertTitleOnCreation && this.settings.waitForTemplate) {
+                // Wait for template plugins to apply templates if enabled
+                // Both newNoteDelay and waitForTemplate delays start from file creation
+                // Cache/File modes: Total wait = max(newNoteDelay, 2500ms if waitForTemplate is ON)
+                //   - 2500ms = Templater insertion (300ms) + Obsidian modify debounce (2000ms) + buffer (200ms)
+                // Editor mode: Total wait = max(newNoteDelay, 600ms if waitForTemplate is ON)
+                verboseLog(this.plugin, `[TITLE-INSERT] Checking template wait: insertTitleOnCreation=${this.settings.insertTitleOnCreation}, waitForTemplate=${this.settings.waitForTemplate}`);
+
                 const templateWaitTime = (this.settings.fileReadMethod === 'Cache' || this.settings.fileReadMethod === 'File') ? 2500 : 600;
                 const remainingWait = templateWaitTime - this.settings.newNoteDelay;
+                verboseLog(this.plugin, `[TITLE-INSERT] Template wait calculation: templateWaitTime=${templateWaitTime}ms, newNoteDelay=${this.settings.newNoteDelay}ms, remainingWait=${remainingWait}ms`);
+
                 if (remainingWait > 0) {
                     // For Cache/File read methods, wait the full duration (no event-based detection)
                     if (this.settings.fileReadMethod === 'Cache' || this.settings.fileReadMethod === 'File') {
-                        verboseLog(this.plugin, `Waiting full ${remainingWait}ms for template (${this.settings.fileReadMethod} read method, total: ${templateWaitTime}ms)`);
+                        verboseLog(this.plugin, `[TITLE-INSERT] Waiting full ${remainingWait}ms for template (${this.settings.fileReadMethod} read method, total: ${templateWaitTime}ms)`);
                         await new Promise(resolve => setTimeout(resolve, remainingWait));
                     } else {
                         // For Editor read method, use event-based YAML detection
+                        verboseLog(this.plugin, `[TITLE-INSERT] Starting YAML wait for ${remainingWait}ms (Editor mode)`);
                         await this.waitForYamlOrTimeout(file, remainingWait);
+                        verboseLog(this.plugin, `[TITLE-INSERT] YAML wait completed`);
                     }
                 } else {
                     verboseLog(this.plugin, `Skipping template wait - newNoteDelay (${this.settings.newNoteDelay}ms) already >= ${templateWaitTime}ms`);
                 }
-            }
 
-            // After waiting for template, always re-read content from editor to get latest state
-            let currentContent: string;
-            if (this.settings.insertTitleOnCreation && this.settings.waitForTemplate) {
-                // Template may have been inserted, read fresh content from editor
+                // After waiting for template, re-read content from editor to get latest state
+                verboseLog(this.plugin, `[TITLE-INSERT] Re-reading content after template wait`);
                 const leaves = this.app.workspace.getLeavesOfType("markdown");
                 let foundEditor = false;
                 for (const leaf of leaves) {
                     const view = leaf.view as MarkdownView;
                     if (view && view.file?.path === file.path && view.editor) {
                         currentContent = view.editor.getValue();
-                        verboseLog(this.plugin, `Read fresh content from editor after template wait. Length: ${currentContent.length} chars`);
+                        verboseLog(this.plugin, `[TITLE-INSERT] Read fresh content from editor after template wait. Length: ${currentContent.length} chars`);
                         foundEditor = true;
                         break;
                     }
@@ -184,7 +174,7 @@ export class FileOperations {
                 if (!foundEditor) {
                     // Fallback to vault
                     currentContent = await this.app.vault.read(file);
-                    verboseLog(this.plugin, `Read fresh content from vault after template wait. Length: ${currentContent.length} chars`);
+                    verboseLog(this.plugin, `[TITLE-INSERT] Read fresh content from vault after template wait. Length: ${currentContent.length} chars`);
                 }
             } else if (initialContent !== undefined) {
                 // No template wait, use captured initial content
@@ -226,17 +216,41 @@ export class FileOperations {
             }
 
             // File is empty (excluding YAML), insert title
-            if (yamlEndLine !== -1) {
-                // Insert title after YAML
-                const insertLine = yamlEndLine + 1;
-                lines.splice(insertLine, 0, cleanTitle);
-                verboseLog(this.plugin, `Inserted title after frontmatter at line ${insertLine}`);
-                const finalContent = lines.join('\n');
-                await this.app.vault.modify(file, finalContent);
-            } else {
-                // No YAML, insert title at beginning
-                verboseLog(this.plugin, `File empty, inserting title directly`);
-                await this.app.vault.modify(file, cleanTitle + "\n");
+            // Use editor API for immediate insertion to avoid disk write delay
+            const leaves = this.app.workspace.getLeavesOfType("markdown");
+            let insertedViaEditor = false;
+
+            for (const leaf of leaves) {
+                const view = leaf.view as MarkdownView;
+                if (view && view.file?.path === file.path && view.editor) {
+                    if (yamlEndLine !== -1) {
+                        // Insert after YAML using editor
+                        const insertLine = yamlEndLine + 1;
+                        view.editor.replaceRange(cleanTitle + '\n', { line: insertLine, ch: 0 });
+                        verboseLog(this.plugin, `[TITLE-INSERT] Inserted title after frontmatter at line ${insertLine} via editor`);
+                    } else {
+                        // Insert at beginning using editor
+                        view.editor.replaceRange(cleanTitle + '\n', { line: 0, ch: 0 });
+                        verboseLog(this.plugin, `[TITLE-INSERT] Inserted title at beginning via editor`);
+                    }
+                    insertedViaEditor = true;
+                    break;
+                }
+            }
+
+            // Fallback to vault.modify if no editor found
+            if (!insertedViaEditor) {
+                if (yamlEndLine !== -1) {
+                    const lines = currentContent.split('\n');
+                    const insertLine = yamlEndLine + 1;
+                    lines.splice(insertLine, 0, cleanTitle);
+                    const newContent = lines.join('\n');
+                    verboseLog(this.plugin, `[TITLE-INSERT] Inserting title after frontmatter at line ${insertLine} via vault`);
+                    await this.app.vault.modify(file, newContent);
+                } else {
+                    verboseLog(this.plugin, `[TITLE-INSERT] Inserting title at beginning via vault`);
+                    await this.app.vault.modify(file, cleanTitle + "\n");
+                }
             }
 
             verboseLog(this.plugin, `Successfully inserted title in ${file.path}`);

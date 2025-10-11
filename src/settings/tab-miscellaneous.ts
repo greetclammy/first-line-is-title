@@ -5,7 +5,7 @@ import { DEFAULT_SETTINGS } from '../constants';
 import { ClearSettingsModal } from '../modals';
 import { verboseLog } from '../utils';
 
-export class AdvancedTab extends SettingsTabBase {
+export class MiscellaneousTab extends SettingsTabBase {
     private conditionalSettings: Setting[] = [];
 
     constructor(plugin: FirstLineIsTitlePlugin, containerEl: HTMLElement) {
@@ -113,6 +113,7 @@ export class AdvancedTab extends SettingsTabBase {
                 .setValue(this.plugin.settings.grabTitleFromCardLink)
                 .onChange(async (value) => {
                     this.plugin.settings.grabTitleFromCardLink = value;
+                    this.plugin.debugLog('grabTitleFromCardLink', value);
                     await this.plugin.saveSettings();
                 })
         );
@@ -324,6 +325,10 @@ export class AdvancedTab extends SettingsTabBase {
                     .setValue(this.plugin.settings.verboseLogging)
                     .onChange(async (value) => {
                         this.plugin.settings.verboseLogging = value;
+                        // Update debug enabled timestamp when turning ON
+                        if (value) {
+                            this.plugin.settings.debugEnabledTimestamp = this.plugin.getCurrentTimestamp();
+                        }
                         this.plugin.debugLog('verboseLogging', value);
                         await this.plugin.saveSettings();
                         // Show/hide the sub-option based on debug state

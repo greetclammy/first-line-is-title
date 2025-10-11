@@ -1,4 +1,4 @@
-import { Setting, setIcon } from "obsidian";
+import { Platform, Setting, setIcon } from "obsidian";
 import { SettingsTabBase, FirstLineIsTitlePlugin } from './settings-base';
 import { DEFAULT_SETTINGS } from '../constants';
 
@@ -67,6 +67,14 @@ export class PropertiesTab extends SettingsTabBase {
                         // On first enable, turn on default toggles
                         if (value && !this.plugin.settings.hasEnabledAliases) {
                             this.plugin.settings.keepEmptyAliasProperty = true;
+                            // Enable stripMarkupInAlias if enableStripMarkup is ON
+                            if (this.plugin.settings.enableStripMarkup) {
+                                this.plugin.settings.stripMarkupInAlias = true;
+                            }
+                            // Enable applyCustomRulesInAlias if enableCustomReplacements is ON
+                            if (this.plugin.settings.enableCustomReplacements) {
+                                this.plugin.settings.applyCustomRulesInAlias = true;
+                            }
                             this.plugin.settings.hasEnabledAliases = true;
                         }
 
@@ -145,15 +153,20 @@ export class PropertiesTab extends SettingsTabBase {
 
         ul.createEl('li', { text: 'Use \'aliases\' to make the alias searchable in the Quick switcher.' });
 
+        ul.createEl('li', { text: 'To populate multiple properties, separate by comma (e.g., \'aliases, title\').' });
+
         const li2 = ul.createEl('li');
-        li2.appendText('You can also set this property as note title in ');
+        li2.appendText('This property can be set as note title in ');
         li2.createEl("a", {
             text: "Omnisearch",
-            href: "obsidian://show-plugin?id=obsidian-omnisearch"
+            href: "obsidian://show-plugin?id=omnisearch"
         });
-        li2.appendText(' settings.');
-
-        ul.createEl('li', { text: 'To populate multiple properties, separate by comma (e.g. \'aliases, title\').' });
+        li2.appendText(' and ');
+        li2.createEl("a", {
+            text: "Notebook Navigator",
+            href: "obsidian://show-plugin?id=notebook-navigator"
+        });
+        li2.appendText('.');
 
         aliasKeyDesc.createEl("br");
         aliasKeyDesc.createEl("small").createEl("strong", { text: "Default: aliases" });
@@ -350,23 +363,25 @@ export class PropertiesTab extends SettingsTabBase {
                     });
             });
 
-        // Limitations subsection
-        const limitationsSetting = new Setting(aliasContainer)
-            .setName("Limitations")
-            .setDesc("");
+        // Limitations subsection (desktop only)
+        if (!Platform.isMobile) {
+            const limitationsSetting = new Setting(aliasContainer)
+                .setName("Limitations")
+                .setDesc("");
 
-        limitationsSetting.settingEl.addClass('flit-section-header');
+            limitationsSetting.settingEl.addClass('flit-section-header');
 
-        // Create limitations description
-        const limitationsContainer = aliasContainer.createDiv();
-        const limitationsDesc = limitationsContainer.createEl("p", { cls: "setting-item-description" });
-        limitationsDesc.style.marginTop = "12px";
-        limitationsDesc.appendText("First line alias can be unreliable if editing in a page preview. Using ");
-        limitationsDesc.createEl("a", {
-            text: "Hover Editor",
-            href: "obsidian://show-plugin?id=obsidian-hover-editor"
-        });
-        limitationsDesc.appendText(" is recommended.");
+            // Create limitations description
+            const limitationsContainer = aliasContainer.createDiv();
+            const limitationsDesc = limitationsContainer.createEl("p", { cls: "setting-item-description" });
+            limitationsDesc.style.marginTop = "12px";
+            limitationsDesc.appendText("First line alias can be unreliable if editing in a page preview. Using ");
+            limitationsDesc.createEl("a", {
+                text: "Hover Editor",
+                href: "obsidian://show-plugin?id=obsidian-hover-editor"
+            });
+            limitationsDesc.appendText(" is recommended.");
+        }
 
         // Initialize UI
         renderAliasSettings();

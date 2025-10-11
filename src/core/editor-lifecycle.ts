@@ -153,7 +153,7 @@ export class EditorLifecycleManager {
             const view = leaf.view as any;
             if (view && view.file && view.editor) {
                 try {
-                    const leafId = (leaf as any).id;
+                    const leafId = leaf.id;
                     activeLeafIds.add(leafId);
 
                     const firstLine = this.extractFirstLineFromEditor(view.editor, view.file);
@@ -210,32 +210,24 @@ export class EditorLifecycleManager {
                         this.recentlyProcessedCloses.delete(filePath);
                     }, 100); // Clear after 100ms (workspace events settle quickly)
 
-                    // Check if there are pending delayed operations
-                    const hasCreationDelay = this.isFileInCreationDelay(filePath);
+                    // Check if there's a pending throttle timer (first line was modified)
                     const hasThrottleTimer = this.throttleTimers.has(filePath);
-                    const hasDelayedOperations = hasCreationDelay || hasThrottleTimer;
 
-                    if (hasDelayedOperations) {
-                        // Tab close overrides delays - process immediately
-                        verboseLog(this.plugin, `Tab close overriding delayed operations for: ${filePath}`);
+                    if (hasThrottleTimer) {
+                        // Tab close overrides throttle delay - process immediately
+                        verboseLog(this.plugin, `Tab close overriding throttle timer for: ${filePath}`);
+                        this.clearThrottleTimer(filePath);
 
-                        if (hasCreationDelay) {
-                            this.clearCreationDelayTimer(filePath);
-                        }
-                        if (hasThrottleTimer) {
-                            this.clearThrottleTimer(filePath);
-                        }
-
-                        verboseLog(this.plugin, `Processing immediately due to pending delays: ${filePath}`);
+                        verboseLog(this.plugin, `Processing immediately due to pending throttle: ${filePath}`);
                         try {
-                            await this.renameEngine.processFile(oldData.file, true, false);
+                            await this.renameEngine.processFile(oldData.file, true);
                         } catch (error) {
                             console.error(`Error processing closed file ${filePath}:`, error);
                         }
                     } else {
-                        // No pending delays - do nothing
+                        // No pending throttle - do nothing
                         // Tab close with unsaved changes triggers immediate save → modify event
-                        verboseLog(this.plugin, `Tab closed with no pending delays: ${filePath} - no action needed`);
+                        verboseLog(this.plugin, `Tab closed with no pending throttle: ${filePath} - no action needed`);
                     }
                 }
             }

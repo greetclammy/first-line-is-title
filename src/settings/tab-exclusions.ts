@@ -12,7 +12,7 @@ export class IncludeExcludeTab extends SettingsTabBase {
     async render(): Promise<void> {
         // Tab description
         const tabDesc = this.containerEl.createEl("div", { cls: "setting-item-description" });
-        tabDesc.innerHTML = "<strong>Set how notes should be excluded from processing.</strong>";
+        tabDesc.createEl("strong", { text: "Set how notes should be excluded from processing." });
         tabDesc.style.marginBottom = "15px";
 
         // Important note about rules
@@ -28,14 +28,12 @@ export class IncludeExcludeTab extends SettingsTabBase {
             .setName("Folders")
             .setDesc("Set folders to match.");
         foldersHeaderSetting.settingEl.addClass('flit-master-toggle');
-        foldersHeaderSetting.settingEl.style.borderTop = "none";
-        foldersHeaderSetting.settingEl.style.borderBottom = "1px solid var(--background-modifier-border)";
 
         // Add note above folder exclusion mode
         const folderNote = this.containerEl.createEl("p", { cls: "setting-item-description" });
         folderNote.style.marginTop = "15px";
         folderNote.style.marginBottom = "15px";
-        folderNote.innerHTML = "Note: renamed, moved or deleted folders are not reflected below. Update manually if paths change.";
+        folderNote.textContent = "Renamed, moved or deleted folders are not reflected below. Update manually if paths change.";
 
         // Exclude subfolders setting
         const subfolderSetting = new Setting(this.containerEl)
@@ -202,16 +200,27 @@ export class IncludeExcludeTab extends SettingsTabBase {
             .setName("Tags")
             .setDesc("Set tags to match.");
         tagsHeaderSetting.settingEl.addClass('flit-master-toggle');
-        tagsHeaderSetting.settingEl.style.borderTop = "none";
-        tagsHeaderSetting.settingEl.style.borderBottom = "1px solid var(--background-modifier-border)";
 
-        // Add note above tag exclusion mode if Tag Wrangler is enabled
-        if (this.plugin.isTagWranglerEnabled()) {
-            const tagNote = this.containerEl.createEl("p", { cls: "setting-item-description" });
-            tagNote.style.marginTop = "15px";
-            tagNote.style.marginBottom = "15px";
-            tagNote.innerHTML = "Note: renamed tags are not reflected below. Update manually after renaming.";
-        }
+        // Add bullet list notes for Tags
+        const tagNotes = this.containerEl.createEl("div", { cls: "setting-item-description" });
+        tagNotes.style.marginTop = "15px";
+        tagNotes.style.marginBottom = "15px";
+
+        const tagUl = tagNotes.createEl('ul');
+        tagUl.style.margin = '0';
+        tagUl.style.paddingLeft = '20px';
+
+        const tagLi1 = tagUl.createEl('li');
+        tagLi1.createEl('em', { text: 'Exclude all except...' });
+        tagLi1.appendText(' also excludes notes with no tags.');
+
+        const tagLi2 = tagUl.createEl('li');
+        tagLi2.appendText('Tags renamed with ');
+        tagLi2.createEl("a", {
+            text: "Tag Wrangler",
+            href: "obsidian://show-plugin?id=tag-wrangler"
+        });
+        tagLi2.appendText(' are not reflected below. Update manually after renaming.');
 
         // Tag matching mode setting under Tags heading
         const tagMatchingSetting = new Setting(this.containerEl)
@@ -395,8 +404,6 @@ export class IncludeExcludeTab extends SettingsTabBase {
             .setName("Properties")
             .setDesc("Set properties to match.");
         propertiesHeaderSetting.settingEl.addClass('flit-master-toggle');
-        propertiesHeaderSetting.settingEl.style.borderTop = "none";
-        propertiesHeaderSetting.settingEl.style.borderBottom = "1px solid var(--background-modifier-border)";
 
         // Add bullet list notes
         const propertyNotes = this.containerEl.createEl("div", { cls: "setting-item-description" });
@@ -407,12 +414,16 @@ export class IncludeExcludeTab extends SettingsTabBase {
         ul.style.margin = '0';
         ul.style.paddingLeft = '20px';
 
-        ul.createEl('li', { text: 'Case-insensitive.' });
-
         const li2 = ul.createEl('li');
         li2.appendText('Leave ');
         li2.createEl('em', { text: 'value' });
         li2.appendText(' blank to match all notes with this property key.');
+
+        ul.createEl('li', { text: 'Case-insensitive.' });
+
+        const li3 = ul.createEl('li');
+        li3.createEl('em', { text: 'Exclude all except...' });
+        li3.appendText(' also excludes notes with no properties.');
 
         ul.createEl('li', { text: 'Renamed property keys aren\'t reflected below. Update manually after renaming.' });
 
@@ -488,9 +499,7 @@ export class IncludeExcludeTab extends SettingsTabBase {
                 keyInput.value = property.key;
 
                 // Colon separator
-                const colonSpan = propertyInputContainer.createEl("span", { text: ":" });
-                colonSpan.style.color = "var(--text-muted)";
-                colonSpan.style.flexShrink = "0";
+                const colonSpan = propertyInputContainer.createEl("span", { text: ":", cls: "flit-colon-separator" });
 
                 // Value input
                 valueInput = propertyInputContainer.createEl("input", { type: "text", cls: "flit-property-value-input" });
@@ -580,7 +589,6 @@ export class IncludeExcludeTab extends SettingsTabBase {
             .setDesc("");
 
         propertyDisableSetting.settingEl.addClass('flit-master-toggle');
-        propertyDisableSetting.settingEl.style.borderBottom = "1px solid var(--background-modifier-border)";
 
         // Create main description paragraph
         const propertyDesc = propertyDisableSetting.descEl;
@@ -588,38 +596,50 @@ export class IncludeExcludeTab extends SettingsTabBase {
 
         // Add notes above the inputs (like Properties section has its notes above)
         const propertyDisableNotes = this.containerEl.createEl("div", { cls: "setting-item-description" });
-        propertyDisableNotes.style.marginTop = "0px";
-        propertyDisableNotes.style.marginBottom = "0px";
+        propertyDisableNotes.style.marginTop = "15px";
+        propertyDisableNotes.style.marginBottom = "15px";
 
         const disableUl = propertyDisableNotes.createEl('ul');
         disableUl.style.margin = '0';
         disableUl.style.paddingLeft = '20px';
 
+        disableUl.createEl('li', { text: 'Always respected — cannot get overridden by any command.' });
         disableUl.createEl('li', { text: 'Case-insensitive.' });
-        disableUl.createEl('li', { text: 'Always respected — cannot get overriden by any command.' });
 
-        const li3 = disableUl.createEl('li');
-        li3.appendText('Note: changing this won\'t automatically update properties that have been previously added.');
-
-        propertyDisableNotes.style.marginBottom = "15px";
+        const disableLi3 = disableUl.createEl('li');
+        disableLi3.appendText('Changing this will not automatically update properties that have been previously added. Update manually after change.');
 
         // Create a Setting container for the inputs (like Properties section)
         const propertyInputSetting = new Setting(this.containerEl);
         propertyInputSetting.settingEl.addClass('flit-excluded-folder-setting');
         propertyInputSetting.settingEl.style.borderTop = "none";
 
-        // Create input container inside the Setting's controlEl (like Properties section)
-        const propertyInputContainer = propertyInputSetting.controlEl.createDiv({ cls: "flit-property-container" });
-        propertyInputContainer.style.display = "flex";
-        propertyInputContainer.style.gap = "10px";
-        propertyInputContainer.style.alignItems = "center";
+        // Create a wrapper container for button and inputs
+        const propertyControlWrapper = propertyInputSetting.controlEl.createDiv({
+            cls: "flit-property-control-wrapper"
+        });
+        propertyControlWrapper.style.display = "flex";
+        propertyControlWrapper.style.alignItems = "center";
+        propertyControlWrapper.style.gap = "8px";
+        propertyControlWrapper.style.width = "100%";
 
-        // Create reset button (like X button in Properties, but on left)
-        const propertyRestoreButton = propertyInputContainer.createEl("button", {
+        // Create reset button container (matches tab-alias.ts structure)
+        const propertyRestoreButtonContainer = propertyControlWrapper.createDiv({
+            cls: "flit-restore-button-container"
+        });
+
+        // Create reset button inside container
+        const propertyRestoreButton = propertyRestoreButtonContainer.createEl("button", {
             cls: "clickable-icon flit-restore-icon",
             attr: { "aria-label": "Restore default" }
         });
         setIcon(propertyRestoreButton, "rotate-ccw");
+
+        // Create input container next to button container
+        const propertyInputContainer = propertyControlWrapper.createDiv({ cls: "flit-property-container" });
+        propertyInputContainer.style.display = "flex";
+        propertyInputContainer.style.gap = "10px";
+        propertyInputContainer.style.alignItems = "center";
 
         // Key input (similar to Properties)
         const keyInput = propertyInputContainer.createEl("input", { type: "text", cls: "flit-property-key-input" });
@@ -627,9 +647,7 @@ export class IncludeExcludeTab extends SettingsTabBase {
         keyInput.value = this.plugin.settings.disableRenamingKey;
 
         // Colon separator
-        const colonSpan = propertyInputContainer.createEl("span", { text: ":" });
-        colonSpan.style.color = "var(--text-muted)";
-        colonSpan.style.flexShrink = "0";
+        const colonSpan = propertyInputContainer.createEl("span", { text: ":", cls: "flit-colon-separator" });
 
         // Value input
         const valueInput = propertyInputContainer.createEl("input", { type: "text", cls: "flit-property-value-input" });
@@ -696,53 +714,53 @@ export class IncludeExcludeTab extends SettingsTabBase {
         }
 
         // Check for Templates and Templater folders
-        console.log('Checking for template plugin folders to auto-exclude');
+        console.debug('Checking for template plugin folders to auto-exclude');
         const adapter = this.plugin.app.vault.adapter;
         const configDir = this.plugin.app.vault.configDir;
-        console.log('Vault config directory is:', configDir);
+        console.debug('Vault config directory is:', configDir);
         let templatesFolder: string | null = null;
         let templaterFolder: string | null = null;
 
         // Check core Templates plugin - only if enabled
         try {
             const corePluginsPath = `${configDir}/core-plugins.json`;
-            console.log('Reading core plugins configuration from:', corePluginsPath);
+            console.debug('Reading core plugins configuration from:', corePluginsPath);
             const corePluginsData = await adapter.read(corePluginsPath);
             const corePlugins = JSON.parse(corePluginsData);
-            console.log('Core Templates plugin enabled status:', corePlugins.templates);
+            console.debug('Core Templates plugin enabled status:', corePlugins.templates);
 
             if (corePlugins.templates === true) {
-                console.log('Core Templates plugin is enabled, checking for templates folder');
+                console.debug('Core Templates plugin is enabled, checking for templates folder');
                 const templatesDataPath = `${configDir}/templates.json`;
-                console.log('Reading templates configuration from:', templatesDataPath);
+                console.debug('Reading templates configuration from:', templatesDataPath);
                 const templatesData = await adapter.read(templatesDataPath);
                 const templatesConfig = JSON.parse(templatesData);
                 templatesFolder = templatesConfig.folder;
-                console.log('Core Templates folder configured as:', templatesFolder);
+                console.debug('Core Templates folder configured as:', templatesFolder);
             } else {
-                console.log('Core Templates plugin is disabled, skipping');
+                console.debug('Core Templates plugin is disabled, skipping');
             }
         } catch (error) {
-            console.log('Could not read core Templates plugin configuration:', error);
+            console.debug('Could not read core Templates plugin configuration:', error);
         }
 
         // Check Templater plugin
-        console.log('Checking for Templater community plugin');
+        console.debug('Checking for Templater community plugin');
         const templaterPlugin = this.plugin.app.plugins.getPlugin('templater-obsidian');
-        console.log('Templater plugin found:', !!templaterPlugin, '| loaded:', templaterPlugin?._loaded);
+        console.debug('Templater plugin found:', !!templaterPlugin, '| loaded:', templaterPlugin?._loaded);
         if (templaterPlugin && templaterPlugin._loaded) {
             try {
                 const templaterDataPath = `${configDir}/plugins/templater-obsidian/data.json`;
-                console.log('Reading Templater configuration from:', templaterDataPath);
+                console.debug('Reading Templater configuration from:', templaterDataPath);
                 const templaterData = await adapter.read(templaterDataPath);
                 const templaterConfig = JSON.parse(templaterData);
                 templaterFolder = templaterConfig.templates_folder;
-                console.log('Templater folder configured as:', templaterFolder);
+                console.debug('Templater folder configured as:', templaterFolder);
             } catch (error) {
-                console.log('Could not read Templater plugin configuration:', error);
+                console.debug('Could not read Templater plugin configuration:', error);
             }
         } else {
-            console.log('Templater plugin not loaded, skipping');
+            console.debug('Templater plugin not loaded, skipping');
         }
 
         // Collect folders to add
@@ -750,25 +768,25 @@ export class IncludeExcludeTab extends SettingsTabBase {
 
         if (templatesFolder && templatesFolder.trim() !== "") {
             foldersToAdd.push(templatesFolder);
-            console.log('Queued core Templates folder for exclusion:', templatesFolder);
+            console.debug('Queued core Templates folder for exclusion:', templatesFolder);
         } else {
-            console.log('No valid core Templates folder to add');
+            console.debug('No valid core Templates folder to add');
         }
 
         // Only add templater folder if it differs from templates folder
         if (templaterFolder && templaterFolder.trim() !== "") {
             if (templaterFolder !== templatesFolder) {
                 foldersToAdd.push(templaterFolder);
-                console.log('Queued Templater folder for exclusion:', templaterFolder);
+                console.debug('Queued Templater folder for exclusion:', templaterFolder);
             } else {
-                console.log('Templater folder matches core Templates folder (' + templaterFolder + '), will not add duplicate');
+                console.debug('Templater folder matches core Templates folder (' + templaterFolder + '), will not add duplicate');
             }
         } else {
-            console.log('No valid Templater folder to add');
+            console.debug('No valid Templater folder to add');
         }
 
-        console.log('Total folders to add to exclusions:', foldersToAdd);
-        console.log('Current excluded folders before processing:', this.plugin.settings.excludedFolders);
+        console.debug('Total folders to add to exclusions:', foldersToAdd);
+        console.debug('Current excluded folders before processing:', this.plugin.settings.excludedFolders);
 
         // Add folders if they don't already exist
         for (const folder of foldersToAdd) {
@@ -781,24 +799,24 @@ export class IncludeExcludeTab extends SettingsTabBase {
                 if (this.plugin.settings.excludedFolders.length === 1 &&
                     this.plugin.settings.excludedFolders[0].trim() === "") {
                     this.plugin.settings.excludedFolders = [];
-                    console.log('Removed default empty string entry from excluded folders');
+                    console.debug('Removed default empty string entry from excluded folders');
                 }
 
                 this.plugin.settings.excludedFolders.push(folder);
-                console.log('Successfully added folder to exclusions:', folder);
+                console.debug('Successfully added folder to exclusions:', folder);
             } else {
-                console.log('Folder already in exclusions list, skipping:', folder);
+                console.debug('Folder already in exclusions list, skipping:', folder);
             }
         }
 
         // Save if any folders were added
         if (foldersToAdd.length > 0) {
             await this.plugin.saveSettings();
-            console.log('Saved settings after adding template folders to exclusions');
+            console.debug('Saved settings after adding template folders to exclusions');
         } else {
-            console.log('No folders were added, skipping settings save');
+            console.debug('No folders were added, skipping settings save');
         }
-        console.log('Final excluded folders after processing:', this.plugin.settings.excludedFolders);
+        console.debug('Final excluded folders after processing:', this.plugin.settings.excludedFolders);
 
         // Mark as setup complete
         this.plugin.settings.hasSetupExclusions = true;

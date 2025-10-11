@@ -121,6 +121,16 @@ export class CustomReplacementsTab extends SettingsTabBase {
 
             // Also update any disabled rows
             this.updateDisabledRowsAccessibility(customReplacementsContainer);
+
+            // Update table containers scrollbar visibility
+            const tableContainers = customReplacementsContainer.querySelectorAll('.flit-table-container');
+            tableContainers.forEach((container: HTMLElement) => {
+                if (enabled) {
+                    container.classList.remove('flit-master-disabled');
+                } else {
+                    container.classList.add('flit-master-disabled');
+                }
+            });
         };
 
         const renderCustomReplacements = () => {

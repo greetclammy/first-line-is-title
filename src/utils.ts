@@ -1,4 +1,4 @@
-import { TFile, App } from "obsidian";
+import { TFile, App, Platform } from "obsidian";
 import { PluginSettings, OSPreset } from './types';
 import { UNIVERSAL_FORBIDDEN_CHARS, WINDOWS_ANDROID_CHARS } from './constants';
 
@@ -12,65 +12,30 @@ export function verboseLog(plugin: { settings: PluginSettings }, message: string
     }
 }
 
-/**
- * Validates if a line is a proper Markdown heading
- * Valid headings: start with 1-6 consecutive #, followed by whitespace, then any text
- * No preceding characters (including whitespace) allowed before #
- */
 export function isValidHeading(line: string): boolean {
-    // Regex: ^ = start of line, #{1,6} = 1-6 consecutive #, \s+ = one or more whitespace, .* = any text after
     return /^#{1,6}\s+.*/.test(line);
 }
 
-/**
- * Normalize property value for frontmatter insertion
- * Converts string values to appropriate types to avoid quotes in YAML
- * - "true"/"false" → boolean
- * - Numeric strings → number
- * - "null" → null
- * - Other strings → keep as string (YAML writes unquoted when possible)
- */
 export function normalizePropertyValue(value: any): any {
-    // Already not a string, return as-is
     if (typeof value !== 'string') return value;
-
-    // Convert boolean strings
     if (value === 'true') return true;
     if (value === 'false') return false;
-
-    // Convert null string
     if (value === 'null') return null;
-
-    // Convert numeric strings
     if (value !== '' && !isNaN(Number(value))) {
         return Number(value);
     }
-
-    // Return string as-is (YAML will write unquoted for simple strings)
     return value;
 }
 
-// OS detection function
 export function detectOS(): OSPreset {
-    // Check if we're on mobile (Android/iOS)
-    if (typeof process === 'undefined' || !process.platform) {
-        // On mobile, use user agent detection
-        const userAgent = navigator.userAgent.toLowerCase();
-        if (userAgent.includes('android')) {
-            return 'Windows'; // Android has same file restrictions as Windows
-        } else if (userAgent.includes('iphone') || userAgent.includes('ipad')) {
-            return 'macOS'; // iOS uses macOS-like paths
-        }
-        // Default for unknown mobile
-        return 'Linux';
+    if (Platform.isMacOS || Platform.isIosApp) {
+        return 'macOS';
     }
-
-    // Desktop detection using process.platform
-    switch (process.platform) {
-        case 'darwin': return 'macOS';
-        case 'win32': return 'Windows';
-        default: return 'Linux';
+    if (Platform.isWin) {
+        return 'Windows';
     }
+    // Android and Linux both fall under Linux category
+    return 'Linux';
 }
 
 export function inExcludedFolder(file: TFile, settings: PluginSettings): boolean {
@@ -95,14 +60,7 @@ export function inExcludedFolder(file: TFile, settings: PluginSettings): boolean
     return false;
 }
 
-/**
- * Strategy-aware function to check if a file is in the target folder list
- * @param file The file to check
- * @param settings Plugin settings containing folder list and strategy
- * @returns true if file is in the target folder list
- */
 export function isFileInTargetFolders(file: TFile, settings: PluginSettings): boolean {
-    // Filter out empty strings
     const nonEmptyFolders = settings.excludedFolders.filter(folder => folder.trim() !== "");
     if (nonEmptyFolders.length === 0) return false;
 
@@ -111,7 +69,6 @@ export function isFileInTargetFolders(file: TFile, settings: PluginSettings): bo
         return true;
     }
 
-    // Check subfolders if enabled
     if (settings.excludeSubfolders) {
         for (const targetFolder of nonEmptyFolders) {
             if (filePath && filePath.startsWith(targetFolder + "/")) {
@@ -123,13 +80,6 @@ export function isFileInTargetFolders(file: TFile, settings: PluginSettings): bo
     return false;
 }
 
-/**
- * Check if a file has any of the excluded properties
- * @param file The file to check
- * @param settings Plugin settings containing excluded properties list
- * @param app The Obsidian app instance
- * @returns true if file has any excluded property
- */
 export function fileHasExcludedProperties(file: TFile, settings: PluginSettings, app: App): boolean {
     const nonEmptyProperties = settings.excludedProperties.filter(
         prop => prop.key.trim() !== ""
@@ -145,28 +95,22 @@ export function fileHasExcludedProperties(file: TFile, settings: PluginSettings,
         const propKey = excludedProp.key.trim();
         const propValue = excludedProp.value.trim();
 
-        // Check if property key exists in frontmatter
         if (propKey in frontmatter) {
-            // If value is empty, match any value for this key
             if (propValue === "") {
                 return true;
             }
 
-            // If value is specified, check for exact match
             const frontmatterValue = frontmatter[propKey];
 
-            // Handle different value types
             if (typeof frontmatterValue === 'string') {
                 if (frontmatterValue === propValue) {
                     return true;
                 }
             } else if (Array.isArray(frontmatterValue)) {
-                // Check if any array element matches
                 if (frontmatterValue.some(val => String(val) === propValue)) {
                     return true;
                 }
             } else if (frontmatterValue != null) {
-                // Handle numbers, booleans, etc.
                 if (String(frontmatterValue) === propValue) {
                     return true;
                 }
@@ -285,10 +229,17 @@ export function fileHasTargetTags(file: TFile, settings: PluginSettings, app: Ap
  * @param file The file to check
  * @param settings Plugin settings containing strategy, folders, tags, and properties
  * @param app The Obsidian app instance
- * @param content Optional file content for real-time checking
+ * @param content Optional file content (string) for real-time checking
+ * @param exclusionOverrides Optional overrides to skip folder/tag/property checks
  * @returns true if the file should be processed, false otherwise
  */
-export function shouldProcessFile(file: TFile, settings: PluginSettings, app: App, content?: string): boolean {
+export function shouldProcessFile(
+    file: TFile,
+    settings: PluginSettings,
+    app: App,
+    content?: string,
+    exclusionOverrides?: { ignoreFolder?: boolean; ignoreTag?: boolean; ignoreProperty?: boolean }
+): boolean {
     const isInTargetFolders = isFileInTargetFolders(file, settings);
     const hasTargetTags = fileHasTargetTags(file, settings, app, content);
     const hasTargetProperties = fileHasExcludedProperties(file, settings, app);
@@ -312,20 +263,20 @@ export function shouldProcessFile(file: TFile, settings: PluginSettings, app: Ap
         }
     };
 
-    // Apply strategy for each exclusion type independently
-    const shouldExcludeFromFolders = applyStrategy(
+    // Apply strategy for each exclusion type independently, respecting overrides
+    const shouldExcludeFromFolders = exclusionOverrides?.ignoreFolder ? false : applyStrategy(
         isInTargetFolders,
         settings.excludedFolders.some(folder => folder.trim() !== ""),
         settings.folderScopeStrategy
     );
 
-    const shouldExcludeFromTags = applyStrategy(
+    const shouldExcludeFromTags = exclusionOverrides?.ignoreTag ? false : applyStrategy(
         hasTargetTags,
         settings.excludedTags.some(tag => tag.trim() !== ""),
         settings.tagScopeStrategy
     );
 
-    const shouldExcludeFromProperties = applyStrategy(
+    const shouldExcludeFromProperties = exclusionOverrides?.ignoreProperty ? false : applyStrategy(
         hasTargetProperties,
         settings.excludedProperties.some(prop => prop.key.trim() !== ""),
         settings.propertyScopeStrategy
@@ -727,6 +678,37 @@ export function extractTitle(line: string, settings: PluginSettings): string {
             });
         }
 
+        // Strip code block markup (must run before code markup stripping)
+        if (settings.enableStripMarkup && settings.stripMarkupSettings.codeBlocks) {
+            // Check if only ``` (empty code block) - return Untitled
+            // Don't use multiline flag - we want to match entire string, not just first line
+            if (/^\s*```\s*$/.test(line)) {
+                return "Untitled";
+            }
+
+            // Match lines with optional leading whitespace followed by ```
+            // Capture everything after ``` opener line
+            const codeBlockMatch = /^\s*```(?!`)[^\n]*\n([\s\S]+)/m.exec(line);
+            if (codeBlockMatch) {
+                const content = codeBlockMatch[1];
+                // Extract first non-empty line from code block content
+                const contentLines = content.split('\n');
+                let foundLine = false;
+                for (const contentLine of contentLines) {
+                    const trimmed = contentLine.trim();
+                    if (trimmed !== '' && !trimmed.startsWith('```')) {
+                        line = contentLine;
+                        foundLine = true;
+                        break;
+                    }
+                }
+                // If only found ``` inside (both first and second line are ```), return Untitled
+                if (!foundLine) {
+                    return "Untitled";
+                }
+            }
+        }
+
         // Strip code markup
         if (settings.enableStripMarkup && settings.stripMarkupSettings.code) {
             line = line.replace(/`(.+?)`/g, (match, content, offset) => {
@@ -787,9 +769,6 @@ export function extractTitle(line: string, settings: PluginSettings): string {
             }
         }
     }
-
-    // Note: Custom replacements are now handled in main.ts before calling extractTitle
-    // This avoids duplicate processing and ensures proper ordering with self-reference checks
 
     // Handle wikilinks (only if strip wikilink markup is enabled)
     if (!settings.enableStripMarkup || settings.stripMarkupSettings.wikilinks) {

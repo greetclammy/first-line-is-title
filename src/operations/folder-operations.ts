@@ -33,11 +33,11 @@ export class FolderOperations {
         let processedCount = 0;
         let errorCount = 0;
 
+        const exclusionOverrides = { ignoreFolder: true, ignoreTag: true, ignoreProperty: true };
+
         for (const file of files) {
             try {
-                // processFile(file, noDelay, ignoreExclusions, showNotices, providedContent, isBatchOperation)
-                // noDelay=true, ignoreExclusions=true, showNotices=false, providedContent=undefined, isBatchOperation=true
-                await this.renameEngine.processFile(file, true, true, false, undefined, true);
+                await this.renameEngine.processFile(file, true, false, undefined, true, exclusionOverrides);
                 processedCount++;
             } catch (error) {
                 console.error(`Error processing file ${file.path}:`, error);
@@ -55,31 +55,50 @@ export class FolderOperations {
     }
 
     async toggleFolderExclusion(folderPath: string): Promise<void> {
-        const isExcluded = this.settings.excludedFolders.includes(folderPath);
+        const isInList = this.settings.excludedFolders.includes(folderPath);
+        const isInverted = this.settings.folderScopeStrategy === 'Exclude all except...';
 
-        if (isExcluded) {
-            // Remove from excluded folders
+        if (isInList) {
+            // Remove from list
             this.settings.excludedFolders = this.settings.excludedFolders.filter(path => path !== folderPath);
             // Ensure there's always at least one entry (even if empty)
             if (this.settings.excludedFolders.length === 0) {
                 this.settings.excludedFolders.push("");
             }
-            verboseLog(this, `Showing notice: Renaming enabled for folder: ${folderPath}`);
-            new Notice(`Enabled renaming in: ${folderPath}`);
+
+            // Determine action based on scope strategy
+            if (isInverted) {
+                // In inverted mode, removing from list = disabling renaming
+                verboseLog(this, `Showing notice: Renaming disabled for folder: ${folderPath}`);
+                new Notice(`Disabled renaming in: ${folderPath}`);
+            } else {
+                // In normal mode, removing from list = enabling renaming
+                verboseLog(this, `Showing notice: Renaming enabled for folder: ${folderPath}`);
+                new Notice(`Enabled renaming in: ${folderPath}`);
+            }
         } else {
-            // If there's only an empty entry, replace it; otherwise add
+            // Add to list
             if (this.settings.excludedFolders.length === 1 && this.settings.excludedFolders[0] === "") {
                 this.settings.excludedFolders[0] = folderPath;
             } else {
                 this.settings.excludedFolders.push(folderPath);
             }
-            verboseLog(this, `Showing notice: Renaming disabled for folder: ${folderPath}`);
-            new Notice(`Disabled renaming in: ${folderPath}`);
+
+            // Determine action based on scope strategy
+            if (isInverted) {
+                // In inverted mode, adding to list = enabling renaming
+                verboseLog(this, `Showing notice: Renaming enabled for folder: ${folderPath}`);
+                new Notice(`Enabled renaming in: ${folderPath}`);
+            } else {
+                // In normal mode, adding to list = disabling renaming
+                verboseLog(this, `Showing notice: Renaming disabled for folder: ${folderPath}`);
+                new Notice(`Disabled renaming in: ${folderPath}`);
+            }
         }
 
         this.debugLog('excludedFolders', this.settings.excludedFolders);
         await this.saveSettings();
-        verboseLog(this, `Folder exclusion toggled for: ${folderPath}`, { isNowExcluded: !isExcluded });
+        verboseLog(this, `Folder exclusion toggled for: ${folderPath}`, { isNowInList: !isInList });
     }
 
     getSelectedFolders(): TFolder[] {
@@ -119,6 +138,42 @@ export class FolderOperations {
         });
 
         return selectedFolders;
+    }
+
+    getSelectedFiles(): TFile[] {
+        const selectedFiles: TFile[] = [];
+
+        const selectors = [
+            '.nav-file.is-selected',
+            '.nav-file.is-active',
+            '.nav-file-title.is-selected',
+            '.nav-file-title.is-active',
+            '.tree-item.is-selected .nav-file-title',
+            '.tree-item.is-active .nav-file-title'
+        ];
+
+        selectors.forEach(selector => {
+            const elements = document.querySelectorAll(selector);
+            elements.forEach(element => {
+                let filePath = element.getAttribute('data-path');
+
+                if (!filePath) {
+                    const parent = element.closest('.nav-file, .tree-item');
+                    if (parent) {
+                        filePath = parent.getAttribute('data-path');
+                    }
+                }
+
+                if (filePath) {
+                    const file = this.app.vault.getAbstractFileByPath(filePath);
+                    if (file instanceof TFile && file.extension === 'md' && !selectedFiles.includes(file)) {
+                        selectedFiles.push(file);
+                    }
+                }
+            });
+        });
+
+        return selectedFiles;
     }
 
     getAllMarkdownFilesInFolder(folder: TFolder): TFile[] {

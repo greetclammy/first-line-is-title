@@ -120,39 +120,49 @@ export class PropertyVisibility {
                         // This is the only property and it should be hidden
                         if (isInSidebar) {
                             // SIDEBAR: Only hide .metadata-properties, preserve "Add property" button
-                            (metadataProperties as HTMLElement).style.display = 'none';
+                            metadataProperties.addClass('flit-container-hidden');
+                            metadataProperties.removeClass('flit-container-visible');
                         } else {
                             // IN-NOTE: Hide entire .metadata-container including "Add property" button
                             if (metadataContainer) {
-                                (metadataContainer as HTMLElement).style.display = 'none';
+                                metadataContainer.addClass('flit-container-hidden');
+                                metadataContainer.removeClass('flit-container-visible');
                             } else {
                                 // Fallback if no container found
-                                (metadataProperties as HTMLElement).style.display = 'none';
+                                metadataProperties.addClass('flit-container-hidden');
+                                metadataProperties.removeClass('flit-container-visible');
                             }
                         }
                     } else {
                         // There are other properties - just hide this individual property
-                        (property as HTMLElement).style.display = 'none';
+                        property.addClass('flit-property-hidden');
+                        property.removeClass('flit-property-visible');
                         // Ensure properties section remains visible since there are other properties
-                        (metadataProperties as HTMLElement).style.display = '';
+                        metadataProperties.removeClass('flit-container-hidden');
+                        metadataProperties.addClass('flit-container-visible');
                         if (metadataContainer) {
-                            (metadataContainer as HTMLElement).style.display = '';
+                            metadataContainer.removeClass('flit-container-hidden');
+                            metadataContainer.addClass('flit-container-visible');
                         }
                     }
                 } else {
                     // Fallback: just hide the individual property
-                    (property as HTMLElement).style.display = 'none';
+                    property.addClass('flit-property-hidden');
+                    property.removeClass('flit-property-visible');
                 }
             } else {
                 // Property should be shown
-                (property as HTMLElement).style.display = '';
+                property.removeClass('flit-property-hidden');
+                property.addClass('flit-property-visible');
 
                 // Ensure containers are visible since we have a property that should be shown
                 if (metadataProperties) {
-                    (metadataProperties as HTMLElement).style.display = '';
+                    metadataProperties.removeClass('flit-container-hidden');
+                    metadataProperties.addClass('flit-container-visible');
                 }
                 if (metadataContainer) {
-                    (metadataContainer as HTMLElement).style.display = '';
+                    metadataContainer.removeClass('flit-container-hidden');
+                    metadataContainer.addClass('flit-container-visible');
                 }
             }
         });
@@ -167,16 +177,18 @@ export class PropertyVisibility {
             this.propertyObserver = undefined;
         }
 
-        // Remove any hiding styles applied by the observer
-        const hiddenProperties = document.querySelectorAll('[data-property-key][style*="display: none"]');
+        // Remove any hiding classes applied by the observer
+        const hiddenProperties = document.querySelectorAll('.flit-property-hidden');
         hiddenProperties.forEach((property) => {
-            (property as HTMLElement).style.display = '';
+            property.removeClass('flit-property-hidden');
+            property.addClass('flit-property-visible');
         });
 
         // Also restore any hidden properties sections
-        const hiddenContainers = document.querySelectorAll('.metadata-container[style*="display: none"], .frontmatter-container[style*="display: none"], .metadata-properties[style*="display: none"]');
+        const hiddenContainers = document.querySelectorAll('.flit-container-hidden');
         hiddenContainers.forEach((container) => {
-            (container as HTMLElement).style.display = '';
+            container.removeClass('flit-container-hidden');
+            container.addClass('flit-container-visible');
         });
     }
 

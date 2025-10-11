@@ -45,6 +45,7 @@ export class CommandRegistrar {
 
     /**
      * Register command: Put first line in title
+     * Note: This command ignores folder/tag/property exclusions but ALWAYS respects disable property
      */
     private registerRenameCurrentFileCommand(): void {
         if (!this.settings.commandPaletteVisibility.renameCurrentFile) {
@@ -62,8 +63,9 @@ export class CommandRegistrar {
                     new Notice("Error: no active note.");
                     return;
                 }
-                verboseLog(this.plugin, `Manual rename command triggered for ${activeFile.path} (ignoring exclusions)`);
-                await this.plugin.renameEngine.processFile(activeFile, true, true);
+                verboseLog(this.plugin, `Manual rename command triggered for ${activeFile.path} (ignoring folder/tag/property exclusions, respecting disable property)`);
+                const exclusionOverrides = { ignoreFolder: true, ignoreTag: true, ignoreProperty: true };
+                await this.plugin.renameEngine.processFile(activeFile, true, false, undefined, false, exclusionOverrides);
             }
         });
     }
@@ -88,7 +90,7 @@ export class CommandRegistrar {
                     return;
                 }
                 verboseLog(this.plugin, `Manual rename command triggered for ${activeFile.path} (unless excluded)`);
-                await this.plugin.renameEngine.processFile(activeFile, true, false);
+                await this.plugin.renameEngine.processFile(activeFile, true);
             }
         });
     }

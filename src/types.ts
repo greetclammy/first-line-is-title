@@ -28,6 +28,12 @@ export type FileReadMethod = 'Editor' | 'Cache' | 'File';
 
 export type PropertyHidingOption = 'never' | 'always' | 'when_empty';
 
+export interface ExclusionOverrides {
+    ignoreFolder?: boolean;
+    ignoreTag?: boolean;
+    ignoreProperty?: boolean;
+}
+
 export interface PluginSettings {
     folderScopeStrategy: ExclusionStrategy;
     tagScopeStrategy: TagPropertyExclusionStrategy;
@@ -114,6 +120,7 @@ export interface PluginSettings {
         strikethrough: boolean;
         highlight: boolean;
         code: boolean;
+        codeBlocks: boolean;
         blockquote: boolean;
         callouts: boolean;
         comments: boolean;
@@ -149,6 +156,7 @@ export interface PluginSettings {
     fileReadMethod: FileReadMethod; // Method for reading file content
     verboseLogging: boolean; // Added verbose logging setting
     debugOutputFullContent: boolean; // Output full file content in console when files change
+    debugEnabledTimestamp: string; // Timestamp when Debug was last enabled (YYYY-MM-DD HH:mm format)
     hasShownFirstTimeNotice: boolean; // Track if first-time setup notice has been shown
     hasSetupExclusions: boolean; // Track if exclusions tab has been opened for first-time setup
     hasSetPropertyType: boolean; // Track if property type has been set in types.json on first load

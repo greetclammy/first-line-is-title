@@ -1,9 +1,6 @@
 import { Modal, App, TFile, TFolder, Notice } from "obsidian";
 import { PluginSettings } from './types';
-import { verboseLog, isFileExcluded, shouldProcessFile } from './utils';
-
-// Access global variables through globalThis - fetch dynamically to avoid module load order issues
-const getGlobals = () => (globalThis as any).flitGlobals;
+import { verboseLog, shouldProcessFile } from './utils';
 
 interface FirstLineIsTitlePlugin {
     settings: PluginSettings;
@@ -32,7 +29,9 @@ export class RenameAllFilesModal extends Modal {
         const count = allFiles.length;
 
         const messagePara = contentEl.createEl("p");
-        messagePara.innerHTML = `This will process <strong>${count} ${count === 1 ? 'note' : 'notes'}</strong>, and may introduce errors.`;
+        messagePara.appendText("This will process ");
+        messagePara.createEl("strong", { text: `${count} ${count === 1 ? 'note' : 'notes'}` });
+        messagePara.appendText(".");
 
         const ensureList = contentEl.createEl("p", { text: "Ensure:" });
         ensureList.style.marginTop = "10px";
@@ -45,7 +44,7 @@ export class RenameAllFilesModal extends Modal {
         const li1 = ul.createEl("li");
         li1.appendText("Your files are ");
         li1.createEl("a", { text: "backed up", href: "https://help.obsidian.md/backup" });
-        li1.appendText(".");
+        li1.appendText(" in case of errors.");
 
         ul.createEl("li", { text: "Excluded folders, tags and properties are configured correctly in plugin settings." });
 
@@ -70,16 +69,18 @@ export class RenameAllFilesModal extends Modal {
             }
         });
 
-        // Sort files by creation time (oldest first) to give chronological priority
-        // Older files get clean names, newer files get numbered versions
         filesToRename.sort((a, b) => a.stat.ctime - b.stat.ctime);
 
-        getGlobals()?.setRenamedFileCount(0);
-        // No longer need tempNewPaths - each file checks disk state when processed
         verboseLog(this.plugin, `Showing notice: Renaming ${filesToRename.length} notes...`);
         const pleaseWaitNotice = new Notice(`Renaming ${filesToRename.length} notes...`, 0);
 
         verboseLog(this.plugin, `Starting bulk rename of ${filesToRename.length} files`);
+
+        const exclusionOverrides = {
+            ignoreFolder: true,
+            ignoreTag: true,
+            ignoreProperty: true
+        };
 
         let renamedFileCount = 0;
         try {
@@ -87,7 +88,7 @@ export class RenameAllFilesModal extends Modal {
 
             for (const file of filesToRename) {
                 try {
-                    await this.plugin.renameEngine.processFile(file, true, true, true, undefined, true);
+                    await this.plugin.renameEngine.processFile(file, true, true, undefined, true, exclusionOverrides);
                     renamedFileCount++;
                 } catch (error) {
                     errors.push(`Failed to rename ${file.path}: ${error}`);
@@ -101,7 +102,6 @@ export class RenameAllFilesModal extends Modal {
                 console.error('Rename errors:', errors);
             }
         } finally {
-            // Immediate cleanup after batch operation
             if (this.plugin.cacheManager) {
                 this.plugin.cacheManager.clearReservedPaths();
                 verboseLog(this.plugin, 'Cache cleaned up immediately after batch operation');
@@ -136,19 +136,24 @@ export class RenameFolderModal extends Modal {
 
         const heading = contentEl.createEl("h2", { text: "Caution", cls: "flit-modal-heading" });
 
-        // Count files in folder (for message)
         const folderFiles = this.app.vault.getAllLoadedFiles()
             .filter((f: any) => f instanceof TFile && f.extension === 'md')
             .filter((f: any) => f.path.startsWith(this.folder.path + "/") || f.parent?.path === this.folder.path);
         const count = folderFiles.length;
 
         const messagePara = contentEl.createEl("p");
-        messagePara.innerHTML = `This will process <strong>${count} ${count === 1 ? 'note' : 'notes'}</strong>, and may introduce errors.<br><br>Ensure your files are <a href="https://help.obsidian.md/backup">backed up</a>.`;
+        messagePara.appendText("This will process ");
+        messagePara.createEl("strong", { text: `${count} ${count === 1 ? 'note' : 'notes'}` });
+        messagePara.appendText(".");
+        messagePara.createEl("br");
+        messagePara.createEl("br");
+        messagePara.appendText("Ensure your files are ");
+        messagePara.createEl("a", { text: "backed up", href: "https://help.obsidian.md/backup" });
+        messagePara.appendText(" in case of errors.");
 
-        // Checkbox container
         const optionsContainer = contentEl.createDiv({ cls: "flit-modal-options" });
 
-        // Rename notes in subfolders checkbox
+        // Checkboxes
         const subfoldersContainer = optionsContainer.createDiv({ cls: "flit-checkbox-container" });
         const subfoldersCheckbox = subfoldersContainer.createEl("input", { type: "checkbox" });
         subfoldersCheckbox.id = "rename-subfolders";
@@ -156,9 +161,8 @@ export class RenameFolderModal extends Modal {
 
         const subfoldersLabel = subfoldersContainer.createEl("label");
         subfoldersLabel.setAttribute("for", "rename-subfolders");
-        subfoldersLabel.textContent = "Rename notes in subfolders";
+        subfoldersLabel.textContent = "Rename notes in all subfolders";
 
-        // Rename excluded folders checkbox
         const excludedFoldersContainer = optionsContainer.createDiv({ cls: "flit-checkbox-container" });
         const excludedFoldersCheckbox = excludedFoldersContainer.createEl("input", { type: "checkbox" });
         excludedFoldersCheckbox.id = "rename-excluded-folders";
@@ -196,7 +200,6 @@ export class RenameFolderModal extends Modal {
         const renameButton = buttonContainer.createEl("button", { text: "Rename" });
         renameButton.addClass("mod-cta");
         renameButton.onclick = async () => {
-            // Save checkbox states only when command is run
             this.plugin.settings.modalCheckboxStates.folderRename.includeSubfolders = subfoldersCheckbox.checked;
             this.plugin.settings.modalCheckboxStates.folderRename.renameExcludedFolders = excludedFoldersCheckbox.checked;
             this.plugin.settings.modalCheckboxStates.folderRename.renameExcludedTags = excludedTagsCheckbox.checked;
@@ -223,23 +226,11 @@ export class RenameFolderModal extends Modal {
         const filesToRename: TFile[] = [];
 
         for (const file of allFiles) {
-            // Check if file is in folder or subfolders
             const isInFolder = file.parent?.path === this.folder.path;
             const isInSubfolder = file.path.startsWith(this.folder.path + "/") && file.parent?.path !== this.folder.path;
 
             if (!isInFolder && (!includeSubfolders || !isInSubfolder)) {
                 continue;
-            }
-
-            // Apply exclusion logic based on checkboxes
-            if (!renameExcludedFolders || !renameExcludedTags || !renameExcludedProperties) {
-                if (!shouldProcessFile(file, this.plugin.settings, this.app, {
-                    ignoreFolder: renameExcludedFolders,
-                    ignoreTag: renameExcludedTags,
-                    ignoreProperty: renameExcludedProperties
-                })) {
-                    continue;
-                }
             }
 
             filesToRename.push(file);
@@ -250,11 +241,17 @@ export class RenameFolderModal extends Modal {
         verboseLog(this.plugin, `Renaming ${filesToRename.length} notes...`);
         const pleaseWaitNotice = new Notice(`Renaming ${filesToRename.length} notes...`, 0);
 
+        const exclusionOverrides = {
+            ignoreFolder: renameExcludedFolders,
+            ignoreTag: renameExcludedTags,
+            ignoreProperty: renameExcludedProperties
+        };
+
         let renamedFileCount = 0;
         try {
             for (const file of filesToRename) {
                 try {
-                    await this.plugin.renameEngine.processFile(file, true, true, true, undefined, true);
+                    await this.plugin.renameEngine.processFile(file, true, true, undefined, true, exclusionOverrides);
                     renamedFileCount++;
                 } catch (error) {
                     console.error(`Error processing ${file.path}`, error);
@@ -322,7 +319,14 @@ export class ProcessTagModal extends Modal {
         }
 
         const messagePara = contentEl.createEl("p");
-        messagePara.innerHTML = `This will edit <strong>${count} ${count === 1 ? 'note' : 'notes'}</strong>, and may introduce errors.<br><br>Ensure your files are <a href="https://help.obsidian.md/backup">backed up</a>.`;
+        messagePara.appendText("This will process ");
+        messagePara.createEl("strong", { text: `${count} ${count === 1 ? 'note' : 'notes'}` });
+        messagePara.appendText(".");
+        messagePara.createEl("br");
+        messagePara.createEl("br");
+        messagePara.appendText("Ensure your files are ");
+        messagePara.createEl("a", { text: "backed up", href: "https://help.obsidian.md/backup" });
+        messagePara.appendText(" in case of errors.");
 
         const optionsContainer = contentEl.createDiv({ cls: "flit-modal-options" });
 
@@ -442,17 +446,6 @@ export class ProcessTagModal extends Modal {
                 continue;
             }
 
-            // Apply exclusion logic based on checkboxes
-            if (!renameExcludedFolders || !renameExcludedTags || !renameExcludedProperties) {
-                if (!shouldProcessFile(file, this.plugin.settings, this.app, {
-                    ignoreFolder: renameExcludedFolders,
-                    ignoreTag: renameExcludedTags,
-                    ignoreProperty: renameExcludedProperties
-                })) {
-                    continue;
-                }
-            }
-
             filesToProcess.push(file);
         }
 
@@ -468,10 +461,16 @@ export class ProcessTagModal extends Modal {
         const pleaseWaitNotice = new Notice(`Renaming ${filesToProcess.length} notes...`, 0);
         let renamedCount = 0;
 
+        const exclusionOverrides = {
+            ignoreFolder: renameExcludedFolders,
+            ignoreTag: renameExcludedTags,
+            ignoreProperty: renameExcludedProperties
+        };
+
         try {
             for (const file of filesToProcess) {
                 try {
-                    await this.plugin.renameEngine.processFile(file, true, true, true, undefined, true);
+                    await this.plugin.renameEngine.processFile(file, true, true, undefined, true, exclusionOverrides);
                     renamedCount++;
                 } catch (error) {
                     console.error(`Error processing ${file.path}`, error);
@@ -550,7 +549,14 @@ export class RenameModal extends Modal {
 
         const count = this.files.length;
         const messagePara = contentEl.createEl("p");
-        messagePara.innerHTML = `This will edit <strong>${count} ${count === 1 ? 'note' : 'notes'}</strong>, and may introduce errors.<br><br>Ensure your files are <a href="https://help.obsidian.md/backup">backed up</a>.`;
+        messagePara.appendText("This will process ");
+        messagePara.createEl("strong", { text: `${count} ${count === 1 ? 'note' : 'notes'}` });
+        messagePara.appendText(".");
+        messagePara.createEl("br");
+        messagePara.createEl("br");
+        messagePara.appendText("Ensure your files are ");
+        messagePara.createEl("a", { text: "backed up", href: "https://help.obsidian.md/backup" });
+        messagePara.appendText(" in case of errors.");
 
         // Checkbox container
         const optionsContainer = contentEl.createDiv({ cls: "flit-modal-options" });
@@ -616,29 +622,20 @@ export class RenameModal extends Modal {
         const filesToProcess = [...this.files];
         filesToProcess.sort((a, b) => a.stat.ctime - b.stat.ctime);
 
-        // Apply exclusion filters
-        const filteredFiles: TFile[] = [];
-        for (const file of filesToProcess) {
-            if (!renameExcludedFolders || !renameExcludedTags || !renameExcludedProperties) {
-                if (!shouldProcessFile(file, this.plugin.settings, this.app, {
-                    ignoreFolder: renameExcludedFolders,
-                    ignoreTag: renameExcludedTags,
-                    ignoreProperty: renameExcludedProperties
-                })) {
-                    continue;
-                }
-            }
-            filteredFiles.push(file);
-        }
+        verboseLog(this.plugin, `Renaming ${filesToProcess.length} notes...`);
+        const pleaseWaitNotice = new Notice(`Renaming ${filesToProcess.length} notes...`, 0);
 
-        verboseLog(this.plugin, `Renaming ${filteredFiles.length} notes...`);
-        const pleaseWaitNotice = new Notice(`Renaming ${filteredFiles.length} notes...`, 0);
+        const exclusionOverrides = {
+            ignoreFolder: renameExcludedFolders,
+            ignoreTag: renameExcludedTags,
+            ignoreProperty: renameExcludedProperties
+        };
 
         let renamedFileCount = 0;
         try {
-            for (const file of filteredFiles) {
+            for (const file of filesToProcess) {
                 try {
-                    await this.plugin.renameEngine.processFile(file, true, true, true, undefined, true);
+                    await this.plugin.renameEngine.processFile(file, true, true, undefined, true, exclusionOverrides);
                     renamedFileCount++;
                 } catch (error) {
                     console.error(`Error processing ${file.path}`, error);
@@ -650,8 +647,8 @@ export class RenameModal extends Modal {
             }
 
             pleaseWaitNotice.hide();
-            verboseLog(this.plugin, `Renamed ${renamedFileCount}/${filteredFiles.length} notes.`);
-            new Notice(`Renamed ${renamedFileCount}/${filteredFiles.length} notes.`, 0);
+            verboseLog(this.plugin, `Renamed ${renamedFileCount}/${filesToProcess.length} notes.`);
+            new Notice(`Renamed ${renamedFileCount}/${filesToProcess.length} notes.`, 0);
         }
     }
 
@@ -685,7 +682,16 @@ export class DisableEnableModal extends Modal {
         const actionText = this.action === 'disable' ? 'add' : 'remove';
 
         const messagePara = contentEl.createEl("p");
-        messagePara.innerHTML = `This will ${actionText} the <strong>${key}:${value}</strong> property in <strong>${count} ${count === 1 ? 'note' : 'notes'}</strong>, and may introduce errors.<br><br>Ensure your files are <a href="https://help.obsidian.md/backup">backed up</a>.`;
+        messagePara.appendText(`This will ${actionText} the `);
+        messagePara.createEl("strong", { text: `${key}:${value}` });
+        messagePara.appendText(" property in ");
+        messagePara.createEl("strong", { text: `${count} ${count === 1 ? 'note' : 'notes'}` });
+        messagePara.appendText(".");
+        messagePara.createEl("br");
+        messagePara.createEl("br");
+        messagePara.appendText("Ensure your files are ");
+        messagePara.createEl("a", { text: "backed up", href: "https://help.obsidian.md/backup" });
+        messagePara.appendText(" in case of errors.");
 
         const buttonContainer = contentEl.createDiv({ cls: "modal-button-container flit-modal-button-container" });
 
@@ -730,7 +736,7 @@ export class DisableEnableModal extends Modal {
             pleaseWaitNotice.hide();
             const actionPast = this.action === 'disable' ? 'Disabled' : 'Enabled';
             verboseLog(this.plugin, `${actionPast} renaming in ${processedCount} notes.`);
-            new Notice(`${actionPast} renaming for ${processedCount} notes`);
+            new Notice(`${actionPast} renaming for ${processedCount} notes.`);
         }
     }
 
