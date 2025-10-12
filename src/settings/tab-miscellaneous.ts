@@ -384,11 +384,6 @@ export class MiscellaneousTab extends SettingsTabBase {
                             // Save the cleared settings
                             await this.plugin.saveSettings();
 
-                            // Set default property type in types.json
-                            await this.plugin.propertyManager.updatePropertyTypeFromSettings();
-                            this.plugin.settings.hasSetPropertyType = true;
-                            await this.plugin.saveSettings();
-
                             // Show notification
                             verboseLog(this.plugin, `Showing notice: Settings have been cleared.`);
                             new Notice("Settings have been cleared.");

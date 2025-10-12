@@ -30,7 +30,7 @@ export class GeneralTab extends SettingsTabBase {
 
         renameNotesSetting.addDropdown((dropdown) =>
                 dropdown
-                    .addOption("automatically", "Automatically if open and modified")
+                    .addOption("automatically", "Automatically when open and modified")
                     .addOption("manually", "Manually via command only")
                     .setValue(this.plugin.settings.renameNotes)
                     .onChange(async (value) => {

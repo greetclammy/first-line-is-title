@@ -150,63 +150,39 @@ export class PropertyManager {
     }
 
     /**
-     * Update property type in types.json based on its value
+     * Ensure property type is set to checkbox in types.json
+     * Call this when "Disable renaming" commands are executed
      *
-     * Property type changes ONLY in these cases:
-     * 1. Settings key changed (disableRenamingKey) → boolean/non-boolean
-     * 2. Settings value changed (disableRenamingValue) → boolean/non-boolean
-     * 3. Restore button clicked → default value
-     * 4. Clear settings → default value
-     * 5. First plugin load → default value (one time only)
-     *
-     * NOT when properties are added to individual files.
-     *
-     * Behavior:
-     * - Boolean value (true/false) → set as 'checkbox' in types.json
-     * - Non-boolean value → delete from types.json entirely
-     *
-     * @param propertyKey The property key to update
-     * @param propertyValue The current value of the property
+     * This ensures the property type is always checkbox when the property value is boolean,
+     * regardless of what type it was before or if it existed at all.
      */
-    async updatePropertyType(propertyKey: string, propertyValue: any): Promise<void> {
-        const normalizedValue = this.normalizeBooleanValue(propertyValue);
-        const isBoolean = this.isBooleanValue(normalizedValue);
-
-        // Read current types.json
-        const typesData = await this.readTypesJson();
-        const currentType = typesData.types[propertyKey];
-
-        if (isBoolean) {
-            // Value is boolean → set as checkbox if not already
-            if (currentType !== 'checkbox') {
-                typesData.types[propertyKey] = 'checkbox';
-                await this.writeTypesJson(typesData);
-                verboseLog(this.plugin, `Property "${propertyKey}" set to checkbox (value: ${normalizedValue})`);
-            }
-            // Update cache
-            this.propertyTypeCache.set(propertyKey, 'checkbox');
-        } else {
-            // Value is not boolean → remove from types.json if present
-            if (currentType) {
-                delete typesData.types[propertyKey];
-                await this.writeTypesJson(typesData);
-                verboseLog(this.plugin, `Property "${propertyKey}" removed from types.json (non-boolean value)`);
-            }
-            // Update cache
-            this.propertyTypeCache.set(propertyKey, null);
-        }
-    }
-
-    /**
-     * Update property type based on current settings value
-     * Call this when disableRenamingKey or disableRenamingValue changes in settings
-     */
-    async updatePropertyTypeFromSettings(): Promise<void> {
+    async ensurePropertyTypeIsCheckbox(): Promise<void> {
         const propertyKey = this.settings.disableRenamingKey;
         const propertyValue = this.settings.disableRenamingValue;
 
         if (!propertyKey) return;
 
-        await this.updatePropertyType(propertyKey, propertyValue);
+        // Only set to checkbox if the value is boolean
+        const normalizedValue = this.normalizeBooleanValue(propertyValue);
+        const isBoolean = this.isBooleanValue(normalizedValue);
+
+        if (!isBoolean) {
+            verboseLog(this.plugin, `Property "${propertyKey}" value is not boolean (${propertyValue}), skipping type update`);
+            return;
+        }
+
+        // Read current types.json
+        const typesData = await this.readTypesJson();
+        const currentType = typesData.types[propertyKey];
+
+        // Set as checkbox if not already
+        if (currentType !== 'checkbox') {
+            typesData.types[propertyKey] = 'checkbox';
+            await this.writeTypesJson(typesData);
+            verboseLog(this.plugin, `Property "${propertyKey}" set to checkbox for disable renaming command`);
+        }
+
+        // Update cache
+        this.propertyTypeCache.set(propertyKey, 'checkbox');
     }
 }

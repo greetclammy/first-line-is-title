@@ -77,6 +77,19 @@ export class EditorLifecycleManager {
     }
 
     /**
+     * Transfer creation delay timer from old path to new path
+     * Used during file renames to preserve the delay timer
+     */
+    transferCreationDelayTimer(oldPath: string, newPath: string): void {
+        const timer = this.creationDelayTimers.get(oldPath);
+        if (timer) {
+            this.creationDelayTimers.delete(oldPath);
+            this.creationDelayTimers.set(newPath, timer);
+            verboseLog(this.plugin, `Transferred creation delay timer from ${oldPath} to ${newPath}`);
+        }
+    }
+
+    /**
      * Check if a file is in creation delay period
      */
     isFileInCreationDelay(filePath: string): boolean {
@@ -87,8 +100,8 @@ export class EditorLifecycleManager {
      * Initialize the checking system based on settings
      */
     initializeCheckingSystem(): void {
-        // Clear any existing system
-        this.clearCheckingSystems();
+        // Clear any existing system (but preserve creation delay timers)
+        this.clearCheckingSystems(true);
 
         // Always track active editors for tab close detection
         this.trackActiveEditors();
@@ -153,6 +166,12 @@ export class EditorLifecycleManager {
             const view = leaf.view as any;
             if (view && view.file && view.editor) {
                 try {
+                    // Skip files in creation delay to prevent tracking initialization bypassing the delay
+                    if (this.isFileInCreationDelay(view.file.path)) {
+                        verboseLog(this.plugin, `Skipping tracking initialization for file in creation delay: ${view.file.path}`);
+                        continue;
+                    }
+
                     const leafId = leaf.id;
                     activeLeafIds.add(leafId);
 
@@ -332,8 +351,9 @@ export class EditorLifecycleManager {
 
     /**
      * Clear all checking systems and state
+     * @param preserveCreationDelayTimers - If true, don't clear active creation delay timers
      */
-    clearCheckingSystems(): void {
+    clearCheckingSystems(preserveCreationDelayTimers: boolean = false): void {
         // Clear old interval system (kept for backward compatibility)
         if (this.checkTimer) {
             clearTimeout(this.checkTimer);
@@ -346,11 +366,13 @@ export class EditorLifecycleManager {
         }
         this.throttleTimers.clear();
 
-        // Clear creation delay timers
-        for (const timer of this.creationDelayTimers.values()) {
-            clearTimeout(timer);
+        // Clear creation delay timers only if not preserving them
+        if (!preserveCreationDelayTimers) {
+            for (const timer of this.creationDelayTimers.values()) {
+                clearTimeout(timer);
+            }
+            this.creationDelayTimers.clear();
         }
-        this.creationDelayTimers.clear();
 
         this.activeEditorFiles.clear();
         this.pendingChecks.clear();

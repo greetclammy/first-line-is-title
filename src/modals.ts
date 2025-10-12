@@ -710,6 +710,11 @@ export class DisableEnableModal extends Modal {
         const filesToProcess = [...this.files];
         filesToProcess.sort((a, b) => a.stat.ctime - b.stat.ctime);
 
+        // Ensure property type is set to checkbox before adding properties
+        if (this.action === 'disable') {
+            await this.plugin.propertyManager.ensurePropertyTypeIsCheckbox();
+        }
+
         verboseLog(this.plugin, `Renaming ${filesToProcess.length} notes...`);
         const pleaseWaitNotice = new Notice(`Renaming ${filesToProcess.length} notes...`, 0);
 

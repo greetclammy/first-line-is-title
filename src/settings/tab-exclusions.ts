@@ -658,15 +658,11 @@ export class IncludeExcludeTab extends SettingsTabBase {
         keyInput.addEventListener('input', async (e) => {
             this.plugin.settings.disableRenamingKey = (e.target as HTMLInputElement).value;
             await this.plugin.saveSettings();
-            // Update property type when key changes
-            await this.plugin.propertyManager.updatePropertyTypeFromSettings();
         });
 
         valueInput.addEventListener('input', async (e) => {
             this.plugin.settings.disableRenamingValue = (e.target as HTMLInputElement).value;
             await this.plugin.saveSettings();
-            // Update property type when value changes
-            await this.plugin.propertyManager.updatePropertyTypeFromSettings();
         });
 
         propertyRestoreButton.addEventListener('click', async () => {
@@ -675,8 +671,6 @@ export class IncludeExcludeTab extends SettingsTabBase {
             keyInput.value = this.plugin.settings.disableRenamingKey;
             valueInput.value = this.plugin.settings.disableRenamingValue;
             await this.plugin.saveSettings();
-            // Update property type when restored to default
-            await this.plugin.propertyManager.updatePropertyTypeFromSettings();
         });
 
         // Add default text below the inputs

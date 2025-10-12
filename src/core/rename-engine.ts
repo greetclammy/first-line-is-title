@@ -17,6 +17,8 @@ import FirstLineIsTitle from '../../main';
 export class RenameEngine {
     private plugin: FirstLineIsTitle;
     private lastProcessedContent = new Map<string, string>();
+    private filesCurrentlyProcessing = new Set<number>(); // Track by file.stat.ctime (stable across renames)
+    private filesNeedingRecheck = new Set<number>(); // Track files that had edits blocked during processing
     private fileTimeTracker = new Map<string, {timestamp: number, count: number}>();
     private globalOperationTracker = {timestamp: Date.now(), count: 0};
     private lastSelfRefNotice = new Map<string, number>();
@@ -72,6 +74,15 @@ export class RenameEngine {
         const startTime = Date.now();
 
         try {
+            // Check if file is already being processed using stable identifier
+            const fileId = file.stat.ctime;
+            if (this.filesCurrentlyProcessing.has(fileId)) {
+                verboseLog(this.plugin, `Editor change ignored - file already processing (ID ${fileId}): ${file.path}`);
+                // Flag this file for recheck after processing completes
+                this.filesNeedingRecheck.add(fileId);
+                return;
+            }
+
             if (this.plugin.aliasManager.isAliasUpdateInProgress(file.path)) {
                 verboseLog(this.plugin, `Editor change ignored - alias update in progress: ${file.path}`);
                 return;
@@ -157,9 +168,56 @@ export class RenameEngine {
                 const timeSinceStart = Date.now() - startTime;
                 verboseLog(this.plugin, `[TIMING] KEYSTROKE: ${file.path} - "${lastContent}" -> "${trackingContent}" (processed in ${timeSinceStart}ms)`);
 
-                await this.processFileImmediate(file, currentContent, metadata);
+                // Update tracking BEFORE async processing to prevent duplicate triggers
                 this.lastProcessedContent.set(file.path, trackingContent);
                 this.plugin.editorLifecycle.updateLastFirstLine(file.path, trackingContent);
+
+                // Mark file as being processed
+                this.filesCurrentlyProcessing.add(fileId);
+
+                try {
+                    await this.processFileImmediate(file, currentContent, metadata);
+                } finally {
+                    // Always remove from processing set when done
+                    this.filesCurrentlyProcessing.delete(fileId);
+
+                    // RECHECK: Only if edit was blocked during processing
+                    if (this.filesNeedingRecheck.has(fileId)) {
+                        this.filesNeedingRecheck.delete(fileId);
+
+                        const currentEditorContent = editor.getValue();
+                        const recheckLines = currentEditorContent.split('\n');
+                        let recheckFirstLine = '';
+                        let recheckFirstLineIndex = 0;
+
+                        // Skip frontmatter
+                        if (recheckLines.length > 0 && recheckLines[0].trim() === '---') {
+                            for (let i = 1; i < recheckLines.length; i++) {
+                                if (recheckLines[i].trim() === '---') {
+                                    recheckFirstLineIndex = i + 1;
+                                    break;
+                                }
+                            }
+                        }
+
+                        // Find first non-empty line
+                        for (let i = recheckFirstLineIndex; i < recheckLines.length; i++) {
+                            if (recheckLines[i].trim() !== '') {
+                                recheckFirstLine = recheckLines[i];
+                                break;
+                            }
+                        }
+
+                        const recheckContent = extractTitle(recheckFirstLine, this.plugin.settings);
+                        const currentlyProcessed = this.lastProcessedContent.get(file.path);
+
+                        if (recheckContent !== currentlyProcessed) {
+                            verboseLog(this.plugin, `RECHECK: Content changed during processing, queueing another pass: ${file.path}`);
+                            // Trigger another processing cycle asynchronously (don't await to avoid blocking)
+                            setTimeout(() => this.processEditorChangeOptimal(editor, file), 0);
+                        }
+                    }
+                }
             } else {
                 verboseLog(this.plugin, `Editor change ignored - no first line change: ${file.path}`);
             }
@@ -754,11 +812,6 @@ export class RenameEngine {
             cacheManager?.reservePath(newPath);
         }
 
-        // File passed exclusion checks - process aliases when enabled
-        if (this.plugin.settings.enableAliases) {
-            await this.plugin.aliasManager.updateAliasIfNeeded(file, originalContentWithFrontmatter, newFileName);
-        }
-
         try {
 
             // Mark as batch operation for debug output exclusion
@@ -773,6 +826,11 @@ export class RenameEngine {
             await this.plugin.app.fileManager.renameFile(file, newPath);
             const processingTime = Date.now() - startTime;
             verboseLog(this.plugin, `Successfully renamed ${oldPath} to ${newPath} (${processingTime}ms)`);
+
+            // Transfer creation delay timer from old path to new path to preserve the delay
+            if (this.plugin.editorLifecycle) {
+                this.plugin.editorLifecycle.transferCreationDelayTimer(oldPath, newPath);
+            }
 
             // Mark FLIT modification end
             this.plugin.markFlitModificationEnd(newPath);
@@ -791,6 +849,15 @@ export class RenameEngine {
 
             // Notify cache manager of rename
             cacheManager?.notifyFileRenamed(oldPath, newPath);
+
+            // File passed exclusion checks - process aliases when enabled AFTER rename
+            if (this.plugin.settings.enableAliases) {
+                // Get fresh file reference from vault after rename
+                const renamedFile = this.plugin.app.vault.getAbstractFileByPath(newPath);
+                if (renamedFile && renamedFile instanceof TFile) {
+                    await this.plugin.aliasManager.updateAliasIfNeeded(renamedFile, originalContentWithFrontmatter, newFileName);
+                }
+            }
 
             // Show notification for manual renames only (not batch operations)
             if (showNotices && !isBatchOperation) {

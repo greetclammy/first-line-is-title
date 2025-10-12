@@ -936,12 +936,6 @@ hr.flit-divider {
     font-size: 16px !important;
 }
 
-/* Ensure restore button SVG is properly sized */
-.flit-excluded-folder-setting .setting-item-control .flit-restore-icon svg {
-    width: 20px !important;
-    height: 20px !important;
-}
-
 /* Fix Property disable renaming restore button on mobile */
 .flit-property-control-wrapper {
     display: flex !important;
@@ -968,10 +962,8 @@ hr.flit-divider {
 }
 
 .flit-restore-button-container .flit-restore-icon svg {
-    width: 20px !important;
-    height: 20px !important;
-    min-width: 20px !important;
-    min-height: 20px !important;
+    width: 18px !important;
+    height: 18px !important;
 }
 
 /* Disabled row styling - only apply opacity to non-toggle elements */

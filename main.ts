@@ -255,6 +255,9 @@ export default class FirstLineIsTitle extends Plugin {
             return;
         }
 
+        // Ensure property type is set to checkbox before adding property
+        await this.propertyManager.ensurePropertyTypeIsCheckbox();
+
         // Check if property already exists
         const hasProperty = await hasDisablePropertyInFile(activeFile, this.app);
 
@@ -555,6 +558,9 @@ export default class FirstLineIsTitle extends Plugin {
                                 .setIcon("square-x")
                                 .onClick(async () => {
                                     try {
+                                        // Ensure property type is set to checkbox before adding property
+                                        await this.propertyManager.ensurePropertyTypeIsCheckbox();
+
                                         await this.app.fileManager.processFrontMatter(file, (frontmatter) => {
                                             frontmatter[this.settings.disableRenamingKey] = this.parsePropertyValue(this.settings.disableRenamingValue);
                                         });
@@ -919,6 +925,12 @@ export default class FirstLineIsTitle extends Plugin {
 
                 if (!info.file || info.file.extension !== 'md') {
                     verboseLog(this, `Skipping: not markdown file (${info.file?.extension || 'no file'})`);
+                    return;
+                }
+
+                // Skip files in creation delay period (check before isFullyLoaded)
+                if (this.editorLifecycle && this.editorLifecycle.isFileInCreationDelay(info.file.path)) {
+                    verboseLog(this, `Skipping editor change - file in creation delay: ${info.file.path}`);
                     return;
                 }
 
