@@ -1,19 +1,25 @@
-import { TFile, Notice } from "obsidian";
+import { TFile, Notice, normalizePath } from "obsidian";
 import { verboseLog } from '../utils';
 import FirstLineIsTitle from '../../main';
+
+interface TypesJson {
+    types: Record<string, string>;
+}
 
 /**
  * PropertyManager
  *
- * Manages notification suppression.
+ * Manages notification suppression and property type registration.
  *
  * Responsibilities:
  * - Suppress external modification notifications
  * - Handle frontmatter property operations
+ * - Manage property types in types.json
  */
 export class PropertyManager {
     private plugin: FirstLineIsTitle;
     private notificationObserver?: MutationObserver;
+    private propertyTypeCache: Map<string, 'checkbox' | 'text' | null> = new Map();
 
     constructor(plugin: FirstLineIsTitle) {
         this.plugin = plugin;
@@ -88,5 +94,95 @@ export class PropertyManager {
      */
     getNotificationObserver(): MutationObserver | undefined {
         return this.notificationObserver;
+    }
+
+    /**
+     * Get path to types.json in vault's .obsidian folder
+     */
+    private getTypesJsonPath(): string {
+        return normalizePath(`${this.app.vault.configDir}/types.json`);
+    }
+
+    /**
+     * Read types.json file
+     */
+    private async readTypesJson(): Promise<TypesJson> {
+        const path = this.getTypesJsonPath();
+        try {
+            const content = await this.app.vault.adapter.read(path);
+            return JSON.parse(content);
+        } catch (error) {
+            // If file doesn't exist or is invalid, return empty structure
+            verboseLog(this.plugin, `types.json not found or invalid, creating new structure`);
+            return { types: {} };
+        }
+    }
+
+    /**
+     * Write types.json file
+     */
+    private async writeTypesJson(data: TypesJson): Promise<void> {
+        const path = this.getTypesJsonPath();
+        try {
+            const content = JSON.stringify(data, null, 2);
+            await this.app.vault.adapter.write(path, content);
+            verboseLog(this.plugin, `Updated types.json`);
+        } catch (error) {
+            console.error('Failed to write types.json:', error);
+        }
+    }
+
+    /**
+     * Check if value is boolean (true or false)
+     */
+    private isBooleanValue(value: any): boolean {
+        return value === true || value === false ||
+               value === 'true' || value === 'false';
+    }
+
+    /**
+     * Normalize boolean values to actual boolean type
+     */
+    private normalizeBooleanValue(value: any): boolean | any {
+        if (value === 'true') return true;
+        if (value === 'false') return false;
+        return value;
+    }
+
+    /**
+     * Ensure property type is set to checkbox in types.json
+     * Call this when "Disable renaming" commands are executed
+     *
+     * This ensures the property type is always checkbox when the property value is boolean,
+     * regardless of what type it was before or if it existed at all.
+     */
+    async ensurePropertyTypeIsCheckbox(): Promise<void> {
+        const propertyKey = this.settings.disableRenamingKey;
+        const propertyValue = this.settings.disableRenamingValue;
+
+        if (!propertyKey) return;
+
+        // Only set to checkbox if the value is boolean
+        const normalizedValue = this.normalizeBooleanValue(propertyValue);
+        const isBoolean = this.isBooleanValue(normalizedValue);
+
+        if (!isBoolean) {
+            verboseLog(this.plugin, `Property "${propertyKey}" value is not boolean (${propertyValue}), skipping type update`);
+            return;
+        }
+
+        // Read current types.json
+        const typesData = await this.readTypesJson();
+        const currentType = typesData.types[propertyKey];
+
+        // Set as checkbox if not already
+        if (currentType !== 'checkbox') {
+            typesData.types[propertyKey] = 'checkbox';
+            await this.writeTypesJson(typesData);
+            verboseLog(this.plugin, `Property "${propertyKey}" set to checkbox for disable renaming command`);
+        }
+
+        // Update cache
+        this.propertyTypeCache.set(propertyKey, 'checkbox');
     }
 }

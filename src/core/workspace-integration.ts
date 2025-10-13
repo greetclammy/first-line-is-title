@@ -1,6 +1,5 @@
-import { Notice, TFile, MarkdownView, setIcon } from "obsidian";
+import { TFile, MarkdownView, setIcon, Notice } from "obsidian";
 import { verboseLog } from '../utils';
-import { RenameAllFilesModal } from '../modals';
 import FirstLineIsTitle from '../../main';
 
 /**
@@ -77,16 +76,6 @@ export class WorkspaceIntegration {
                                             // Create icon element
                                             const iconElement = document.createElement('div');
                                             iconElement.classList.add('flit-command-icon');
-                                            iconElement.style.cssText = `
-                                                display: inline-flex;
-                                                align-items: center;
-                                                justify-content: center;
-                                                width: 16px;
-                                                height: 16px;
-                                                margin-right: 8px;
-                                                color: var(--text-muted);
-                                                flex-shrink: 0;
-                                            `;
 
                                             // Use Obsidian's setIcon function to add the icon
                                             setIcon(iconElement, iconName);
@@ -131,26 +120,22 @@ export class WorkspaceIntegration {
                 condition: this.settings.ribbonVisibility.renameCurrentFile,
                 icon: 'file-pen',
                 title: 'Put first line in title',
-                callback: async () => {
-                    const activeFile = this.app.workspace.getActiveFile();
-                    if (!activeFile) {
-                        new Notice("No active editor");
-                        return;
-                    }
-                    if (activeFile.extension === 'md') {
-                        verboseLog(this.plugin, `Manual rename command triggered for ${activeFile.path} (ignoring exclusions)`);
-                        await this.renameEngine.renameFile(activeFile, true, true, true);
-                    }
-                }
+                callback: () => this.plugin.commandRegistrar.executeRenameCurrentFile()
             },
             {
                 condition: this.settings.ribbonVisibility.renameAllNotes,
                 icon: 'files',
                 title: 'Put first line in title in all notes',
                 callback: () => {
-                    verboseLog(this.plugin, 'Bulk rename command triggered');
+                    const { RenameAllFilesModal } = require('../modals');
                     new RenameAllFilesModal(this.app, this.plugin).open();
                 }
+            },
+            {
+                condition: this.settings.ribbonVisibility.toggleAutomaticRenaming,
+                icon: 'file-cog',
+                title: 'Toggle automatic renaming',
+                callback: () => this.plugin.commandRegistrar.executeToggleAutomaticRenaming()
             }
         ];
 
@@ -167,7 +152,7 @@ export class WorkspaceIntegration {
      */
     setupSaveEventHook(): void {
         // Get the save command
-        const saveCommand = (this.app as any).commands?.commands?.['editor:save-file'];
+        const saveCommand = this.app.commands?.commands?.['editor:save-file'];
         if (saveCommand) {
             // Store the original callback
             this.originalSaveCallback = saveCommand.checkCallback;
@@ -181,9 +166,9 @@ export class WorkspaceIntegration {
                 if (!checking && this.settings.renameOnSave) {
                     const activeFile = this.app.workspace.getActiveFile();
                     if (activeFile && activeFile.extension === 'md') {
-                        // Run rename (unless excluded) with no delay and suppress notices
+                        // Run rename (unless excluded) with no delay and show notices like manual command
                         setTimeout(() => {
-                            this.renameEngine.renameFile(activeFile, true, false);
+                            this.plugin.commandRegistrar.executeRenameUnlessExcluded();
                         }, 100); // Small delay to ensure save is complete
                     }
                 }
@@ -196,81 +181,251 @@ export class WorkspaceIntegration {
     }
 
     /**
-     * Setup cursor positioning on file creation
+     * Setup processing for new files - sequential execution after single delay
      */
     setupCursorPositioning(): void {
         // Listen for file creation events
         this.plugin.registerEvent(
-            this.app.vault.on("create", (file) => {
+            this.app.vault.on("create", async (file) => {
                 if (!(file instanceof TFile) || file.extension !== 'md') return;
-                // Only process files created after plugin has fully loaded (prevents processing existing files on startup)
-                if (!this.isFullyLoaded) return;
 
-                // Process new files after 2000ms delay to avoid conflicts with Web Clipper/Templater
-                if (this.settings.renameNotes === "automatically") {
-                    console.log(`CREATE: New file created, processing in 2000ms: ${file.name}`);
-                    setTimeout(() => {
-                        console.log(`CREATE: Processing new file: ${file.name}`);
-                        this.renameEngine.renameFile(file, true, false).catch((error) => {
-                            console.error(`CREATE: Failed to process new file ${file.path}:`, error);
-                        });
-                    }, 2000);
+                // Skip if file existed before plugin loaded (ctime before plugin load - 1s margin)
+                if (file.stat.ctime < this.plugin.pluginLoadTime - 1000) {
+                    return;
                 }
 
-                // Cursor positioning for new files (skip if insertTitleOnCreation handles it)
-                if (this.settings.moveCursorToFirstLine && !this.settings.insertTitleOnCreation) {
-                    setTimeout(() => {
-                        const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
-                        if (activeView && activeView.file === file) {
-                            const editor = activeView.editor;
-                            if (editor) {
-                                if (this.settings.placeCursorAtLineEnd) {
-                                    // Get the length of the first line and place cursor at the end
-                                    const firstLineLength = editor.getLine(0).length;
-                                    editor.setCursor({ line: 0, ch: firstLineLength });
-                                    verboseLog(this.plugin, `Moved cursor to end of first line (${firstLineLength} chars) for new file: ${file.path}`);
-                                } else {
-                                    // Place cursor at the beginning of the first line
-                                    editor.setCursor({ line: 0, ch: 0 });
-                                    verboseLog(this.plugin, `Moved cursor to beginning of first line for new file: ${file.path}`);
-                                }
-                                editor.focus();
-                            }
-                        }
-                    }, 50);
+                // Capture plugin reference explicitly for inner function
+                const plugin = this.plugin;
+                const app = this.app;
+                const settings = this.settings;
+
+                // Guard: ensure plugin is fully initialized
+                if (!plugin?.fileOperations) {
+                    verboseLog(plugin, `CREATE: Plugin not fully initialized, skipping ${file.name}`);
+                    return;
                 }
-            })
-        );
 
-        // Also listen for when a file is opened (in case the create event doesn't catch it)
-        this.plugin.registerEvent(
-            this.app.workspace.on("file-open", (file) => {
-                if (!this.settings.moveCursorToFirstLine) return;
-                if (!file || file.extension !== 'md') return;
-
-                // Check if this is a newly created file (empty or very small)
-                this.app.vault.cachedRead(file).then((content) => {
-                    if (content.trim().length === 0 || content.trim().length < 10) {
-                        const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
-                        if (activeView && activeView.file === file) {
-                            const editor = activeView.editor;
-                            if (editor) {
-                                // Move cursor to first line
-                                if (this.settings.placeCursorAtLineEnd) {
-                                    // Get the length of the first line and place cursor at the end
-                                    const firstLineLength = editor.getLine(0).length;
-                                    editor.setCursor({ line: 0, ch: firstLineLength });
-                                    verboseLog(this.plugin, `Moved cursor to end of first line (${firstLineLength} chars) for opened empty file: ${file.path}`);
-                                } else {
-                                    // Place cursor at the beginning of the first line
-                                    editor.setCursor({ line: 0, ch: 0 });
-                                    verboseLog(this.plugin, `Moved cursor to beginning of first line for opened empty file: ${file.path}`);
-                                }
-                                editor.focus();
-                            }
+                // Define processing function first
+                const processFileCreation = async () => {
+                // Capture initial content immediately from the specific file's editor
+                let initialContent = '';
+                try {
+                    const leaves = app.workspace.getLeavesOfType("markdown");
+                    for (const leaf of leaves) {
+                        const view = leaf.view as MarkdownView;
+                        if (view && view.file?.path === file.path && view.editor) {
+                            initialContent = view.editor.getValue();
+                            verboseLog(plugin, `CREATE: Captured initial editor content for ${file.path}: ${initialContent.length} chars`);
+                            break;
                         }
                     }
-                });
+                } catch (error) {
+                    verboseLog(plugin, `CREATE: Could not read initial editor content`);
+                }
+
+                verboseLog(plugin, `CREATE: New file created, processing in ${settings.newNoteDelay}ms: ${file.name}`);
+
+                // Check if title will be skipped (early detection)
+                const untitledPattern = /^Untitled(\s[1-9]\d*)?$/;
+                const isUntitled = untitledPattern.test(file.basename);
+
+                // Step 1: Move cursor based on waitForCursorTemplate setting
+                if (settings.renameNotes === "automatically" && settings.moveCursorToFirstLine) {
+                    // If waitForCursorTemplate is OFF, move cursor immediately
+                    if (!settings.waitForCursorTemplate) {
+                        // Check if file is excluded from processing (folder/tag/property exclusions)
+                        const isExcluded = await plugin.fileOperations.isFileExcludedForCursorPositioning(file, initialContent);
+
+                        if (!isExcluded) {
+                            const activeView = app.workspace.getActiveViewOfType(MarkdownView);
+                            const inCanvas = !activeView;
+                            if (!inCanvas) {
+                                // Use minimal delay to ensure editor is ready
+                                requestAnimationFrame(() => {
+                                    setTimeout(() => {
+                                        // Use captured initial content to check if file has content
+                                        const hasContent = initialContent.trim() !== '';
+
+                                        // Determine if title insertion will be skipped
+                                        const willSkipTitleInsertion = !settings.insertTitleOnCreation || isUntitled || hasContent;
+
+                                        // Position cursor with placeCursorAtLineEnd if title will be skipped
+                                        plugin.fileOperations.handleCursorPositioning(file, willSkipTitleInsertion);
+                                    }, 200);
+                                });
+                            }
+                        } else {
+                            verboseLog(plugin, `Skipping cursor positioning - file is excluded: ${file.path}`);
+                        }
+                    } else {
+                        // waitForCursorTemplate is ON - wait for YAML (600ms timeout), then move cursor
+                        verboseLog(plugin, `Waiting for template before cursor positioning: ${file.path}`);
+
+                        // Wait for YAML or timeout (600ms for Editor mode)
+                        const templateWaitTime = 600;
+                        await plugin.fileOperations.waitForYamlOrTimeout(file, templateWaitTime);
+
+                        // Get current content after template
+                        const leaves = app.workspace.getLeavesOfType("markdown");
+                        let currentContent: string | undefined;
+                        for (const leaf of leaves) {
+                            const view = leaf.view as MarkdownView;
+                            if (view && view.file?.path === file.path && view.editor) {
+                                currentContent = view.editor.getValue();
+                                break;
+                            }
+                        }
+
+                        // Store template content for title insertion to avoid re-waiting
+                        (file as any)._flitTemplateContent = currentContent;
+
+                        // Check exclusions with current content (may have template tags/properties)
+                        const isExcluded = await plugin.fileOperations.isFileExcludedForCursorPositioning(file, currentContent);
+
+                        if (!isExcluded) {
+                            const activeView = app.workspace.getActiveViewOfType(MarkdownView);
+                            const inCanvas = !activeView;
+                            if (!inCanvas) {
+                                requestAnimationFrame(() => {
+                                    setTimeout(() => {
+                                        // Determine if we should use placeCursorAtLineEnd setting
+                                        const hasContent = currentContent && currentContent.trim() !== '';
+                                        const willSkipTitleInsertion = !settings.insertTitleOnCreation || isUntitled || hasContent;
+                                        plugin.fileOperations.handleCursorPositioning(file, willSkipTitleInsertion);
+                                    }, 200);
+                                });
+                            }
+                        } else {
+                            verboseLog(plugin, `Skipping cursor positioning after template - file is excluded: ${file.path}`);
+                        }
+                    }
+                }
+
+                const timer = setTimeout(async () => {
+                    verboseLog(plugin, `CREATE: Processing new file after delay: ${file.name}`);
+
+                    let titleWasInserted = false;
+
+                    try {
+                        // Step 2: Insert title if enabled
+                        // Pass template content if available (cursor positioning already waited for it)
+                        if (settings.insertTitleOnCreation) {
+                            const templateContent = (file as any)._flitTemplateContent;
+
+                            // Check exclusions when waitForTemplate is ON and we have template content
+                            // This ensures we don't insert title in excluded folders/tags/properties
+                            let skipTitleDueToExclusion = false;
+                            if (settings.waitForTemplate && templateContent) {
+                                const isExcluded = await plugin.fileOperations.isFileExcludedForCursorPositioning(file, templateContent);
+                                if (isExcluded) {
+                                    verboseLog(plugin, `Skipping title insertion - file is excluded: ${file.path}`);
+                                    skipTitleDueToExclusion = true;
+                                }
+                            }
+
+                            if (!skipTitleDueToExclusion) {
+                                titleWasInserted = await plugin.fileOperations.insertTitleOnCreation(file, initialContent, templateContent);
+                                verboseLog(plugin, `CREATE: insertTitleOnCreation returned ${titleWasInserted}`);
+                            }
+                        }
+
+                        // Step 3: Reposition cursor if title was inserted and placeCursorAtLineEnd is ON
+                        if (settings.renameNotes === "automatically" && settings.moveCursorToFirstLine) {
+                            // Reposition to end of title if title was inserted and placeCursorAtLineEnd is ON
+                            if (titleWasInserted && settings.placeCursorAtLineEnd) {
+                                // Get current content after title insertion
+                                const leaves = app.workspace.getLeavesOfType("markdown");
+                                let currentContent: string | undefined;
+                                for (const leaf of leaves) {
+                                    const view = leaf.view as MarkdownView;
+                                    if (view && view.file?.path === file.path && view.editor) {
+                                        currentContent = view.editor.getValue();
+                                        break;
+                                    }
+                                }
+
+                                // Check exclusion after title insertion
+                                const isExcluded = await plugin.fileOperations.isFileExcludedForCursorPositioning(file, currentContent);
+
+                                if (!isExcluded) {
+                                    const activeView = app.workspace.getActiveViewOfType(MarkdownView);
+                                    const inCanvas = !activeView;
+
+                                    if (!inCanvas) {
+                                        requestAnimationFrame(() => {
+                                            setTimeout(() => {
+                                                plugin.fileOperations.handleCursorPositioning(file);
+                                            }, 200);
+                                        });
+                                    }
+                                } else {
+                                    verboseLog(plugin, `Skipping post-title cursor repositioning - file is excluded: ${file.path}`);
+                                }
+                            }
+                        }
+
+                        // Step 4: Rename file if automatic mode and plugin fully loaded
+                        if (settings.renameNotes === "automatically" && plugin.isFullyLoaded) {
+                            // Get current editor content if file is open
+                            let editorContent: string | undefined;
+                            const leaves = app.workspace.getLeavesOfType("markdown");
+                            for (const leaf of leaves) {
+                                const view = leaf.view as any;
+                                if (view && view.file && view.file.path === file.path && view.editor) {
+                                    const value = view.editor.getValue();
+                                    if (typeof value === 'string') {
+                                        editorContent = value;
+                                    }
+                                    break;
+                                }
+                            }
+                            await plugin.renameEngine.processFile(file, true, false, editorContent);
+                        }
+
+                        verboseLog(plugin, `CREATE: Completed processing new file: ${file.name}`);
+                    } catch (error) {
+                        console.error(`CREATE: Failed to process new file ${file.path}:`, error);
+                    } finally {
+                        // Always clean up template content to prevent memory leak
+                        delete (file as any)._flitTemplateContent;
+                        plugin.editorLifecycle.clearCreationDelayTimer(file.path);
+                    }
+                }, settings.newNoteDelay);
+
+                plugin.editorLifecycle.setCreationDelayTimer(file.path, timer);
+                }; // End processFileCreation
+
+                // Wait for markdown view to be ready (handles both existing tabs and new first file)
+                const checkViewReady = async () => {
+                    const leaves = app.workspace.getLeavesOfType("markdown");
+                    for (const leaf of leaves) {
+                        const view = leaf.view as MarkdownView;
+                        if (view && view.file?.path === file.path) {
+                            verboseLog(plugin, `CREATE: Markdown view ready for ${file.name}`);
+                            return true;
+                        }
+                    }
+                    return false;
+                };
+
+                // Try immediate check first
+                const immediateCheck = await checkViewReady();
+                if (immediateCheck) {
+                    // View is ready immediately, process now
+                    verboseLog(plugin, `CREATE: File created ${file.name}, markdown view ready`);
+                    await processFileCreation();
+                } else {
+                    // View not ready, wait and retry
+                    setTimeout(async () => {
+                        const delayedCheck = await checkViewReady();
+                        if (delayedCheck) {
+                            // Process after view is ready
+                            await processFileCreation();
+                        } else {
+                            verboseLog(plugin, `CREATE: No markdown view found for ${file.name} after delay, skipping`);
+                        }
+                    }, 100);
+                }
             })
         );
     }
@@ -281,7 +436,7 @@ export class WorkspaceIntegration {
     cleanup(): void {
         // Clean up save event hook
         if (this.originalSaveCallback) {
-            const saveCommand = (this.app as any).commands?.commands?.['editor:save-file'];
+            const saveCommand = this.app.commands?.commands?.['editor:save-file'];
             if (saveCommand) {
                 saveCommand.checkCallback = this.originalSaveCallback;
             }

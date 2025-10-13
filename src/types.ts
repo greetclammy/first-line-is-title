@@ -21,14 +21,23 @@ export interface ExcludedProperty {
 
 export type OSPreset = 'macOS' | 'Windows' | 'Linux';
 export type NotificationMode = 'Always' | 'On title change' | 'Never';
-export type ScopeStrategy = 'Enable in all notes except below' | 'Disable in all notes except below';
-export type TagMatchingMode = 'Match tags anywhere in note' | 'Only match tags in Properties' | 'Only match tags in note body';
+export type ExclusionStrategy = 'Only exclude...' | 'Exclude all except...';
+export type TagPropertyExclusionStrategy = 'Only exclude...' | 'Exclude all except...';
+export type TagMatchingMode = 'In Properties and note body' | 'In Properties only' | 'In note body only';
 export type FileReadMethod = 'Editor' | 'Cache' | 'File';
 
 export type PropertyHidingOption = 'never' | 'always' | 'when_empty';
 
+export interface ExclusionOverrides {
+    ignoreFolder?: boolean;
+    ignoreTag?: boolean;
+    ignoreProperty?: boolean;
+}
+
 export interface PluginSettings {
-    scopeStrategy: ScopeStrategy;
+    folderScopeStrategy: ExclusionStrategy;
+    tagScopeStrategy: TagPropertyExclusionStrategy;
+    propertyScopeStrategy: TagPropertyExclusionStrategy;
     excludedFolders: string[];
     excludedTags: string[];
     excludedProperties: ExcludedProperty[];
@@ -106,19 +115,26 @@ export interface PluginSettings {
     stripTemplaterSyntax: boolean;
     enableStripMarkup: boolean;
     stripMarkupSettings: {
-        italic: boolean;
+        headings: boolean;
         bold: boolean;
+        italic: boolean;
         strikethrough: boolean;
         highlight: boolean;
-        code: boolean;
-        blockquote: boolean;
-        comments: boolean;
-        headings: boolean;
         wikilinks: boolean;
         markdownLinks: boolean;
+        quote: boolean;
+        callouts: boolean;
+        unorderedLists: boolean;
+        orderedLists: boolean;
+        taskLists: boolean;
+        code: boolean;
+        codeBlocks: boolean;
+        footnotes: boolean;
+        comments: boolean;
         htmlTags: boolean;
     };
     stripMarkupInAlias: boolean;
+    stripCommentsEntirely: boolean;
     applyCustomRulesInAlias: boolean;
     enableForbiddenCharReplacements: boolean;
     enableCustomReplacements: boolean;
@@ -128,7 +144,6 @@ export interface PluginSettings {
     renameOnFocus: boolean;
     renameOnSave: boolean;
     renameNotes: "automatically" | "manually";
-    renameInBackground: boolean;
     manualNotificationMode: NotificationMode;
     windowsAndroidEnabled: boolean;
     hasEnabledForbiddenChars: boolean;
@@ -143,8 +158,10 @@ export interface PluginSettings {
     fileReadMethod: FileReadMethod; // Method for reading file content
     verboseLogging: boolean; // Added verbose logging setting
     debugOutputFullContent: boolean; // Output full file content in console when files change
+    debugEnabledTimestamp: string; // Timestamp when Debug was last enabled (YYYY-MM-DD HH:mm format)
     hasShownFirstTimeNotice: boolean; // Track if first-time setup notice has been shown
     hasSetupExclusions: boolean; // Track if exclusions tab has been opened for first-time setup
+    hasSetPropertyType: boolean; // Track if property type has been set in types.json on first load
     lastUsageDate: string; // Last date the plugin was used (YYYY-MM-DD format)
     currentSettingsTab: string; // Track current settings tab
     commandVisibility: {
@@ -174,11 +191,13 @@ export interface PluginSettings {
         renameAllFiles: boolean;
         disableRenaming: boolean;
         enableRenaming: boolean;
+        toggleAutomaticRenaming: boolean;
     };
     enableRibbon: boolean;
     ribbonVisibility: {
         renameCurrentFile: boolean;
         renameAllNotes: boolean;
+        toggleAutomaticRenaming: boolean;
     };
     enableAliases: boolean;
     truncateAlias: boolean;
@@ -193,8 +212,37 @@ export interface PluginSettings {
     includeNestedTags: boolean;
     moveCursorToFirstLine: boolean;
     insertTitleOnCreation: boolean;
-    titleInsertionDelay: number;
     placeCursorAtLineEnd: boolean;
+    waitForCursorTemplate: boolean;
     suppressMergeNotifications: boolean;
-    fileCreationDelay: number;
+    newNoteDelay: number;
+    waitForTemplate: boolean;
+    addHeadingToTitle: boolean;
+    disableRenamingKey: string;
+    disableRenamingValue: string;
+    modalCheckboxStates: {
+        folderRename: {
+            includeSubfolders: boolean;
+            renameExcludedFolders: boolean;
+            renameExcludedTags: boolean;
+            renameExcludedProperties: boolean;
+        };
+        tagRename: {
+            includeChildTags: boolean;
+            renameExcludedFolders: boolean;
+            renameExcludedTags: boolean;
+            renameExcludedProperties: boolean;
+        };
+        searchRename: {
+            renameExcludedFolders: boolean;
+            renameExcludedTags: boolean;
+            renameExcludedProperties: boolean;
+        };
+        folderDisable: {
+            includeSubfolders: boolean;
+        };
+        tagDisable: {
+            includeChildTags: boolean;
+        };
+    };
 }

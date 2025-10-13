@@ -1,12 +1,12 @@
 import { PluginSettings, OSPreset, TagMatchingMode, FileReadMethod, ExcludedProperty } from './types';
 
 export const DEFAULT_SETTINGS: PluginSettings = {
-    scopeStrategy: 'Enable in all notes except below',
+    folderScopeStrategy: 'Only exclude...',
+    tagScopeStrategy: 'Only exclude...',
+    propertyScopeStrategy: 'Only exclude...',
     excludedFolders: [""],
     excludedTags: [""],
-    excludedProperties: [
-        { key: "no rename", value: "true" }
-    ],
+    excludedProperties: [],
     charCount: 100,
     checkInterval: 0,
     osPreset: 'macOS',
@@ -40,7 +40,7 @@ export const DEFAULT_SETTINGS: PluginSettings = {
         rightBracket: false,
         caret: false,
         backslash: false,
-        dot: false
+        dot: true
     },
     charReplacementTrimLeft: {
         slash: false,
@@ -86,19 +86,26 @@ export const DEFAULT_SETTINGS: PluginSettings = {
     stripTemplaterSyntax: true,
     enableStripMarkup: true,
     stripMarkupSettings: {
-        italic: true,
+        headings: true,
         bold: true,
+        italic: true,
         strikethrough: true,
         highlight: true,
-        code: true,
-        blockquote: true,
-        comments: true,
-        headings: true,
         wikilinks: true,
         markdownLinks: true,
+        quote: true,
+        callouts: true,
+        unorderedLists: true,
+        orderedLists: true,
+        taskLists: true,
+        code: true,
+        codeBlocks: true,
+        footnotes: true,
+        comments: true,
         htmlTags: true,
     },
     stripMarkupInAlias: false,
+    stripCommentsEntirely: true,
     applyCustomRulesInAlias: false,
     enableForbiddenCharReplacements: false,
     enableCustomReplacements: false,
@@ -106,25 +113,26 @@ export const DEFAULT_SETTINGS: PluginSettings = {
     applyCustomRulesAfterMarkupStripping: false,
     enableSafewords: false,
     renameOnFocus: false,
-    renameOnSave: true,
+    renameOnSave: false,
     renameNotes: "automatically",
-    renameInBackground: false,
-    manualNotificationMode: 'On title change',
+    manualNotificationMode: 'Always',
     windowsAndroidEnabled: false,
     hasEnabledForbiddenChars: false,
     hasEnabledWindowsAndroid: false,
     hasEnabledCustomReplacements: false,
     hasEnabledSafewords: false,
     hasEnabledAliases: false,
-    grabTitleFromCardLink: false,
+    grabTitleFromCardLink: true,
     excludeSubfolders: true,
-    tagMatchingMode: 'Match tags anywhere in note' as TagMatchingMode,
+    tagMatchingMode: 'In Properties and note body' as TagMatchingMode,
     excludeChildTags: true,
     fileReadMethod: 'Editor', // Default to editor method
     verboseLogging: false, // Added default for verbose logging
     debugOutputFullContent: false, // Default OFF for debug content output
+    debugEnabledTimestamp: '', // No debug enabled timestamp yet
     hasShownFirstTimeNotice: false, // First-time notice not shown yet
     hasSetupExclusions: false, // Exclusions tab not opened yet
+    hasSetPropertyType: false, // Property type not set yet
     lastUsageDate: '', // No usage date yet
     currentSettingsTab: 'general', // Default to general tab
     commandVisibility: {
@@ -153,12 +161,14 @@ export const DEFAULT_SETTINGS: PluginSettings = {
         renameCurrentFile: true,
         renameAllFiles: true,
         disableRenaming: true,
-        enableRenaming: true
+        enableRenaming: true,
+        toggleAutomaticRenaming: true
     },
     enableRibbon: true,
     ribbonVisibility: {
         renameCurrentFile: true,
-        renameAllNotes: false
+        renameAllNotes: false,
+        toggleAutomaticRenaming: false
     },
     enableAliases: false,
     truncateAlias: false,
@@ -173,10 +183,39 @@ export const DEFAULT_SETTINGS: PluginSettings = {
     includeNestedTags: true,
     moveCursorToFirstLine: true,
     insertTitleOnCreation: false,
-    titleInsertionDelay: 1500,
     placeCursorAtLineEnd: true,
+    waitForCursorTemplate: false,
     suppressMergeNotifications: false,
-    fileCreationDelay: 2000
+    newNoteDelay: 0,
+    waitForTemplate: false,
+    addHeadingToTitle: false,
+    disableRenamingKey: "no rename",
+    disableRenamingValue: "true",
+    modalCheckboxStates: {
+        folderRename: {
+            includeSubfolders: true,
+            renameExcludedFolders: false,
+            renameExcludedTags: false,
+            renameExcludedProperties: false
+        },
+        tagRename: {
+            includeChildTags: true,
+            renameExcludedFolders: false,
+            renameExcludedTags: false,
+            renameExcludedProperties: false
+        },
+        searchRename: {
+            renameExcludedFolders: false,
+            renameExcludedTags: false,
+            renameExcludedProperties: false
+        },
+        folderDisable: {
+            includeSubfolders: true
+        },
+        tagDisable: {
+            includeChildTags: true
+        }
+    }
 };
 
 // OS-specific forbidden characters

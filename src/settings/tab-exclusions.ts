@@ -1,49 +1,43 @@
-import { Setting, Notice } from "obsidian";
+import { Setting, Notice, setIcon } from "obsidian";
 import { SettingsTabBase, FirstLineIsTitlePlugin } from './settings-base';
-import { ScopeStrategy, TagMatchingMode, ExcludedProperty } from '../types';
+import { ExclusionStrategy, TagPropertyExclusionStrategy, TagMatchingMode, ExcludedProperty } from '../types';
 import { FolderSuggest, TagSuggest } from '../suggests';
+import { DEFAULT_SETTINGS } from '../constants';
 
 export class IncludeExcludeTab extends SettingsTabBase {
     constructor(plugin: FirstLineIsTitlePlugin, containerEl: HTMLElement) {
         super(plugin, containerEl);
     }
 
-    render(): void {
-        // First-time setup: Check for Excalidraw and add exclusion rule
-        this.checkFirstTimeExclusionsSetup();
+    async render(): Promise<void> {
+        // Tab description
+        const tabDesc = this.containerEl.createEl("div", { cls: "setting-item-description" });
+        tabDesc.createEl("strong", { text: "Set how notes should be excluded from processing." });
+        tabDesc.style.marginBottom = "15px";
 
-        // Strategy selection
-        new Setting(this.containerEl)
-            .setName("Exclusion mode")
-            .setDesc("Configure how folders and tags should be excluded from renaming.")
-            .addDropdown((dropdown) =>
-                dropdown
-                    .addOption('Enable in all notes except below', 'Enable in all notes except below')
-                    .addOption('Disable in all notes except below', 'Disable in all notes except below')
-                    .setValue(this.plugin.settings.scopeStrategy)
-                    .onChange(async (value: ScopeStrategy) => {
-                        this.plugin.settings.scopeStrategy = value;
-                        this.plugin.debugLog('scopeStrategy', value);
-                        await this.plugin.saveSettings();
-                    })
-            );
+        // Important note about rules
+        const importantNote = this.containerEl.createEl("p", { cls: "setting-item-description" });
+        importantNote.appendText("Note: rules don't override other rules. For example, a note in excluded folder but with included tag will not be processed.");
+        importantNote.style.marginBottom = "15px";
+
+        // First-time setup: Check for Excalidraw and add exclusion rule
+        await this.checkFirstTimeExclusionsSetup();
 
         // Folders subsection
         const foldersHeaderSetting = new Setting(this.containerEl)
             .setName("Folders")
-            .setDesc("Configure folders to match.");
+            .setDesc("Set folders to match.");
         foldersHeaderSetting.settingEl.addClass('flit-master-toggle');
-        this.containerEl.createEl("br");
 
-        // Add note above toggles
+        // Add note above folder exclusion mode
         const folderNote = this.containerEl.createEl("p", { cls: "setting-item-description" });
-        folderNote.style.marginTop = "0px";
+        folderNote.style.marginTop = "15px";
         folderNote.style.marginBottom = "15px";
-        folderNote.innerHTML = "Note: renamed, moved or deleted folders are not reflected below. Update manually if paths change.";
+        folderNote.textContent = "Renamed, moved or deleted folders are not reflected below. Update manually if paths change.";
 
         // Exclude subfolders setting
         const subfolderSetting = new Setting(this.containerEl)
-            .setName("Apply to subfolders")
+            .setName("Match subfolders")
             .setDesc("Also apply to all subfolders of folders listed below.")
             .addToggle((toggle) =>
                 toggle
@@ -54,13 +48,24 @@ export class IncludeExcludeTab extends SettingsTabBase {
                         await this.plugin.saveSettings();
                     })
             );
-
-        // Remove any top border from the subfolder setting
         subfolderSetting.settingEl.style.borderTop = "none";
-        subfolderSetting.settingEl.style.paddingTop = "0";
 
-        // Add divider line right after subfolder option
-        this.containerEl.createEl("hr", { cls: "flit-divider" });
+        // Folder exclusion mode
+        const folderModeSetting = new Setting(this.containerEl)
+            .setName("Exclusion mode")
+            .setDesc("Set how folders should be excluded.")
+            .addDropdown((dropdown) =>
+                dropdown
+                    .addOption('Only exclude...', 'Only exclude...')
+                    .addOption('Exclude all except...', 'Exclude all except...')
+                    .setValue(this.plugin.settings.folderScopeStrategy)
+                    .onChange(async (value: ExclusionStrategy) => {
+                        this.plugin.settings.folderScopeStrategy = value;
+                        this.plugin.debugLog('folderScopeStrategy', value);
+                        await this.plugin.saveSettings();
+                    })
+            );
+
 
         // Create a container for folder settings that will stay in place
         const folderContainer = this.containerEl.createDiv();
@@ -193,27 +198,39 @@ export class IncludeExcludeTab extends SettingsTabBase {
         // Tags subsection
         const tagsHeaderSetting = new Setting(this.containerEl)
             .setName("Tags")
-            .setDesc("Configure tags to match.");
+            .setDesc("Set tags to match.");
         tagsHeaderSetting.settingEl.addClass('flit-master-toggle');
-        this.containerEl.createEl("br");
 
-        // Add note above toggles if Tag Wrangler is enabled
-        if (this.plugin.isTagWranglerEnabled()) {
-            const tagNote = this.containerEl.createEl("p", { cls: "setting-item-description" });
-            tagNote.style.marginTop = "0px";
-            tagNote.style.marginBottom = "15px";
-            tagNote.innerHTML = "Note: renamed tags are not reflected below. Update manually after renaming.";
-        }
+        // Add bullet list notes for Tags
+        const tagNotes = this.containerEl.createEl("div", { cls: "setting-item-description" });
+        tagNotes.style.marginTop = "15px";
+        tagNotes.style.marginBottom = "15px";
+
+        const tagUl = tagNotes.createEl('ul');
+        tagUl.style.margin = '0';
+        tagUl.style.paddingLeft = '20px';
+
+        const tagLi1 = tagUl.createEl('li');
+        tagLi1.createEl('em', { text: 'Exclude all except...' });
+        tagLi1.appendText(' also excludes notes with no tags.');
+
+        const tagLi2 = tagUl.createEl('li');
+        tagLi2.appendText('Tags renamed with ');
+        tagLi2.createEl("a", {
+            text: "Tag Wrangler",
+            href: "obsidian://show-plugin?id=tag-wrangler"
+        });
+        tagLi2.appendText(' are not reflected below. Update manually after renaming.');
 
         // Tag matching mode setting under Tags heading
         const tagMatchingSetting = new Setting(this.containerEl)
-            .setName("Tag matching scope")
-            .setDesc("Configure where to look for tags when checking exclusions.")
+            .setName("Match tags")
+            .setDesc("Set where tags should be matched.")
             .addDropdown((dropdown) =>
                 dropdown
-                    .addOption('Match tags anywhere in note', 'Match tags anywhere in note')
-                    .addOption('Only match tags in Properties', 'Only match tags in Properties')
-                    .addOption('Only match tags in note body', 'Only match tags in note body')
+                    .addOption('In Properties and note body', 'In Properties and note body')
+                    .addOption('In Properties only', 'In Properties only')
+                    .addOption('In note body only', 'In note body only')
                     .setValue(this.plugin.settings.tagMatchingMode)
                     .onChange(async (value: TagMatchingMode) => {
                         this.plugin.settings.tagMatchingMode = value;
@@ -221,15 +238,12 @@ export class IncludeExcludeTab extends SettingsTabBase {
                         await this.plugin.saveSettings();
                     })
             );
-
-        // Remove any top border from the tag matching setting
         tagMatchingSetting.settingEl.style.borderTop = "none";
-        tagMatchingSetting.settingEl.style.paddingTop = "0";
 
         // Exclude child tags setting
         const childTagsSetting = new Setting(this.containerEl)
-            .setName("Apply to child tags")
-            .setDesc("For example, also apply to #parent/child if #parent is listed below.")
+            .setName("Match child tags")
+            .setDesc("For example, also match #parent/child if #parent is listed below.")
             .addToggle((toggle) =>
                 toggle
                     .setValue(this.plugin.settings.excludeChildTags)
@@ -240,12 +254,22 @@ export class IncludeExcludeTab extends SettingsTabBase {
                     })
             );
 
-        // Remove any top border from the child tags setting
-        childTagsSetting.settingEl.style.borderTop = "none";
-        childTagsSetting.settingEl.style.paddingTop = "0";
+        // Tag exclusion mode
+        const tagModeSetting = new Setting(this.containerEl)
+            .setName("Exclusion mode")
+            .setDesc("Set how tags should be excluded.")
+            .addDropdown((dropdown) =>
+                dropdown
+                    .addOption('Only exclude...', 'Only exclude...')
+                    .addOption('Exclude all except...', 'Exclude all except...')
+                    .setValue(this.plugin.settings.tagScopeStrategy)
+                    .onChange(async (value: TagPropertyExclusionStrategy) => {
+                        this.plugin.settings.tagScopeStrategy = value;
+                        this.plugin.debugLog('tagScopeStrategy', value);
+                        await this.plugin.saveSettings();
+                    })
+            );
 
-        // Add divider line right after nested tags option
-        this.containerEl.createEl("hr", { cls: "flit-divider" });
 
         // Create a container for tag settings that will stay in place
         const tagContainer = this.containerEl.createDiv();
@@ -378,35 +402,48 @@ export class IncludeExcludeTab extends SettingsTabBase {
         // Properties subsection
         const propertiesHeaderSetting = new Setting(this.containerEl)
             .setName("Properties")
-            .setDesc("Configure properties to match.");
+            .setDesc("Set properties to match.");
         propertiesHeaderSetting.settingEl.addClass('flit-master-toggle');
-        this.containerEl.createEl("br");
 
-        // Add divider line
-        this.containerEl.createEl("hr", { cls: "flit-divider" });
-
-        // Add bullet list notes below divider
+        // Add bullet list notes
         const propertyNotes = this.containerEl.createEl("div", { cls: "setting-item-description" });
-        propertyNotes.style.marginTop = "0px";
+        propertyNotes.style.marginTop = "15px";
         propertyNotes.style.marginBottom = "15px";
 
         const ul = propertyNotes.createEl('ul');
         ul.style.margin = '0';
         ul.style.paddingLeft = '20px';
 
-        ul.createEl('li', { text: 'Case-insensitive.' });
-
         const li2 = ul.createEl('li');
         li2.appendText('Leave ');
-        li2.createEl('em', { text: 'Value' });
-        li2.appendText(' blank to match all notes with this property.');
+        li2.createEl('em', { text: 'value' });
+        li2.appendText(' blank to match all notes with this property key.');
+
+        ul.createEl('li', { text: 'Case-insensitive.' });
 
         const li3 = ul.createEl('li');
-        li3.appendText('The ');
-        li3.createEl('code', { text: 'no rename:true' });
-        li3.appendText(' rule is always respected and can\'t get overridden by any command or batch operation.');
+        li3.createEl('em', { text: 'Exclude all except...' });
+        li3.appendText(' also excludes notes with no properties.');
 
-        ul.createEl('li', { text: 'Renamed properties aren\'t reflected below. Update manually after renaming.' });
+        ul.createEl('li', { text: 'Renamed property keys aren\'t reflected below. Update manually after renaming.' });
+
+        // Property exclusion mode
+        const propertyModeSetting = new Setting(this.containerEl)
+            .setName("Exclusion mode")
+            .setDesc("Set how properties should be excluded.")
+            .addDropdown((dropdown) =>
+                dropdown
+                    .addOption('Only exclude...', 'Only exclude...')
+                    .addOption('Exclude all except...', 'Exclude all except...')
+                    .setValue(this.plugin.settings.propertyScopeStrategy)
+                    .onChange(async (value: TagPropertyExclusionStrategy) => {
+                        this.plugin.settings.propertyScopeStrategy = value;
+                        this.plugin.debugLog('propertyScopeStrategy', value);
+                        await this.plugin.saveSettings();
+                    })
+            );
+        propertyModeSetting.settingEl.style.borderTop = "none";
+
 
         // Create a container for property settings that will stay in place
         const propertyContainer = this.containerEl.createDiv();
@@ -414,6 +451,11 @@ export class IncludeExcludeTab extends SettingsTabBase {
         const renderExcludedProperties = () => {
             // Clear only the property container
             propertyContainer.empty();
+
+            // Ensure there's always at least one entry
+            if (this.plugin.settings.excludedProperties.length === 0) {
+                this.plugin.settings.excludedProperties.push({ key: "", value: "" });
+            }
 
             // Variable to store the add button reference for state updates
             let addPropertyButton: any;
@@ -425,15 +467,12 @@ export class IncludeExcludeTab extends SettingsTabBase {
                 let valueInput: any;
                 let removeButton: any;
 
-                // Check if this is the first (reserved) rule
-                const isReservedRule = index === 0;
-
                 const updateButtonState = () => {
                     const isLastEmptyEntry = this.plugin.settings.excludedProperties.length === 1 &&
                                               this.plugin.settings.excludedProperties[0].key.trim() === "" &&
                                               this.plugin.settings.excludedProperties[0].value.trim() === "";
 
-                    if (isLastEmptyEntry || isReservedRule) {
+                    if (isLastEmptyEntry) {
                         // Don't set any tooltip, disable button
                         removeButton.setDisabled(true);
                         removeButton.extraSettingsEl.style.opacity = "0.5";
@@ -453,58 +492,34 @@ export class IncludeExcludeTab extends SettingsTabBase {
                 propertyInputContainer.style.display = "flex";
                 propertyInputContainer.style.gap = "10px";
                 propertyInputContainer.style.alignItems = "center";
-                propertyInputContainer.style.width = "100%";
 
                 // Key input
                 keyInput = propertyInputContainer.createEl("input", { type: "text", cls: "flit-property-key-input" });
-                keyInput.placeholder = "Key";
-                keyInput.style.width = "120px";
+                keyInput.placeholder = "key";
                 keyInput.value = property.key;
 
-                // Make reserved rules non-interactive
-                if (isReservedRule) {
-                    keyInput.readOnly = true;
-                    keyInput.style.cursor = "default";
-                    keyInput.style.pointerEvents = "none";
-                    keyInput.style.userSelect = "none";
-                    keyInput.tabIndex = -1;
-                }
-
                 // Colon separator
-                const colonSpan = propertyInputContainer.createEl("span", { text: ":" });
-                colonSpan.style.color = "var(--text-muted)";
+                const colonSpan = propertyInputContainer.createEl("span", { text: ":", cls: "flit-colon-separator" });
 
                 // Value input
                 valueInput = propertyInputContainer.createEl("input", { type: "text", cls: "flit-property-value-input" });
-                valueInput.placeholder = "Value";
-                valueInput.style.width = "120px";
+                valueInput.placeholder = "value";
                 valueInput.value = property.value;
 
-                // Make reserved rules non-interactive
-                if (isReservedRule) {
-                    valueInput.readOnly = true;
-                    valueInput.style.cursor = "default";
-                    valueInput.style.pointerEvents = "none";
-                    valueInput.style.userSelect = "none";
-                    valueInput.tabIndex = -1;
-                }
+                // Event listeners for inputs
+                keyInput.addEventListener('input', async (e: any) => {
+                    this.plugin.settings.excludedProperties[index].key = e.target.value;
+                    this.plugin.debugLog('excludedProperties', this.plugin.settings.excludedProperties);
+                    await this.plugin.saveSettings();
+                    updateButtonState();
+                });
 
-                // Event listeners for inputs (only if not reserved)
-                if (!isReservedRule) {
-                    keyInput.addEventListener('input', async (e: any) => {
-                        this.plugin.settings.excludedProperties[index].key = e.target.value;
-                        this.plugin.debugLog('excludedProperties', this.plugin.settings.excludedProperties);
-                        await this.plugin.saveSettings();
-                        updateButtonState();
-                    });
-
-                    valueInput.addEventListener('input', async (e: any) => {
-                        this.plugin.settings.excludedProperties[index].value = e.target.value;
-                        this.plugin.debugLog('excludedProperties', this.plugin.settings.excludedProperties);
-                        await this.plugin.saveSettings();
-                        updateButtonState();
-                    });
-                }
+                valueInput.addEventListener('input', async (e: any) => {
+                    this.plugin.settings.excludedProperties[index].value = e.target.value;
+                    this.plugin.debugLog('excludedProperties', this.plugin.settings.excludedProperties);
+                    await this.plugin.saveSettings();
+                    updateButtonState();
+                });
 
                 // Add remove button
                 propertySetting.addExtraButton(button => {
@@ -512,22 +527,15 @@ export class IncludeExcludeTab extends SettingsTabBase {
                     button.setIcon("x");
 
                     button.onClick(async () => {
-                        // Only execute if not disabled and not a reserved rule
-                        const isLastEmptyEntry = this.plugin.settings.excludedProperties.length === 1 &&
-                                                  this.plugin.settings.excludedProperties[0].key.trim() === "" &&
-                                                  this.plugin.settings.excludedProperties[0].value.trim() === "";
-
-                        if (!isLastEmptyEntry && !isReservedRule) {
+                        // If this is the only entry, clear it instead of deleting
+                        if (this.plugin.settings.excludedProperties.length === 1) {
+                            this.plugin.settings.excludedProperties[0] = { key: "", value: "" };
+                        } else {
                             this.plugin.settings.excludedProperties.splice(index, 1);
-
-                            // If this was the last entry, add a new empty one
-                            if (this.plugin.settings.excludedProperties.length === 0) {
-                                this.plugin.settings.excludedProperties.push({ key: "", value: "" });
-                            }
-
-                            await this.plugin.saveSettings();
-                            renderExcludedProperties();
                         }
+
+                        await this.plugin.saveSettings();
+                        renderExcludedProperties();
                     });
 
                     // Initial button state
@@ -574,6 +582,105 @@ export class IncludeExcludeTab extends SettingsTabBase {
         };
 
         renderExcludedProperties();
+
+        // Property to disable renaming section
+        const propertyDisableSetting = new Setting(this.containerEl)
+            .setName("Property to disable renaming")
+            .setDesc("");
+
+        propertyDisableSetting.settingEl.addClass('flit-master-toggle');
+
+        // Create main description paragraph
+        const propertyDesc = propertyDisableSetting.descEl;
+        propertyDesc.appendText("Set the property to exclude notes from processing.");
+
+        // Add notes above the inputs (like Properties section has its notes above)
+        const propertyDisableNotes = this.containerEl.createEl("div", { cls: "setting-item-description" });
+        propertyDisableNotes.style.marginTop = "15px";
+        propertyDisableNotes.style.marginBottom = "15px";
+
+        const disableUl = propertyDisableNotes.createEl('ul');
+        disableUl.style.margin = '0';
+        disableUl.style.paddingLeft = '20px';
+
+        disableUl.createEl('li', { text: 'Always respected — cannot get overridden by any command.' });
+        disableUl.createEl('li', { text: 'Case-insensitive.' });
+
+        const disableLi3 = disableUl.createEl('li');
+        disableLi3.appendText('Changing this will not automatically update properties that have been previously added. Update manually after change.');
+
+        // Create a Setting container for the inputs (like Properties section)
+        const propertyInputSetting = new Setting(this.containerEl);
+        propertyInputSetting.settingEl.addClass('flit-excluded-folder-setting');
+        propertyInputSetting.settingEl.style.borderTop = "none";
+
+        // Create a wrapper container for button and inputs
+        const propertyControlWrapper = propertyInputSetting.controlEl.createDiv({
+            cls: "flit-property-control-wrapper"
+        });
+        propertyControlWrapper.style.display = "flex";
+        propertyControlWrapper.style.alignItems = "center";
+        propertyControlWrapper.style.gap = "8px";
+        propertyControlWrapper.style.width = "100%";
+
+        // Create reset button container (matches tab-alias.ts structure)
+        const propertyRestoreButtonContainer = propertyControlWrapper.createDiv({
+            cls: "flit-restore-button-container"
+        });
+
+        // Create reset button inside container
+        const propertyRestoreButton = propertyRestoreButtonContainer.createEl("button", {
+            cls: "clickable-icon flit-restore-icon",
+            attr: { "aria-label": "Restore default" }
+        });
+        setIcon(propertyRestoreButton, "rotate-ccw");
+
+        // Create input container next to button container
+        const propertyInputContainer = propertyControlWrapper.createDiv({ cls: "flit-property-container" });
+        propertyInputContainer.style.display = "flex";
+        propertyInputContainer.style.gap = "10px";
+        propertyInputContainer.style.alignItems = "center";
+
+        // Key input (similar to Properties)
+        const keyInput = propertyInputContainer.createEl("input", { type: "text", cls: "flit-property-key-input" });
+        keyInput.placeholder = "key";
+        keyInput.value = this.plugin.settings.disableRenamingKey;
+
+        // Colon separator
+        const colonSpan = propertyInputContainer.createEl("span", { text: ":", cls: "flit-colon-separator" });
+
+        // Value input
+        const valueInput = propertyInputContainer.createEl("input", { type: "text", cls: "flit-property-value-input" });
+        valueInput.placeholder = "value";
+        valueInput.value = this.plugin.settings.disableRenamingValue;
+
+        // Add event listeners
+        keyInput.addEventListener('input', async (e) => {
+            this.plugin.settings.disableRenamingKey = (e.target as HTMLInputElement).value;
+            await this.plugin.saveSettings();
+        });
+
+        valueInput.addEventListener('input', async (e) => {
+            this.plugin.settings.disableRenamingValue = (e.target as HTMLInputElement).value;
+            await this.plugin.saveSettings();
+        });
+
+        propertyRestoreButton.addEventListener('click', async () => {
+            this.plugin.settings.disableRenamingKey = DEFAULT_SETTINGS.disableRenamingKey;
+            this.plugin.settings.disableRenamingValue = DEFAULT_SETTINGS.disableRenamingValue;
+            keyInput.value = this.plugin.settings.disableRenamingKey;
+            valueInput.value = this.plugin.settings.disableRenamingValue;
+            await this.plugin.saveSettings();
+        });
+
+        // Add default text below the inputs
+        const defaultTextContainer = this.containerEl.createEl("div", { cls: "setting-item-description" });
+        defaultTextContainer.createEl("small").createEl("strong", { text: "Default: no rename:true" });
+        defaultTextContainer.style.marginTop = "5px";
+        defaultTextContainer.style.marginBottom = "20px";
+
+        // Add bottom margin to this setting
+        propertyDisableSetting.settingEl.style.marginBottom = "20px";
     }
 
     private async checkFirstTimeExclusionsSetup(): Promise<void> {
@@ -591,24 +698,119 @@ export class IncludeExcludeTab extends SettingsTabBase {
             );
 
             if (!hasExcalidrawProperty) {
-                // Add Excalidraw exclusion as the second rule
-                // Keep the first default rule (no rename:true)
-                if (this.plugin.settings.excludedProperties.length < 2) {
-                    // If we don't have 2 rules yet, add it
-                    this.plugin.settings.excludedProperties.push({
-                        key: 'excalidraw-plugin',
-                        value: 'parsed'
-                    });
-                } else {
-                    // Insert at index 1 (second position)
-                    this.plugin.settings.excludedProperties.splice(1, 0, {
-                        key: 'excalidraw-plugin',
-                        value: 'parsed'
-                    });
-                }
+                // Add Excalidraw exclusion
+                this.plugin.settings.excludedProperties.push({
+                    key: 'excalidraw-plugin',
+                    value: 'parsed'
+                });
                 await this.plugin.saveSettings();
             }
         }
+
+        // Check for Templates and Templater folders
+        console.debug('Checking for template plugin folders to auto-exclude');
+        const adapter = this.plugin.app.vault.adapter;
+        const configDir = this.plugin.app.vault.configDir;
+        console.debug('Vault config directory is:', configDir);
+        let templatesFolder: string | null = null;
+        let templaterFolder: string | null = null;
+
+        // Check core Templates plugin - only if enabled
+        try {
+            const corePluginsPath = `${configDir}/core-plugins.json`;
+            console.debug('Reading core plugins configuration from:', corePluginsPath);
+            const corePluginsData = await adapter.read(corePluginsPath);
+            const corePlugins = JSON.parse(corePluginsData);
+            console.debug('Core Templates plugin enabled status:', corePlugins.templates);
+
+            if (corePlugins.templates === true) {
+                console.debug('Core Templates plugin is enabled, checking for templates folder');
+                const templatesDataPath = `${configDir}/templates.json`;
+                console.debug('Reading templates configuration from:', templatesDataPath);
+                const templatesData = await adapter.read(templatesDataPath);
+                const templatesConfig = JSON.parse(templatesData);
+                templatesFolder = templatesConfig.folder;
+                console.debug('Core Templates folder configured as:', templatesFolder);
+            } else {
+                console.debug('Core Templates plugin is disabled, skipping');
+            }
+        } catch (error) {
+            console.debug('Could not read core Templates plugin configuration:', error);
+        }
+
+        // Check Templater plugin
+        console.debug('Checking for Templater community plugin');
+        const templaterPlugin = this.plugin.app.plugins.getPlugin('templater-obsidian');
+        console.debug('Templater plugin found:', !!templaterPlugin, '| loaded:', templaterPlugin?._loaded);
+        if (templaterPlugin && templaterPlugin._loaded) {
+            try {
+                const templaterDataPath = `${configDir}/plugins/templater-obsidian/data.json`;
+                console.debug('Reading Templater configuration from:', templaterDataPath);
+                const templaterData = await adapter.read(templaterDataPath);
+                const templaterConfig = JSON.parse(templaterData);
+                templaterFolder = templaterConfig.templates_folder;
+                console.debug('Templater folder configured as:', templaterFolder);
+            } catch (error) {
+                console.debug('Could not read Templater plugin configuration:', error);
+            }
+        } else {
+            console.debug('Templater plugin not loaded, skipping');
+        }
+
+        // Collect folders to add
+        const foldersToAdd: string[] = [];
+
+        if (templatesFolder && templatesFolder.trim() !== "") {
+            foldersToAdd.push(templatesFolder);
+            console.debug('Queued core Templates folder for exclusion:', templatesFolder);
+        } else {
+            console.debug('No valid core Templates folder to add');
+        }
+
+        // Only add templater folder if it differs from templates folder
+        if (templaterFolder && templaterFolder.trim() !== "") {
+            if (templaterFolder !== templatesFolder) {
+                foldersToAdd.push(templaterFolder);
+                console.debug('Queued Templater folder for exclusion:', templaterFolder);
+            } else {
+                console.debug('Templater folder matches core Templates folder (' + templaterFolder + '), will not add duplicate');
+            }
+        } else {
+            console.debug('No valid Templater folder to add');
+        }
+
+        console.debug('Total folders to add to exclusions:', foldersToAdd);
+        console.debug('Current excluded folders before processing:', this.plugin.settings.excludedFolders);
+
+        // Add folders if they don't already exist
+        for (const folder of foldersToAdd) {
+            const hasFolderExcluded = this.plugin.settings.excludedFolders.some(
+                existingFolder => existingFolder === folder
+            );
+
+            if (!hasFolderExcluded) {
+                // Remove empty string if it's the only entry
+                if (this.plugin.settings.excludedFolders.length === 1 &&
+                    this.plugin.settings.excludedFolders[0].trim() === "") {
+                    this.plugin.settings.excludedFolders = [];
+                    console.debug('Removed default empty string entry from excluded folders');
+                }
+
+                this.plugin.settings.excludedFolders.push(folder);
+                console.debug('Successfully added folder to exclusions:', folder);
+            } else {
+                console.debug('Folder already in exclusions list, skipping:', folder);
+            }
+        }
+
+        // Save if any folders were added
+        if (foldersToAdd.length > 0) {
+            await this.plugin.saveSettings();
+            console.debug('Saved settings after adding template folders to exclusions');
+        } else {
+            console.debug('No folders were added, skipping settings save');
+        }
+        console.debug('Final excluded folders after processing:', this.plugin.settings.excludedFolders);
 
         // Mark as setup complete
         this.plugin.settings.hasSetupExclusions = true;

@@ -3,8 +3,9 @@ import { SettingsTabBase, FirstLineIsTitlePlugin } from './settings-base';
 import { NotificationMode, FileReadMethod } from '../types';
 import { DEFAULT_SETTINGS } from '../constants';
 import { ClearSettingsModal } from '../modals';
+import { verboseLog } from '../utils';
 
-export class AdvancedTab extends SettingsTabBase {
+export class MiscellaneousTab extends SettingsTabBase {
     private conditionalSettings: Setting[] = [];
 
     constructor(plugin: FirstLineIsTitlePlugin, containerEl: HTMLElement) {
@@ -14,8 +15,160 @@ export class AdvancedTab extends SettingsTabBase {
     }
 
     render(): void {
+        // Character count
+        const charCountSetting = new Setting(this.containerEl)
+            .setName("Character count")
+            .setDesc("");
 
-        // Content read method setting (top-most setting)
+        // Create styled description for character count
+        const charCountDesc = charCountSetting.descEl;
+        charCountDesc.appendText("The maximum number of characters to put in filename.");
+        charCountDesc.createEl("br");
+        charCountDesc.createEl("small").createEl("strong", { text: "Default: 100" });
+
+        // Create container for slider with reset button
+        const charCountContainer = charCountSetting.controlEl.createDiv({ cls: "flit-char-text-input-container" });
+
+        const charCountRestoreButton = charCountContainer.createEl("button", {
+            cls: "clickable-icon flit-restore-icon",
+            attr: { "aria-label": "Restore default" }
+        });
+        setIcon(charCountRestoreButton, "rotate-ccw");
+
+        // Create slider element manually and append to container
+        const sliderDiv = charCountContainer.createDiv();
+
+        charCountSetting.addSlider((slider) => {
+            slider
+                .setLimits(1, 255, 1)
+                .setValue(this.plugin.settings.charCount)
+                .setDynamicTooltip()
+                .onChange(async (value) => {
+                    this.plugin.settings.charCount = value;
+                    this.plugin.debugLog('charCount', value);
+                    await this.plugin.saveSettings();
+                });
+
+            // Move slider to our custom container
+            sliderDiv.appendChild(slider.sliderEl);
+        });
+
+        charCountRestoreButton.addEventListener('click', async () => {
+            this.plugin.settings.charCount = DEFAULT_SETTINGS.charCount;
+            this.plugin.debugLog('charCount', this.plugin.settings.charCount);
+            await this.plugin.saveSettings();
+
+            // Update the slider value by triggering a re-render or finding the slider element
+            const sliderInput = sliderDiv.querySelector('input[type="range"]') as HTMLInputElement;
+            if (sliderInput) {
+                sliderInput.value = String(DEFAULT_SETTINGS.charCount);
+                sliderInput.dispatchEvent(new Event('input', { bubbles: true }));
+            }
+        });
+
+
+        // Show notification setting (moved from General)
+        const notificationSetting = new Setting(this.containerEl)
+            .setName("Show notification when renaming manually")
+            .setDesc("");
+
+        // Create styled description
+        const notificationDesc = notificationSetting.descEl;
+        notificationDesc.appendText("Set when to show notifications for the ");
+        notificationDesc.createEl("em", { text: "Put first line in title" });
+        notificationDesc.appendText(" commands.");
+
+        notificationSetting.addDropdown((dropdown) =>
+            dropdown
+                .addOption('Always', 'Always')
+                .addOption('On title change', 'On title change')
+                .addOption('Never', 'Never')
+                .setValue(this.plugin.settings.manualNotificationMode)
+                .onChange(async (value: NotificationMode) => {
+                    this.plugin.settings.manualNotificationMode = value;
+                    this.plugin.debugLog('manualNotificationMode', value);
+                    await this.plugin.saveSettings();
+                })
+        );
+
+        // Grab title from card link setting
+        const cardLinkSetting = new Setting(this.containerEl)
+            .setName("Grab title from card link");
+
+        const cardLinkDesc = cardLinkSetting.descEl;
+        cardLinkDesc.appendText("If a note starts with a card link created with ");
+        cardLinkDesc.createEl("a", {
+            text: "Auto Card Link",
+            href: "obsidian://show-plugin?id=auto-card-link"
+        });
+        cardLinkDesc.appendText(" or ");
+        cardLinkDesc.createEl("a", {
+            text: "Link Embed",
+            href: "obsidian://show-plugin?id=obsidian-link-embed"
+        });
+        cardLinkDesc.appendText(", the card link title will be put in title.");
+
+        cardLinkSetting.addToggle((toggle) =>
+            toggle
+                .setValue(this.plugin.settings.grabTitleFromCardLink)
+                .onChange(async (value) => {
+                    this.plugin.settings.grabTitleFromCardLink = value;
+                    this.plugin.debugLog('grabTitleFromCardLink', value);
+                    await this.plugin.saveSettings();
+                })
+        );
+
+        // New note delay
+        const newNoteDelaySetting = new Setting(this.containerEl)
+            .setName("New note delay")
+            .setDesc("");
+
+        const newNoteDelayDesc = newNoteDelaySetting.descEl;
+        newNoteDelayDesc.appendText("Delay operations on new notes by this amount in milliseconds. May resolve issues on note creation.");
+        newNoteDelayDesc.createEl("br");
+        newNoteDelayDesc.createEl("small").createEl("strong", { text: "Default: 0" });
+
+        // Create container for slider with reset button
+        const newNoteDelayContainer = newNoteDelaySetting.controlEl.createDiv({ cls: "flit-char-text-input-container" });
+
+        const newNoteDelayRestoreButton = newNoteDelayContainer.createEl("button", {
+            cls: "clickable-icon flit-restore-icon",
+            attr: { "aria-label": "Restore default" }
+        });
+        setIcon(newNoteDelayRestoreButton, "rotate-ccw");
+
+        // Create slider element manually and append to container
+        const newNoteDelaySliderDiv = newNoteDelayContainer.createDiv();
+
+        newNoteDelaySetting.addSlider((slider) => {
+            slider
+                .setLimits(0, 5000, 50)
+                .setValue(this.plugin.settings.newNoteDelay)
+                .setDynamicTooltip()
+                .onChange(async (value) => {
+                    this.plugin.settings.newNoteDelay = value;
+                    this.plugin.debugLog('newNoteDelay', value);
+                    await this.plugin.saveSettings();
+                });
+
+            // Move slider to our custom container
+            newNoteDelaySliderDiv.appendChild(slider.sliderEl);
+        });
+
+        newNoteDelayRestoreButton.addEventListener('click', async () => {
+            this.plugin.settings.newNoteDelay = DEFAULT_SETTINGS.newNoteDelay;
+            this.plugin.debugLog('newNoteDelay', this.plugin.settings.newNoteDelay);
+            await this.plugin.saveSettings();
+
+            // Update the slider value by triggering a re-render or finding the slider element
+            const sliderInput = newNoteDelaySliderDiv.querySelector('input[type="range"]') as HTMLInputElement;
+            if (sliderInput) {
+                sliderInput.value = String(DEFAULT_SETTINGS.newNoteDelay);
+                sliderInput.dispatchEvent(new Event('input', { bubbles: true }));
+            }
+        });
+
+        // Content read method setting
         const contentReadMethodSetting = new Setting(this.containerEl)
             .setName("Content read method")
             .setDesc("");
@@ -47,8 +200,8 @@ export class AdvancedTab extends SettingsTabBase {
 
         // Reset button click handler
         contentReadRestoreButton.addEventListener('click', async () => {
-            this.plugin.settings.fileReadMethod = DEFAULT_SETTINGS.fileReadMethod;
             dropdown.value = DEFAULT_SETTINGS.fileReadMethod;
+            this.plugin.switchFileReadMode(DEFAULT_SETTINGS.fileReadMethod);
             this.plugin.debugLog('fileReadMethod', this.plugin.settings.fileReadMethod);
             await this.plugin.saveSettings();
             updateCheckIntervalVisibility();
@@ -56,7 +209,8 @@ export class AdvancedTab extends SettingsTabBase {
 
         // Dropdown change handler
         dropdown.addEventListener('change', async (e) => {
-            this.plugin.settings.fileReadMethod = (e.target as HTMLSelectElement).value as FileReadMethod;
+            const newMode = (e.target as HTMLSelectElement).value;
+            this.plugin.switchFileReadMode(newMode);
             this.plugin.debugLog('fileReadMethod', this.plugin.settings.fileReadMethod);
             await this.plugin.saveSettings();
             updateCheckIntervalVisibility();
@@ -78,7 +232,7 @@ export class AdvancedTab extends SettingsTabBase {
 
         // Create styled description for check interval
         const delayDesc = checkIntervalSetting.descEl;
-        delayDesc.appendText("Set how often to check the first line for changes. Increase in case of issues.");
+        delayDesc.appendText("Interval in milliseconds for checking first-line changes.  Increase in case of issues.");
         delayDesc.createEl("br");
         delayDesc.createEl("small").createEl("strong", { text: "Default: 0" });
 
@@ -146,123 +300,10 @@ export class AdvancedTab extends SettingsTabBase {
         // Initialize check interval visibility
         updateCheckIntervalVisibility();
 
-        // 2. Rename on focus (conditional on automatic mode)
-        const renameOnFocusSetting = new Setting(this.containerEl)
-            .setName("Rename on focus")
-            .setDesc("");
-
-        // Create styled description for rename on focus
-        const renameOnFocusDesc = renameOnFocusSetting.descEl;
-        renameOnFocusDesc.appendText("Automatically rename notes when they become focused/active. May cause errors when using ");
-        const webClipperLink1 = renameOnFocusDesc.createEl("a", { text: "Web Clipper", href: "https://obsidian.md/clipper" });
-        webClipperLink1.style.color = "var(--link-color)";
-        renameOnFocusDesc.appendText(" or if ");
-        const templaterLink1 = renameOnFocusDesc.createEl("a", { text: "Templater", href: "obsidian://show-plugin?id=templater-obsidian" });
-        templaterLink1.style.color = "var(--link-color)";
-        renameOnFocusDesc.appendText(" is set to trigger on note creation.");
-
-        renameOnFocusSetting
-            .addToggle((toggle) =>
-                toggle
-                    .setValue(this.plugin.settings.renameOnFocus)
-                    .onChange(async (value) => {
-                        this.plugin.settings.renameOnFocus = value;
-                        this.plugin.debugLog('renameOnFocus', value);
-                        await this.plugin.saveSettings();
-                    })
-            );
-
-        // 3. Delay new note rename (conditional on automatic mode)
-        const fileCreationDelaySetting = new Setting(this.containerEl)
-            .setName("Delay new note rename")
-            .setDesc("");
-
-        // Create styled description for delay renaming
-        const fileCreationDelayDesc = fileCreationDelaySetting.descEl;
-        fileCreationDelayDesc.appendText("Delay renaming new notes by a few seconds. Prevents errors when using ");
-        const webClipperLink2 = fileCreationDelayDesc.createEl("a", { text: "Web Clipper", href: "https://obsidian.md/clipper" });
-        webClipperLink2.style.color = "var(--link-color)";
-        fileCreationDelayDesc.appendText(" or if ");
-        const templaterLink2 = fileCreationDelayDesc.createEl("a", { text: "Templater", href: "obsidian://show-plugin?id=templater-obsidian" });
-        templaterLink2.style.color = "var(--link-color)";
-        fileCreationDelayDesc.appendText(" is set to trigger on note creation.");
-
-        fileCreationDelaySetting.addToggle((toggle) =>
-            toggle
-                .setValue(this.plugin.settings.fileCreationDelay > 0)
-                .onChange(async (value) => {
-                    // Set to 2000ms when enabled, 0 when disabled
-                    this.plugin.settings.fileCreationDelay = value ? 2000 : 0;
-                    this.plugin.debugLog('fileCreationDelay', this.plugin.settings.fileCreationDelay);
-                    await this.plugin.saveSettings();
-                })
-        );
-
-        // 4. Rename in background (conditional on automatic mode)
-        const renameInBackgroundSetting = new Setting(this.containerEl)
-            .setName("Rename in background")
-            .setDesc("Rename notes when their first line changes even if not open in editor.")
-            .addToggle((toggle) =>
-                toggle
-                    .setValue(this.plugin.settings.renameInBackground)
-                    .onChange(async (value) => {
-                        this.plugin.settings.renameInBackground = value;
-                        this.plugin.debugLog('renameInBackground', value);
-                        await this.plugin.saveSettings();
-                    })
-            );
-
         // Store references to conditional settings for visibility control
         this.conditionalSettings = [
-            checkIntervalSetting,
-            renameOnFocusSetting,
-            fileCreationDelaySetting,
-            renameInBackgroundSetting
+            checkIntervalSetting
         ];
-
-        // Grab title from card link setting
-        const cardLinkSetting = new Setting(this.containerEl)
-            .setName("Grab title from card link");
-
-        const cardLinkDesc = cardLinkSetting.descEl;
-        cardLinkDesc.appendText("If a note starts with a card link created with ");
-        cardLinkDesc.createEl("a", {
-            text: "Auto Card Link",
-            href: "obsidian://show-plugin?id=auto-card-link"
-        });
-        cardLinkDesc.appendText(" or ");
-        cardLinkDesc.createEl("a", {
-            text: "Link Embed",
-            href: "obsidian://show-plugin?id=obsidian-link-embed"
-        });
-        cardLinkDesc.appendText(", the card link title will be put in title.");
-
-        cardLinkSetting.addToggle((toggle) =>
-            toggle
-                .setValue(this.plugin.settings.grabTitleFromCardLink)
-                .onChange(async (value) => {
-                    this.plugin.settings.grabTitleFromCardLink = value;
-                    await this.plugin.saveSettings();
-                })
-        );
-
-
-        // Show notification setting (moved from General)
-        new Setting(this.containerEl)
-            .setName("Show notification when renaming manually")
-            .setDesc("Controls when to show notifications for the 'Put first line in title' commands.")
-            .addDropdown((dropdown) =>
-                dropdown
-                    .addOption('Always', 'Always')
-                    .addOption('On title change', 'On title change')
-                    .addOption('Never', 'Never')
-                    .setValue(this.plugin.settings.manualNotificationMode)
-                    .onChange(async (value: NotificationMode) => {
-                        this.plugin.settings.manualNotificationMode = value;
-                        this.plugin.debugLog('manualNotificationMode', value);
-                        await this.plugin.saveSettings();
-                    })
-            );
 
         // Define debug function and container first
         let debugSubSettingsContainer: HTMLElement;
@@ -284,6 +325,10 @@ export class AdvancedTab extends SettingsTabBase {
                     .setValue(this.plugin.settings.verboseLogging)
                     .onChange(async (value) => {
                         this.plugin.settings.verboseLogging = value;
+                        // Update debug enabled timestamp when turning ON
+                        if (value) {
+                            this.plugin.settings.debugEnabledTimestamp = this.plugin.getCurrentTimestamp();
+                        }
                         this.plugin.debugLog('verboseLogging', value);
                         await this.plugin.saveSettings();
                         // Show/hide the sub-option based on debug state
@@ -329,7 +374,7 @@ export class AdvancedTab extends SettingsTabBase {
                             this.plugin.settings = JSON.parse(JSON.stringify(DEFAULT_SETTINGS));
 
                             // Ensure scope strategy is explicitly set to default
-                            this.plugin.settings.scopeStrategy = 'Enable in all notes except below';
+                            this.plugin.settings.scopeStrategy = 'Don\'t rename in...';
 
                             // Keep tracking that settings have been shown (don't show first-time notice again)
                             this.plugin.settings.hasShownFirstTimeNotice = true;
@@ -340,6 +385,7 @@ export class AdvancedTab extends SettingsTabBase {
                             await this.plugin.saveSettings();
 
                             // Show notification
+                            verboseLog(this.plugin, `Showing notice: Settings have been cleared.`);
                             new Notice("Settings have been cleared.");
 
                             // Force complete tab re-render by calling the parent's display method

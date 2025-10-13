@@ -25,9 +25,18 @@ export class CustomReplacementsTab extends SettingsTabBase {
                             this.plugin.settings.hasEnabledCustomReplacements = true;
                         }
 
+                        // Auto-toggle OFF dependent settings when disabling
+                        if (!value) {
+                            if (this.plugin.settings.applyCustomRulesInAlias) {
+                                this.plugin.settings.applyCustomRulesInAlias = false;
+                            }
+                        }
+
                         await this.plugin.saveSettings();
                         updateCustomReplacementUI();
                         renderCustomReplacements();
+                        // Notify other tabs to update dependent settings
+                        (this.plugin as any).updateAliasConditionalSettings?.();
                     });
             });
 
@@ -42,7 +51,7 @@ export class CustomReplacementsTab extends SettingsTabBase {
             customBulletListEl.empty();
 
             // Main description (always visible)
-            customDescEl.createEl('span', { text: 'Configure custom text replacements.' });
+            customDescEl.createEl('span', { text: 'Set custom text replacements.' });
             customDescEl.createEl('br');
             customDescEl.createEl('br');
 
@@ -80,40 +89,48 @@ export class CustomReplacementsTab extends SettingsTabBase {
         let globalProcessingHeaderSetting: Setting;
         let markupToggleContainer: HTMLElement;
         let markupToggleSetting: Setting;
+        let markupToggle: any;
 
         const updateCustomReplacementUI = () => {
             // Update master disable state for entire section
-            if (this.plugin.settings.enableCustomReplacements) {
-                customBulletListEl.classList.remove('flit-master-disabled');
-                customReplacementsContainer.classList.remove('flit-master-disabled');
-                if (processingOrderContainer) {
-                    processingOrderContainer.classList.remove('flit-master-disabled');
-                }
-                if (globalProcessingHeaderSetting) {
+            const enabled = this.plugin.settings.enableCustomReplacements;
+
+            // Apply to containers with interactive elements
+            this.updateInteractiveState(customBulletListEl, enabled);
+            this.updateInteractiveState(customReplacementsContainer, enabled);
+            if (processingOrderContainer) {
+                this.updateInteractiveState(processingOrderContainer, enabled);
+            }
+            if (globalProcessingHeaderSetting) {
+                if (enabled) {
                     globalProcessingHeaderSetting.settingEl.classList.remove('flit-master-disabled');
-                }
-                // Clear any inline opacity from previous disable state
-                if (markupToggleContainer) {
-                    markupToggleContainer.style.opacity = "";
-                }
-                // Update markup toggle visibility based on strip markup setting
-                if (markupToggleSetting) {
-                    updateMarkupToggleVisibility();
-                }
-            } else {
-                customBulletListEl.classList.add('flit-master-disabled');
-                customReplacementsContainer.classList.add('flit-master-disabled');
-                if (processingOrderContainer) {
-                    processingOrderContainer.classList.add('flit-master-disabled');
-                }
-                if (globalProcessingHeaderSetting) {
+                } else {
                     globalProcessingHeaderSetting.settingEl.classList.add('flit-master-disabled');
                 }
-                // Update markup toggle to handle opacity properly
-                if (markupToggleSetting) {
-                    updateMarkupToggleVisibility();
-                }
             }
+
+            // Clear any inline opacity from previous disable state
+            if (markupToggleContainer) {
+                markupToggleContainer.style.opacity = "";
+            }
+
+            // Update markup toggle visibility based on strip markup setting
+            if (markupToggleSetting) {
+                updateMarkupToggleVisibility();
+            }
+
+            // Also update any disabled rows
+            this.updateDisabledRowsAccessibility(customReplacementsContainer);
+
+            // Update table containers scrollbar visibility
+            const tableContainers = customReplacementsContainer.querySelectorAll('.flit-table-container');
+            tableContainers.forEach((container: HTMLElement) => {
+                if (enabled) {
+                    container.classList.remove('flit-master-disabled');
+                } else {
+                    container.classList.add('flit-master-disabled');
+                }
+            });
         };
 
         const renderCustomReplacements = () => {
@@ -186,31 +203,60 @@ export class CustomReplacementsTab extends SettingsTabBase {
                 // Function to update row appearance based on enabled state
                 const updateRowAppearance = () => {
                     const isRowEnabled = this.plugin.settings.customReplacements[index].enabled;
+                    const masterEnabled = this.plugin.settings.enableCustomReplacements;
+                    const shouldApplyInlineOpacity = masterEnabled;
 
-                    // Grey out and disable inputs and toggles but not reorder/delete buttons based on row enabled state
                     if (isRowEnabled) {
+                        rowEl.classList.remove('flit-row-disabled');
                         // Clear inline styles to let CSS handle it naturally
                         input1.style.opacity = "";
                         input1.style.pointerEvents = "";
                         input1.disabled = false;
+                        input1.tabIndex = 0;
+                        input1.removeAttribute('aria-disabled');
                         input2.style.opacity = "";
                         input2.style.pointerEvents = "";
                         input2.disabled = false;
+                        input2.tabIndex = 0;
+                        input2.removeAttribute('aria-disabled');
                         startToggleContainer.style.opacity = "";
                         startToggleContainer.style.pointerEvents = "";
                         wholeToggleContainer.style.opacity = "";
                         wholeToggleContainer.style.pointerEvents = "";
+
+                        // Re-enable toggles in containers
+                        [startToggleContainer, wholeToggleContainer].forEach(container => {
+                            const toggleEls = container.querySelectorAll('input[type="checkbox"]');
+                            toggleEls.forEach((el: HTMLElement) => {
+                                el.tabIndex = 0;
+                                el.removeAttribute('aria-disabled');
+                            });
+                        });
                     } else {
-                        input1.style.opacity = "0.5";
+                        rowEl.classList.add('flit-row-disabled');
+                        input1.style.opacity = shouldApplyInlineOpacity ? "0.5" : "";
                         input1.style.pointerEvents = "none";
                         input1.disabled = true;
-                        input2.style.opacity = "0.5";
+                        input1.tabIndex = -1;
+                        input1.setAttribute('aria-disabled', 'true');
+                        input2.style.opacity = shouldApplyInlineOpacity ? "0.5" : "";
                         input2.style.pointerEvents = "none";
                         input2.disabled = true;
-                        startToggleContainer.style.opacity = "0.5";
+                        input2.tabIndex = -1;
+                        input2.setAttribute('aria-disabled', 'true');
+                        startToggleContainer.style.opacity = shouldApplyInlineOpacity ? "0.5" : "";
                         startToggleContainer.style.pointerEvents = "none";
-                        wholeToggleContainer.style.opacity = "0.5";
+                        wholeToggleContainer.style.opacity = shouldApplyInlineOpacity ? "0.5" : "";
                         wholeToggleContainer.style.pointerEvents = "none";
+
+                        // Disable toggles in containers
+                        [startToggleContainer, wholeToggleContainer].forEach(container => {
+                            const toggleEls = container.querySelectorAll('input[type="checkbox"]');
+                            toggleEls.forEach((el: HTMLElement) => {
+                                el.tabIndex = -1;
+                                el.setAttribute('aria-disabled', 'true');
+                            });
+                        });
                     }
                 };
 
@@ -251,6 +297,7 @@ export class CustomReplacementsTab extends SettingsTabBase {
                     toggle.setValue(this.plugin.settings.hasEnabledCustomReplacements ? replacement.onlyAtStart : false)
                         .onChange(async (value) => {
                             this.plugin.settings.customReplacements[index].onlyAtStart = value;
+                            this.plugin.debugLog(`customReplacements[${index}].onlyAtStart`, value);
                             if (value) {
                                 this.plugin.settings.customReplacements[index].onlyWholeLine = false;
                             }
@@ -274,6 +321,7 @@ export class CustomReplacementsTab extends SettingsTabBase {
                     toggle.setValue(this.plugin.settings.hasEnabledCustomReplacements ? replacement.onlyWholeLine : false)
                         .onChange(async (value) => {
                             this.plugin.settings.customReplacements[index].onlyWholeLine = value;
+                            this.plugin.debugLog(`customReplacements[${index}].onlyWholeLine`, value);
                             if (value) {
                                 this.plugin.settings.customReplacements[index].onlyAtStart = false;
                             }
@@ -335,7 +383,7 @@ export class CustomReplacementsTab extends SettingsTabBase {
 
                 // Create delete button matching ExtraButton structure
                 deleteButton = buttonContainer.createEl("button", {
-                    cls: "flit-delete-button",
+                    cls: "clickable-icon flit-delete-button",
                     attr: { "aria-label": "Delete", "type": "button" }
                 });
                 setIcon(deleteButton, "x");
@@ -472,9 +520,17 @@ export class CustomReplacementsTab extends SettingsTabBase {
         processingOrderContainer = this.containerEl.createDiv({ cls: 'flit-processing-order-container' });
 
         // Apply after stripping or replacing forbidden characters
-        new Setting(processingOrderContainer)
+        const applyAfterForbiddenSetting = new Setting(processingOrderContainer)
             .setName("Apply after stripping or replacing forbidden characters")
-            .setDesc("When enabled, custom rules are applied after forbidden character replacements. When disabled, custom rules are applied before forbidden character replacements.")
+            .setDesc("");
+
+        // Create styled description
+        const applyAfterForbiddenDesc = applyAfterForbiddenSetting.descEl;
+        applyAfterForbiddenDesc.appendText("As set in ");
+        applyAfterForbiddenDesc.createEl("em", { text: "Replace characters" });
+        applyAfterForbiddenDesc.appendText(".");
+
+        applyAfterForbiddenSetting
             .addToggle((toggle) =>
                 toggle
                     .setValue(this.plugin.settings.applyCustomRulesAfterForbiddenChars)
@@ -491,6 +547,11 @@ export class CustomReplacementsTab extends SettingsTabBase {
                 markupToggleContainer.style.opacity = "";
                 markupToggleContainer.style.pointerEvents = "auto";
                 markupToggleSetting.setDisabled(false);
+                if (markupToggle) {
+                    markupToggle.toggleEl.tabIndex = 0;
+                    markupToggle.toggleEl.removeAttribute('aria-disabled');
+                    markupToggle.toggleEl.style.pointerEvents = '';
+                }
             } else {
                 // Only set inline opacity if parent doesn't already have flit-master-disabled
                 // to prevent opacity stacking (0.5 × 0.5 = 0.25)
@@ -501,22 +562,43 @@ export class CustomReplacementsTab extends SettingsTabBase {
                 }
                 markupToggleContainer.style.pointerEvents = "none";
                 markupToggleSetting.setDisabled(true);
+                if (markupToggle) {
+                    markupToggle.toggleEl.tabIndex = -1;
+                    markupToggle.toggleEl.setAttribute('aria-disabled', 'true');
+                    markupToggle.toggleEl.style.pointerEvents = 'none';
+                }
             }
         };
 
         // Apply after markup stripping
         markupToggleSetting = new Setting(processingOrderContainer)
             .setName("Apply after markup stripping")
-            .setDesc("When enabled, custom rules are applied after markup stripping. When disabled, custom rules are applied before markup stripping. This option is only available when 'Strip markup' is enabled.")
-            .addToggle((toggle) =>
+            .setDesc("");
+
+        // Create styled description
+        const applyAfterMarkupDesc = markupToggleSetting.descEl;
+        applyAfterMarkupDesc.appendText("As set in ");
+        applyAfterMarkupDesc.createEl("em", { text: "Strip markup" });
+        applyAfterMarkupDesc.appendText(".");
+
+        markupToggleSetting
+            .addToggle((toggle) => {
+                markupToggle = toggle;
                 toggle
                     .setValue(this.plugin.settings.applyCustomRulesAfterMarkupStripping)
                     .onChange(async (value) => {
                         this.plugin.settings.applyCustomRulesAfterMarkupStripping = value;
                         this.plugin.debugLog('applyCustomRulesAfterMarkupStripping', value);
                         await this.plugin.saveSettings();
-                    })
-            );
+                    });
+
+                // Set initial accessibility state
+                if (!this.plugin.settings.enableStripMarkup) {
+                    toggle.toggleEl.tabIndex = -1;
+                    toggle.toggleEl.setAttribute('aria-disabled', 'true');
+                    toggle.toggleEl.style.pointerEvents = 'none';
+                }
+            });
 
         markupToggleContainer = markupToggleSetting.settingEl;
 

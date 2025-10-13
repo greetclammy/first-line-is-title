@@ -1,14 +1,7 @@
-# Compiled output
+CLAUDE.md
 main.js
-
-# Dependencies
 node_modules/
-
-# System files
 .DS_Store
-
-# Plugin data
 data.json
-
-# Build artifacts
 *.map
+first-line-is-title.zip

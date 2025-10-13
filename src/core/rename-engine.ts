@@ -5,56 +5,44 @@ import {
     verboseLog,
     detectOS,
     shouldProcessFile,
-    hasDisableProperty,
+    hasDisablePropertyInFile,
     containsSafeword,
     extractTitle,
     isValidHeading
 } from '../utils';
 
-// Access optimized cache manager
-const globals = (globalThis as any).flitGlobals;
-const getCacheManager = () => globals?.getCacheManager();
+import FirstLineIsTitle from '../../main';
 
+// Cache manager now accessed via plugin instance
 export class RenameEngine {
-    private plugin: any; // Plugin instance
-
-    // Track last processed first line content to avoid duplicate processing
+    private plugin: FirstLineIsTitle;
     private lastProcessedContent = new Map<string, string>();
+    private filesCurrentlyProcessing = new Set<number>(); // Track by file.stat.ctime (stable across renames)
+    private filesNeedingRecheck = new Set<number>(); // Track files that had edits blocked during processing
+    private fileTimeTracker = new Map<string, {timestamp: number, count: number}>();
+    private globalOperationTracker = {timestamp: Date.now(), count: 0};
+    private lastSelfRefNotice = new Map<string, number>();
 
-    // Rate limiting: Track operations per file to prevent infinite loops
-    private operationTracker = new Map<string, {count: number, lastContent: string}>();
-
-    // Track files currently being renamed to prevent spurious events
-    private filesBeingRenamed = new Set<TFile>();
-
-    constructor(plugin: any) {
+    constructor(plugin: FirstLineIsTitle) {
         this.plugin = plugin;
     }
 
-    /**
-     * Check if a file is currently being renamed by this plugin
-     */
-    isFileBeingRenamed(file: TFile): boolean {
-        return this.filesBeingRenamed.has(file);
-    }
 
-    checkOperationLimit(file: TFile, content: string): boolean {
+    checkFileTimeLimit(file: TFile): boolean {
+        const now = Date.now();
+        const windowMs = 500;
+        const maxOpsPerFile = 15;
+
         const key = file.path;
-        const tracker = this.operationTracker.get(key);
+        const tracker = this.fileTimeTracker.get(key);
 
-        if (!tracker) {
-            this.operationTracker.set(key, {count: 1, lastContent: content});
+        if (!tracker || now - tracker.timestamp > windowMs) {
+            this.fileTimeTracker.set(key, {timestamp: now, count: 1});
             return true;
         }
 
-        if (tracker.lastContent !== content) {
-            // Content changed, reset counter
-            this.operationTracker.set(key, {count: 1, lastContent: content});
-            return true;
-        }
-
-        if (tracker.count >= 3) {
-            verboseLog(this.plugin, `Rate limit hit for ${file.path} - blocked operation ${tracker.count + 1}`);
+        if (tracker.count >= maxOpsPerFile) {
+            console.log(`Per-file rate limit hit for ${file.path} - ${tracker.count} operations in ${now - tracker.timestamp}ms`);
             return false;
         }
 
@@ -62,29 +50,49 @@ export class RenameEngine {
         return true;
     }
 
-    async processEditorChangeOptimal(editor: Editor, file: TFile): Promise<void> {
-        // Track plugin usage
-        this.plugin.trackUsage();
+    checkGlobalRateLimit(): boolean {
+        const now = Date.now();
+        const windowMs = 500;
+        const maxGlobalOps = 30;
 
+        if (now - this.globalOperationTracker.timestamp > windowMs) {
+            this.globalOperationTracker = {timestamp: now, count: 1};
+            return true;
+        }
+
+        if (this.globalOperationTracker.count >= maxGlobalOps) {
+            console.log(`Global rate limit hit - ${this.globalOperationTracker.count} operations in ${now - this.globalOperationTracker.timestamp}ms`);
+            return false;
+        }
+
+        this.globalOperationTracker.count++;
+        return true;
+    }
+
+    async processEditorChangeOptimal(editor: Editor, file: TFile): Promise<void> {
+        this.plugin.trackUsage();
         const startTime = Date.now();
 
         try {
-            // Skip if alias update in progress for this file
+            // Check if file is already being processed using stable identifier
+            const fileId = file.stat.ctime;
+            if (this.filesCurrentlyProcessing.has(fileId)) {
+                verboseLog(this.plugin, `Editor change ignored - file already processing (ID ${fileId}): ${file.path}`);
+                // Flag this file for recheck after processing completes
+                this.filesNeedingRecheck.add(fileId);
+                return;
+            }
+
             if (this.plugin.aliasManager.isAliasUpdateInProgress(file.path)) {
                 verboseLog(this.plugin, `Editor change ignored - alias update in progress: ${file.path}`);
                 return;
             }
 
-            // Get current content directly from editor (bypasses file batching delay)
             const currentContent = editor.getValue();
-
-            // Use direct parsing for frontmatter to avoid metadata cache staleness
             const lines = currentContent.split('\n');
             let firstLineIndex = 0;
 
-            // Check if content starts with frontmatter
             if (lines.length > 0 && lines[0].trim() === '---') {
-                // Find closing delimiter
                 for (let i = 1; i < lines.length; i++) {
                     if (lines[i].trim() === '---') {
                         firstLineIndex = i + 1;
@@ -95,7 +103,6 @@ export class RenameEngine {
 
             const metadata = this.plugin.app.metadataCache.getFileCache(file);
 
-            // Find first non-empty line after frontmatter
             let firstLine = '';
             for (let i = firstLineIndex; i < lines.length; i++) {
                 const line = lines[i];
@@ -104,19 +111,113 @@ export class RenameEngine {
                     break;
                 }
             }
+
+            // Extract final title using same logic as processFile to track changes accurately
+            let trackingContent = firstLine;
+
+            // Build content without frontmatter from lines
+            const contentWithoutFrontmatter = lines.slice(firstLineIndex).join('\n');
+            const trimmedFirstLine = firstLine.trim();
+
+            // Check for card link - extract title
+            if (this.plugin.settings.grabTitleFromCardLink && trimmedFirstLine.match(/^```(embed|cardlink)$/)) {
+                const allLines = contentWithoutFrontmatter.split('\n');
+                let nonEmptyCount = 0;
+                for (let i = 0; i < allLines.length; i++) {
+                    const line = allLines[i].trim();
+                    if (line === '') continue;
+
+                    nonEmptyCount++;
+                    if (nonEmptyCount === 1) continue;
+                    if (nonEmptyCount > 10) break;
+
+                    if (line.startsWith('title:')) {
+                        let title = line.substring(6).trim();
+                        if ((title.startsWith('"') && title.endsWith('"')) || (title.startsWith("'") && title.endsWith("'"))) {
+                            title = title.substring(1, title.length - 1);
+                        }
+                        trackingContent = title;
+                        break;
+                    }
+                    if (line.startsWith('```')) {
+                        trackingContent = 'Untitled';
+                        break;
+                    }
+                }
+            }
+            // Check for code block - pass 2 lines to extractTitle
+            else if (trimmedFirstLine.startsWith('```') && !trimmedFirstLine.match(/^```(embed|cardlink)$/)) {
+                const contentLines = contentWithoutFrontmatter.split('\n');
+                let extractedLines: string[] = [];
+                for (const line of contentLines) {
+                    if (line.trim() !== '') {
+                        extractedLines.push(line);
+                        if (extractedLines.length >= 2) break;
+                    }
+                }
+                trackingContent = extractTitle(extractedLines.join('\n'), this.plugin.settings);
+            }
+            // Normal content - just use extractTitle
+            else {
+                trackingContent = extractTitle(firstLine, this.plugin.settings);
+            }
+
             const lastContent = this.lastProcessedContent.get(file.path);
 
-            // Only process if first line actually changed
-            if (firstLine !== lastContent) {
+            if (trackingContent !== lastContent) {
                 const timeSinceStart = Date.now() - startTime;
-                const keystrokeTime = Date.now();
-                verboseLog(this.plugin, `[TIMING] KEYSTROKE: ${file.path} - "${lastContent}" -> "${firstLine}" (processed in ${timeSinceStart}ms) @${keystrokeTime}`);
+                verboseLog(this.plugin, `[TIMING] KEYSTROKE: ${file.path} - "${lastContent}" -> "${trackingContent}" (processed in ${timeSinceStart}ms)`);
 
-                // Process immediately using editor content
-                await this.renameFileImmediate(file, currentContent, metadata);
+                // Update tracking BEFORE async processing to prevent duplicate triggers
+                this.lastProcessedContent.set(file.path, trackingContent);
+                this.plugin.editorLifecycle.updateLastFirstLine(file.path, trackingContent);
 
-                // Update last processed content
-                this.lastProcessedContent.set(file.path, firstLine);
+                // Mark file as being processed
+                this.filesCurrentlyProcessing.add(fileId);
+
+                try {
+                    await this.processFileImmediate(file, currentContent, metadata);
+                } finally {
+                    // Always remove from processing set when done
+                    this.filesCurrentlyProcessing.delete(fileId);
+
+                    // RECHECK: Only if edit was blocked during processing
+                    if (this.filesNeedingRecheck.has(fileId)) {
+                        this.filesNeedingRecheck.delete(fileId);
+
+                        const currentEditorContent = editor.getValue();
+                        const recheckLines = currentEditorContent.split('\n');
+                        let recheckFirstLine = '';
+                        let recheckFirstLineIndex = 0;
+
+                        // Skip frontmatter
+                        if (recheckLines.length > 0 && recheckLines[0].trim() === '---') {
+                            for (let i = 1; i < recheckLines.length; i++) {
+                                if (recheckLines[i].trim() === '---') {
+                                    recheckFirstLineIndex = i + 1;
+                                    break;
+                                }
+                            }
+                        }
+
+                        // Find first non-empty line
+                        for (let i = recheckFirstLineIndex; i < recheckLines.length; i++) {
+                            if (recheckLines[i].trim() !== '') {
+                                recheckFirstLine = recheckLines[i];
+                                break;
+                            }
+                        }
+
+                        const recheckContent = extractTitle(recheckFirstLine, this.plugin.settings);
+                        const currentlyProcessed = this.lastProcessedContent.get(file.path);
+
+                        if (recheckContent !== currentlyProcessed) {
+                            verboseLog(this.plugin, `RECHECK: Content changed during processing, triggering final check: ${file.path}`);
+                            // One recheck is sufficient - normal editor-change events will catch further edits
+                            setTimeout(() => this.processEditorChangeOptimal(editor, file), 0);
+                        }
+                    }
+                }
             } else {
                 verboseLog(this.plugin, `Editor change ignored - no first line change: ${file.path}`);
             }
@@ -125,45 +226,31 @@ export class RenameEngine {
         }
     }
 
-    async renameFileImmediate(file: TFile, content: string, metadata: any): Promise<void> {
-        // Skip all the slow checks since we know this is an open editor file
+    async processFileImmediate(file: TFile, content: string, metadata: any): Promise<void> {
         if (file.extension !== 'md') {
             return;
         }
 
-        // Rate limiting check - prevent infinite loops
-        if (!this.checkOperationLimit(file, content)) {
-            return;
-        }
-
-        // Quick exclusion check using already-available content
         if (!shouldProcessFile(file, this.plugin.settings, this.plugin.app, content)) {
             return;
         }
 
-        const timestamp = Date.now();
-        const timeStr = new Date(timestamp).toLocaleTimeString() + '.' + (timestamp % 1000).toString().padStart(3, '0') + 'ms';
-        verboseLog(this.plugin, `RENAME: Starting immediate renameFile for ${file.path} at ${timeStr}`);
+        verboseLog(this.plugin, `PROCESS: Starting immediate processFile for ${file.path}`);
 
         try {
-            // IMMEDIATE PROCESSING: Use existing renameFile but with editor content
-            await this.renameFile(file, true, false, false, content);
-
+            await this.processFile(file, true, false, content);
         } catch (error) {
-            console.error(`Error in immediate rename for ${file.path}:`, error);
+            console.error(`Error in immediate process for ${file.path}:`, error);
         }
     }
 
-    stripFrontmatterFromContent(content: string, file: TFile): string {
-        // Use direct parsing to avoid metadata cache staleness during rapid edits
+    stripFrontmatterFromContent(content: string | undefined, file: TFile): string {
+        if (!content) return '';
         const lines = content.split('\n');
 
-        // Check if content starts with frontmatter delimiter
         if (lines.length > 0 && lines[0].trim() === '---') {
-            // Find closing delimiter
             for (let i = 1; i < lines.length; i++) {
                 if (lines[i].trim() === '---') {
-                    // Found closing delimiter at line i
                     const strippedContent = lines.slice(i + 1).join('\n');
                     verboseLog(this.plugin, `Stripped frontmatter from ${file.path} (lines 0-${i} removed)`);
                     return strippedContent;
@@ -171,25 +258,49 @@ export class RenameEngine {
             }
         }
 
-        // No frontmatter found - return content as-is
         return content;
     }
 
-    async renameFile(file: TFile, noDelay = false, ignoreExclusions = false, showNotices = false, providedContent?: string): Promise<{ success: boolean, reason?: string }> {
-        // Track plugin usage
+    async processFile(
+        file: TFile,
+        noDelay = false,
+        showNotices = false,
+        providedContent?: string,
+        isBatchOperation = false,
+        exclusionOverrides?: { ignoreFolder?: boolean; ignoreTag?: boolean; ignoreProperty?: boolean }
+    ): Promise<{ success: boolean, reason?: string }> {
         this.plugin.trackUsage();
+        verboseLog(this.plugin, `Processing file: ${file.path}`, { noDelay });
 
-        verboseLog(this.plugin, `Processing file: ${file.path}`, { noDelay, ignoreExclusions });
-
-        // Check if file still exists before processing (more thorough check)
         const currentFile = this.plugin.app.vault.getAbstractFileByPath(file.path);
         if (!currentFile || !(currentFile instanceof TFile)) {
             verboseLog(this.plugin, `Skipping processing - file no longer exists or is not a TFile: ${file.path}`);
             return { success: false, reason: 'file-not-found' };
         }
 
-        // Update our file reference to the current one from vault
         file = currentFile;
+
+        if (file.extension !== 'md') {
+            verboseLog(this.plugin, `Skipping non-markdown file: ${file.path}`);
+            return { success: false, reason: 'not-markdown' };
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════════════
+        // ABSOLUTE FIRST-GATE: Disable Property Check
+        // ═══════════════════════════════════════════════════════════════════════════════
+        // This check MUST occur first and CANNOT be bypassed by:
+        // - Any command (manual rename, "unless excluded", etc.)
+        // - exclusionOverrides parameter
+        // - Batch operations
+        // - Any other mechanism
+        //
+        // If a file has the disable property (default: no rename:true), it will
+        // NEVER be processed by this plugin under any circumstances.
+        // ═══════════════════════════════════════════════════════════════════════════════
+        if (await hasDisablePropertyInFile(file, this.plugin.app, this.plugin.settings.disableRenamingKey, this.plugin.settings.disableRenamingValue)) {
+            verboseLog(this.plugin, `ABSOLUTE BLOCK: Skipping file with disable property: ${file.path}`);
+            return { success: false, reason: 'property-disabled' };
+        }
 
         // Get content for rate limiting check
         let contentForRateLimit: string;
@@ -204,9 +315,16 @@ export class RenameEngine {
             }
         }
 
-        // Rate limiting check - prevent infinite loops
-        if (!this.checkOperationLimit(file, contentForRateLimit)) {
-            return { success: false, reason: 'rate-limited' };
+        // Time-based rate limiting (per-file always enforced, global bypassed for batches)
+        if (!this.checkFileTimeLimit(file)) {
+            return { success: false, reason: 'time-rate-limited' };
+        }
+
+        // Global rate limiting bypassed for batch operations to avoid blocking legitimate bulk operations
+        if (!isBatchOperation) {
+            if (!this.checkGlobalRateLimit()) {
+                return { success: false, reason: 'global-rate-limited' };
+            }
         }
 
         // Log full file content at start of processing and use it for exclusion check
@@ -217,28 +335,35 @@ export class RenameEngine {
             // Silently continue if unable to read initial content
         }
 
-        if (!ignoreExclusions && !shouldProcessFile(file, this.plugin.settings, this.plugin.app, initialContent)) {
+        // ═══════════════════════════════════════════════════════════════════════════════
+        // SECOND-GATE: Folder/Tag/Property Exclusion Checks
+        // ═══════════════════════════════════════════════════════════════════════════════
+        // Unlike the disable property check above, these exclusions CAN be bypassed by:
+        // - Manual single-file commands (via exclusionOverrides parameter)
+        // - Commands like "Put first line in title" which intentionally override exclusions
+        //
+        // The exclusionOverrides parameter allows selective bypassing:
+        // - ignoreFolder: Skip folder-based exclusion checks
+        // - ignoreTag: Skip tag-based exclusion checks
+        // - ignoreProperty: Skip property-based exclusion checks
+        // ═══════════════════════════════════════════════════════════════════════════════
+        if (!shouldProcessFile(file, this.plugin.settings, this.plugin.app, initialContent, exclusionOverrides)) {
             verboseLog(this.plugin, `Skipping file based on include/exclude strategy: ${file.path}`);
             return { success: false, reason: 'excluded' };
-        }
-        if (file.extension !== 'md') {
-            verboseLog(this.plugin, `Skipping non-markdown file: ${file.path}`);
-            return { success: false, reason: 'not-markdown' };
         }
 
         // Skip all delay logic - process immediately
         const startTime = Date.now();
-        console.log(`RENAME: Starting renameFile for ${file.name}`);
+        verboseLog(this.plugin, `RENAME: Starting renameFile for ${file.name}`);
 
-        // tempNewPaths array eliminated - using chronological processing instead
-
-        // Clean up stale cache before processing
-        this.cleanupStaleCache();
+        // Get previous content to detect content deletion
+        const cacheManager = this.plugin.cacheManager;
+        const previousFileContent = cacheManager?.getContent(file.path);
 
         let content: string;
         try {
             if (this.plugin.settings.fileReadMethod === 'Editor') {
-                if (providedContent !== undefined) {
+                if (typeof providedContent === 'string' && providedContent !== '') {
                     content = providedContent;
                     verboseLog(this.plugin, `Using provided editor content for ${file.path} (${content.length} chars)`);
                 } else {
@@ -261,12 +386,6 @@ export class RenameEngine {
             throw new Error(`Failed to read file: ${error.message}`);
         }
 
-        // Check if this file has the disable property (always respect "no rename: true")
-        if (hasDisableProperty(content)) {
-            verboseLog(this.plugin, `Skipping file with disable property: ${file.path}`);
-            return { success: false, reason: 'property-disabled' };
-        }
-
         // Check if filename contains any safewords and skip if enabled (always respect safewords)
         if (containsSafeword(file.name, this.plugin.settings)) {
             verboseLog(this.plugin, `Skipping file with safeword: ${file.path}`);
@@ -287,57 +406,28 @@ export class RenameEngine {
             }
         }
 
-        // If first line is empty (no content after frontmatter), rename to Untitled
+        // If first line is empty (no content after frontmatter)
         if (firstLine === '') {
-            const parentPath = file.parent?.path === "/" ? "" : file.parent?.path + "/";
-            let newPath: string = `${parentPath}Untitled.md`;
+            // Check if file had previous content
+            const previousContentWithoutFrontmatter = previousFileContent
+                ? this.stripFrontmatterFromContent(previousFileContent, file)
+                : '';
+            const hadPreviousContent = previousContentWithoutFrontmatter.trim() !== '';
 
-            let counter: number = 0;
-            const cacheManager = getCacheManager();
+            if (hadPreviousContent) {
+                // Content was deleted - rename to Untitled
+                verboseLog(this.plugin, `Content became empty - renaming to Untitled: ${file.path}`);
+                firstLine = 'Untitled';
+            } else {
+                // File was always empty - retain current filename
+                cacheManager?.setContent(file.path, content);
 
-            // Check for actual file conflicts (same as main logic)
-            let fileExists: boolean = this.checkFileExistsCaseInsensitive(newPath);
-            while (fileExists) {
-                if (file.path == newPath) {
-                    cacheManager?.setContent(file.path, content);
-                    return { success: false, reason: 'no-change' };
-                }
-                counter += 1;
-                newPath = `${parentPath}Untitled ${counter}.md`;
-                fileExists = this.checkFileExistsCaseInsensitive(newPath);
+                // Don't call removePluginAliasesFromFile - no content means no plugin aliases exist
+                // Calling processFrontMatter here races with template plugins (Templater)
+
+                verboseLog(this.plugin, `Skipping rename for empty file - retaining current filename: ${file.path}`);
+                return { success: false, reason: 'empty-content-retained' };
             }
-
-            // tempNewPaths array eliminated - files processed chronologically
-
-            // Reserve path to prevent conflicts during rename
-            cacheManager?.reservePath(newPath);
-
-            const oldPath = file.path;
-            try {
-                await this.plugin.app.fileManager.renameFile(file, newPath);
-                verboseLog(this.plugin, `Renamed empty file ${file.path} to ${newPath}`);
-
-                // Update cache with new path
-                const lastContent = this.lastProcessedContent.get(oldPath);
-                if (lastContent !== undefined) {
-                    this.lastProcessedContent.delete(oldPath);
-                    this.lastProcessedContent.set(newPath, lastContent);
-                }
-            } catch (error) {
-                console.error(`Failed to rename file ${file.path} to ${newPath}:`, error);
-                cacheManager?.releasePath(newPath);
-                throw new Error(`Failed to rename file: ${error.message}`);
-            }
-
-            // Remove any plugin aliases since there's no content to alias
-            if (this.plugin.settings.enableAliases) {
-                verboseLog(this.plugin, `Removing plugin aliases - file has no content`);
-                await this.plugin.aliasManager.removePluginAliasesFromFile(file, false); // Respect keepEmptyAliasProperty setting
-            }
-
-            cacheManager?.setContent(newPath, content);
-            cacheManager?.releasePath(newPath);
-            return { success: true, reason: 'empty-content' };
         }
 
         // Check if only headings should be processed
@@ -350,94 +440,55 @@ export class RenameEngine {
 
         // Check for card links if enabled - extract title but continue to normal processing
         if (this.plugin.settings.grabTitleFromCardLink) {
-            // Handle ```embed card links (Link Embed plugin)
-            // Note: The backticks may already be stripped by Obsidian/other plugins
-            let embedMatch = content.match(/^embed\s*\n[\s\S]*?title:\s*"([^"]+)"/);
-            if (!embedMatch) {
-                // Try with backticks if they're still present
-                embedMatch = content.match(/^```embed[^\n]*\n[\s\S]*?title:\s*"([^"]+)"/);
-            }
-            if (!embedMatch) {
-                // Try without quotes (YAML style)
-                embedMatch = content.match(/^embed\s*\n[\s\S]*?title:\s*(.+?)(?:\n|$)/);
-            }
-            if (embedMatch) {
-                // Extract title and continue with normal processing
-                firstLine = embedMatch[1];
-                verboseLog(this.plugin, `Found embed card link in ${file.path}`, { title: firstLine });
-            } else {
-                // Handle ```cardlink card links
-                // Note: The backticks may already be stripped by Obsidian/other plugins
-                let cardlinkMatch = content.match(/^cardlink\s*\n[\s\S]*?title:\s*"([^"]+)"/);
-                if (!cardlinkMatch) {
-                    // Try with backticks if they're still present
-                    cardlinkMatch = content.match(/^```cardlink[^\n]*\n[\s\S]*?title:\s*"([^"]+)"/);
+            // Check if first non-empty line is ```embed or ```cardlink
+            const cardLinkMatch = firstLine.trim().match(/^```(embed|cardlink)$/);
+            if (cardLinkMatch) {
+                // Found embed or cardlink at start, parse lines until we find title: or closing ```
+                const allLines = contentWithoutFrontmatter.split('\n');
+                let foundTitle = false;
+                let nonEmptyCount = 0;
+                for (let i = 0; i < allLines.length; i++) {
+                    const line = allLines[i].trim();
+                    if (line === '') continue;
+
+                    nonEmptyCount++;
+                    // Skip first non-empty line (the opening ```embed/```cardlink)
+                    if (nonEmptyCount === 1) continue;
+
+                    if (nonEmptyCount > 10) break;
+
+                    // Check for title line
+                    if (line.startsWith('title:')) {
+                        let title = line.substring(6).trim();
+                        // Remove quotes if present
+                        if ((title.startsWith('"') && title.endsWith('"')) || (title.startsWith("'") && title.endsWith("'"))) {
+                            title = title.substring(1, title.length - 1);
+                        }
+                        firstLine = title;
+                        foundTitle = true;
+                        verboseLog(this.plugin, `Found ${cardLinkMatch[1]} card link in ${file.path}`, { title: firstLine });
+                        break;
+                    }
+                    // Check for closing ``` before finding title
+                    if (line.startsWith('```')) {
+                        firstLine = 'Untitled';
+                        verboseLog(this.plugin, `Card link in ${file.path} has no title, using Untitled`);
+                        break;
+                    }
                 }
-                if (cardlinkMatch) {
-                    // Extract title and continue with normal processing
-                    firstLine = cardlinkMatch[1];
-                    verboseLog(this.plugin, `Found cardlink in ${file.path}`, { title: firstLine });
+                if (!foundTitle && firstLine !== 'Untitled') {
+                    // Reached limit without finding title or closing
+                    firstLine = 'Untitled';
                 }
             }
         }
 
-        // Check if content became empty when it wasn't before (after stripping frontmatter)
-        const cacheManager = getCacheManager();
-        const previousFileContent = cacheManager?.getContent(file.path);
-        if (contentWithoutFrontmatter.trim() === '' && previousFileContent && this.stripFrontmatterFromContent(previousFileContent, file).trim() !== '') {
-            // Content became empty, rename to Untitled
-            const parentPath = file.parent?.path === "/" ? "" : file.parent?.path + "/";
-            let newPath: string = `${parentPath}Untitled.md`;
-
-            let counter: number = 0;
-
-            // Check for actual file conflicts (same as main logic)
-            let fileExists: boolean = this.checkFileExistsCaseInsensitive(newPath);
-            while (fileExists) {
-                if (file.path == newPath) {
-                    cacheManager?.setContent(file.path, content);
-                    return { success: false, reason: 'no-change' };
-                }
-                counter += 1;
-                newPath = `${parentPath}Untitled ${counter}.md`;
-                fileExists = this.checkFileExistsCaseInsensitive(newPath);
-            }
-
-            // tempNewPaths array eliminated - files processed chronologically
-
-            // Reserve path to prevent conflicts
-            cacheManager?.reservePath(newPath);
-
-            const oldPath = file.path;
-            try {
-                await this.plugin.app.fileManager.renameFile(file, newPath);
-                verboseLog(this.plugin, `Renamed empty file ${file.path} to ${newPath}`);
-
-                // Update cache with new path
-                const lastContent = this.lastProcessedContent.get(oldPath);
-                if (lastContent !== undefined) {
-                    this.lastProcessedContent.delete(oldPath);
-                    this.lastProcessedContent.set(newPath, lastContent);
-                }
-            } catch (error) {
-                console.error(`Failed to rename file ${file.path} to ${newPath}:`, error);
-                cacheManager?.releasePath(newPath);
-                throw new Error(`Failed to rename file: ${error.message}`);
-            }
-
-            // Remove any plugin aliases since there's no content to alias
-            if (this.plugin.settings.enableAliases) {
-                verboseLog(this.plugin, `Removing plugin aliases - file became empty`);
-                await this.plugin.aliasManager.removePluginAliasesFromFile(file, false); // Respect keepEmptyAliasProperty setting
-            }
-
-            cacheManager?.setContent(newPath, content);
-            cacheManager?.releasePath(newPath);
-            return { success: true, reason: 'empty-content' };
+        // Store current content for next check in cache (only if not handled above)
+        // Don't update cache if content became empty and we're renaming to Untitled (prevents cache poisoning)
+        const contentBecameEmpty = contentWithoutFrontmatter.trim() === '' && firstLine === 'Untitled';
+        if (!contentBecameEmpty) {
+            cacheManager?.setContent(file.path, content);
         }
-
-        // Store current content for next check in cache
-        cacheManager?.setContent(file.path, content);
 
         // Preserve original content with frontmatter for alias manager
         const originalContentWithFrontmatter = content;
@@ -447,8 +498,14 @@ export class RenameEngine {
 
         // Check for self-referencing links BEFORE custom replacements to prevent character mismatch
         const escapedName = currentName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        const wikiLinkRegex = new RegExp(`\\[\\[${escapedName}(\\|.*?)?\\]\\]`);
-        const markdownLinkRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
+        const pathWithoutExt = file.path.replace(/\.md$/, '');
+        const escapedPath = pathWithoutExt.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+        // Match [[filename]], [[filename#heading]], [[filename#^block]], [[path/filename#heading]], with optional |alias
+        // Need to check both basename and full path (some users link with path)
+        const wikiLinkRegex = new RegExp(`\\[\\[(${escapedName}|${escapedPath})(#[^\\]|]*?)?(\\|.*?)?\\]\\]`);
+        // Match markdown links including empty link text: [text](url) or [](url)
+        const markdownLinkRegex = /\[([^\]]*)\]\(([^)]+)\)/g;
 
         let isSelfReferencing = false;
 
@@ -462,9 +519,36 @@ export class RenameEngine {
         let match;
         while ((match = markdownLinkRegex.exec(firstLine)) !== null) {
             const url = match[2];
-            if (url.startsWith("#") && url.includes(currentName)) {
+
+            // Decode percent-encoding for comparison
+            let decodedUrl = url;
+            try {
+                decodedUrl = decodeURIComponent(url);
+            } catch (e) {
+                // Invalid encoding, use original
+            }
+
+            // Check various self-reference patterns:
+            // 1. Fragment-only: #heading (always self-referencing)
+            // 2. Relative path with .md: filename.md or path/filename.md
+            // 3. Relative path without extension: filename
+            if (url.startsWith("#")) {
+                // Fragment-only links always reference current file
                 isSelfReferencing = true;
-                verboseLog(this.plugin, `Found self-referencing markdown link in ${file.path} before custom replacements`);
+                verboseLog(this.plugin, `Found self-referencing markdown link (fragment) in ${file.path} before custom replacements`);
+                break;
+            }
+
+            // Check if decoded URL matches current file (with or without .md extension)
+            const urlWithoutFragment = decodedUrl.split('#')[0];
+            if (urlWithoutFragment && (
+                urlWithoutFragment === `${currentName}.md` ||
+                urlWithoutFragment === currentName ||
+                urlWithoutFragment === `${pathWithoutExt}.md` ||
+                urlWithoutFragment === pathWithoutExt
+            )) {
+                isSelfReferencing = true;
+                verboseLog(this.plugin, `Found self-referencing markdown link (percent-encoded) in ${file.path} before custom replacements`);
                 break;
             }
         }
@@ -520,7 +604,22 @@ export class RenameEngine {
         verboseLog(this.plugin, isSelfReferencing ? `Self-reference found in ${file.path}` : `No self-reference found in ${file.path}`);
 
         // Now extract title from the processed line (custom replacements already applied above)
-        const extractedTitle = extractTitle(processedTitle, this.plugin.settings);
+        // For code block detection, pass first 2 lines if first line starts with ``` (but not card links)
+        let contentForExtraction = processedTitle;
+        const trimmedFirstLine = firstLine.trim();
+        if (trimmedFirstLine.startsWith('```') && !trimmedFirstLine.match(/^```(embed|cardlink)$/)) {
+            // Extract first 2 non-empty lines after frontmatter for code block pattern matching
+            const contentLines = contentWithoutFrontmatter.split('\n');
+            let extractedLines: string[] = [];
+            for (const line of contentLines) {
+                if (line.trim() !== '') {
+                    extractedLines.push(line);
+                    if (extractedLines.length >= 2) break;
+                }
+            }
+            contentForExtraction = extractedLines.join('\n');
+        }
+        const extractedTitle = extractTitle(contentForExtraction, this.plugin.settings);
         verboseLog(this.plugin, `Extracted title from ${file.path}`, { original: firstLine, afterCustomReplacements: processedTitle, extracted: extractedTitle });
 
         const charMap: { [key: string]: string } = {
@@ -674,12 +773,24 @@ export class RenameEngine {
         verboseLog(this.plugin, `Initial target path: ${newPath} for file: ${file.path}`);
 
         // Check if filename would change - if not, process aliases only (no delay needed)
-        if (file.path == newPath) {
+        if (file.path === newPath) {
             verboseLog(this.plugin, `No rename needed for ${file.path} - already has correct name`);
             // File passed exclusion checks - process aliases when enabled (immediate since no file rename)
             if (this.plugin.settings.enableAliases) {
                 await this.plugin.aliasManager.updateAliasIfNeeded(file, originalContentWithFrontmatter);
             }
+
+            // Show notification for manual commands when no rename needed
+            verboseLog(this.plugin, `Notification check (no rename): showNotices=${showNotices}, isBatchOperation=${isBatchOperation}, manualNotificationMode=${this.plugin.settings.manualNotificationMode}`);
+            if (showNotices && !isBatchOperation) {
+                const shouldShowNotice = this.plugin.settings.manualNotificationMode === 'Always';
+                verboseLog(this.plugin, `shouldShowNotice (no rename)=${shouldShowNotice}`);
+                if (shouldShowNotice) {
+                    verboseLog(this.plugin, `Showing notice: Renamed to: ${currentName}`);
+                    new Notice(`Renamed to: ${currentName}`);
+                }
+            }
+
             return { success: false, reason: 'no-rename-needed' };
         }
 
@@ -697,7 +808,7 @@ export class RenameEngine {
             verboseLog(this.plugin, `Found conflicts for ${newPath}, starting counter loop`);
             while (fileExists) {
                 // Check if we're about to create a path that matches current file (with counter)
-                if (file.path == newPath) {
+                if (file.path === newPath) {
                     verboseLog(this.plugin, `No rename needed for ${file.path} - already has correct name with counter`);
                     // Note: Alias was already handled earlier in the function
                     return { success: false, reason: 'no-rename-needed' };
@@ -705,40 +816,55 @@ export class RenameEngine {
                 counter += 1;
                 newPath = `${parentPath}${newFileName} ${counter}.md`;
                 fileExists = this.checkFileExistsCaseInsensitive(newPath);
-                verboseLog(this.plugin, `Counter loop: counter=${counter}, newPath=${newPath}, fileExists=${fileExists}`);
             }
+            verboseLog(this.plugin, `Found available filename with counter ${counter}: ${newPath}`);
         } else {
             verboseLog(this.plugin, `No conflicts found for ${newPath}, proceeding without counter`);
         }
 
         // Only check for self-reference if filename would actually change (after handling counter)
         if (isSelfReferencing) {
-            if (!suppressNotices) {
-                new Notice(`File not renamed due to self-referential link in first line: ${file.name}`, 0);
+            // Only show notice if not a batch operation
+            if (!isBatchOperation) {
+                // Rate limit: show notice max once per 2 seconds per file
+                const now = Date.now();
+                const lastNoticeTime = this.lastSelfRefNotice.get(file.path) || 0;
+                if (now - lastNoticeTime >= 2000) {
+                    verboseLog(this.plugin, `Showing notice: File not renamed due to self-referential link in first line: ${file.basename}`);
+                    new Notice(`Note not renamed due to self-referential link in first line: ${file.basename}`);
+                    this.lastSelfRefNotice.set(file.path, now);
+                }
             }
             verboseLog(this.plugin, `Skipping self-referencing file: ${file.path}`);
             return { success: false, reason: 'self-referential' };
         }
 
         if (noDelay) {
-            const cacheManager = getCacheManager();
             cacheManager?.reservePath(newPath);
         }
 
-        // File passed exclusion checks - process aliases when enabled
-        if (this.plugin.settings.enableAliases) {
-            await this.plugin.aliasManager.updateAliasIfNeeded(file, originalContentWithFrontmatter);
-        }
-
         try {
-            // Mark file as being renamed before operation
-            this.filesBeingRenamed.add(file);
+
+            // Mark as batch operation for debug output exclusion
+            if (isBatchOperation) {
+                this.plugin.markBatchOperationStart(file.path);
+            }
+
+            // Mark as FLIT modification for debug output
+            this.plugin.markFlitModificationStart(file.path);
 
             const oldPath = file.path;
             await this.plugin.app.fileManager.renameFile(file, newPath);
-            // Renamed file counter removed - not needed with optimized system
             const processingTime = Date.now() - startTime;
-            verboseLog(this.plugin, `Successfully renamed ${file.path} to ${newPath} (${processingTime}ms)`);
+            verboseLog(this.plugin, `Successfully renamed ${oldPath} to ${newPath} (${processingTime}ms)`);
+
+            // Mark FLIT modification end
+            this.plugin.markFlitModificationEnd(newPath);
+
+            // Mark batch operation end
+            if (isBatchOperation) {
+                this.plugin.markBatchOperationEnd(newPath);
+            }
 
             // Update cache with new path
             const lastContent = this.lastProcessedContent.get(oldPath);
@@ -747,28 +873,39 @@ export class RenameEngine {
                 this.lastProcessedContent.set(newPath, lastContent);
             }
 
-            // Note: Alias was handled before the file rename to stay synchronized
+            // Notify cache manager of rename
+            cacheManager?.notifyFileRenamed(oldPath, newPath);
 
-            // Show notification for manual renames (unless suppressed)
-            if (showNotices) {
-                const titleChanged = currentName !== newFileName;
+            // File passed exclusion checks - process aliases when enabled AFTER rename
+            if (this.plugin.settings.enableAliases) {
+                // Get fresh file reference from vault after rename
+                const renamedFile = this.plugin.app.vault.getAbstractFileByPath(newPath);
+                if (renamedFile && renamedFile instanceof TFile) {
+                    await this.plugin.aliasManager.updateAliasIfNeeded(renamedFile, originalContentWithFrontmatter, newFileName);
+                }
+            }
+
+            // Show notification for manual renames only (not batch operations)
+            verboseLog(this.plugin, `Notification check: showNotices=${showNotices}, isBatchOperation=${isBatchOperation}, manualNotificationMode=${this.plugin.settings.manualNotificationMode}`);
+            if (showNotices && !isBatchOperation) {
+                // Extract actual final filename from newPath (includes counter if added)
+                const finalFileName = newPath.replace(/\.md$/, '').split('/').pop() || newFileName;
+                const titleChanged = currentName !== finalFileName;
+                verboseLog(this.plugin, `Notification details: currentName=${currentName}, finalFileName=${finalFileName}, titleChanged=${titleChanged}`);
                 const shouldShowNotice =
                     this.plugin.settings.manualNotificationMode === 'Always' ||
                     (this.plugin.settings.manualNotificationMode === 'On title change' && titleChanged);
 
+                verboseLog(this.plugin, `shouldShowNotice=${shouldShowNotice}`);
                 if (shouldShowNotice) {
-                    new Notice(`Updated title: ${currentName} → ${newFileName}`);
+                    verboseLog(this.plugin, `Showing notice: Updated title: ${currentName} → ${finalFileName}`);
+                    new Notice(`Renamed to: ${finalFileName}`);
                 }
             }
-
-            // Unmark file after rename (no cooldown needed - using object identity checking)
-            this.filesBeingRenamed.delete(file);
 
             return { success: true };
         } catch (error) {
             console.error(`Failed to rename file ${file.path} to ${newPath}:`, error);
-            // Clean up tracking even on error
-            this.filesBeingRenamed.delete(file);
             return { success: false, reason: 'error' };
         }
     }
@@ -793,14 +930,6 @@ export class RenameEngine {
         }
 
         return false;
-    }
-
-    cleanupStaleCache(): void {
-        // Clean up tempNewPaths - now handled by CacheManager maintenance
-
-        // Cache cleanup now handled by CacheManager maintenance system
-
-        verboseLog(this.plugin, 'Cache cleanup completed');
     }
 
     // Getter for lastProcessedContent (for use in main.ts)
