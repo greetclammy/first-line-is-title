@@ -1,7 +1,7 @@
 import { Notice, setIcon } from "obsidian";
 import { PluginSettings } from '../types';
 import { verboseLog, generateSafeLinkTarget } from '../utils';
-import { RenameAllFilesModal, InternalLinkModal } from '../modals';
+import { InternalLinkModal } from '../modals';
 import FirstLineIsTitle from '../../main';
 
 export class CommandSetup {
@@ -27,7 +27,8 @@ export class CommandSetup {
             ['Put first line in title (unless excluded)', 'file-pen'],
             ['Put first line in title in all notes', 'files'],
             ['Disable renaming for note', 'square-x'],
-            ['Enable renaming for note', 'square-check']
+            ['Enable renaming for note', 'square-check'],
+            ['Toggle automatic renaming', 'file-cog']
         ]);
 
         // Observer to watch for command palette suggestions
@@ -51,16 +52,6 @@ export class CommandSetup {
                                             // Create icon element
                                             const iconElement = document.createElement('div');
                                             iconElement.classList.add('flit-command-icon');
-                                            iconElement.style.cssText = `
-                                                display: inline-flex;
-                                                align-items: center;
-                                                justify-content: center;
-                                                width: 16px;
-                                                height: 16px;
-                                                margin-right: 8px;
-                                                color: var(--text-muted);
-                                                flex-shrink: 0;
-                                            `;
 
                                             // Use Obsidian's setIcon function to add the icon
                                             setIcon(iconElement, iconName);
@@ -107,14 +98,14 @@ export class CommandSetup {
                 title: 'Put first line in title',
                 callback: async () => {
                     const activeFile = this.app.workspace.getActiveFile();
-                    if (!activeFile) {
-                        new Notice("No active editor");
+                    if (!activeFile || activeFile.extension !== 'md') {
+                        verboseLog(this.plugin, `Showing notice: Error: no active note.`);
+                        new Notice("Error: no active note.");
                         return;
                     }
-                    if (activeFile.extension === 'md') {
-                        verboseLog(this.plugin, `Manual rename command triggered for ${activeFile.path} (ignoring exclusions)`);
-                        await this.plugin.renameEngine.renameFile(activeFile, true, true);
-                    }
+                    verboseLog(this.plugin, `Ribbon command triggered for ${activeFile.path} (ignoring folder/tag/property exclusions)`);
+                    const exclusionOverrides = { ignoreFolder: true, ignoreTag: true, ignoreProperty: true };
+                    await this.plugin.renameEngine.processFile(activeFile, true, true, undefined, false, exclusionOverrides);
                 }
             },
             {
@@ -122,8 +113,21 @@ export class CommandSetup {
                 icon: 'files',
                 title: 'Put first line in title in all notes',
                 callback: () => {
-                    verboseLog(this.plugin, 'Bulk rename command triggered');
+                    const { RenameAllFilesModal } = require('../modals');
                     new RenameAllFilesModal(this.app, this.plugin).open();
+                }
+            },
+            {
+                condition: this.settings.ribbonVisibility.toggleAutomaticRenaming,
+                icon: 'file-cog',
+                title: 'Toggle automatic renaming',
+                callback: async () => {
+                    const newValue = this.settings.renameNotes === "automatically" ? "manually" : "automatically";
+                    this.settings.renameNotes = newValue;
+                    this.plugin.debugLog('renameNotes', newValue);
+                    await this.plugin.saveSettings();
+                    verboseLog(this.plugin, `Showing notice: Automatic renaming ${newValue === "automatically" ? "enabled" : "disabled"}.`);
+                    new Notice(`Automatic renaming ${newValue === "automatically" ? "enabled" : "disabled"}.`);
                 }
             }
         ];
@@ -151,7 +155,8 @@ export class CommandSetup {
         // Try to get active editor from any view type (markdown, canvas, etc.)
         const activeEditor = this.app.workspace.activeEditor?.editor;
         if (!activeEditor) {
-            new Notice("No active editor");
+            verboseLog(this.plugin, `Showing notice: Error: no active note.`);
+            new Notice("Error: no active note.");
             return;
         }
 
@@ -180,7 +185,8 @@ export class CommandSetup {
         // Try to get active editor from any view type (markdown, canvas, etc.)
         const activeEditor = this.app.workspace.activeEditor?.editor;
         if (!activeEditor) {
-            new Notice("No active editor");
+            verboseLog(this.plugin, `Showing notice: Error: no active note.`);
+            new Notice("Error: no active note.");
             return;
         }
 

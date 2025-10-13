@@ -1,4 +1,4 @@
-import { TFile, App } from "obsidian";
+import { TFile, App, Platform } from "obsidian";
 import { PluginSettings, OSPreset } from './types';
 import { UNIVERSAL_FORBIDDEN_CHARS, WINDOWS_ANDROID_CHARS } from './constants';
 
@@ -12,37 +12,30 @@ export function verboseLog(plugin: { settings: PluginSettings }, message: string
     }
 }
 
-/**
- * Validates if a line is a proper Markdown heading
- * Valid headings: start with 1-6 consecutive #, followed by whitespace, then any text
- * No preceding characters (including whitespace) allowed before #
- */
 export function isValidHeading(line: string): boolean {
-    // Regex: ^ = start of line, #{1,6} = 1-6 consecutive #, \s+ = one or more whitespace, .* = any text after
     return /^#{1,6}\s+.*/.test(line);
 }
 
-// OS detection function
-export function detectOS(): OSPreset {
-    // Check if we're on mobile (Android/iOS)
-    if (typeof process === 'undefined' || !process.platform) {
-        // On mobile, use user agent detection
-        const userAgent = navigator.userAgent.toLowerCase();
-        if (userAgent.includes('android')) {
-            return 'Windows'; // Android has same file restrictions as Windows
-        } else if (userAgent.includes('iphone') || userAgent.includes('ipad')) {
-            return 'macOS'; // iOS uses macOS-like paths
-        }
-        // Default for unknown mobile
-        return 'Linux';
+export function normalizePropertyValue(value: any): any {
+    if (typeof value !== 'string') return value;
+    if (value === 'true') return true;
+    if (value === 'false') return false;
+    if (value === 'null') return null;
+    if (value !== '' && !isNaN(Number(value))) {
+        return Number(value);
     }
+    return value;
+}
 
-    // Desktop detection using process.platform
-    switch (process.platform) {
-        case 'darwin': return 'macOS';
-        case 'win32': return 'Windows';
-        default: return 'Linux';
+export function detectOS(): OSPreset {
+    if (Platform.isMacOS || Platform.isIosApp) {
+        return 'macOS';
     }
+    if (Platform.isWin) {
+        return 'Windows';
+    }
+    // Android and Linux both fall under Linux category
+    return 'Linux';
 }
 
 export function inExcludedFolder(file: TFile, settings: PluginSettings): boolean {
@@ -67,14 +60,7 @@ export function inExcludedFolder(file: TFile, settings: PluginSettings): boolean
     return false;
 }
 
-/**
- * Strategy-aware function to check if a file is in the target folder list
- * @param file The file to check
- * @param settings Plugin settings containing folder list and strategy
- * @returns true if file is in the target folder list
- */
 export function isFileInTargetFolders(file: TFile, settings: PluginSettings): boolean {
-    // Filter out empty strings
     const nonEmptyFolders = settings.excludedFolders.filter(folder => folder.trim() !== "");
     if (nonEmptyFolders.length === 0) return false;
 
@@ -83,11 +69,51 @@ export function isFileInTargetFolders(file: TFile, settings: PluginSettings): bo
         return true;
     }
 
-    // Check subfolders if enabled
     if (settings.excludeSubfolders) {
         for (const targetFolder of nonEmptyFolders) {
             if (filePath && filePath.startsWith(targetFolder + "/")) {
                 return true;
+            }
+        }
+    }
+
+    return false;
+}
+
+export function fileHasExcludedProperties(file: TFile, settings: PluginSettings, app: App): boolean {
+    const nonEmptyProperties = settings.excludedProperties.filter(
+        prop => prop.key.trim() !== ""
+    );
+    if (nonEmptyProperties.length === 0) return false;
+
+    const fileCache = app.metadataCache.getFileCache(file);
+    if (!fileCache || !fileCache.frontmatter) return false;
+
+    const frontmatter = fileCache.frontmatter;
+
+    for (const excludedProp of nonEmptyProperties) {
+        const propKey = excludedProp.key.trim();
+        const propValue = excludedProp.value.trim();
+
+        if (propKey in frontmatter) {
+            if (propValue === "") {
+                return true;
+            }
+
+            const frontmatterValue = frontmatter[propKey];
+
+            if (typeof frontmatterValue === 'string') {
+                if (frontmatterValue === propValue) {
+                    return true;
+                }
+            } else if (Array.isArray(frontmatterValue)) {
+                if (frontmatterValue.some(val => String(val) === propValue)) {
+                    return true;
+                }
+            } else if (frontmatterValue != null) {
+                if (String(frontmatterValue) === propValue) {
+                    return true;
+                }
             }
         }
     }
@@ -109,12 +135,18 @@ export function fileHasTargetTags(file: TFile, settings: PluginSettings, app: Ap
 
     const fileCache = app.metadataCache.getFileCache(file);
 
-    // Check YAML frontmatter tags (unless mode is 'Only match tags in note body')
-    if (settings.tagMatchingMode !== 'Only match tags in note body' &&
-        fileCache && fileCache.frontmatter && fileCache.frontmatter.tags) {
-        const frontmatterTags = fileCache.frontmatter.tags;
-        // Handle both string arrays and single strings
-        const fileTags = Array.isArray(frontmatterTags) ? frontmatterTags : [frontmatterTags];
+    // Check YAML frontmatter tags (unless mode is 'In note body only')
+    if (settings.tagMatchingMode !== 'In note body only') {
+        let fileTags: string[] = [];
+
+        // Parse tags from content if provided, otherwise use cache
+        if (content) {
+            fileTags = parseTagsFromYAML(content);
+        } else if (fileCache && fileCache.frontmatter && fileCache.frontmatter.tags) {
+            const frontmatterTags = fileCache.frontmatter.tags;
+            fileTags = Array.isArray(frontmatterTags) ? frontmatterTags.map(String) : [String(frontmatterTags)];
+        }
+
         for (const targetTag of nonEmptyTags) {
             // Normalize both sides: remove # prefix for comparison
             const normalizedTargetTag = targetTag.startsWith('#') ? targetTag.slice(1) : targetTag;
@@ -139,13 +171,13 @@ export function fileHasTargetTags(file: TFile, settings: PluginSettings, app: Ap
     }
 
     // Check tags based on matching mode
-    if (settings.tagMatchingMode !== 'Only match tags in Properties') {
+    if (settings.tagMatchingMode !== 'In Properties only') {
         let inlineTagsInContent: string[] = [];
 
-        if (content && settings.tagMatchingMode === 'Match tags anywhere in note') {
+        if (content && settings.tagMatchingMode === 'In Properties and note body') {
             // Use provided content (real-time) - check both frontmatter and body
             inlineTagsInContent = parseInlineTagsFromText(content);
-        } else if (content && settings.tagMatchingMode === 'Only match tags in note body') {
+        } else if (content && settings.tagMatchingMode === 'In note body only') {
             // Only check content after frontmatter
             const bodyContent = stripFrontmatter(content);
             inlineTagsInContent = parseInlineTagsFromText(bodyContent);
@@ -186,49 +218,81 @@ export function fileHasTargetTags(file: TFile, settings: PluginSettings, app: Ap
  * Determines whether a file should be processed based on the include/exclude strategy
  *
  * Logic summary:
- * - "Enable in all notes except below": Process all files EXCEPT those in target folders/tags
+ * - "Only exclude...": Process all files EXCEPT those in target folders/tags/properties
  *   - If no targets specified: Process ALL files (default enabled)
  *   - If targets specified: Process files NOT in targets (traditional exclude)
  *
- * - "Disable in all notes except below": Process ONLY files in target folders/tags
+ * - "Exclude all except...": Process ONLY files in target folders/tags/properties
  *   - If no targets specified: Process NO files (default disabled)
  *   - If targets specified: Process ONLY files in targets (include-only mode)
  *
  * @param file The file to check
- * @param settings Plugin settings containing strategy, folders, and tags
+ * @param settings Plugin settings containing strategy, folders, tags, and properties
  * @param app The Obsidian app instance
- * @param content Optional file content for real-time checking
+ * @param content Optional file content (string) for real-time checking
+ * @param exclusionOverrides Optional overrides to skip folder/tag/property checks
  * @returns true if the file should be processed, false otherwise
  */
-export function shouldProcessFile(file: TFile, settings: PluginSettings, app: App, content?: string): boolean {
+export function shouldProcessFile(
+    file: TFile,
+    settings: PluginSettings,
+    app: App,
+    content?: string,
+    exclusionOverrides?: { ignoreFolder?: boolean; ignoreTag?: boolean; ignoreProperty?: boolean }
+): boolean {
     const isInTargetFolders = isFileInTargetFolders(file, settings);
     const hasTargetTags = fileHasTargetTags(file, settings, app, content);
+    const hasTargetProperties = fileHasExcludedProperties(file, settings, app);
 
-    // If file is in target folders OR has target tags, it's "targeted"
-    const isTargeted = isInTargetFolders || hasTargetTags;
+    // Helper function to apply strategy logic for a single exclusion type
+    // Returns TRUE if file should be EXCLUDED (don't process)
+    const applyStrategy = (
+        isTargeted: boolean,
+        hasTargets: boolean,
+        strategy: string
+    ): boolean => {
+        if (strategy === 'Only exclude...') {
+            // Only exclude: exclude files matching the targets
+            // If no targets specified, don't exclude anything (process all)
+            return hasTargets ? isTargeted : false;
+        } else {
+            // 'Exclude all except...'
+            // Exclude all except: exclude files NOT matching the targets
+            // If no targets specified, exclude everything (process none)
+            return hasTargets ? !isTargeted : true;
+        }
+    };
 
-    // Check if any targets are actually specified
-    const hasAnyTargets = (
-        settings.excludedFolders.some(folder => folder.trim() !== "") ||
-        settings.excludedTags.some(tag => tag.trim() !== "")
+    // Apply strategy for each exclusion type independently, respecting overrides
+    const shouldExcludeFromFolders = exclusionOverrides?.ignoreFolder ? false : applyStrategy(
+        isInTargetFolders,
+        settings.excludedFolders.some(folder => folder.trim() !== ""),
+        settings.folderScopeStrategy
     );
 
-    // Apply strategy logic
-    if (settings.scopeStrategy === 'Enable in all notes except below') {
-        // Enable renaming in all notes EXCEPT those in the specified folders/tags
-        // The list contains folders/tags where renaming should be DISABLED
-        // If no targets specified, enable renaming for all files
-        return hasAnyTargets ? !isTargeted : true;
-    } else {
-        // 'Disable in all notes except below'
-        // Disable renaming in all notes EXCEPT those in the specified folders/tags
-        // The list contains folders/tags where renaming should be ENABLED
-        // If no targets specified, disable renaming for all files
-        return hasAnyTargets ? isTargeted : false;
-    }
+    const shouldExcludeFromTags = exclusionOverrides?.ignoreTag ? false : applyStrategy(
+        hasTargetTags,
+        settings.excludedTags.some(tag => tag.trim() !== ""),
+        settings.tagScopeStrategy
+    );
+
+    const shouldExcludeFromProperties = exclusionOverrides?.ignoreProperty ? false : applyStrategy(
+        hasTargetProperties,
+        settings.excludedProperties.some(prop => prop.key.trim() !== ""),
+        settings.propertyScopeStrategy
+    );
+
+    // A file should be processed if it doesn't meet the exclusion criteria for ANY exclusion type
+    // OR logic: if ANY exclusion type says "exclude" (returns true), then we exclude
+    return !(shouldExcludeFromFolders || shouldExcludeFromTags || shouldExcludeFromProperties);
 }
 
 export function isFileExcluded(file: TFile, settings: PluginSettings, app: App, content?: string): boolean {
+    // Check property exclusions
+    if (fileHasExcludedProperties(file, settings, app)) {
+        return true;
+    }
+
     // Check folder exclusions
     if (inExcludedFolder(file, settings)) {
         return true;
@@ -239,8 +303,8 @@ export function isFileExcluded(file: TFile, settings: PluginSettings, app: App, 
     if (nonEmptyTags.length > 0) {
         const fileCache = app.metadataCache.getFileCache(file);
 
-        // Check YAML frontmatter tags (unless mode is 'Only match tags in note body')
-        if (settings.tagMatchingMode !== 'Only match tags in note body' &&
+        // Check YAML frontmatter tags (unless mode is 'In note body only')
+        if (settings.tagMatchingMode !== 'In note body only' &&
             fileCache && fileCache.frontmatter && fileCache.frontmatter.tags) {
             const frontmatterTags = fileCache.frontmatter.tags;
             // Handle both string arrays and single strings
@@ -269,13 +333,13 @@ export function isFileExcluded(file: TFile, settings: PluginSettings, app: App, 
         }
 
         // Check tags based on matching mode
-        if (settings.tagMatchingMode !== 'Only match tags in Properties') {
+        if (settings.tagMatchingMode !== 'In Properties only') {
             let inlineTagsInContent: string[] = [];
 
-            if (content && settings.tagMatchingMode === 'Match tags anywhere in note') {
+            if (content && settings.tagMatchingMode === 'In Properties and note body') {
                 // Use provided content (real-time) - check both frontmatter and body
                 inlineTagsInContent = parseInlineTagsFromText(content);
-            } else if (content && settings.tagMatchingMode === 'Only match tags in note body') {
+            } else if (content && settings.tagMatchingMode === 'In note body only') {
                 // Only check content after frontmatter
                 const bodyContent = stripFrontmatter(content);
                 inlineTagsInContent = parseInlineTagsFromText(bodyContent);
@@ -355,33 +419,130 @@ function stripFrontmatter(content: string): string {
     return lines.slice(endIndex + 1).join('\n');
 }
 
-export function hasDisableProperty(content: string): boolean {
-    // Hardcoded to check for "no rename: true"
+function parseTagsFromYAML(content: string): string[] {
+    const tags: string[] = [];
 
-    // Check if content starts with frontmatter
-    if (!content.startsWith("---")) return false;
+    if (!content.startsWith('---')) {
+        return tags;
+    }
 
-    // Find the end of the first frontmatter block
-    const frontmatterEnd = content.indexOf("---", 3);
-    if (frontmatterEnd === -1) return false;
+    const lines = content.split('\n');
+    let yamlEndLine = -1;
 
-    // Extract frontmatter content
-    const frontmatter = content.slice(3, frontmatterEnd);
+    // Find closing ---
+    for (let i = 1; i < lines.length; i++) {
+        if (lines[i] === '---') {
+            yamlEndLine = i;
+            break;
+        }
+    }
 
-    // Check for "no rename: true" (case-insensitive, with or without quotes)
-    const patterns = [
-        /^\s*no\s+rename\s*:\s*"true"\s*$/im,
-        /^\s*no\s+rename\s*:\s*'true'\s*$/im,
-        /^\s*no\s+rename\s*:\s*true\s*$/im
-    ];
+    if (yamlEndLine === -1) return tags;
 
-    return patterns.some(regex => regex.test(frontmatter));
+    const yamlLines = lines.slice(1, yamlEndLine);
+    let currentKey = '';
+    let inArray = false;
+
+    for (const line of yamlLines) {
+        const trimmed = line.trim();
+
+        // Skip empty lines and comments
+        if (trimmed === '' || trimmed.startsWith('#')) continue;
+
+        // Check if line starts array items (- item)
+        if (trimmed.startsWith('- ')) {
+            if (inArray && currentKey === 'tags') {
+                let tagValue = trimmed.substring(2).trim();
+
+                // Remove quotes if present
+                if ((tagValue.startsWith('"') && tagValue.endsWith('"')) ||
+                    (tagValue.startsWith("'") && tagValue.endsWith("'"))) {
+                    tagValue = tagValue.substring(1, tagValue.length - 1);
+                }
+
+                // Remove # prefix if present
+                if (tagValue.startsWith('#')) {
+                    tagValue = tagValue.substring(1);
+                }
+
+                tags.push(tagValue);
+            }
+            continue;
+        }
+
+        // Check for key: value pattern
+        if (trimmed.includes(':')) {
+            const colonIndex = trimmed.indexOf(':');
+            const key = trimmed.substring(0, colonIndex).trim();
+            const value = trimmed.substring(colonIndex + 1).trim();
+
+            currentKey = key;
+
+            // Check if value is empty (array follows)
+            if (value === '' || value === '[') {
+                inArray = true;
+                continue;
+            } else {
+                inArray = false;
+            }
+
+            // Handle single tag value
+            if (key === 'tags' && value) {
+                let tagValue = value;
+
+                // Remove quotes if present
+                if ((tagValue.startsWith('"') && tagValue.endsWith('"')) ||
+                    (tagValue.startsWith("'") && tagValue.endsWith("'"))) {
+                    tagValue = tagValue.substring(1, tagValue.length - 1);
+                }
+
+                // Remove # prefix if present
+                if (tagValue.startsWith('#')) {
+                    tagValue = tagValue.substring(1);
+                }
+
+                tags.push(tagValue);
+            }
+        }
+    }
+
+    return tags;
 }
 
-export async function hasDisablePropertyInFile(file: TFile, app: App): Promise<boolean> {
+export async function hasDisablePropertyInFile(file: TFile, app: App, disableKey: string, disableValue: string): Promise<boolean> {
     try {
-        const content = await app.vault.read(file);
-        return hasDisableProperty(content);
+        // Use Obsidian's metadata cache to read frontmatter (already parsed YAML)
+        const metadata = app.metadataCache.getFileCache(file);
+        const frontmatter = metadata?.frontmatter;
+
+        if (!frontmatter) return false;
+
+        // Get the property value
+        const propertyValue = frontmatter[disableKey];
+
+        if (propertyValue === undefined || propertyValue === null) return false;
+
+        // Normalize disableValue for comparison
+        const normalizedDisableValue = normalizePropertyValue(disableValue);
+
+        // Handle array/list values
+        if (Array.isArray(propertyValue)) {
+            // Check if any item in the array matches (case-insensitive for strings)
+            return propertyValue.some(item => {
+                if (typeof item === 'string' && typeof normalizedDisableValue === 'string') {
+                    return item.toLowerCase() === normalizedDisableValue.toLowerCase();
+                }
+                return item === normalizedDisableValue;
+            });
+        }
+
+        // Handle single values (case-insensitive comparison for strings)
+        if (typeof propertyValue === 'string' && typeof normalizedDisableValue === 'string') {
+            return propertyValue.toLowerCase() === normalizedDisableValue.toLowerCase();
+        }
+
+        // Direct comparison for non-string types
+        return propertyValue === normalizedDisableValue;
     } catch (error) {
         return false;
     }
@@ -517,6 +678,37 @@ export function extractTitle(line: string, settings: PluginSettings): string {
             });
         }
 
+        // Strip code block markup (must run before code markup stripping)
+        if (settings.enableStripMarkup && settings.stripMarkupSettings.codeBlocks) {
+            // Check if only ``` (empty code block) - return Untitled
+            // Don't use multiline flag - we want to match entire string, not just first line
+            if (/^\s*```\s*$/.test(line)) {
+                return "Untitled";
+            }
+
+            // Match lines with optional leading whitespace followed by ```
+            // Capture everything after ``` opener line
+            const codeBlockMatch = /^\s*```(?!`)[^\n]*\n([\s\S]+)/m.exec(line);
+            if (codeBlockMatch) {
+                const content = codeBlockMatch[1];
+                // Extract first non-empty line from code block content
+                const contentLines = content.split('\n');
+                let foundLine = false;
+                for (const contentLine of contentLines) {
+                    const trimmed = contentLine.trim();
+                    if (trimmed !== '' && !trimmed.startsWith('```')) {
+                        line = contentLine;
+                        foundLine = true;
+                        break;
+                    }
+                }
+                // If only found ``` inside (both first and second line are ```), return Untitled
+                if (!foundLine) {
+                    return "Untitled";
+                }
+            }
+        }
+
         // Strip code markup
         if (settings.enableStripMarkup && settings.stripMarkupSettings.code) {
             line = line.replace(/`(.+?)`/g, (match, content, offset) => {
@@ -524,9 +716,29 @@ export function extractTitle(line: string, settings: PluginSettings): string {
             });
         }
 
-        // Strip blockquote markup
-        if (settings.enableStripMarkup && settings.stripMarkupSettings.blockquote) {
+        // Strip callout markup (check before quote to avoid conflicts)
+        if (settings.enableStripMarkup && settings.stripMarkupSettings.callouts) {
+            line = line.replace(/^>\s*\[![^\]]+\]\s*(.*)$/gm, '$1');
+        }
+
+        // Strip quote markup
+        if (settings.enableStripMarkup && settings.stripMarkupSettings.quote) {
             line = line.replace(/^>\s*(.*)$/gm, '$1');
+        }
+
+        // Strip task list markup BEFORE list markup
+        if (settings.enableStripMarkup && settings.stripMarkupSettings.taskLists) {
+            line = line.replace(/^(?:[-+*]|\d+\.) \[.\] /gm, '');
+        }
+
+        // Strip unordered list markup
+        if (settings.enableStripMarkup && settings.stripMarkupSettings.unorderedLists) {
+            line = line.replace(/^[-+*] /gm, '');
+        }
+
+        // Strip ordered list markup
+        if (settings.enableStripMarkup && settings.stripMarkupSettings.orderedLists) {
+            line = line.replace(/^\d+\. /gm, '');
         }
 
         // Strip HTML tags (legacy settings + new granular control)
@@ -536,6 +748,14 @@ export function extractTitle(line: string, settings: PluginSettings): string {
                 previousLine = line;
                 line = line.replace(/<([a-zA-Z][a-zA-Z0-9]*)\b[^>]*>(.*?)<\/\1>/g, '$2');
             }
+        }
+
+        // Strip footnote markup
+        if (settings.enableStripMarkup && settings.stripMarkupSettings.footnotes) {
+            // Strip [^1] style footnotes (but not if followed by colon)
+            line = line.replace(/\[\^[^\]]+\](?!:)/g, '');
+            // Strip ^[note] style footnotes (but not if followed by colon)
+            line = line.replace(/\^\[[^\]]+\](?!:)/g, '');
         }
     }
 
@@ -559,9 +779,6 @@ export function extractTitle(line: string, settings: PluginSettings): string {
             }
         }
     }
-
-    // Note: Custom replacements are now handled in main.ts before calling extractTitle
-    // This avoids duplicate processing and ensures proper ordering with self-reference checks
 
     // Handle wikilinks (only if strip wikilink markup is enabled)
     if (!settings.enableStripMarkup || settings.stripMarkupSettings.wikilinks) {

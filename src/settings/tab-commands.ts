@@ -64,6 +64,32 @@ export class CommandsTab extends SettingsTabBase {
         setIcon(ribbonBulkIcon, "files");
         ribbonBulkSetting.nameEl.insertBefore(ribbonBulkIcon, ribbonBulkSetting.nameEl.firstChild);
 
+        const ribbonToggleSetting = new Setting(ribbonContainer)
+            .setName("Toggle automatic renaming")
+            .setDesc("");
+
+        // Create styled description
+        const ribbonToggleDesc = ribbonToggleSetting.descEl;
+        ribbonToggleDesc.appendText("Toggle the ");
+        ribbonToggleDesc.createEl("em", { text: "Rename notes" });
+        ribbonToggleDesc.appendText(" setting between ");
+        ribbonToggleDesc.createEl("em", { text: "Automatically" });
+        ribbonToggleDesc.appendText(" and ");
+        ribbonToggleDesc.createEl("em", { text: "Manually" });
+        ribbonToggleDesc.appendText(".");
+
+        ribbonToggleSetting.addToggle((toggle) => {
+                toggle.setValue(this.plugin.settings.ribbonVisibility.toggleAutomaticRenaming)
+                    .onChange(async (value) => {
+                        this.plugin.settings.ribbonVisibility.toggleAutomaticRenaming = value;
+                        this.plugin.debugLog('ribbonVisibility.toggleAutomaticRenaming', value);
+                        await this.plugin.saveSettings();
+                    });
+            });
+                const ribbonToggleIcon = ribbonToggleSetting.nameEl.createDiv({ cls: "setting-item-icon" });
+        setIcon(ribbonToggleIcon, "file-cog");
+        ribbonToggleSetting.nameEl.insertBefore(ribbonToggleIcon, ribbonToggleSetting.nameEl.firstChild);
+
         // Initialize ribbon UI
         updateRibbonUI();
 
@@ -145,6 +171,34 @@ export class CommandsTab extends SettingsTabBase {
                 const icon3 = setting3.nameEl.createDiv({ cls: "setting-item-icon" });
         setIcon(icon3, "files");
         setting3.nameEl.insertBefore(icon3, setting3.nameEl.firstChild);
+
+        const setting8 = new Setting(commandPaletteContainer)
+            .setName("Toggle automatic renaming")
+            .setDesc("");
+
+        // Create styled description
+        const toggleDesc = setting8.descEl;
+        toggleDesc.appendText("Toggle the ");
+        toggleDesc.createEl("em", { text: "Rename notes" });
+        toggleDesc.appendText(" setting between ");
+        toggleDesc.createEl("em", { text: "Automatically" });
+        toggleDesc.appendText(" and ");
+        toggleDesc.createEl("em", { text: "Manually" });
+        toggleDesc.appendText(".");
+
+        setting8.addToggle(toggle =>
+                toggle
+                    .setValue(this.plugin.settings.commandPaletteVisibility.toggleAutomaticRenaming)
+                    .onChange(async (value) => {
+                        this.plugin.settings.commandPaletteVisibility.toggleAutomaticRenaming = value;
+                        this.plugin.debugLog('commandPaletteVisibility.toggleAutomaticRenaming', value);
+                        await this.plugin.saveSettings();
+                    })
+            );
+
+                const icon8 = setting8.nameEl.createDiv({ cls: "setting-item-icon" });
+        setIcon(icon8, "file-cog");
+        setting8.nameEl.insertBefore(icon8, setting8.nameEl.firstChild);
 
         const setting4 = new Setting(commandPaletteContainer)
             .setName("Disable renaming for note")

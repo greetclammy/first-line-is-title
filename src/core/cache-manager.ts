@@ -1,10 +1,3 @@
-/**
- * High-Performance Cache Manager for FLIT Plugin
- *
- * Replaces global variables and O(n²) operations with optimized data structures.
- * Designed to handle 10k+ files efficiently with bounded memory usage.
- */
-
 export interface CacheConfig {
     maxContentEntries: number;
     maxOperationEntries: number;
@@ -15,13 +8,10 @@ export interface CacheConfig {
 export const DEFAULT_CACHE_CONFIG: CacheConfig = {
     maxContentEntries: 1000,
     maxOperationEntries: 500,
-    maintenanceIntervalMs: 0, // Disabled - cleanup happens immediately after operations
-    staleThresholdMs: 10 * 60 * 1000, // 10 minutes (for edge cases only)
+    maintenanceIntervalMs: 300000, // 5 minutes - safety net for edge case cleanup
+    staleThresholdMs: 10 * 60 * 1000,
 };
 
-/**
- * LRU Cache implementation for bounded memory usage
- */
 class LRUCache<K, V> {
     private maxSize: number;
     private cache: Map<K, V>;
@@ -33,10 +23,8 @@ class LRUCache<K, V> {
 
     set(key: K, value: V): void {
         if (this.cache.has(key)) {
-            // Move to end by delete + set
             this.cache.delete(key);
         } else if (this.cache.size >= this.maxSize) {
-            // Remove oldest entry (first key)
             const firstKey = this.cache.keys().next().value;
             this.cache.delete(firstKey);
         }
@@ -46,7 +34,6 @@ class LRUCache<K, V> {
     get(key: K): V | undefined {
         const value = this.cache.get(key);
         if (value !== undefined) {
-            // Move to end (mark as recently used)
             this.cache.delete(key);
             this.cache.set(key, value);
         }
@@ -74,22 +61,16 @@ class LRUCache<K, V> {
     }
 }
 
-/**
- * Fast file existence cache with TTL (Time To Live)
- */
 class FileExistenceCache {
     private pathCache: Set<string> = new Set();
     private lastUpdate: number = 0;
-    private readonly cacheTTL: number = 5000; // 5 seconds
+    private readonly cacheTTL: number = 5000;
     private plugin: any;
 
     constructor(plugin: any) {
         this.plugin = plugin;
     }
 
-    /**
-     * Check if file exists - O(1) operation after initial cache build
-     */
     exists(path: string): boolean {
         const now = Date.now();
         if (now - this.lastUpdate > this.cacheTTL) {
@@ -97,7 +78,6 @@ class FileExistenceCache {
             this.lastUpdate = now;
         }
 
-        // Check cache first (O(1)), fallback to Obsidian API
         return this.pathCache.has(path.toLowerCase()) ||
                this.plugin.app.vault.getAbstractFileByPath(path) !== null;
     }
@@ -110,16 +90,10 @@ class FileExistenceCache {
         }
     }
 
-    /**
-     * Add path to cache (for newly created files)
-     */
     addPath(path: string): void {
         this.pathCache.add(path.toLowerCase());
     }
 
-    /**
-     * Remove path from cache (for deleted files)
-     */
     removePath(path: string): void {
         this.pathCache.delete(path.toLowerCase());
     }
@@ -130,18 +104,12 @@ class FileExistenceCache {
     }
 }
 
-/**
- * Operation tracking with automatic cleanup
- */
 interface OperationData {
     count: number;
     lastContent: string;
     lastUpdate: number;
 }
 
-/**
- * Main cache manager - replaces all global variables with encapsulated, optimized system
- */
 export class CacheManager {
     private config: CacheConfig;
 
@@ -371,6 +339,17 @@ export class CacheManager {
      */
     isAliasInProgress(filePath: string): boolean {
         return this.aliasInProgress.has(filePath);
+    }
+
+    /**
+     * Clear all alias timers (used during plugin unload)
+     */
+    clearAllAliasTimers(): void {
+        for (const timer of this.aliasTimers.values()) {
+            clearTimeout(timer);
+        }
+        this.aliasTimers.clear();
+        this.aliasInProgress.clear();
     }
 
     // ==================== MAINTENANCE & CLEANUP ====================

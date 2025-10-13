@@ -1,12 +1,12 @@
 import { TFile, MarkdownView } from "obsidian";
+import { NodeError } from './obsidian-ex';
 import { PluginSettings } from '../types';
-import { verboseLog, shouldProcessFile, extractTitle } from '../utils';
+import { verboseLog, shouldProcessFile, extractTitle, hasDisablePropertyInFile } from '../utils';
 import FirstLineIsTitle from '../../main';
 
-// Global variables for alias management
-let aliasUpdateInProgress: Set<string> = new Set();
-
 export class AliasManager {
+    private aliasUpdateInProgress: Set<string> = new Set();
+
     constructor(private plugin: FirstLineIsTitle) {}
 
     get app() {
@@ -18,38 +18,45 @@ export class AliasManager {
     }
 
     isAliasUpdateInProgress(filePath: string): boolean {
-        return aliasUpdateInProgress.has(filePath);
+        return this.aliasUpdateInProgress.has(filePath);
     }
 
-    async updateAliasIfNeeded(file: TFile, providedContent?: string): Promise<void> {
+    private getAliasPropertyKeys(): string[] {
+        const aliasPropertyKey = this.settings.aliasPropertyKey || 'aliases';
+        return aliasPropertyKey
+            .split(',')
+            .map(key => key.trim())
+            .filter(key => key.length > 0);
+    }
+
+    async updateAliasIfNeeded(file: TFile, providedContent?: string, targetFileName?: string): Promise<void> {
         // Track plugin usage
         this.plugin.trackUsage();
 
         try {
-            const fileKey = file.path;
-
-            // Check if file still exists (may have been renamed/deleted during processing)
             const currentFile = this.app.vault.getAbstractFileByPath(file.path);
             if (!currentFile || !(currentFile instanceof TFile)) {
                 verboseLog(this.plugin, `Skipping alias update - file no longer exists: ${file.path}`);
                 return;
             }
 
-            // Update our file reference to the current one from vault
             file = currentFile;
+            const fileKey = file.path;
 
-            // Skip if an alias update is already in progress for this file
-            if (aliasUpdateInProgress.has(fileKey)) {
+            if (this.aliasUpdateInProgress.has(fileKey)) {
                 verboseLog(this.plugin, `Skipping alias update for ${file.path} - update already in progress`);
                 return;
             }
 
-            // Skip if file is excluded or should not be processed
-            if (!shouldProcessFile(file, this.settings)) {
+            // Check disable property FIRST - this cannot be overridden by any command
+            if (await hasDisablePropertyInFile(file, this.app, this.settings.disableRenamingKey, this.settings.disableRenamingValue)) {
+                verboseLog(this.plugin, `Skipping alias update - file has disable property: ${file.path}`);
                 return;
             }
 
-            // Get the current content
+            if (!shouldProcessFile(file, this.settings, this.app)) {
+                return;
+            }
             let content: string;
             if (providedContent !== undefined) {
                 content = providedContent;
@@ -57,103 +64,85 @@ export class AliasManager {
             } else if (this.settings.fileReadMethod === 'File') {
                 content = await this.app.vault.read(file);
             } else {
-                // Both 'Editor' and 'Cache' use cachedRead here since no editor content available
                 content = await this.app.vault.cachedRead(file);
-            }
-
-            // Rate limiting check - prevent infinite loops
-            if (!this.plugin.renameEngine.checkOperationLimit(file, content)) {
-                return;
             }
 
             if (!content || content.trim() === '') {
                 return;
             }
 
-            // Strip frontmatter to get actual content using shared utility function
             const contentWithoutFrontmatter = this.plugin.renameEngine.stripFrontmatterFromContent(content, file);
-
-            // Extract first line from actual content (not frontmatter)
             const lines = contentWithoutFrontmatter.split('\n');
             const firstLine = lines.length > 0 ? lines[0] : '';
 
             if (!firstLine || firstLine.trim() === '') {
+                if (this.settings.enableAliases) {
+                    await this.removePluginAliasesFromFile(file);
+                }
                 return;
             }
 
-            // Check if we need to process aliases for this file
             if (!this.settings.enableAliases) {
                 return;
             }
 
-            // Get current metadata to check for existing aliases
             const metadata = this.app.metadataCache.getFileCache(file);
             const frontmatter = metadata?.frontmatter;
 
-            // Process the first line to get what would become the filename/alias
             const processedFirstLine = extractTitle(firstLine, this.settings);
-            // By this point, file has been renamed, so compare processed first line to current filename
-            const currentFileName = file.basename.trim();
-            const processedLineMatchesFilename = (processedFirstLine.trim() === currentFileName);
+            const fileNameToCompare = targetFileName !== undefined ? targetFileName.trim() : file.basename.trim();
+            const processedLineMatchesFilename = (processedFirstLine.trim() === fileNameToCompare);
 
-            // Determine if we should have an alias based on settings
             const shouldHaveAlias = !this.settings.addAliasOnlyIfFirstLineDiffers || !processedLineMatchesFilename;
 
             if (!shouldHaveAlias) {
-                // Settings say we shouldn't have an alias - remove any existing plugin aliases
                 await this.removePluginAliasesFromFile(file);
                 return;
             }
-
-            // We should have an alias - check if we already have the correct one
-            const aliasPropertyKey = this.settings.aliasPropertyKey || 'aliases';
-            const zwspMarker = String.fromCharCode(8203);
+            const aliasPropertyKeys = this.getAliasPropertyKeys();
+            const zwspMarker = '\u200B'; // Zero-width space marker
             const expectedAlias = this.settings.stripMarkupInAlias ?
                 extractTitle(firstLine, this.settings) : firstLine;
             const expectedAliasWithMarker = expectedAlias + zwspMarker;
 
-            let existingAliases: string[] = [];
-            if (frontmatter && frontmatter[aliasPropertyKey]) {
-                if (Array.isArray(frontmatter[aliasPropertyKey])) {
-                    existingAliases = frontmatter[aliasPropertyKey];
-                } else {
-                    existingAliases = [frontmatter[aliasPropertyKey]];
+            let allPropertiesHaveCorrectAlias = true;
+            for (const aliasPropertyKey of aliasPropertyKeys) {
+                let existingAliases: string[] = [];
+                if (frontmatter && frontmatter[aliasPropertyKey]) {
+                    if (Array.isArray(frontmatter[aliasPropertyKey])) {
+                        existingAliases = frontmatter[aliasPropertyKey];
+                    } else {
+                        existingAliases = [frontmatter[aliasPropertyKey]];
+                    }
+                }
+
+                const hasCorrectAlias = existingAliases.some(alias =>
+                    alias === expectedAliasWithMarker || alias === expectedAlias
+                );
+
+                if (!hasCorrectAlias) {
+                    allPropertiesHaveCorrectAlias = false;
+                    break;
                 }
             }
 
-            // Check if we already have the correct alias
-            const hasCorrectAlias = existingAliases.some(alias =>
-                alias === expectedAliasWithMarker || alias === expectedAlias
-            );
-
-            if (hasCorrectAlias) {
-                // We already have the correct alias, no need to update
-                verboseLog(this.plugin, `File ${file.path} already has correct alias`);
+            if (allPropertiesHaveCorrectAlias) {
+                verboseLog(this.plugin, `File ${file.path} already has correct alias in all properties`);
                 return;
             }
 
-            // Mark this file as having an update in progress
-            aliasUpdateInProgress.add(fileKey);
+            this.aliasUpdateInProgress.add(fileKey);
 
             try {
                 verboseLog(this.plugin, `Adding alias to ${file.path} - no correct alias found`);
-
-                // Use the actual current filename (file has already been renamed at this point)
-                // This ensures we compare alias against the actual filename with forbidden chars replaced
-                const currentFileName = file.basename.trim();
-
-                // Update the alias using existing logic
-                await this.addAliasToFile(file, firstLine, currentFileName, content);
-
+                await this.addAliasToFile(file, firstLine, fileNameToCompare, content);
             } finally {
-                // Always remove the lock, even if there was an error
-                aliasUpdateInProgress.delete(fileKey);
+                this.aliasUpdateInProgress.delete(fileKey);
             }
 
         } catch (error) {
             console.error('Error updating alias:', error);
-            // Make sure to clean up the lock on error
-            aliasUpdateInProgress.delete(file.path);
+            this.aliasUpdateInProgress.delete(file.path);
         }
     }
 
@@ -238,6 +227,18 @@ export class AliasManager {
                 return;
             }
 
+            // Prevent "Untitled" or "Untitled n" aliases UNLESS first line is literally that
+            const untitledPattern = /^Untitled(\s+[1-9]\d*)?$/;
+            if (untitledPattern.test(aliasToAdd.trim())) {
+                // Check if original first line (before processing) was literally "Untitled" or "Untitled n"
+                const originalFirstLineTrimmed = firstLine.trim();
+                if (!untitledPattern.test(originalFirstLineTrimmed)) {
+                    verboseLog(this.plugin, `Removing plugin alias - extracted title is "${aliasToAdd}" but first line is not literally Untitled`);
+                    await this.removePluginAliasesFromFile(file);
+                    return;
+                }
+            }
+
             // Mark alias with ZWSP for identification
             const markedAlias = '\u200B' + aliasToAdd + '\u200B';
 
@@ -261,15 +262,20 @@ export class AliasManager {
                 }
 
                 // No frontmatter exists - use processFrontMatter to create it properly
+                const aliasPropertyKeys = this.getAliasPropertyKeys();
+                this.plugin.markFlitModificationStart(currentFileForFrontmatter.path);
                 await this.app.fileManager.processFrontMatter(currentFileForFrontmatter, (frontmatter) => {
-                    const aliasPropertyKey = this.settings.aliasPropertyKey || 'aliases';
-                    // Use array format for 'aliases' property, inline format for custom properties
-                    if (aliasPropertyKey === 'aliases') {
-                        frontmatter[aliasPropertyKey] = [markedAlias];
-                    } else {
-                        frontmatter[aliasPropertyKey] = markedAlias;
+                    // Insert alias into all specified properties
+                    for (const aliasPropertyKey of aliasPropertyKeys) {
+                        // Use array format for 'aliases' property, inline format for custom properties
+                        if (aliasPropertyKey === 'aliases') {
+                            frontmatter[aliasPropertyKey] = [markedAlias];
+                        } else {
+                            frontmatter[aliasPropertyKey] = markedAlias;
+                        }
                     }
                 });
+                this.plugin.markFlitModificationEnd(currentFileForFrontmatter.path);
                 // Mark file as having pending metadata cache update
                 this.plugin.pendingMetadataUpdates.add(currentFileForFrontmatter.path);
                 verboseLog(this.plugin, `Created frontmatter and added alias \`${aliasToAdd}\` to ${currentFileForFrontmatter.path}`);
@@ -284,81 +290,37 @@ export class AliasManager {
             }
 
             // File has frontmatter, use processFrontMatter to update aliases
+            const aliasPropertyKeys = this.getAliasPropertyKeys();
+            this.plugin.markFlitModificationStart(currentFileForUpdate.path);
             await this.app.fileManager.processFrontMatter(currentFileForUpdate, (frontmatter) => {
-                const aliasPropertyKey = this.settings.aliasPropertyKey || 'aliases';
-
-                // Check if property is 'aliases' - if yes, use current behavior
-                if (aliasPropertyKey === 'aliases') {
-                    // Current behavior: add value on its own line as the last line
-                    let existingAliases: string[] = [];
-                    if (frontmatter[aliasPropertyKey]) {
-                        if (Array.isArray(frontmatter[aliasPropertyKey])) {
-                            existingAliases = [...frontmatter[aliasPropertyKey]];
-                        } else {
-                            existingAliases = [frontmatter[aliasPropertyKey]];
-                        }
-                    }
-
-                    // Remove any existing plugin aliases (marked with ZWSP) and empty strings
-                    existingAliases = existingAliases.filter(alias =>
-                        !(typeof alias === 'string' && alias.startsWith('\u200B') && alias.endsWith('\u200B')) &&
-                        alias !== ""
-                    );
-
-                    // Check if this exact alias already exists (unmarked)
-                    if (!existingAliases.includes(aliasToAdd)) {
-                        // Add the new marked alias
-                        existingAliases.push(markedAlias);
-                        frontmatter[aliasPropertyKey] = existingAliases;
-                    } else {
-                        // If only non-plugin aliases remain, update with them
-                        if (existingAliases.length === 0) {
-                            if (this.settings.keepEmptyAliasProperty) {
-                                // Keep empty property as null
-                                frontmatter[aliasPropertyKey] = null;
+                // Insert alias into all specified properties
+                for (const aliasPropertyKey of aliasPropertyKeys) {
+                    // Check if property is 'aliases' - if yes, use current behavior
+                    if (aliasPropertyKey === 'aliases') {
+                        // Current behavior: add value on its own line as the last line
+                        let existingAliases: string[] = [];
+                        if (frontmatter[aliasPropertyKey]) {
+                            if (Array.isArray(frontmatter[aliasPropertyKey])) {
+                                existingAliases = [...frontmatter[aliasPropertyKey]];
                             } else {
-                                // Delete empty property
-                                delete frontmatter[aliasPropertyKey];
+                                existingAliases = [frontmatter[aliasPropertyKey]];
                             }
-                        } else {
-                            frontmatter[aliasPropertyKey] = existingAliases;
-                        }
-                    }
-                } else {
-                    // New behavior for non-aliases properties
-                    const propertyExists = frontmatter.hasOwnProperty(aliasPropertyKey);
-
-                    if (!propertyExists || frontmatter[aliasPropertyKey] === null || frontmatter[aliasPropertyKey] === undefined || frontmatter[aliasPropertyKey] === "") {
-                        // Property doesn't exist or has no value - insert inline
-                        frontmatter[aliasPropertyKey] = markedAlias;
-                    } else {
-                        // Property has existing values - check if they're FLIT-added or user-added
-                        let existingValues: string[] = [];
-                        if (Array.isArray(frontmatter[aliasPropertyKey])) {
-                            existingValues = [...frontmatter[aliasPropertyKey]];
-                        } else {
-                            existingValues = [frontmatter[aliasPropertyKey]];
                         }
 
-                        // Remove plugin values (marked with ZWSP) and empty strings
-                        const userValues = existingValues.filter(value =>
-                            !(typeof value === 'string' && value.startsWith('\u200B') && value.endsWith('\u200B')) &&
-                            value !== ""
+                        // Remove any existing plugin aliases (marked with ZWSP) and empty strings
+                        existingAliases = existingAliases.filter(alias =>
+                            !(typeof alias === 'string' && alias.startsWith('\u200B') && alias.endsWith('\u200B')) &&
+                            alias !== ""
                         );
 
-                        // Check if this exact value already exists (unmarked)
-                        if (!userValues.includes(aliasToAdd)) {
-                            if (userValues.length === 0) {
-                                // No user values, just our value - insert inline
-                                frontmatter[aliasPropertyKey] = markedAlias;
-                            } else {
-                                // Has user values - add as new line in array
-                                userValues.push(markedAlias);
-                                frontmatter[aliasPropertyKey] = userValues;
-                            }
+                        // Check if this exact alias already exists (unmarked)
+                        if (!existingAliases.includes(aliasToAdd)) {
+                            // Add the new marked alias
+                            existingAliases.push(markedAlias);
+                            frontmatter[aliasPropertyKey] = existingAliases;
                         } else {
-                            // Value already exists, just restore user values
-                            if (userValues.length === 0) {
+                            // If only non-plugin aliases remain, update with them
+                            if (existingAliases.length === 0) {
                                 if (this.settings.keepEmptyAliasProperty) {
                                     // Keep empty property as null
                                     frontmatter[aliasPropertyKey] = null;
@@ -366,22 +328,77 @@ export class AliasManager {
                                     // Delete empty property
                                     delete frontmatter[aliasPropertyKey];
                                 }
-                            } else if (userValues.length === 1) {
-                                frontmatter[aliasPropertyKey] = userValues[0];
                             } else {
-                                frontmatter[aliasPropertyKey] = userValues;
+                                frontmatter[aliasPropertyKey] = existingAliases;
+                            }
+                        }
+                    } else {
+                        // New behavior for non-aliases properties
+                        const propertyExists = frontmatter.hasOwnProperty(aliasPropertyKey);
+
+                        if (!propertyExists || frontmatter[aliasPropertyKey] === null || frontmatter[aliasPropertyKey] === undefined || frontmatter[aliasPropertyKey] === "") {
+                            // Property doesn't exist or has no value - insert inline
+                            frontmatter[aliasPropertyKey] = markedAlias;
+                        } else {
+                            // Property has existing values - check if they're FLIT-added or user-added
+                            let existingValues: string[] = [];
+                            if (Array.isArray(frontmatter[aliasPropertyKey])) {
+                                existingValues = [...frontmatter[aliasPropertyKey]];
+                            } else {
+                                existingValues = [frontmatter[aliasPropertyKey]];
+                            }
+
+                            // Remove plugin values (marked with ZWSP) and empty strings
+                            const userValues = existingValues.filter(value =>
+                                !(typeof value === 'string' && value.startsWith('\u200B') && value.endsWith('\u200B')) &&
+                                value !== ""
+                            );
+
+                            // Check if this exact value already exists (unmarked)
+                            if (!userValues.includes(aliasToAdd)) {
+                                if (userValues.length === 0) {
+                                    // No user values, just our value - insert inline
+                                    frontmatter[aliasPropertyKey] = markedAlias;
+                                } else {
+                                    // Has user values - add as new line in array
+                                    userValues.push(markedAlias);
+                                    frontmatter[aliasPropertyKey] = userValues;
+                                }
+                            } else {
+                                // Value already exists, just restore user values
+                                if (userValues.length === 0) {
+                                    if (this.settings.keepEmptyAliasProperty) {
+                                        // Keep empty property as null
+                                        frontmatter[aliasPropertyKey] = null;
+                                    } else {
+                                        // Delete empty property
+                                        delete frontmatter[aliasPropertyKey];
+                                    }
+                                } else if (userValues.length === 1) {
+                                    frontmatter[aliasPropertyKey] = userValues[0];
+                                } else {
+                                    frontmatter[aliasPropertyKey] = userValues;
+                                }
                             }
                         }
                     }
                 }
             });
+            this.plugin.markFlitModificationEnd(currentFileForUpdate.path);
 
             // Mark file as having pending metadata cache update
             this.plugin.pendingMetadataUpdates.add(currentFileForUpdate.path);
             verboseLog(this.plugin, `Updated alias \`${aliasToAdd}\` in ${currentFileForUpdate.path}`);
 
         } catch (error) {
-            console.error(`Failed to add alias to file ${file.path}:`, error);
+            // Check if this is an ENOENT error (file was renamed during async operation)
+            if ((error as any).code === 'ENOENT') {
+                // File was renamed during operation - this is expected race condition, log as info
+                verboseLog(this.plugin, `Skipping alias addition - file was renamed during operation: ${file.path}`);
+            } else {
+                // Unexpected error, log it
+                console.error(`Failed to add alias to file ${file.path}:`, error);
+            }
             // Don't throw - alias addition failure shouldn't prevent the rename
         }
     }
@@ -411,49 +428,61 @@ export class AliasManager {
                 return;
             }
 
+            this.plugin.markFlitModificationStart(currentFileForRemoval.path);
             await this.app.fileManager.processFrontMatter(currentFileForRemoval, (frontmatter) => {
-                const aliasPropertyKey = this.settings.aliasPropertyKey || 'aliases';
+                const aliasPropertyKeys = this.getAliasPropertyKeys();
 
-                if (frontmatter[aliasPropertyKey]) {
-                    let existingValues: string[] = [];
+                // Remove plugin aliases from all specified properties
+                for (const aliasPropertyKey of aliasPropertyKeys) {
+                    if (frontmatter[aliasPropertyKey]) {
+                        let existingValues: string[] = [];
 
-                    // Normalize to array
-                    if (Array.isArray(frontmatter[aliasPropertyKey])) {
-                        existingValues = [...frontmatter[aliasPropertyKey]];
-                    } else {
-                        existingValues = [frontmatter[aliasPropertyKey]];
-                    }
-
-                    // Filter out plugin values (marked with ZWSP) and empty strings
-                    const filteredValues = existingValues.filter(value =>
-                        !(typeof value === 'string' && value.startsWith('\u200B') && value.endsWith('\u200B')) &&
-                        value !== ""
-                    );
-
-                    // Update or remove the property based on remaining values
-                    if (filteredValues.length === 0) {
-                        if (forceCompleteRemoval || !this.settings.keepEmptyAliasProperty) {
-                            // Delete empty property completely
-                            delete frontmatter[aliasPropertyKey];
+                        // Normalize to array
+                        if (Array.isArray(frontmatter[aliasPropertyKey])) {
+                            existingValues = [...frontmatter[aliasPropertyKey]];
                         } else {
-                            // Keep empty property as null
-                            frontmatter[aliasPropertyKey] = null;
+                            existingValues = [frontmatter[aliasPropertyKey]];
                         }
-                    } else if (filteredValues.length === 1 && aliasPropertyKey !== 'aliases') {
-                        // For non-aliases properties, convert back to single value if only one remains
-                        frontmatter[aliasPropertyKey] = filteredValues[0];
-                    } else {
-                        // Keep as array for aliases or multiple values
-                        frontmatter[aliasPropertyKey] = filteredValues;
+
+                        // Filter out plugin values (marked with ZWSP) and empty strings
+                        const filteredValues = existingValues.filter(value =>
+                            !(typeof value === 'string' && value.startsWith('\u200B') && value.endsWith('\u200B')) &&
+                            value !== ""
+                        );
+
+                        // Update or remove the property based on remaining values
+                        if (filteredValues.length === 0) {
+                            if (forceCompleteRemoval || !this.settings.keepEmptyAliasProperty) {
+                                // Delete empty property completely
+                                delete frontmatter[aliasPropertyKey];
+                            } else {
+                                // Keep empty property as null
+                                frontmatter[aliasPropertyKey] = null;
+                            }
+                        } else if (filteredValues.length === 1 && aliasPropertyKey !== 'aliases') {
+                            // For non-aliases properties, convert back to single value if only one remains
+                            frontmatter[aliasPropertyKey] = filteredValues[0];
+                        } else {
+                            // Keep as array for aliases or multiple values
+                            frontmatter[aliasPropertyKey] = filteredValues;
+                        }
                     }
                 }
             });
+            this.plugin.markFlitModificationEnd(currentFileForRemoval.path);
 
             // Mark file as having pending metadata cache update
             this.plugin.pendingMetadataUpdates.add(currentFileForRemoval.path);
             verboseLog(this.plugin, `Removed plugin aliases from ${currentFileForRemoval.path}`);
         } catch (error) {
-            console.error(`Failed to remove plugin aliases from ${file.path}:`, error);
+            // Check if this is an ENOENT error (file was renamed during async operation)
+            if ((error as any).code === 'ENOENT') {
+                // File was renamed during operation - this is expected race condition, log as info
+                verboseLog(this.plugin, `Skipping alias removal - file was renamed during operation: ${file.path}`);
+            } else {
+                // Unexpected error, log it
+                console.error(`Failed to remove plugin aliases from ${file.path}:`, error);
+            }
         }
     }
 
@@ -471,36 +500,41 @@ export class AliasManager {
                 await activeView.save();
             }
 
+            this.plugin.markFlitModificationStart(file.path);
             await this.app.fileManager.processFrontMatter(file, (frontmatter) => {
-                const aliasPropertyKey = this.settings.aliasPropertyKey || 'aliases';
+                const aliasPropertyKeys = this.getAliasPropertyKeys();
 
-                if (frontmatter[aliasPropertyKey]) {
-                    let existingAliases: string[] = [];
+                // Remove the specified alias from all specified properties
+                for (const aliasPropertyKey of aliasPropertyKeys) {
+                    if (frontmatter[aliasPropertyKey]) {
+                        let existingAliases: string[] = [];
 
-                    // Normalize to array
-                    if (Array.isArray(frontmatter[aliasPropertyKey])) {
-                        existingAliases = [...frontmatter[aliasPropertyKey]];
-                    } else {
-                        existingAliases = [frontmatter[aliasPropertyKey]];
-                    }
-
-                    // Remove the specified alias and any empty strings
-                    const filteredAliases = existingAliases.filter(alias => alias !== trimmedAlias && alias !== "");
-
-                    // Update or remove the property
-                    if (filteredAliases.length === 0) {
-                        if (this.settings.keepEmptyAliasProperty) {
-                            // Keep empty property as null
-                            frontmatter[aliasPropertyKey] = null;
+                        // Normalize to array
+                        if (Array.isArray(frontmatter[aliasPropertyKey])) {
+                            existingAliases = [...frontmatter[aliasPropertyKey]];
                         } else {
-                            // Delete empty property
-                            delete frontmatter[aliasPropertyKey];
+                            existingAliases = [frontmatter[aliasPropertyKey]];
                         }
-                    } else {
-                        frontmatter[aliasPropertyKey] = filteredAliases;
+
+                        // Remove the specified alias and any empty strings
+                        const filteredAliases = existingAliases.filter(alias => alias !== trimmedAlias && alias !== "");
+
+                        // Update or remove the property
+                        if (filteredAliases.length === 0) {
+                            if (this.settings.keepEmptyAliasProperty) {
+                                // Keep empty property as null
+                                frontmatter[aliasPropertyKey] = null;
+                            } else {
+                                // Delete empty property
+                                delete frontmatter[aliasPropertyKey];
+                            }
+                        } else {
+                            frontmatter[aliasPropertyKey] = filteredAliases;
+                        }
                     }
                 }
             });
+            this.plugin.markFlitModificationEnd(file.path);
 
             verboseLog(this.plugin, `Removed alias "${trimmedAlias}" from ${file.path}`);
         } catch (error) {

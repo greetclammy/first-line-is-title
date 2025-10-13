@@ -22,7 +22,7 @@ export class EventHandlers {
      */
     setupSaveEventHook(): void {
         // Get the save command
-        const saveCommand = (this.app as any).commands?.commands?.['editor:save-file'];
+        const saveCommand = this.app.commands?.commands?.['editor:save-file'];
         if (saveCommand) {
             // Store the original callback
             this.originalSaveCallback = saveCommand.checkCallback;
@@ -38,7 +38,7 @@ export class EventHandlers {
                     if (activeFile && activeFile.extension === 'md') {
                         // Use a small delay to ensure save is completed
                         setTimeout(() => {
-                            this.plugin.renameEngine.renameFile(activeFile, true, false).catch((error) => {
+                            this.plugin.commandRegistrar.executeRenameUnlessExcluded().catch((error) => {
                                 console.error(`SAVE: Failed to process file ${activeFile.path}:`, error);
                             });
                         }, 50);
@@ -48,110 +48,6 @@ export class EventHandlers {
                 return result;
             };
         }
-    }
-
-    /**
-     * Sets up cursor positioning for new files
-     */
-    setupCursorPositioning(): void {
-        // Listen for file creation events
-        this.plugin.registerEvent(
-            this.app.vault.on("create", (file) => {
-                if (!(file instanceof TFile) || file.extension !== 'md') return;
-                // Only process files created after plugin has fully loaded (prevents processing existing files on startup)
-                if (!this.plugin.isFullyLoaded) return;
-
-                // Process new files - coordinate delay with check interval
-                if (this.settings.renameNotes === "automatically") {
-                    if (this.settings.fileCreationDelay > 0) {
-                        // Mark file as in creation delay period to prevent other systems from processing it
-                        this.plugin.editorLifecycle.markFileInCreationDelay(file.path);
-
-                        // When delay is enabled, process after delay, then let normal system handle subsequent changes
-                        console.log(`CREATE: New file created, processing in ${this.settings.fileCreationDelay}ms: ${file.name}`);
-                        setTimeout(async () => {
-                            console.log(`CREATE: Processing new file after delay: ${file.name}`);
-                            try {
-                                await this.plugin.renameEngine.renameFile(file, true, false);
-                                // Remove from creation delay tracking - file can now be processed by normal systems
-                                this.plugin.editorLifecycle.removeFileFromCreationDelay(file.path);
-                                // After initial rename, the file enters normal polling/event system
-                                // For polling mode, subsequent changes will be handled by check interval
-                            } catch (error) {
-                                console.error(`CREATE: Failed to process new file ${file.path}:`, error);
-                                // Still remove from tracking even if processing failed
-                                this.plugin.editorLifecycle.removeFileFromCreationDelay(file.path);
-                            }
-                        }, this.settings.fileCreationDelay);
-                    } else {
-                        // No delay - use normal checking system (respects check interval)
-                        console.log(`CREATE: New file created, using normal checking system: ${file.name}`);
-                        if (this.settings.checkInterval === 0) {
-                            // Immediate processing for event-based system
-                            this.plugin.renameEngine.renameFile(file, true, false).catch((error) => {
-                                console.error(`CREATE: Failed to process new file ${file.path}:`, error);
-                            });
-                        }
-                        // For checkInterval > 0, the file will be processed when user starts typing (editor-change event triggers throttle)
-                    }
-                }
-
-                // Cursor positioning for new files (skip if insertTitleOnCreation handles it)
-                if (this.settings.moveCursorToFirstLine && !this.settings.insertTitleOnCreation) {
-                    setTimeout(() => {
-                        const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
-                        if (activeView && activeView.file === file) {
-                            const editor = activeView.editor;
-                            if (editor) {
-                                if (this.settings.placeCursorAtLineEnd) {
-                                    // Get the length of the first line and place cursor at the end
-                                    const firstLineLength = editor.getLine(0).length;
-                                    editor.setCursor({ line: 0, ch: firstLineLength });
-                                    verboseLog(this.plugin, `Moved cursor to end of first line (${firstLineLength} chars) for new file: ${file.path}`);
-                                } else {
-                                    // Place cursor at the beginning of the first line
-                                    editor.setCursor({ line: 0, ch: 0 });
-                                    verboseLog(this.plugin, `Moved cursor to beginning of first line for new file: ${file.path}`);
-                                }
-                                editor.focus();
-                            }
-                        }
-                    }, 50);
-                }
-            })
-        );
-
-        // Also listen for when a file is opened (in case the create event doesn't catch it)
-        this.plugin.registerEvent(
-            this.app.workspace.on("file-open", (file) => {
-                if (!this.settings.moveCursorToFirstLine) return;
-                if (!file || file.extension !== 'md') return;
-
-                // Check if this is a newly created file (empty or very small)
-                this.app.vault.cachedRead(file).then((content) => {
-                    if (content.trim().length === 0 || content.trim().length < 10) {
-                        const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
-                        if (activeView && activeView.file === file) {
-                            const editor = activeView.editor;
-                            if (editor) {
-                                // Move cursor to first line
-                                if (this.settings.placeCursorAtLineEnd) {
-                                    // Get the length of the first line and place cursor at the end
-                                    const firstLineLength = editor.getLine(0).length;
-                                    editor.setCursor({ line: 0, ch: firstLineLength });
-                                    verboseLog(this.plugin, `Moved cursor to end of first line (${firstLineLength} chars) for opened empty file: ${file.path}`);
-                                } else {
-                                    // Place cursor at the beginning of the first line
-                                    editor.setCursor({ line: 0, ch: 0 });
-                                    verboseLog(this.plugin, `Moved cursor to beginning of first line for opened empty file: ${file.path}`);
-                                }
-                                editor.focus();
-                            }
-                        }
-                    }
-                });
-            })
-        );
     }
 
     /**
@@ -215,7 +111,7 @@ export class EventHandlers {
      */
     cleanupSaveEventHook(): void {
         if (this.originalSaveCallback) {
-            const saveCommand = (this.app as any).commands?.commands?.['editor:save-file'];
+            const saveCommand = this.app.commands?.commands?.['editor:save-file'];
             if (saveCommand) {
                 saveCommand.checkCallback = this.originalSaveCallback;
             }
