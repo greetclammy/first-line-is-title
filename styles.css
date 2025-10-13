@@ -1372,13 +1372,51 @@ hr.flit-divider {
     flex-wrap: nowrap;
 }
 
-.metadata-container:not(.cm-editor .metadata-container) .metadata-property.flit-property-visible .metadata-property-key,
-.metadata-container:not(.cm-editor .metadata-container) .metadata-property.flit-property-visible .metadata-property-value {
-    flex-shrink: 1;
+.metadata-container:not(.cm-editor .metadata-container) .metadata-property.flit-property-visible .metadata-property-key {
+    flex-shrink: 0;
     min-width: 0;
 }
 
-.metadata-container:not(.cm-editor .metadata-container) .metadata-property.flit-property-visible .multi-select-container {
+.metadata-container:not(.cm-editor .metadata-container) .metadata-property.flit-property-visible .metadata-property-value {
     flex-shrink: 1;
     min-width: 0;
+    flex-grow: 1;
 }
+
+.metadata-container:not(.cm-editor .metadata-container) .metadata-property.flit-property-visible .multi-select-container,
+.metadata-container:not(.cm-editor .metadata-container) .metadata-property.flit-property-visible .metadata-input-longtext {
+    flex-shrink: 1;
+    min-width: 0;
+    max-width: 100%;
+}
+
+/* ==========================================================================
+   Utility Classes (for settings tabs to replace inline styles)
+   ========================================================================== */
+
+/* Display utilities */
+.flit-display-flex { display: flex; }
+.flit-display-none { display: none; }
+.flit-display-empty { display: ''; }
+
+/* Gap utilities */
+.flit-gap-10 { gap: 10px; }
+
+/* Opacity utilities */
+.flit-opacity-half { opacity: 0.5; }
+.flit-opacity-full { opacity: 1; }
+.flit-opacity-empty { opacity: ''; }
+
+/* Pointer events utilities */
+.flit-pointer-none { pointer-events: none; }
+.flit-pointer-auto { pointer-events: auto; }
+.flit-pointer-empty { pointer-events: ''; }
+
+/* Width utilities */
+.flit-width-120 { width: 120px; }
+
+/* Margin utilities */
+.flit-margin-0 { margin: 0; }
+
+/* Alignment utilities */
+.flit-align-center { display: flex; align-items: center; gap: 8px; }

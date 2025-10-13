@@ -257,16 +257,14 @@ export class WorkspaceIntegration {
                             if (!inCanvas) {
                                 // Use minimal delay to ensure editor is ready
                                 requestAnimationFrame(() => {
-                                    setTimeout(() => {
-                                        // Use captured initial content to check if file has content
-                                        const hasContent = initialContent.trim() !== '';
+                                    // Use captured initial content to check if file has content
+                                    const hasContent = initialContent.trim() !== '';
 
-                                        // Determine if title insertion will be skipped
-                                        const willSkipTitleInsertion = !settings.insertTitleOnCreation || isUntitled || hasContent;
+                                    // Determine if title insertion will be skipped
+                                    const willSkipTitleInsertion = !settings.insertTitleOnCreation || isUntitled || hasContent;
 
-                                        // Position cursor with placeCursorAtLineEnd if title will be skipped
-                                        plugin.fileOperations.handleCursorPositioning(file, willSkipTitleInsertion);
-                                    }, 200);
+                                    // Position cursor with placeCursorAtLineEnd if title will be skipped
+                                    plugin.fileOperations.handleCursorPositioning(file, willSkipTitleInsertion);
                                 });
                             }
                         } else {
@@ -301,14 +299,10 @@ export class WorkspaceIntegration {
                             const activeView = app.workspace.getActiveViewOfType(MarkdownView);
                             const inCanvas = !activeView;
                             if (!inCanvas) {
-                                requestAnimationFrame(() => {
-                                    setTimeout(() => {
-                                        // Determine if we should use placeCursorAtLineEnd setting
-                                        const hasContent = currentContent && currentContent.trim() !== '';
-                                        const willSkipTitleInsertion = !settings.insertTitleOnCreation || isUntitled || hasContent;
-                                        plugin.fileOperations.handleCursorPositioning(file, willSkipTitleInsertion);
-                                    }, 200);
-                                });
+                                // Determine if we should use placeCursorAtLineEnd setting
+                                const hasContent = currentContent && currentContent.trim() !== '';
+                                const willSkipTitleInsertion = !settings.insertTitleOnCreation || isUntitled || hasContent;
+                                plugin.fileOperations.handleCursorPositioning(file, willSkipTitleInsertion);
                             }
                         } else {
                             verboseLog(plugin, `Skipping cursor positioning after template - file is excluded: ${file.path}`);
@@ -371,9 +365,7 @@ export class WorkspaceIntegration {
 
                                     if (!inCanvas) {
                                         requestAnimationFrame(() => {
-                                            setTimeout(() => {
-                                                plugin.fileOperations.handleCursorPositioning(file);
-                                            }, 200);
+                                            plugin.fileOperations.handleCursorPositioning(file);
                                         });
                                     }
                                 } else {

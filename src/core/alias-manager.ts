@@ -35,6 +35,8 @@ export class AliasManager {
         this.plugin.trackUsage();
 
         try {
+            const fileKey = file.path;
+
             const currentFile = this.app.vault.getAbstractFileByPath(file.path);
             if (!currentFile || !(currentFile instanceof TFile)) {
                 verboseLog(this.plugin, `Skipping alias update - file no longer exists: ${file.path}`);
@@ -42,7 +44,6 @@ export class AliasManager {
             }
 
             file = currentFile;
-            const fileKey = file.path;
 
             if (aliasUpdateInProgress.has(fileKey)) {
                 verboseLog(this.plugin, `Skipping alias update for ${file.path} - update already in progress`);

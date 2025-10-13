@@ -4,20 +4,19 @@
 
 First Line is Title SHALL only processFile() if:
 
-1. **renameNotes = "Automatically" AND first line modified in open editor:**
+1. **renameNotes = "Automatically" AND first line modified:**
    - No disable property present
    - File passes folder/tag/excluded-properties checks
    - checkInterval = 0: process immediately on change
    - checkInterval > 0: start timer on change, process when timer expires OR file's tab closes (whichever first). Timer cancels if tab closes before expiration.
-   - New note delay > 0: process when delay expires.
 
 2. **"Put first line in title" command:**
    - Single file:
      - Disable property still blocks
-     - Ignores folder/tag/property exclusions
+     - Ignores folder/tag/excluded-properties exclusions
    - Multi-file:
      - Disable property still blocks
-     - Checkboxes control folder/tag/property exclusions
+     - Checkboxes control folder/tag/excluded-properties exclusions
 
 ## ⚠️ CONSOLE LOG POLICY
 

@@ -928,12 +928,6 @@ export default class FirstLineIsTitle extends Plugin {
                     return;
                 }
 
-                // Skip files in creation delay period (check before isFullyLoaded)
-                if (this.editorLifecycle && this.editorLifecycle.isFileInCreationDelay(info.file.path)) {
-                    verboseLog(this, `Skipping editor change - file in creation delay: ${info.file.path}`);
-                    return;
-                }
-
                 if (!this.isFullyLoaded) {
                     verboseLog(this, `Skipping: plugin not fully loaded`);
                     return;
