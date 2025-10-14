@@ -61,7 +61,10 @@ Console log messages must NOT contain plugin name:
 ### Logging levels and methods
 
 **NON-VERBOSE LOGS** (always shown, regardless of `Debug` setting state):
-- Use console.log() to log rate limits reached, batch operation results, and original filename upon first rename.
+- Use console.log() to log:
+   - Rate limit reached
+   - Batch operation results
+   - Original filename upon first rename or manual rename command execution
 - Use console.error() to log any and all errors during operations.
 
 **VERBOSE LOGS** (shown only when Debug mode is ON):
