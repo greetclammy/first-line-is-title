@@ -226,6 +226,7 @@ export class ForbiddenCharsTab extends SettingsTabBase {
                     toggle.setValue(this.plugin.settings.hasEnabledForbiddenChars ? this.plugin.settings.charReplacementTrimLeft[setting.key] : false)
                         .onChange(async (value) => {
                             this.plugin.settings.charReplacementTrimLeft[setting.key] = value;
+                            this.plugin.debugLog(`charReplacementTrimLeft.${setting.key}`, value);
                             await this.plugin.saveSettings();
                         });
                     toggle.toggleEl.style.margin = "0";
@@ -239,6 +240,7 @@ export class ForbiddenCharsTab extends SettingsTabBase {
                     toggle.setValue(this.plugin.settings.hasEnabledForbiddenChars ? this.plugin.settings.charReplacementTrimRight[setting.key] : false)
                         .onChange(async (value) => {
                             this.plugin.settings.charReplacementTrimRight[setting.key] = value;
+                            this.plugin.debugLog(`charReplacementTrimRight.${setting.key}`, value);
                             await this.plugin.saveSettings();
                         });
                     toggle.toggleEl.style.margin = "0";
@@ -374,6 +376,7 @@ export class ForbiddenCharsTab extends SettingsTabBase {
                     toggle.setValue((this.plugin.settings.hasEnabledForbiddenChars && this.plugin.settings.hasEnabledWindowsAndroid) ? this.plugin.settings.charReplacementTrimLeft[setting.key] : false)
                         .onChange(async (value) => {
                             this.plugin.settings.charReplacementTrimLeft[setting.key] = value;
+                            this.plugin.debugLog(`charReplacementTrimLeft.${setting.key}`, value);
                             await this.plugin.saveSettings();
                         });
                     toggle.toggleEl.style.margin = "0";
@@ -387,6 +390,7 @@ export class ForbiddenCharsTab extends SettingsTabBase {
                     toggle.setValue((this.plugin.settings.hasEnabledForbiddenChars && this.plugin.settings.hasEnabledWindowsAndroid) ? this.plugin.settings.charReplacementTrimRight[setting.key] : false)
                         .onChange(async (value) => {
                             this.plugin.settings.charReplacementTrimRight[setting.key] = value;
+                            this.plugin.debugLog(`charReplacementTrimRight.${setting.key}`, value);
                             await this.plugin.saveSettings();
                         });
                     toggle.toggleEl.style.margin = "0";

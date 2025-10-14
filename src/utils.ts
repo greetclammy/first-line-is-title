@@ -522,27 +522,29 @@ export async function hasDisablePropertyInFile(file: TFile, app: App, disableKey
 
         if (propertyValue === undefined || propertyValue === null) return false;
 
-        // Normalize disableValue for comparison
+        // Normalize BOTH values for comparison
+        const normalizedPropertyValue = normalizePropertyValue(propertyValue);
         const normalizedDisableValue = normalizePropertyValue(disableValue);
 
         // Handle array/list values
-        if (Array.isArray(propertyValue)) {
+        if (Array.isArray(normalizedPropertyValue)) {
             // Check if any item in the array matches (case-insensitive for strings)
-            return propertyValue.some(item => {
-                if (typeof item === 'string' && typeof normalizedDisableValue === 'string') {
-                    return item.toLowerCase() === normalizedDisableValue.toLowerCase();
+            return normalizedPropertyValue.some(item => {
+                const normalizedItem = normalizePropertyValue(item);
+                if (typeof normalizedItem === 'string' && typeof normalizedDisableValue === 'string') {
+                    return normalizedItem.toLowerCase() === normalizedDisableValue.toLowerCase();
                 }
-                return item === normalizedDisableValue;
+                return normalizedItem === normalizedDisableValue;
             });
         }
 
         // Handle single values (case-insensitive comparison for strings)
-        if (typeof propertyValue === 'string' && typeof normalizedDisableValue === 'string') {
-            return propertyValue.toLowerCase() === normalizedDisableValue.toLowerCase();
+        if (typeof normalizedPropertyValue === 'string' && typeof normalizedDisableValue === 'string') {
+            return normalizedPropertyValue.toLowerCase() === normalizedDisableValue.toLowerCase();
         }
 
         // Direct comparison for non-string types
-        return propertyValue === normalizedDisableValue;
+        return normalizedPropertyValue === normalizedDisableValue;
     } catch (error) {
         return false;
     }
@@ -716,14 +718,29 @@ export function extractTitle(line: string, settings: PluginSettings): string {
             });
         }
 
-        // Strip callout markup (check before blockquote to avoid conflicts)
+        // Strip callout markup (check before quote to avoid conflicts)
         if (settings.enableStripMarkup && settings.stripMarkupSettings.callouts) {
             line = line.replace(/^>\s*\[![^\]]+\]\s*(.*)$/gm, '$1');
         }
 
-        // Strip blockquote markup
-        if (settings.enableStripMarkup && settings.stripMarkupSettings.blockquote) {
+        // Strip quote markup
+        if (settings.enableStripMarkup && settings.stripMarkupSettings.quote) {
             line = line.replace(/^>\s*(.*)$/gm, '$1');
+        }
+
+        // Strip task list markup BEFORE list markup
+        if (settings.enableStripMarkup && settings.stripMarkupSettings.taskLists) {
+            line = line.replace(/^(?:[-+*]|\d+\.) \[.\] /gm, '');
+        }
+
+        // Strip unordered list markup
+        if (settings.enableStripMarkup && settings.stripMarkupSettings.unorderedLists) {
+            line = line.replace(/^[-+*] /gm, '');
+        }
+
+        // Strip ordered list markup
+        if (settings.enableStripMarkup && settings.stripMarkupSettings.orderedLists) {
+            line = line.replace(/^\d+\. /gm, '');
         }
 
         // Strip HTML tags (legacy settings + new granular control)
@@ -733,11 +750,6 @@ export function extractTitle(line: string, settings: PluginSettings): string {
                 previousLine = line;
                 line = line.replace(/<([a-zA-Z][a-zA-Z0-9]*)\b[^>]*>(.*?)<\/\1>/g, '$2');
             }
-        }
-
-        // Strip task markup
-        if (settings.enableStripMarkup && settings.stripMarkupSettings.tasks) {
-            line = line.replace(/^-\s*\[.\]\s*/gm, '');
         }
 
         // Strip footnote markup

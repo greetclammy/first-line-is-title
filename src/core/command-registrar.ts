@@ -1,5 +1,5 @@
 import { Notice } from "obsidian";
-import { verboseLog } from '../utils';
+import { verboseLog, hasDisablePropertyInFile } from '../utils';
 import { RenameAllFilesModal } from '../modals';
 import FirstLineIsTitle from '../../main';
 
@@ -38,9 +38,24 @@ export class CommandRegistrar {
         this.registerSafeInternalLinkCommand();
         this.registerSafeInternalLinkWithCaptionCommand();
         this.registerToggleAutomaticRenamingCommand();
+        this.registerDisableRenamingCommand();
+        this.registerEnableRenamingCommand();
+    }
 
-        // Dynamic commands that depend on current file state
-        this.plugin.registerDynamicCommands();
+    /**
+     * Execute rename current file (shared logic for command, ribbon, context menu)
+     * Note: This command ignores folder/tag/property exclusions but ALWAYS respects disable property
+     */
+    async executeRenameCurrentFile(): Promise<void> {
+        const activeFile = this.app.workspace.getActiveFile();
+        if (!activeFile || activeFile.extension !== 'md') {
+            verboseLog(this.plugin, `Showing notice: Error: no active note.`);
+            new Notice("Error: no active note.");
+            return;
+        }
+        verboseLog(this.plugin, `Manual rename command triggered for ${activeFile.path} (ignoring folder/tag/property exclusions, respecting disable property)`);
+        const exclusionOverrides = { ignoreFolder: true, ignoreTag: true, ignoreProperty: true };
+        await this.plugin.renameEngine.processFile(activeFile, true, true, undefined, false, exclusionOverrides, true);
     }
 
     /**
@@ -56,18 +71,22 @@ export class CommandRegistrar {
             id: 'rename-current-file',
             name: 'Put first line in title',
             icon: 'file-pen',
-            callback: async () => {
-                const activeFile = this.app.workspace.getActiveFile();
-                if (!activeFile || activeFile.extension !== 'md') {
-                    verboseLog(this.plugin, `Showing notice: Error: no active note.`);
-                    new Notice("Error: no active note.");
-                    return;
-                }
-                verboseLog(this.plugin, `Manual rename command triggered for ${activeFile.path} (ignoring folder/tag/property exclusions, respecting disable property)`);
-                const exclusionOverrides = { ignoreFolder: true, ignoreTag: true, ignoreProperty: true };
-                await this.plugin.renameEngine.processFile(activeFile, true, false, undefined, false, exclusionOverrides);
-            }
+            callback: () => this.executeRenameCurrentFile()
         });
+    }
+
+    /**
+     * Execute rename unless excluded (shared logic for command and save hook)
+     */
+    async executeRenameUnlessExcluded(): Promise<void> {
+        const activeFile = this.app.workspace.getActiveFile();
+        if (!activeFile || activeFile.extension !== 'md') {
+            verboseLog(this.plugin, `Showing notice: Error: no active note.`);
+            new Notice("Error: no active note.");
+            return;
+        }
+        verboseLog(this.plugin, `Manual rename command triggered for ${activeFile.path} (unless excluded)`);
+        await this.plugin.renameEngine.processFile(activeFile, true, true, undefined, false, undefined, true);
     }
 
     /**
@@ -82,16 +101,7 @@ export class CommandRegistrar {
             id: 'rename-current-file-unless-excluded',
             name: 'Put first line in title (unless excluded)',
             icon: 'file-pen',
-            callback: async () => {
-                const activeFile = this.app.workspace.getActiveFile();
-                if (!activeFile || activeFile.extension !== 'md') {
-                    verboseLog(this.plugin, `Showing notice: Error: no active note.`);
-                    new Notice("Error: no active note.");
-                    return;
-                }
-                verboseLog(this.plugin, `Manual rename command triggered for ${activeFile.path} (unless excluded)`);
-                await this.plugin.renameEngine.processFile(activeFile, true);
-            }
+            callback: () => this.executeRenameUnlessExcluded()
         });
     }
 
@@ -151,6 +161,206 @@ export class CommandRegistrar {
     }
 
     /**
+     * Register command: Disable renaming for note
+     * Uses checkCallback to only show when file doesn't have disable property
+     */
+    private registerDisableRenamingCommand(): void {
+        if (!this.settings.commandPaletteVisibility.disableRenaming) {
+            return;
+        }
+
+        this.plugin.addCommand({
+            id: 'disable-renaming-for-note',
+            name: 'Disable renaming for note',
+            icon: 'square-x',
+            checkCallback: (checking: boolean) => {
+                const activeFile = this.app.workspace.getActiveFile();
+                if (!activeFile || activeFile.extension !== 'md') {
+                    return false;
+                }
+
+                // Check if property already exists (synchronously via metadata cache)
+                const fileCache = this.app.metadataCache.getFileCache(activeFile);
+                let hasProperty = false;
+                if (fileCache && fileCache.frontmatter) {
+                    const value = fileCache.frontmatter[this.settings.disableRenamingKey];
+                    if (value !== undefined && value !== null) {
+                        // Normalize both values using same logic as hasDisablePropertyInFile
+                        const { normalizePropertyValue } = require('../utils');
+                        const normalizedValue = normalizePropertyValue(value);
+                        const normalizedExpected = normalizePropertyValue(this.settings.disableRenamingValue);
+
+                        // Handle single values (case-insensitive comparison for strings)
+                        if (typeof normalizedValue === 'string' && typeof normalizedExpected === 'string') {
+                            hasProperty = normalizedValue.toLowerCase() === normalizedExpected.toLowerCase();
+                        } else {
+                            hasProperty = normalizedValue === normalizedExpected;
+                        }
+                    }
+                }
+
+                // Only show command if property doesn't exist
+                if (hasProperty) {
+                    return false;
+                }
+
+                if (!checking) {
+                    this.executeDisableRenaming();
+                }
+                return true;
+            }
+        });
+    }
+
+    /**
+     * Register command: Enable renaming for note
+     * Uses checkCallback to only show when file has disable property
+     */
+    private registerEnableRenamingCommand(): void {
+        if (!this.settings.commandPaletteVisibility.enableRenaming) {
+            return;
+        }
+
+        this.plugin.addCommand({
+            id: 'enable-renaming-for-note',
+            name: 'Enable renaming for note',
+            icon: 'square-check',
+            checkCallback: (checking: boolean) => {
+                const activeFile = this.app.workspace.getActiveFile();
+                if (!activeFile || activeFile.extension !== 'md') {
+                    return false;
+                }
+
+                verboseLog(this.plugin, `Enable renaming checkCallback called for: ${activeFile.basename}, checking=${checking}`);
+
+                // Check if property exists (synchronously via metadata cache)
+                const fileCache = this.app.metadataCache.getFileCache(activeFile);
+                let hasProperty = false;
+
+                verboseLog(this.plugin, `Enable renaming: fileCache exists=${!!fileCache}, frontmatter exists=${!!(fileCache && fileCache.frontmatter)}`);
+
+                if (fileCache && fileCache.frontmatter) {
+                    const value = fileCache.frontmatter[this.settings.disableRenamingKey];
+                    verboseLog(this.plugin, `Enable renaming: raw property value="${value}" (type: ${typeof value}), key="${this.settings.disableRenamingKey}"`);
+
+                    if (value !== undefined && value !== null) {
+                        // Normalize both values using same logic as hasDisablePropertyInFile
+                        const { normalizePropertyValue } = require('../utils');
+                        const normalizedValue = normalizePropertyValue(value);
+                        const normalizedExpected = normalizePropertyValue(this.settings.disableRenamingValue);
+
+                        verboseLog(this.plugin, `Enable renaming normalized: value="${normalizedValue}" (type: ${typeof normalizedValue}), expected="${normalizedExpected}" (type: ${typeof normalizedExpected})`);
+
+                        // Handle single values (case-insensitive comparison for strings)
+                        if (typeof normalizedValue === 'string' && typeof normalizedExpected === 'string') {
+                            hasProperty = normalizedValue.toLowerCase() === normalizedExpected.toLowerCase();
+                        } else {
+                            hasProperty = normalizedValue === normalizedExpected;
+                        }
+
+                        verboseLog(this.plugin, `Enable renaming comparison result: hasProperty=${hasProperty}`);
+                    } else {
+                        verboseLog(this.plugin, `Enable renaming: property value is undefined or null`);
+                    }
+                } else {
+                    verboseLog(this.plugin, `Enable renaming: no frontmatter found`);
+                }
+
+                // Only show command if property exists
+                if (!hasProperty) {
+                    verboseLog(this.plugin, `Enable renaming command hidden: hasProperty=${hasProperty}`);
+                    return false;
+                }
+
+                verboseLog(this.plugin, `Enable renaming command shown: hasProperty=${hasProperty}`);
+
+                if (!checking) {
+                    verboseLog(this.plugin, `Executing enable renaming for: ${activeFile.basename}`);
+                    this.executeEnableRenaming();
+                }
+                return true;
+            }
+        });
+    }
+
+    /**
+     * Execute disable renaming (shared logic for command and context menu)
+     */
+    async executeDisableRenaming(): Promise<void> {
+        const activeFile = this.app.workspace.getActiveFile();
+        if (!activeFile || activeFile.extension !== 'md') {
+            new Notice("Error: no active note.");
+            return;
+        }
+
+        // Ensure property type is set to checkbox before adding property
+        await this.plugin.propertyManager.ensurePropertyTypeIsCheckbox();
+
+        // Check if property already exists
+        const hasProperty = await hasDisablePropertyInFile(activeFile, this.app, this.settings.disableRenamingKey, this.settings.disableRenamingValue);
+
+        try {
+            if (!hasProperty) {
+                await this.app.fileManager.processFrontMatter(activeFile, (frontmatter) => {
+                    // Normalize boolean values to actual boolean type
+                    const value = this.settings.disableRenamingValue;
+                    if (value === 'true') {
+                        frontmatter[this.settings.disableRenamingKey] = true;
+                    } else if (value === 'false') {
+                        frontmatter[this.settings.disableRenamingKey] = false;
+                    } else {
+                        frontmatter[this.settings.disableRenamingKey] = value;
+                    }
+                });
+            }
+
+            new Notice(`Disabled renaming for: ${activeFile.basename}`);
+        } catch (error) {
+            console.error('Failed to disable renaming:', error);
+            new Notice(`Failed to disable renaming. Check console for details.`);
+        }
+    }
+
+    /**
+     * Execute enable renaming (shared logic for command and context menu)
+     */
+    async executeEnableRenaming(): Promise<void> {
+        const activeFile = this.app.workspace.getActiveFile();
+        if (!activeFile || activeFile.extension !== 'md') {
+            new Notice("Error: no active note.");
+            return;
+        }
+
+        // Check if property exists
+        const hasProperty = await hasDisablePropertyInFile(activeFile, this.app, this.settings.disableRenamingKey, this.settings.disableRenamingValue);
+
+        try {
+            if (hasProperty) {
+                await this.app.fileManager.processFrontMatter(activeFile, (frontmatter) => {
+                    delete frontmatter[this.settings.disableRenamingKey];
+                });
+            }
+
+            new Notice(`Enabled renaming for: ${activeFile.basename}`);
+        } catch (error) {
+            console.error('Failed to enable renaming:', error);
+            new Notice(`Failed to enable renaming. Check console for details.`);
+        }
+    }
+
+    /**
+     * Execute toggle automatic renaming (shared logic for command and ribbon)
+     */
+    async executeToggleAutomaticRenaming(): Promise<void> {
+        const newValue = this.settings.renameNotes === "automatically" ? "manually" : "automatically";
+        this.settings.renameNotes = newValue;
+        this.plugin.debugLog('renameNotes', newValue);
+        await this.plugin.saveSettings();
+        verboseLog(this.plugin, `Showing notice: Automatic renaming ${newValue === "automatically" ? "enabled" : "disabled"}.`);
+        new Notice(`Automatic renaming ${newValue === "automatically" ? "enabled" : "disabled"}.`);
+    }
+
+    /**
      * Register command: Toggle automatic renaming
      */
     private registerToggleAutomaticRenamingCommand(): void {
@@ -162,12 +372,7 @@ export class CommandRegistrar {
             id: 'toggle-automatic-renaming',
             name: 'Toggle automatic renaming',
             icon: 'file-cog',
-            callback: async () => {
-                const newValue = this.settings.renameNotes === "automatically" ? "manually" : "automatically";
-                this.settings.renameNotes = newValue;
-                await this.plugin.saveSettings();
-                new Notice(`Automatic renaming ${newValue === "automatically" ? "enabled" : "disabled"}.`);
-            }
+            callback: () => this.executeToggleAutomaticRenaming()
         });
     }
 }

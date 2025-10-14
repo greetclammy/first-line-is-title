@@ -56,7 +56,7 @@ export class PropertiesTab extends SettingsTabBase {
         // Add alias setting
         const aliasToggleSetting = new Setting(this.containerEl)
             .setName("Add alias")
-            .setDesc("Always copy the first line to a property. Allows to make forbidden characters searchable.")
+            .setDesc("Always copy the first line to a property when renaming notes. Allows to make forbidden characters searchable.")
             .addToggle((toggle) =>
                 toggle
                     .setValue(this.plugin.settings.enableAliases)

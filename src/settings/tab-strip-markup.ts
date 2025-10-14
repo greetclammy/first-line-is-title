@@ -46,20 +46,22 @@ export class StripMarkupTab extends SettingsTabBase {
 
         // Individual markup toggles
         const markupToggles = [
-            { key: 'italic', name: 'Strip italic markup', desc: 'For example, turn *Hello* or _Hello_ into Hello.' },
+            { key: 'headings', name: 'Strip heading markup', desc: 'For example, turn ### Hello into Hello.' },
             { key: 'bold', name: 'Strip bold markup', desc: 'For example, turn **Hello** or __Hello__ into Hello.' },
+            { key: 'italic', name: 'Strip italic markup', desc: 'For example, turn *Hello* or _Hello_ into Hello.' },
             { key: 'strikethrough', name: 'Strip strikethrough markup', desc: 'For example, turn ~~Hello~~ into Hello.' },
             { key: 'highlight', name: 'Strip highlight markup', desc: 'For example, turn ==Hello== into Hello.' },
-            { key: 'code', name: 'Strip code markup', desc: 'For example, turn `Hello` into Hello.' },
-            { key: 'codeBlocks', name: 'Strip code block markup', desc: 'Instead, put the first line within code block in title.' },
-            { key: 'comments', name: 'Strip comment markup', desc: 'For example, turn %%Hello%% or <!--Hello--> into Hello.' },
-            { key: 'tasks', name: 'Strip task markup', desc: 'For example, turn - [x] Hello into Hello.' },
-            { key: 'headings', name: 'Strip heading markup', desc: 'For example, turn ### Hello into Hello.' },
-            { key: 'blockquote', name: 'Strip blockquote markup', desc: 'For example, turn >Hello into Hello.' },
-            { key: 'callouts', name: 'Strip callout markup', desc: 'For example, turn >[!info] Hello into Hello.' },
-            { key: 'footnotes', name: 'Strip footnote markup', desc: 'For example, turn Hello[^1] or Hello^[note] into Hello.' },
             { key: 'wikilinks', name: 'Strip wikilink markup', desc: 'For example, turn [[Hello]] or [[Hi|Hello]] into Hello.' },
             { key: 'markdownLinks', name: 'Strip markdown link markup', desc: 'For example, turn [Hello](https://example.org) into Hello.' },
+            { key: 'quote', name: 'Strip quote markup', desc: 'For example, turn >Hello into Hello.' },
+            { key: 'callouts', name: 'Strip callout markup', desc: 'For example, turn >[!info] Hello into Hello.' },
+            { key: 'unorderedLists', name: 'Strip unordered list markup', desc: 'For example, turn - Hello or * Hello into Hello.' },
+            { key: 'orderedLists', name: 'Strip ordered list markup', desc: 'For example, turn 1. Hello into Hello.' },
+            { key: 'taskLists', name: 'Strip task list markup', desc: 'For example, turn - [x] Hello into Hello.' },
+            { key: 'code', name: 'Strip inline code markup', desc: 'For example, turn `Hello` into Hello.' },
+            { key: 'codeBlocks', name: 'Strip code block markup', desc: 'Instead, put the first line within code block in title.' },
+            { key: 'footnotes', name: 'Strip footnote markup', desc: 'For example, turn Hello[^1] or Hello^[note] into Hello.' },
+            { key: 'comments', name: 'Strip comment markup', desc: 'For example, turn %%Hello%% or <!--Hello--> into Hello.' },
             { key: 'htmlTags', name: 'Strip HTML tags', desc: 'For example, turn <u>Hello</u> into Hello.' }
         ];
 

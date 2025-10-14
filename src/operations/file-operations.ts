@@ -131,13 +131,13 @@ export class FileOperations {
                 // Template content provided by caller (already waited for template)
                 currentContent = templateContent;
                 verboseLog(this.plugin, `[TITLE-INSERT] Using provided template content. Length: ${currentContent.length} chars`);
-            } else if (this.settings.insertTitleOnCreation && this.settings.waitForTemplate) {
+            } else if (this.settings.waitForTemplate) {
                 // Wait for template plugins to apply templates if enabled
                 // Both newNoteDelay and waitForTemplate delays start from file creation
                 // Cache/File modes: Total wait = max(newNoteDelay, 2500ms if waitForTemplate is ON)
                 //   - 2500ms = Templater insertion (300ms) + Obsidian modify debounce (2000ms) + buffer (200ms)
                 // Editor mode: Total wait = max(newNoteDelay, 600ms if waitForTemplate is ON)
-                verboseLog(this.plugin, `[TITLE-INSERT] Checking template wait: insertTitleOnCreation=${this.settings.insertTitleOnCreation}, waitForTemplate=${this.settings.waitForTemplate}`);
+                verboseLog(this.plugin, `[TITLE-INSERT] Template wait enabled, checking delays`);
 
                 const templateWaitTime = (this.settings.fileReadMethod === 'Cache' || this.settings.fileReadMethod === 'File') ? 2500 : 600;
                 const remainingWait = templateWaitTime - this.settings.newNoteDelay;
@@ -179,14 +179,29 @@ export class FileOperations {
             } else if (initialContent !== undefined) {
                 // No template wait, use captured initial content
                 currentContent = initialContent;
-                verboseLog(this.plugin, `Using provided initial content for title insertion. Length: ${currentContent.length} chars`);
+                verboseLog(this.plugin, `[TITLE-INSERT] No template wait, using initial content. Length: ${currentContent.length} chars`);
             } else {
-                try {
-                    currentContent = await this.app.vault.read(file);
-                    verboseLog(this.plugin, `Read file content from vault for title insertion. Length: ${currentContent.length} chars`);
-                } catch (error) {
-                    console.error(`Failed to read file ${file.path} for title insertion:`, error);
-                    return false;
+                // No template wait and no initial content - read immediately from editor
+                verboseLog(this.plugin, `[TITLE-INSERT] No template wait, reading immediately from editor`);
+                const leaves = this.app.workspace.getLeavesOfType("markdown");
+                let foundEditor = false;
+                for (const leaf of leaves) {
+                    const view = leaf.view as MarkdownView;
+                    if (view && view.file?.path === file.path && view.editor) {
+                        currentContent = view.editor.getValue();
+                        verboseLog(this.plugin, `[TITLE-INSERT] Read content immediately from editor. Length: ${currentContent.length} chars`);
+                        foundEditor = true;
+                        break;
+                    }
+                }
+                if (!foundEditor) {
+                    try {
+                        currentContent = await this.app.vault.read(file);
+                        verboseLog(this.plugin, `[TITLE-INSERT] Read content immediately from vault. Length: ${currentContent.length} chars`);
+                    } catch (error) {
+                        console.error(`Failed to read file ${file.path} for title insertion:`, error);
+                        return false;
+                    }
                 }
             }
 

@@ -297,6 +297,7 @@ export class CustomReplacementsTab extends SettingsTabBase {
                     toggle.setValue(this.plugin.settings.hasEnabledCustomReplacements ? replacement.onlyAtStart : false)
                         .onChange(async (value) => {
                             this.plugin.settings.customReplacements[index].onlyAtStart = value;
+                            this.plugin.debugLog(`customReplacements[${index}].onlyAtStart`, value);
                             if (value) {
                                 this.plugin.settings.customReplacements[index].onlyWholeLine = false;
                             }
@@ -320,6 +321,7 @@ export class CustomReplacementsTab extends SettingsTabBase {
                     toggle.setValue(this.plugin.settings.hasEnabledCustomReplacements ? replacement.onlyWholeLine : false)
                         .onChange(async (value) => {
                             this.plugin.settings.customReplacements[index].onlyWholeLine = value;
+                            this.plugin.debugLog(`customReplacements[${index}].onlyWholeLine`, value);
                             if (value) {
                                 this.plugin.settings.customReplacements[index].onlyAtStart = false;
                             }

@@ -120,17 +120,7 @@ export class WorkspaceIntegration {
                 condition: this.settings.ribbonVisibility.renameCurrentFile,
                 icon: 'file-pen',
                 title: 'Put first line in title',
-                callback: async () => {
-                    const activeFile = this.app.workspace.getActiveFile();
-                    if (!activeFile || activeFile.extension !== 'md') {
-                        verboseLog(this.plugin, `Showing notice: Error: no active note.`);
-                        new Notice("Error: no active note.");
-                        return;
-                    }
-                    verboseLog(this.plugin, `Ribbon command triggered for ${activeFile.path} (ignoring folder/tag/property exclusions)`);
-                    const exclusionOverrides = { ignoreFolder: true, ignoreTag: true, ignoreProperty: true };
-                    await this.renameEngine.processFile(activeFile, true, true, undefined, false, exclusionOverrides);
-                }
+                callback: () => this.plugin.commandRegistrar.executeRenameCurrentFile()
             },
             {
                 condition: this.settings.ribbonVisibility.renameAllNotes,
@@ -145,12 +135,7 @@ export class WorkspaceIntegration {
                 condition: this.settings.ribbonVisibility.toggleAutomaticRenaming,
                 icon: 'file-cog',
                 title: 'Toggle automatic renaming',
-                callback: async () => {
-                    const newValue = this.settings.renameNotes === "automatically" ? "manually" : "automatically";
-                    this.settings.renameNotes = newValue;
-                    await this.plugin.saveSettings();
-                    new Notice(`Automatic renaming ${newValue === "automatically" ? "enabled" : "disabled"}.`);
-                }
+                callback: () => this.plugin.commandRegistrar.executeToggleAutomaticRenaming()
             }
         ];
 
@@ -183,7 +168,7 @@ export class WorkspaceIntegration {
                     if (activeFile && activeFile.extension === 'md') {
                         // Run rename (unless excluded) with no delay and show notices like manual command
                         setTimeout(() => {
-                            this.renameEngine.processFile(activeFile, true, true);
+                            this.plugin.commandRegistrar.executeRenameUnlessExcluded();
                         }, 100); // Small delay to ensure save is complete
                     }
                 }
@@ -257,14 +242,16 @@ export class WorkspaceIntegration {
                             if (!inCanvas) {
                                 // Use minimal delay to ensure editor is ready
                                 requestAnimationFrame(() => {
-                                    // Use captured initial content to check if file has content
-                                    const hasContent = initialContent.trim() !== '';
+                                    setTimeout(() => {
+                                        // Use captured initial content to check if file has content
+                                        const hasContent = initialContent.trim() !== '';
 
-                                    // Determine if title insertion will be skipped
-                                    const willSkipTitleInsertion = !settings.insertTitleOnCreation || isUntitled || hasContent;
+                                        // Determine if title insertion will be skipped
+                                        const willSkipTitleInsertion = !settings.insertTitleOnCreation || isUntitled || hasContent;
 
-                                    // Position cursor with placeCursorAtLineEnd if title will be skipped
-                                    plugin.fileOperations.handleCursorPositioning(file, willSkipTitleInsertion);
+                                        // Position cursor with placeCursorAtLineEnd if title will be skipped
+                                        plugin.fileOperations.handleCursorPositioning(file, willSkipTitleInsertion);
+                                    }, 200);
                                 });
                             }
                         } else {
@@ -299,10 +286,14 @@ export class WorkspaceIntegration {
                             const activeView = app.workspace.getActiveViewOfType(MarkdownView);
                             const inCanvas = !activeView;
                             if (!inCanvas) {
-                                // Determine if we should use placeCursorAtLineEnd setting
-                                const hasContent = currentContent && currentContent.trim() !== '';
-                                const willSkipTitleInsertion = !settings.insertTitleOnCreation || isUntitled || hasContent;
-                                plugin.fileOperations.handleCursorPositioning(file, willSkipTitleInsertion);
+                                requestAnimationFrame(() => {
+                                    setTimeout(() => {
+                                        // Determine if we should use placeCursorAtLineEnd setting
+                                        const hasContent = currentContent && currentContent.trim() !== '';
+                                        const willSkipTitleInsertion = !settings.insertTitleOnCreation || isUntitled || hasContent;
+                                        plugin.fileOperations.handleCursorPositioning(file, willSkipTitleInsertion);
+                                    }, 200);
+                                });
                             }
                         } else {
                             verboseLog(plugin, `Skipping cursor positioning after template - file is excluded: ${file.path}`);
@@ -313,9 +304,9 @@ export class WorkspaceIntegration {
                 const timer = setTimeout(async () => {
                     verboseLog(plugin, `CREATE: Processing new file after delay: ${file.name}`);
 
-                    try {
-                        let titleWasInserted = false;
+                    let titleWasInserted = false;
 
+                    try {
                         // Step 2: Insert title if enabled
                         // Pass template content if available (cursor positioning already waited for it)
                         if (settings.insertTitleOnCreation) {
@@ -336,9 +327,6 @@ export class WorkspaceIntegration {
                                 titleWasInserted = await plugin.fileOperations.insertTitleOnCreation(file, initialContent, templateContent);
                                 verboseLog(plugin, `CREATE: insertTitleOnCreation returned ${titleWasInserted}`);
                             }
-
-                            // Clean up temporary template content
-                            delete (file as any)._flitTemplateContent;
                         }
 
                         // Step 3: Reposition cursor if title was inserted and placeCursorAtLineEnd is ON
@@ -365,7 +353,9 @@ export class WorkspaceIntegration {
 
                                     if (!inCanvas) {
                                         requestAnimationFrame(() => {
-                                            plugin.fileOperations.handleCursorPositioning(file);
+                                            setTimeout(() => {
+                                                plugin.fileOperations.handleCursorPositioning(file);
+                                            }, 200);
                                         });
                                     }
                                 } else {
@@ -396,6 +386,8 @@ export class WorkspaceIntegration {
                     } catch (error) {
                         console.error(`CREATE: Failed to process new file ${file.path}:`, error);
                     } finally {
+                        // Always clean up template content to prevent memory leak
+                        delete (file as any)._flitTemplateContent;
                         plugin.editorLifecycle.clearCreationDelayTimer(file.path);
                     }
                 }, settings.newNoteDelay);

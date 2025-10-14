@@ -10,10 +10,13 @@ export class GeneralTab extends SettingsTabBase {
 
     render(): void {
         let renameOnFocusContainer: HTMLElement;
+        let placeCursorSetting: Setting;
+        let waitForTemplateCursorSetting: Setting;
 
         const updateAutomaticRenameVisibility = () => {
             if (this.plugin.settings.renameNotes === "automatically") {
                 renameOnFocusContainer.show();
+                updateCursorOptionsVisibility();
             } else {
                 renameOnFocusContainer.hide();
             }
@@ -31,14 +34,13 @@ export class GeneralTab extends SettingsTabBase {
         renameNotesSetting.addDropdown((dropdown) =>
                 dropdown
                     .addOption("automatically", "Automatically when open and modified")
-                    .addOption("manually", "Manually via command only")
+                    .addOption("manually", "Manually with command only")
                     .setValue(this.plugin.settings.renameNotes)
                     .onChange(async (value) => {
                         this.plugin.settings.renameNotes = value as "automatically" | "manually";
                         this.plugin.debugLog('renameNotes', value);
                         await this.plugin.saveSettings();
                         updateAutomaticRenameVisibility();
-                        updateCursorPositionVisibility();
                         (this.plugin as any).updateAutomaticRenameVisibility?.();
                     })
             );
@@ -49,7 +51,7 @@ export class GeneralTab extends SettingsTabBase {
         // Create sub-option for rename on focus
         const renameOnFocusSetting = new Setting(automaticRenameContainer)
             .setName("Rename on focus")
-            .setDesc("Process notes when they get opened in the editor.")
+            .setDesc("Also process notes when they get opened in the editor.")
             .addToggle((toggle) =>
                 toggle
                     .setValue(this.plugin.settings.renameOnFocus)
@@ -75,8 +77,11 @@ export class GeneralTab extends SettingsTabBase {
                     })
             );
 
+        // Create cursor options sub-container
+        const cursorOptionsContainer = automaticRenameContainer.createDiv('flit-sub-settings');
+
         // Place cursor at line end
-        const placeCursorSetting = new Setting(automaticRenameContainer)
+        placeCursorSetting = new Setting(cursorOptionsContainer)
             .setName("Place cursor at line end")
             .setDesc("When moving the cursor to a first line with content, place it at the end of the line instead of the start.")
             .addToggle((toggle) =>
@@ -90,7 +95,7 @@ export class GeneralTab extends SettingsTabBase {
             );
 
         // Wait for cursor template
-        const waitForTemplateCursorSetting = new Setting(automaticRenameContainer)
+        waitForTemplateCursorSetting = new Setting(cursorOptionsContainer)
             .setName("Wait for template")
             .setDesc("Move the cursor after a new note template is applied and it does not have an excluded tag or property.")
             .addToggle((toggle) =>
@@ -106,11 +111,9 @@ export class GeneralTab extends SettingsTabBase {
         // Define cursor options visibility function
         const updateCursorOptionsVisibility = () => {
             if (this.plugin.settings.moveCursorToFirstLine) {
-                placeCursorSetting.settingEl.show();
-                waitForTemplateCursorSetting.settingEl.show();
+                cursorOptionsContainer.show();
             } else {
-                placeCursorSetting.settingEl.hide();
-                waitForTemplateCursorSetting.settingEl.hide();
+                cursorOptionsContainer.hide();
             }
         };
 
@@ -194,7 +197,7 @@ export class GeneralTab extends SettingsTabBase {
 
         // Create sub-option for add heading
         new Setting(waitForTemplateContainer)
-            .setName("Add heading")
+            .setName("Format as heading")
             .setDesc("Make the first line a heading.")
             .addToggle((toggle) =>
                 toggle

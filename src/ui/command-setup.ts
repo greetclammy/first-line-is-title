@@ -124,7 +124,9 @@ export class CommandSetup {
                 callback: async () => {
                     const newValue = this.settings.renameNotes === "automatically" ? "manually" : "automatically";
                     this.settings.renameNotes = newValue;
+                    this.plugin.debugLog('renameNotes', newValue);
                     await this.plugin.saveSettings();
+                    verboseLog(this.plugin, `Showing notice: Automatic renaming ${newValue === "automatically" ? "enabled" : "disabled"}.`);
                     new Notice(`Automatic renaming ${newValue === "automatically" ? "enabled" : "disabled"}.`);
                 }
             }

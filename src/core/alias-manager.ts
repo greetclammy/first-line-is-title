@@ -4,10 +4,9 @@ import { PluginSettings } from '../types';
 import { verboseLog, shouldProcessFile, extractTitle, hasDisablePropertyInFile } from '../utils';
 import FirstLineIsTitle from '../../main';
 
-// Global variables for alias management
-let aliasUpdateInProgress: Set<string> = new Set();
-
 export class AliasManager {
+    private aliasUpdateInProgress: Set<string> = new Set();
+
     constructor(private plugin: FirstLineIsTitle) {}
 
     get app() {
@@ -19,7 +18,7 @@ export class AliasManager {
     }
 
     isAliasUpdateInProgress(filePath: string): boolean {
-        return aliasUpdateInProgress.has(filePath);
+        return this.aliasUpdateInProgress.has(filePath);
     }
 
     private getAliasPropertyKeys(): string[] {
@@ -35,8 +34,6 @@ export class AliasManager {
         this.plugin.trackUsage();
 
         try {
-            const fileKey = file.path;
-
             const currentFile = this.app.vault.getAbstractFileByPath(file.path);
             if (!currentFile || !(currentFile instanceof TFile)) {
                 verboseLog(this.plugin, `Skipping alias update - file no longer exists: ${file.path}`);
@@ -44,8 +41,9 @@ export class AliasManager {
             }
 
             file = currentFile;
+            const fileKey = file.path;
 
-            if (aliasUpdateInProgress.has(fileKey)) {
+            if (this.aliasUpdateInProgress.has(fileKey)) {
                 verboseLog(this.plugin, `Skipping alias update for ${file.path} - update already in progress`);
                 return;
             }
@@ -102,7 +100,7 @@ export class AliasManager {
                 return;
             }
             const aliasPropertyKeys = this.getAliasPropertyKeys();
-            const zwspMarker = String.fromCharCode(8203);
+            const zwspMarker = '\u200B'; // Zero-width space marker
             const expectedAlias = this.settings.stripMarkupInAlias ?
                 extractTitle(firstLine, this.settings) : firstLine;
             const expectedAliasWithMarker = expectedAlias + zwspMarker;
@@ -133,18 +131,18 @@ export class AliasManager {
                 return;
             }
 
-            aliasUpdateInProgress.add(fileKey);
+            this.aliasUpdateInProgress.add(fileKey);
 
             try {
                 verboseLog(this.plugin, `Adding alias to ${file.path} - no correct alias found`);
                 await this.addAliasToFile(file, firstLine, fileNameToCompare, content);
             } finally {
-                aliasUpdateInProgress.delete(fileKey);
+                this.aliasUpdateInProgress.delete(fileKey);
             }
 
         } catch (error) {
             console.error('Error updating alias:', error);
-            aliasUpdateInProgress.delete(file.path);
+            this.aliasUpdateInProgress.delete(file.path);
         }
     }
 

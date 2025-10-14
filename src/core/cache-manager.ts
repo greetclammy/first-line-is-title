@@ -8,7 +8,7 @@ export interface CacheConfig {
 export const DEFAULT_CACHE_CONFIG: CacheConfig = {
     maxContentEntries: 1000,
     maxOperationEntries: 500,
-    maintenanceIntervalMs: 0,
+    maintenanceIntervalMs: 300000, // 5 minutes - safety net for edge case cleanup
     staleThresholdMs: 10 * 60 * 1000,
 };
 
@@ -120,6 +120,7 @@ export class CacheManager {
     private operationTracker: Map<string, OperationData>;
     private aliasTimers: Map<string, NodeJS.Timeout>;
     private aliasInProgress: Set<string>;
+    private firstRenames: Set<string>;
 
     // Maintenance
     private maintenanceTimer: NodeJS.Timeout | null = null;
@@ -135,6 +136,7 @@ export class CacheManager {
         this.operationTracker = new Map();
         this.aliasTimers = new Map();
         this.aliasInProgress = new Set();
+        this.firstRenames = new Set();
 
         // Start maintenance cycle only if configured
         if (config.maintenanceIntervalMs > 0) {
@@ -236,6 +238,7 @@ export class CacheManager {
         this.contentCache.delete(path);
         this.releasePath(path);
         this.operationTracker.delete(path);
+        this.firstRenames.delete(path);
     }
 
     /**
@@ -258,6 +261,12 @@ export class CacheManager {
         if (operation) {
             this.operationTracker.delete(oldPath);
             this.operationTracker.set(newPath, operation);
+        }
+
+        // Move first rename tracking
+        if (this.firstRenames.has(oldPath)) {
+            this.firstRenames.delete(oldPath);
+            this.firstRenames.add(newPath);
         }
 
         // Release old path, reserve new path temporarily
@@ -350,6 +359,29 @@ export class CacheManager {
         }
         this.aliasTimers.clear();
         this.aliasInProgress.clear();
+    }
+
+    // ==================== FIRST RENAME TRACKING ====================
+
+    /**
+     * Check if this is the first rename for a file
+     */
+    isFirstRename(filePath: string): boolean {
+        return !this.firstRenames.has(filePath);
+    }
+
+    /**
+     * Mark file as having been renamed
+     */
+    markFileRenamed(filePath: string): void {
+        this.firstRenames.add(filePath);
+    }
+
+    /**
+     * Clear first rename tracking for a file
+     */
+    clearFirstRenameTracking(filePath: string): void {
+        this.firstRenames.delete(filePath);
     }
 
     // ==================== MAINTENANCE & CLEANUP ====================
@@ -451,5 +483,6 @@ export class CacheManager {
         this.operationTracker.clear();
         this.aliasTimers.clear();
         this.aliasInProgress.clear();
+        this.firstRenames.clear();
     }
 }

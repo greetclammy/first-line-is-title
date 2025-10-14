@@ -5,9 +5,16 @@ import { verboseLog, shouldProcessFile } from './utils';
 interface FirstLineIsTitlePlugin {
     settings: PluginSettings;
     app: App;
-    renameFile(file: TFile, noDelay?: boolean, ignoreExclusions?: boolean): Promise<void>;
-    putFirstLineInTitleForFolder(folder: TFolder): Promise<void>;
-    putFirstLineInTitleForTag(tagName: string, omitBodyTags?: boolean, omitNestedTags?: boolean): Promise<void>;
+    renameEngine: {
+        processFile(file: TFile, noDelay: boolean, showNotices: boolean, providedContent?: string, isBatchOperation?: boolean, exclusionOverrides?: any): Promise<any>;
+    };
+    cacheManager?: {
+        clearReservedPaths(): void;
+    };
+    propertyManager: {
+        ensurePropertyTypeIsCheckbox(): Promise<void>;
+    };
+    saveSettings(): Promise<void>;
 }
 
 export class RenameAllFilesModal extends Modal {

@@ -204,6 +204,9 @@ export class EditorLifecycleManager {
                     // Tab actually closed - handle based on pending delays
                     verboseLog(this.plugin, `Tab closed for: ${filePath}`);
 
+                    // Clear first rename tracking when tab closes
+                    this.plugin.cacheManager?.clearFirstRenameTracking(filePath);
+
                     // Mark as processed to prevent duplicate processing from multiple events
                     this.recentlyProcessedCloses.add(filePath);
                     setTimeout(() => {
