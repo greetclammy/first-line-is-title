@@ -277,7 +277,7 @@ export class WorkspaceIntegration {
                         }
 
                         // Store template content for title insertion to avoid re-waiting
-                        (file as any)._flitTemplateContent = currentContent;
+                        (file as TFile & { _flitTemplateContent?: string })._flitTemplateContent = currentContent;
 
                         // Check exclusions with current content (may have template tags/properties)
                         const isExcluded = await plugin.fileOperations.isFileExcludedForCursorPositioning(file, currentContent);
@@ -370,7 +370,7 @@ export class WorkspaceIntegration {
                             let editorContent: string | undefined;
                             const leaves = app.workspace.getLeavesOfType("markdown");
                             for (const leaf of leaves) {
-                                const view = leaf.view as any;
+                                const view = leaf.view as { file?: TFile; editor?: any };
                                 if (view && view.file && view.file.path === file.path && view.editor) {
                                     const value = view.editor.getValue();
                                     if (typeof value === 'string') {
@@ -387,7 +387,7 @@ export class WorkspaceIntegration {
                         console.error(`CREATE: Failed to process new file ${file.path}:`, error);
                     } finally {
                         // Always clean up template content to prevent memory leak
-                        delete (file as any)._flitTemplateContent;
+                        delete (file as TFile & { _flitTemplateContent?: string })._flitTemplateContent;
                         plugin.editorLifecycle.clearCreationDelayTimer(file.path);
                     }
                 }, settings.newNoteDelay);

@@ -56,7 +56,7 @@ export class PropertiesTab extends SettingsTabBase {
         // Add alias setting
         const aliasToggleSetting = new Setting(this.containerEl)
             .setName("Add alias")
-            .setDesc("Always copy the first line to a property when renaming notes. Allows to make forbidden characters searchable.")
+            .setDesc("Always copy the first line to a property when renaming notes.")
             .addToggle((toggle) =>
                 toggle
                     .setValue(this.plugin.settings.enableAliases)
@@ -161,7 +161,12 @@ export class PropertiesTab extends SettingsTabBase {
             text: "Omnisearch",
             href: "obsidian://show-plugin?id=omnisearch"
         });
-        li2.appendText(' and ');
+        li2.appendText(', ');
+        li2.createEl("a", {
+            text: "Front Matter Title",
+            href: "obsidian://show-plugin?id=obsidian-front-matter-title-plugin"
+        });
+        li2.appendText(', and ');
         li2.createEl("a", {
             text: "Notebook Navigator",
             href: "obsidian://show-plugin?id=notebook-navigator"
@@ -319,7 +324,7 @@ export class PropertiesTab extends SettingsTabBase {
                     .addOption('always', 'Always')
                     .setValue(this.plugin.settings.hideAliasProperty)
                     .onChange(async (value) => {
-                        this.plugin.settings.hideAliasProperty = value as any;
+                        this.plugin.settings.hideAliasProperty = value as 'never' | 'when_empty' | 'always';
                         this.plugin.debugLog('hideAliasProperty', value);
                         await this.plugin.saveSettings();
                         this.updatePropertyVisibility();
@@ -375,7 +380,7 @@ export class PropertiesTab extends SettingsTabBase {
             const limitationsContainer = aliasContainer.createDiv();
             const limitationsDesc = limitationsContainer.createEl("p", { cls: "setting-item-description" });
             limitationsDesc.style.marginTop = "12px";
-            limitationsDesc.appendText("First line alias can be unreliable if editing in a page preview. Using ");
+            limitationsDesc.appendText("First line alias updates can be unreliable when editing in a page preview. Using ");
             limitationsDesc.createEl("a", {
                 text: "Hover Editor",
                 href: "obsidian://show-plugin?id=obsidian-hover-editor"
@@ -390,11 +395,11 @@ export class PropertiesTab extends SettingsTabBase {
         updateAliasConditionalSettings();
 
         // Register update function on plugin for cross-tab communication
-        (this.plugin as any).updateAliasConditionalSettings = updateAliasConditionalSettings;
+        (this.plugin as typeof this.plugin & { updateAliasConditionalSettings?: () => Promise<void> }).updateAliasConditionalSettings = updateAliasConditionalSettings;
     }
 
     private updatePropertyVisibility(): void {
         // Get reference to main plugin for property visibility update
-        (this.plugin as any).updatePropertyVisibility?.();
+        this.plugin.updatePropertyVisibility();
     }
 }

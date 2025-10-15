@@ -4,18 +4,18 @@
 
 First Line is Title SHALL only processFile() if:
 
-1. **renameNotes = "Automatically" AND (first line modified in open editor OR file focused in open editor if renameOnFocus is ON):**
+1. **renameNotes = "Automatically" AND (note modified in open editor OR note focused in open editor if renameOnFocus is ON):**
    - No 'Property to disable renaming' present
-   - File passes folder/tag/excluded-properties checks
+   - Note passes folder/tag/excluded-properties checks
    - checkInterval = 0: process immediately on change
    - checkInterval > 0: start timer on change, process when timer expires OR file's tab closes (whichever first). Timer cancels if tab closes before expiration.
    - New note delay > 0: process when delay expires.
 
 2. **"Put first line in title" command:**
-   - Single file:
+   - Single note:
      - 'Property to disable renaming' still blocks
      - Ignores folder/tag/property exclusions
-   - Multi-file:
+   - Multiple notes:
      - 'Property to disable renaming' still blocks
      - Checkboxes control folder/tag/property exclusions
 
@@ -44,7 +44,7 @@ When the `Debug` setting is ON, the following MUST be logged:
 - Includes: toggles, dropdowns, text inputs, sliders, array modifications, manual controls
 
 **Operations:**
-- Every plugin operation (file processing, renaming, alias updates, etc.)
+- Every plugin operation (note processing, renaming, alias updates, etc.)
 - Every Notice sent to user
 - Use verboseLog() utility function
 

@@ -41,7 +41,7 @@ export class GeneralTab extends SettingsTabBase {
                         this.plugin.debugLog('renameNotes', value);
                         await this.plugin.saveSettings();
                         updateAutomaticRenameVisibility();
-                        (this.plugin as any).updateAutomaticRenameVisibility?.();
+                        (this.plugin as typeof this.plugin & { updateAutomaticRenameVisibility?: () => void }).updateAutomaticRenameVisibility?.();
                     })
             );
 
@@ -65,7 +65,7 @@ export class GeneralTab extends SettingsTabBase {
         // Move cursor to first line
         new Setting(automaticRenameContainer)
             .setName("Move cursor to first line")
-            .setDesc("Place the cursor in the first line when creating a new note unless in excluded note.")
+            .setDesc("Place the cursor in the first line when creating a new note unless in excluded folder.")
             .addToggle((toggle) =>
                 toggle
                     .setValue(this.plugin.settings.moveCursorToFirstLine)

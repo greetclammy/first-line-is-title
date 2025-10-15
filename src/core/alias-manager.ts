@@ -392,7 +392,7 @@ export class AliasManager {
 
         } catch (error) {
             // Check if this is an ENOENT error (file was renamed during async operation)
-            if ((error as any).code === 'ENOENT') {
+            if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
                 // File was renamed during operation - this is expected race condition, log as info
                 verboseLog(this.plugin, `Skipping alias addition - file was renamed during operation: ${file.path}`);
             } else {
@@ -476,7 +476,7 @@ export class AliasManager {
             verboseLog(this.plugin, `Removed plugin aliases from ${currentFileForRemoval.path}`);
         } catch (error) {
             // Check if this is an ENOENT error (file was renamed during async operation)
-            if ((error as any).code === 'ENOENT') {
+            if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
                 // File was renamed during operation - this is expected race condition, log as info
                 verboseLog(this.plugin, `Skipping alias removal - file was renamed during operation: ${file.path}`);
             } else {

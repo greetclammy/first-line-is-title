@@ -150,7 +150,7 @@ export class EditorLifecycleManager {
 
         // Build new active files map
         for (const leaf of markdownViews) {
-            const view = leaf.view as any;
+            const view = leaf.view as { file?: TFile; editor?: any };
             if (view && view.file && view.editor) {
                 try {
                     const leafId = leaf.id;

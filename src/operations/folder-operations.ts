@@ -1,4 +1,4 @@
-import { Notice, TFile, TFolder } from "obsidian";
+import { Notice, TFile, TFolder, normalizePath } from "obsidian";
 import { verboseLog } from '../utils';
 import { PluginSettings } from '../types';
 import { RenameEngine } from '../core/rename-engine';
@@ -55,6 +55,9 @@ export class FolderOperations {
     }
 
     async toggleFolderExclusion(folderPath: string): Promise<void> {
+        // Normalize folder path to handle cross-platform differences and user typos
+        folderPath = normalizePath(folderPath);
+
         const isInList = this.settings.excludedFolders.includes(folderPath);
         const isInverted = this.settings.folderScopeStrategy === 'Exclude all except...';
 
@@ -226,7 +229,8 @@ export class FolderOperations {
 
             for (const folder of folders) {
                 try {
-                    const isCurrentlyExcluded = this.settings.excludedFolders.includes(folder.path);
+                    const normalizedFolderPath = normalizePath(folder.path);
+                    const isCurrentlyExcluded = this.settings.excludedFolders.includes(normalizedFolderPath);
 
                     if (action === 'disable' && !isCurrentlyExcluded) {
                         // Only toggle if not already excluded

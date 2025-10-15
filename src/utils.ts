@@ -1,4 +1,4 @@
-import { TFile, App, Platform } from "obsidian";
+import { TFile, App, Platform, normalizePath } from "obsidian";
 import { PluginSettings, OSPreset } from './types';
 import { UNIVERSAL_FORBIDDEN_CHARS, WINDOWS_ANDROID_CHARS } from './constants';
 
@@ -39,8 +39,10 @@ export function detectOS(): OSPreset {
 }
 
 export function inExcludedFolder(file: TFile, settings: PluginSettings): boolean {
-    // Filter out empty strings
-    const nonEmptyFolders = settings.excludedFolders.filter(folder => folder.trim() !== "");
+    // Filter out empty strings and normalize paths
+    const nonEmptyFolders = settings.excludedFolders
+        .filter(folder => folder.trim() !== "")
+        .map(folder => normalizePath(folder));
     if (nonEmptyFolders.length === 0) return false;
 
     const filePath = file.parent?.path as string;
@@ -61,7 +63,9 @@ export function inExcludedFolder(file: TFile, settings: PluginSettings): boolean
 }
 
 export function isFileInTargetFolders(file: TFile, settings: PluginSettings): boolean {
-    const nonEmptyFolders = settings.excludedFolders.filter(folder => folder.trim() !== "");
+    const nonEmptyFolders = settings.excludedFolders
+        .filter(folder => folder.trim() !== "")
+        .map(folder => normalizePath(folder));
     if (nonEmptyFolders.length === 0) return false;
 
     const filePath = file.parent?.path as string;

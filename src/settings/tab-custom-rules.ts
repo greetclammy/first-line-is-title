@@ -36,7 +36,7 @@ export class CustomReplacementsTab extends SettingsTabBase {
                         updateCustomReplacementUI();
                         renderCustomReplacements();
                         // Notify other tabs to update dependent settings
-                        (this.plugin as any).updateAliasConditionalSettings?.();
+                        (this.plugin as typeof this.plugin & { updateAliasConditionalSettings?: () => Promise<void> }).updateAliasConditionalSettings?.();
                     });
             });
 

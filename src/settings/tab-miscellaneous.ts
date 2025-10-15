@@ -11,7 +11,7 @@ export class MiscellaneousTab extends SettingsTabBase {
     constructor(plugin: FirstLineIsTitlePlugin, containerEl: HTMLElement) {
         super(plugin, containerEl);
         // Register visibility update function on plugin
-        (this.plugin as any).updateAutomaticRenameVisibility = this.updateAutomaticRenameVisibility.bind(this);
+        (this.plugin as typeof this.plugin & { updateAutomaticRenameVisibility?: () => void }).updateAutomaticRenameVisibility = this.updateAutomaticRenameVisibility.bind(this);
     }
 
     render(): void {
@@ -74,9 +74,7 @@ export class MiscellaneousTab extends SettingsTabBase {
 
         // Create styled description
         const notificationDesc = notificationSetting.descEl;
-        notificationDesc.appendText("Set when to show notifications for the ");
-        notificationDesc.createEl("em", { text: "Put first line in title" });
-        notificationDesc.appendText(" commands.");
+        notificationDesc.appendText("Set when to show notifications for manual rename commands.");
 
         notificationSetting.addDropdown((dropdown) =>
             dropdown
@@ -106,7 +104,7 @@ export class MiscellaneousTab extends SettingsTabBase {
             text: "Link Embed",
             href: "obsidian://show-plugin?id=obsidian-link-embed"
         });
-        cardLinkDesc.appendText(", the card link title will be put in title.");
+        cardLinkDesc.appendText(", the card link title will be put in filename.");
 
         cardLinkSetting.addToggle((toggle) =>
             toggle
@@ -124,7 +122,7 @@ export class MiscellaneousTab extends SettingsTabBase {
             .setDesc("");
 
         const newNoteDelayDesc = newNoteDelaySetting.descEl;
-        newNoteDelayDesc.appendText("Delay operations on new notes by this amount in milliseconds. May resolve issues on note creation.");
+        newNoteDelayDesc.appendText("Delay processing new notes by this amount in milliseconds. May resolve issues on note creation.");
         newNoteDelayDesc.createEl("br");
         newNoteDelayDesc.createEl("small").createEl("strong", { text: "Default: 0" });
 
@@ -201,38 +199,32 @@ export class MiscellaneousTab extends SettingsTabBase {
         // Reset button click handler
         contentReadRestoreButton.addEventListener('click', async () => {
             dropdown.value = DEFAULT_SETTINGS.fileReadMethod;
-            this.plugin.switchFileReadMode(DEFAULT_SETTINGS.fileReadMethod);
+            this.plugin.settings.fileReadMethod = DEFAULT_SETTINGS.fileReadMethod;
             this.plugin.debugLog('fileReadMethod', this.plugin.settings.fileReadMethod);
             await this.plugin.saveSettings();
-            updateCheckIntervalVisibility();
+            this.updateAutomaticRenameVisibility();
         });
 
         // Dropdown change handler
         dropdown.addEventListener('change', async (e) => {
-            const newMode = (e.target as HTMLSelectElement).value;
-            this.plugin.switchFileReadMode(newMode);
+            const newMode = (e.target as HTMLSelectElement).value as FileReadMethod;
+            this.plugin.settings.fileReadMethod = newMode;
             this.plugin.debugLog('fileReadMethod', this.plugin.settings.fileReadMethod);
             await this.plugin.saveSettings();
-            updateCheckIntervalVisibility();
+            this.updateAutomaticRenameVisibility();
         });
 
-        // Create container for content read method sub-options
+        // Container for content read method sub-options (always visible, children controlled individually)
         const contentReadSubSettingsContainer = this.containerEl.createDiv('flit-sub-settings');
 
-        // Function to update check interval visibility
-        const updateCheckIntervalVisibility = () => {
-            const isEditorMethod = this.plugin.settings.fileReadMethod === 'Editor';
-            contentReadSubSettingsContainer.style.display = isEditorMethod ? '' : 'none';
-        };
-
-        // 1. Check interval setting (conditional sub-option for Editor method only)
+        // Check interval setting - only visible when fileReadMethod="Editor" AND renameNotes="automatically"
         const checkIntervalSetting = new Setting(contentReadSubSettingsContainer)
             .setName("Check interval")
             .setDesc("");
 
         // Create styled description for check interval
         const delayDesc = checkIntervalSetting.descEl;
-        delayDesc.appendText("Interval in milliseconds for checking first-line changes.  Increase in case of issues.");
+        delayDesc.appendText("Interval in milliseconds for checking first-line changes. Increase in case of issues.");
         delayDesc.createEl("br");
         delayDesc.createEl("small").createEl("strong", { text: "Default: 0" });
 
@@ -257,7 +249,7 @@ export class MiscellaneousTab extends SettingsTabBase {
             await this.plugin.saveSettings();
 
             // Reinitialize checking system with default interval
-            (this.plugin as any).initializeCheckingSystem?.();
+            this.plugin.editorLifecycle?.initializeCheckingSystem();
         });
 
         checkIntervalTextInput.addEventListener('input', async (e) => {
@@ -278,7 +270,7 @@ export class MiscellaneousTab extends SettingsTabBase {
                 this.plugin.settings.checkInterval = DEFAULT_SETTINGS.checkInterval;
                 this.plugin.debugLog('checkInterval', this.plugin.settings.checkInterval);
                 await this.plugin.saveSettings();
-                (this.plugin as any).initializeCheckingSystem?.();
+                this.plugin.editorLifecycle?.initializeCheckingSystem();
                 return;
             }
 
@@ -294,11 +286,8 @@ export class MiscellaneousTab extends SettingsTabBase {
             await this.plugin.saveSettings();
 
             // Reinitialize checking system with new interval
-            (this.plugin as any).initializeCheckingSystem?.();
+            this.plugin.editorLifecycle?.initializeCheckingSystem();
         });
-
-        // Initialize check interval visibility
-        updateCheckIntervalVisibility();
 
         // Store references to conditional settings for visibility control
         this.conditionalSettings = [
@@ -324,18 +313,20 @@ export class MiscellaneousTab extends SettingsTabBase {
                 toggle
                     .setValue(this.plugin.settings.verboseLogging)
                     .onChange(async (value) => {
+                        // Log BEFORE changing the value so we can see the OFF message
+                        this.plugin.debugLog('verboseLogging', value);
+
                         this.plugin.settings.verboseLogging = value;
                         // Update debug enabled timestamp when turning ON
                         if (value) {
                             this.plugin.settings.debugEnabledTimestamp = this.plugin.getCurrentTimestamp();
                         }
-                        this.plugin.debugLog('verboseLogging', value);
                         await this.plugin.saveSettings();
                         // Show/hide the sub-option based on debug state
                         updateDebugSubOptionVisibility();
                         // Output all settings when debug mode is turned ON
                         if (value) {
-                            (this.plugin as any).outputAllSettings();
+                            this.plugin.outputAllSettings();
                         }
                     })
             );
@@ -390,7 +381,7 @@ export class MiscellaneousTab extends SettingsTabBase {
 
                             // Force complete tab re-render by calling the parent's display method
                             // We need to get a reference to the parent settings tab
-                            const settingsTab = (this.plugin as any).settingsTab;
+                            const settingsTab = (this.plugin as typeof this.plugin & { settingsTab?: { display(): void } }).settingsTab;
                             if (settingsTab && settingsTab.display) {
                                 settingsTab.display();
                             } else {
@@ -410,9 +401,13 @@ export class MiscellaneousTab extends SettingsTabBase {
         if (this.conditionalSettings.length === 0) return;
 
         const shouldShow = this.plugin.settings.renameNotes === "automatically";
+        const isEditorMethod = this.plugin.settings.fileReadMethod === 'Editor';
 
+        // Check interval should only show when BOTH conditions are true:
+        // 1. renameNotes === "automatically"
+        // 2. fileReadMethod === "Editor"
         this.conditionalSettings.forEach(setting => {
-            if (shouldShow) {
+            if (shouldShow && isEditorMethod) {
                 setting.settingEl.style.display = '';
             } else {
                 setting.settingEl.style.display = 'none';
