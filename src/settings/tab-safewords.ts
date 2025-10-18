@@ -1,6 +1,7 @@
 import { Setting, setIcon } from "obsidian";
 import { SettingsTabBase, FirstLineIsTitlePlugin } from './settings-base';
 import { UNIVERSAL_FORBIDDEN_CHARS, WINDOWS_ANDROID_CHARS } from '../constants';
+import { t } from '../i18n';
 
 export class SafewordsTab extends SettingsTabBase {
     constructor(plugin: FirstLineIsTitlePlugin, containerEl: HTMLElement) {
@@ -10,7 +11,7 @@ export class SafewordsTab extends SettingsTabBase {
     render(): void {
         // Enable safewords toggle as regular setting
         const safewordsHeaderToggleSetting = new Setting(this.containerEl)
-            .setName("Enable safewords")
+            .setName(t('settings.safewords.enableSafewords.name'))
             .setDesc("")
             .addToggle((toggle) => {
                 toggle.setValue(this.plugin.settings.enableSafewords)
@@ -39,7 +40,7 @@ export class SafewordsTab extends SettingsTabBase {
 
         const updateSafewordsDescriptionContent = () => {
             safewordsDescEl.empty();
-            safewordsDescEl.createEl('span', { text: 'Specify text that prevents renaming if matched in filename.' });
+            safewordsDescEl.createEl('span', { text: t('settings.safewords.enableSafewords.desc') });
         };
 
         updateSafewordsDescriptionContent();
@@ -82,32 +83,21 @@ export class SafewordsTab extends SettingsTabBase {
 
             // Header for toggle
             const enableHeader = headerRow.createDiv({ cls: "flit-enable-column" });
-            enableHeader.textContent = "Enable";
+            enableHeader.textContent = t('settings.safewords.headers.enable');
 
             // Header for input field
             const safewordHeader = headerRow.createDiv({ cls: "flit-text-column flit-safeword-input" });
-            safewordHeader.textContent = "Safeword";
+            safewordHeader.textContent = t('settings.safewords.headers.safeword');
 
             // Headers for toggle switches
             const startOnlyHeader = headerRow.createDiv({ cls: "flit-toggle-column" });
-            const startLine1 = startOnlyHeader.createDiv();
-            startLine1.textContent = "Only match";
-            const startLine2 = startOnlyHeader.createDiv();
-            startLine2.textContent = "filename start";
+            startOnlyHeader.textContent = t('settings.safewords.headers.onlyMatchStart');
 
             const wholeLineHeader = headerRow.createDiv({ cls: "flit-toggle-column" });
-            const wholeLine1 = wholeLineHeader.createDiv();
-            wholeLine1.textContent = "Only match";
-            const wholeLine2 = wholeLineHeader.createDiv();
-            wholeLine2.textContent = "whole";
-            const wholeLine3 = wholeLineHeader.createDiv();
-            wholeLine3.textContent = "filename";
+            wholeLineHeader.textContent = t('settings.safewords.headers.onlyMatchWhole');
 
             const caseSensitiveHeader = headerRow.createDiv({ cls: "flit-toggle-column" });
-            const caseLine1 = caseSensitiveHeader.createDiv();
-            caseLine1.textContent = "Case-";
-            const caseLine2 = caseSensitiveHeader.createDiv();
-            caseLine2.textContent = "sensitive";
+            caseSensitiveHeader.textContent = t('settings.safewords.headers.caseSensitive');
 
             // Empty header for action buttons
             const actionsHeader = headerRow.createDiv({ cls: "flit-actions-column" });
@@ -194,7 +184,7 @@ export class SafewordsTab extends SettingsTabBase {
                 // Create text input container and input
                 const inputContainer = rowEl.createDiv({ cls: "flit-text-column flit-safeword-input" });
                 const input = inputContainer.createEl("input", { type: "text" });
-                input.placeholder = "Empty";
+                input.placeholder = t('settings.replaceCharacters.emptyPlaceholder');
                 input.value = safeword.text;
                 input.addEventListener('input', async (e) => {
                     const inputEl = e.target as HTMLInputElement;
@@ -309,7 +299,7 @@ export class SafewordsTab extends SettingsTabBase {
                 // Create up arrow button
                 const upButton = buttonContainer.createEl("button", {
                     cls: "clickable-icon flit-nav-button",
-                    attr: { "aria-label": "Move up" }
+                    attr: { "aria-label": t('settings.customRules.moveUp') }
                 });
                 if (index === 0) {
                     upButton.classList.add('disabled');
@@ -329,7 +319,7 @@ export class SafewordsTab extends SettingsTabBase {
                 // Create down arrow button
                 const downButton = buttonContainer.createEl("button", {
                     cls: "clickable-icon flit-nav-button",
-                    attr: { "aria-label": "Move down" }
+                    attr: { "aria-label": t('settings.customRules.moveDown') }
                 });
                 if (index === this.plugin.settings.safewords.length - 1) {
                     downButton.classList.add('disabled');
@@ -349,7 +339,7 @@ export class SafewordsTab extends SettingsTabBase {
                 // Create delete button matching ExtraButton structure
                 deleteButton = buttonContainer.createEl("button", {
                     cls: "clickable-icon flit-delete-button",
-                    attr: { "aria-label": "Delete", "type": "button" }
+                    attr: { "aria-label": t('settings.customRules.delete'), "type": "button" }
                 });
                 setIcon(deleteButton, "x");
 
@@ -382,8 +372,8 @@ export class SafewordsTab extends SettingsTabBase {
                         deleteButton.title = "";
                     } else {
                         deleteButton.classList.remove('disabled');
-                        deleteButton.setAttribute('aria-label', 'Remove');
-                        deleteButton.title = "Remove";
+                        deleteButton.setAttribute('aria-label', t('ariaLabels.remove'));
+                        deleteButton.title = t('ariaLabels.remove');
                     }
 
                     // Update up button state
@@ -411,7 +401,7 @@ export class SafewordsTab extends SettingsTabBase {
             // Always add the "Add safeword" button at the end
             const addButtonSetting = new Setting(safewordsContainer)
                 .addButton((button) =>
-                    button.setButtonText("Add safeword").onClick(async () => {
+                    button.setButtonText(t('settings.safewords.addButton')).onClick(async () => {
                         // Check if last entry is empty
                         const lastIndex = this.plugin.settings.safewords.length - 1;
                         const lastEntry = this.plugin.settings.safewords[lastIndex];

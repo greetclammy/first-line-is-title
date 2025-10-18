@@ -1,5 +1,6 @@
 import { PluginSettingTab, App } from "obsidian";
 import { FirstLineIsTitlePlugin } from './settings-base';
+import { t, getCurrentLocale } from '../i18n';
 
 // Import all tab classes
 import { GeneralTab } from './tab-general';
@@ -16,17 +17,19 @@ export class FirstLineIsTitleSettings extends PluginSettingTab {
     plugin: FirstLineIsTitlePlugin;
     private settingsPage: HTMLDivElement | null = null;
 
-    private readonly TABS = {
-        GENERAL: { id: 'general', name: 'General', class: GeneralTab },
-        INCLUDE_EXCLUDE: { id: 'include-exclude', name: 'Exclusions', class: IncludeExcludeTab },
-        FORBIDDEN_CHARS: { id: 'forbidden-chars', name: 'Replace characters', class: ForbiddenCharsTab },
-        CUSTOM_REPLACEMENTS: { id: 'custom-replacements', name: 'Custom rules', class: CustomReplacementsTab },
-        SAFEWORDS: { id: 'safewords', name: 'Safewords', class: SafewordsTab },
-        STRIP_MARKUP: { id: 'strip-markup', name: 'Strip markup', class: StripMarkupTab },
-        PROPERTIES: { id: 'properties', name: 'Alias', class: PropertiesTab },
-        COMMANDS: { id: 'commands', name: 'Commands', class: CommandsTab },
-        MISCELLANEOUS: { id: 'miscellaneous', name: 'Miscellaneous', class: MiscellaneousTab }
-    };
+    private get TABS() {
+        return {
+            GENERAL: { id: 'general', name: t('settings.tabs.general'), class: GeneralTab },
+            INCLUDE_EXCLUDE: { id: 'include-exclude', name: t('settings.tabs.exclusions'), class: IncludeExcludeTab },
+            FORBIDDEN_CHARS: { id: 'forbidden-chars', name: t('settings.tabs.replaceCharacters'), class: ForbiddenCharsTab },
+            CUSTOM_REPLACEMENTS: { id: 'custom-replacements', name: t('settings.tabs.customRules'), class: CustomReplacementsTab },
+            SAFEWORDS: { id: 'safewords', name: t('settings.tabs.safewords'), class: SafewordsTab },
+            STRIP_MARKUP: { id: 'strip-markup', name: t('settings.tabs.stripMarkup'), class: StripMarkupTab },
+            PROPERTIES: { id: 'properties', name: t('settings.tabs.alias'), class: PropertiesTab },
+            COMMANDS: { id: 'commands', name: t('settings.tabs.commands'), class: CommandsTab },
+            MISCELLANEOUS: { id: 'miscellaneous', name: t('settings.tabs.miscellaneous'), class: MiscellaneousTab }
+        };
+    }
 
     constructor(app: App, plugin: FirstLineIsTitlePlugin) {
         super(app, plugin);
@@ -39,6 +42,11 @@ export class FirstLineIsTitleSettings extends PluginSettingTab {
         // Create tab bar
         const tabBar = this.containerEl.createEl('nav', { cls: 'flit-settings-tab-bar' });
         tabBar.setAttribute('role', 'tablist');
+
+        // Set tab min-width CSS variable based on locale (must be after tabBar creation)
+        const locale = getCurrentLocale();
+        const tabMinWidth = locale === 'ru' ? '152px' : '140px';
+        tabBar.style.setProperty('--flit-tab-min-width', tabMinWidth);
 
         const tabElements: HTMLElement[] = [];
 

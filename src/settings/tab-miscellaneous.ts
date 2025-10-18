@@ -4,6 +4,7 @@ import { NotificationMode, FileReadMethod } from '../types';
 import { DEFAULT_SETTINGS } from '../constants';
 import { ClearSettingsModal } from '../modals';
 import { verboseLog } from '../utils';
+import { t } from '../i18n';
 
 export class MiscellaneousTab extends SettingsTabBase {
     private conditionalSettings: Setting[] = [];
@@ -17,21 +18,21 @@ export class MiscellaneousTab extends SettingsTabBase {
     render(): void {
         // Character count
         const charCountSetting = new Setting(this.containerEl)
-            .setName("Character count")
+            .setName(t('settings.miscellaneous.charCount.name'))
             .setDesc("");
 
         // Create styled description for character count
         const charCountDesc = charCountSetting.descEl;
-        charCountDesc.appendText("The maximum number of characters to put in filename.");
+        charCountDesc.appendText(t('settings.miscellaneous.charCount.desc'));
         charCountDesc.createEl("br");
-        charCountDesc.createEl("small").createEl("strong", { text: "Default: 100" });
+        charCountDesc.createEl("small").createEl("strong", { text: t('settings.miscellaneous.charCount.default') });
 
         // Create container for slider with reset button
         const charCountContainer = charCountSetting.controlEl.createDiv({ cls: "flit-char-text-input-container" });
 
         const charCountRestoreButton = charCountContainer.createEl("button", {
             cls: "clickable-icon flit-restore-icon",
-            attr: { "aria-label": "Restore default" }
+            attr: { "aria-label": t('ariaLabels.restoreDefault') }
         });
         setIcon(charCountRestoreButton, "rotate-ccw");
 
@@ -69,18 +70,14 @@ export class MiscellaneousTab extends SettingsTabBase {
 
         // Show notification setting (moved from General)
         const notificationSetting = new Setting(this.containerEl)
-            .setName("Show notification when renaming manually")
-            .setDesc("");
-
-        // Create styled description
-        const notificationDesc = notificationSetting.descEl;
-        notificationDesc.appendText("Set when to show notifications for manual rename commands.");
+            .setName(t('settings.miscellaneous.notificationMode.name'))
+            .setDesc(t('settings.miscellaneous.notificationMode.desc'));
 
         notificationSetting.addDropdown((dropdown) =>
             dropdown
-                .addOption('Always', 'Always')
-                .addOption('On title change', 'On title change')
-                .addOption('Never', 'Never')
+                .addOption('Always', t('settings.miscellaneous.notificationMode.always'))
+                .addOption('On title change', t('settings.miscellaneous.notificationMode.onTitleChange'))
+                .addOption('Never', t('settings.miscellaneous.notificationMode.never'))
                 .setValue(this.plugin.settings.manualNotificationMode)
                 .onChange(async (value: NotificationMode) => {
                     this.plugin.settings.manualNotificationMode = value;
@@ -91,20 +88,21 @@ export class MiscellaneousTab extends SettingsTabBase {
 
         // Grab title from card link setting
         const cardLinkSetting = new Setting(this.containerEl)
-            .setName("Grab title from card link");
+            .setName(t('settings.miscellaneous.grabCardLink.name'))
+            .setDesc("");
 
         const cardLinkDesc = cardLinkSetting.descEl;
-        cardLinkDesc.appendText("If a note starts with a card link created with ");
+        cardLinkDesc.appendText(t('settings.miscellaneous.grabCardLink.desc.part1'));
         cardLinkDesc.createEl("a", {
             text: "Auto Card Link",
             href: "obsidian://show-plugin?id=auto-card-link"
         });
-        cardLinkDesc.appendText(" or ");
+        cardLinkDesc.appendText(t('settings.miscellaneous.grabCardLink.desc.part2'));
         cardLinkDesc.createEl("a", {
             text: "Link Embed",
             href: "obsidian://show-plugin?id=obsidian-link-embed"
         });
-        cardLinkDesc.appendText(", the card link title will be put in filename.");
+        cardLinkDesc.appendText(t('settings.miscellaneous.grabCardLink.desc.part3'));
 
         cardLinkSetting.addToggle((toggle) =>
             toggle
@@ -118,20 +116,15 @@ export class MiscellaneousTab extends SettingsTabBase {
 
         // New note delay
         const newNoteDelaySetting = new Setting(this.containerEl)
-            .setName("New note delay")
-            .setDesc("");
-
-        const newNoteDelayDesc = newNoteDelaySetting.descEl;
-        newNoteDelayDesc.appendText("Delay processing new notes by this amount in milliseconds. May resolve issues on note creation.");
-        newNoteDelayDesc.createEl("br");
-        newNoteDelayDesc.createEl("small").createEl("strong", { text: "Default: 0" });
+            .setName(t('settings.miscellaneous.newNoteDelay.name'))
+            .setDesc(t('settings.miscellaneous.newNoteDelay.desc'));
 
         // Create container for slider with reset button
         const newNoteDelayContainer = newNoteDelaySetting.controlEl.createDiv({ cls: "flit-char-text-input-container" });
 
         const newNoteDelayRestoreButton = newNoteDelayContainer.createEl("button", {
             cls: "clickable-icon flit-restore-icon",
-            attr: { "aria-label": "Restore default" }
+            attr: { "aria-label": t('ariaLabels.restoreDefault') }
         });
         setIcon(newNoteDelayRestoreButton, "rotate-ccw");
 
@@ -168,14 +161,8 @@ export class MiscellaneousTab extends SettingsTabBase {
 
         // Content read method setting
         const contentReadMethodSetting = new Setting(this.containerEl)
-            .setName("Content read method")
-            .setDesc("");
-
-        // Create styled description
-        const contentReadDesc = contentReadMethodSetting.descEl;
-        contentReadDesc.appendText("Cache or file read may resolve issues but will be slower.");
-        contentReadDesc.createEl("br");
-        contentReadDesc.createEl("small").createEl("strong", { text: "Default: Editor" });
+            .setName(t('settings.miscellaneous.contentReadMethod.name'))
+            .setDesc(t('settings.miscellaneous.contentReadMethod.desc'));
 
         // Create container for dropdown with reset button
         const contentReadContainer = contentReadMethodSetting.controlEl.createDiv({ cls: "flit-content-read-container" });
@@ -184,16 +171,16 @@ export class MiscellaneousTab extends SettingsTabBase {
 
         // Reset button (to the left)
         const contentReadRestoreButton = contentReadContainer.createEl("button", {
-            attr: { "aria-label": "Restore default content read method" },
+            attr: { "aria-label": t('ariaLabels.restoreDefaultContentRead') },
             cls: "clickable-icon flit-restore-button"
         });
         setIcon(contentReadRestoreButton, "rotate-ccw");
 
         // Dropdown
         const dropdown = contentReadContainer.createEl("select", { cls: "dropdown" });
-        dropdown.createEl("option", { value: "Editor", text: "Editor" });
-        dropdown.createEl("option", { value: "Cache", text: "Cache" });
-        dropdown.createEl("option", { value: "File", text: "File" });
+        dropdown.createEl("option", { value: "Editor", text: t('settings.miscellaneous.contentReadMethod.editor') });
+        dropdown.createEl("option", { value: "Cache", text: t('settings.miscellaneous.contentReadMethod.cache') });
+        dropdown.createEl("option", { value: "File", text: t('settings.miscellaneous.contentReadMethod.file') });
         dropdown.value = this.plugin.settings.fileReadMethod;
 
         // Reset button click handler
@@ -219,26 +206,20 @@ export class MiscellaneousTab extends SettingsTabBase {
 
         // Check interval setting - only visible when fileReadMethod="Editor" AND renameNotes="automatically"
         const checkIntervalSetting = new Setting(contentReadSubSettingsContainer)
-            .setName("Check interval")
-            .setDesc("");
-
-        // Create styled description for check interval
-        const delayDesc = checkIntervalSetting.descEl;
-        delayDesc.appendText("Interval in milliseconds for checking first-line changes. Increase in case of issues.");
-        delayDesc.createEl("br");
-        delayDesc.createEl("small").createEl("strong", { text: "Default: 0" });
+            .setName(t('settings.miscellaneous.checkInterval.name'))
+            .setDesc(t('settings.miscellaneous.checkInterval.desc'));
 
         // Create input container for check interval with restore button
         const checkIntervalContainer = checkIntervalSetting.controlEl.createDiv({ cls: "flit-char-text-input-container" });
 
         const checkIntervalRestoreButton = checkIntervalContainer.createEl("button", {
             cls: "clickable-icon flit-restore-icon",
-            attr: { "aria-label": "Restore default" }
+            attr: { "aria-label": t('ariaLabels.restoreDefault') }
         });
         setIcon(checkIntervalRestoreButton, "rotate-ccw");
 
         const checkIntervalTextInput = checkIntervalContainer.createEl("input", { type: "text", cls: "flit-char-text-input" });
-        checkIntervalTextInput.placeholder = "Empty";
+        checkIntervalTextInput.placeholder = t('settings.replaceCharacters.emptyPlaceholder');
         checkIntervalTextInput.style.width = "120px";
         checkIntervalTextInput.value = String(this.plugin.settings.checkInterval);
 
@@ -307,8 +288,8 @@ export class MiscellaneousTab extends SettingsTabBase {
 
         // Debug setting
         new Setting(this.containerEl)
-            .setName("Debug")
-            .setDesc("Log all of the plugin's activity to the developer console.")
+            .setName(t('settings.miscellaneous.debug.name'))
+            .setDesc(t('settings.miscellaneous.debug.desc'))
             .addToggle((toggle) =>
                 toggle
                     .setValue(this.plugin.settings.verboseLogging)
@@ -336,8 +317,8 @@ export class MiscellaneousTab extends SettingsTabBase {
 
         // Debug sub-option: Output full file content
         const debugContentSetting = new Setting(debugSubSettingsContainer)
-            .setName("Output full file content in console")
-            .setDesc("Log the complete content of files (including YAML frontmatter) whenever they are modified.")
+            .setName(t('settings.miscellaneous.debugOutputContent.name'))
+            .setDesc(t('settings.miscellaneous.debugOutputContent.desc'))
             .addToggle((toggle) =>
                 toggle
                     .setValue(this.plugin.settings.debugOutputFullContent)
@@ -353,11 +334,11 @@ export class MiscellaneousTab extends SettingsTabBase {
 
         // Clear all settings
         new Setting(this.containerEl)
-            .setName("Clear settings")
-            .setDesc("Reset all plugin settings to their default values.")
+            .setName(t('settings.miscellaneous.clearSettings.name'))
+            .setDesc(t('settings.miscellaneous.clearSettings.desc'))
             .addButton((button) => {
                 button
-                    .setButtonText("Clear")
+                    .setButtonText(t('modals.buttons.clearSettings'))
                     .setWarning()
                     .onClick(async () => {
                         new ClearSettingsModal(this.plugin.app, this.plugin, async () => {
@@ -376,8 +357,8 @@ export class MiscellaneousTab extends SettingsTabBase {
                             await this.plugin.saveSettings();
 
                             // Show notification
-                            verboseLog(this.plugin, `Showing notice: Settings have been cleared.`);
-                            new Notice("Settings have been cleared.");
+                            verboseLog(this.plugin, `Showing notice: ${t('notifications.settingsCleared')}`);
+                            new Notice(t('notifications.settingsCleared'));
 
                             // Force complete tab re-render by calling the parent's display method
                             // We need to get a reference to the parent settings tab

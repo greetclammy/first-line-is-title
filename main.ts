@@ -1,6 +1,7 @@
 import { Menu, Notice, Plugin, TFile, TFolder, setIcon, MarkdownView } from "obsidian";
 import { PluginSettings } from './src/types';
 import { DEFAULT_SETTINGS, UNIVERSAL_FORBIDDEN_CHARS, WINDOWS_ANDROID_CHARS, TITLE_CHAR_REVERSAL_MAP } from './src/constants';
+import { initI18n, t, tp } from './src/i18n';
 import {
     verboseLog,
     detectOS,
@@ -12,7 +13,7 @@ import {
     isValidHeading,
     generateSafeLinkTarget
 } from './src/utils';
-import { RenameAllFilesModal, RenameFolderModal, ClearSettingsModal, ProcessTagModal, InternalLinkModal, RenameModal, DisableEnableModal } from './src/modals';
+import { RenameAllFilesModal, RenameFolderModal, RenameMultipleFoldersModal, ClearSettingsModal, ProcessTagModal, InternalLinkModal, RenameModal, DisableEnableModal } from './src/modals';
 import { FirstLineIsTitleSettings } from './src/settings/settings-main';
 import { RenameEngine } from './src/core/rename-engine';
 import { ContextMenuManager } from './src/ui/context-menus';
@@ -156,7 +157,7 @@ export default class FirstLineIsTitle extends Plugin {
         let skipped = 0;
         let errors = 0;
 
-        new Notice(`Renaming ${files.length} notes...`);
+        new Notice(t('notifications.renamingNNotes').replace('{{count}}', String(files.length)));
 
         const exclusionOverrides = { ignoreFolder: true, ignoreTag: true, ignoreProperty: true };
 
@@ -178,9 +179,16 @@ export default class FirstLineIsTitle extends Plugin {
 
         // Show completion notice
         if (errors > 0) {
-            new Notice(`Renamed ${processed}/${files.length} notes with ${errors} errors. Check console for details.`, 0);
+            const errorMsg = t('notifications.renamedNotesWithErrors')
+                .replace('{{renamed}}', String(processed))
+                .replace('{{total}}', String(files.length))
+                .replace('{{errors}}', String(errors));
+            new Notice(errorMsg, 0);
         } else {
-            new Notice(`Renamed ${processed}/${files.length} notes.`, 0);
+            const successMsg = t('notifications.renamedNotes')
+                .replace('{{renamed}}', String(processed))
+                .replace('{{total}}', String(files.length));
+            new Notice(successMsg, 0);
         }
     }
 
@@ -212,7 +220,7 @@ export default class FirstLineIsTitle extends Plugin {
             if (this.settings.commandPaletteVisibility.enableRenaming) {
                 this.addCommand({
                     id: 'enable-renaming-for-note',
-                    name: 'Enable renaming for note',
+                    name: t('commands.enableRenamingForNote'),
                     icon: 'square-check',
                     callback: async () => {
                         await this.enableRenamingForNote();
@@ -224,7 +232,7 @@ export default class FirstLineIsTitle extends Plugin {
             if (this.settings.commandPaletteVisibility.disableRenaming) {
                 this.addCommand({
                     id: 'disable-renaming-for-note',
-                    name: 'Disable renaming for note',
+                    name: t('commands.disableRenamingForNote'),
                     icon: 'square-x',
                     callback: async () => {
                         await this.disableRenamingForNote();
@@ -252,7 +260,7 @@ export default class FirstLineIsTitle extends Plugin {
     async disableRenamingForNote(): Promise<void> {
         const activeFile = this.app.workspace.getActiveFile();
         if (!activeFile || activeFile.extension !== 'md') {
-            new Notice("Error: no active note.");
+            new Notice(t('notifications.errorNoActiveNote'));
             return;
         }
 
@@ -271,17 +279,17 @@ export default class FirstLineIsTitle extends Plugin {
                 await this.registerDynamicCommands();
             }
 
-            new Notice(`Disabled renaming for: ${activeFile.basename}`);
+            new Notice(t('notifications.disabledRenamingFor', { filename: activeFile.basename }));
         } catch (error) {
             console.error('Failed to disable renaming:', error);
-            new Notice(`Failed to disable renaming. Check console for details.`);
+            new Notice(t('notifications.failedToDisable'));
         }
     }
 
     async enableRenamingForNote(): Promise<void> {
         const activeFile = this.app.workspace.getActiveFile();
         if (!activeFile || activeFile.extension !== 'md') {
-            new Notice("Error: no active note.");
+            new Notice(t('notifications.errorNoActiveNote'));
             return;
         }
 
@@ -297,10 +305,10 @@ export default class FirstLineIsTitle extends Plugin {
                 await this.registerDynamicCommands();
             }
 
-            new Notice(`Enabled renaming for: ${activeFile.basename}`);
+            new Notice(t('notifications.enabledRenamingFor', { filename: activeFile.basename }));
         } catch (error) {
             console.error('Failed to enable renaming:', error);
-            new Notice(`Failed to enable renaming. Check console for details.`);
+            new Notice(t('notifications.failedToEnable'));
         }
     }
 
@@ -360,13 +368,13 @@ export default class FirstLineIsTitle extends Plugin {
     }
 
     private showFirstTimeNotice(): void {
-        new Notice("Please open First Line is Title settings to set your preferences. Ensure your files are backed up.");
+        new Notice(t('notifications.firstTimeNotice'), 10000);
         this.settings.hasShownFirstTimeNotice = true;
         this.saveSettings();
     }
 
     private showInactivityNotice(): void {
-        new Notice("Please open First Line is Title settings to set your preferences. Ensure your files are backed up.");
+        new Notice(t('notifications.firstTimeNotice'), 10000);
     }
 
     private updateLastUsageDate(today: string): void {
@@ -410,6 +418,10 @@ export default class FirstLineIsTitle extends Plugin {
 
     async onload(): Promise<void> {
         this.pluginLoadTime = Date.now();
+
+        // Initialize i18n system
+        initI18n();
+
         await this.loadSettings();
 
         // Reset Debug mode if more than 24 hours have passed since it was enabled
@@ -523,7 +535,7 @@ export default class FirstLineIsTitle extends Plugin {
                         }
                         menu.addItem((item) => {
                             item
-                                .setTitle("Put first line in title")
+                                .setTitle(t('commands.putFirstLineInTitle'))
                                 .setIcon("file-pen")
                                 .onClick(async () => {
                                     const exclusionOverrides = { ignoreFolder: true, ignoreTag: true, ignoreProperty: true };
@@ -555,7 +567,7 @@ export default class FirstLineIsTitle extends Plugin {
                         }
                         menu.addItem((item) => {
                             item
-                                .setTitle("Disable renaming for note")
+                                .setTitle(t('commands.disableRenamingForNote'))
                                 .setIcon("square-x")
                                 .onClick(async () => {
                                     try {
@@ -565,10 +577,10 @@ export default class FirstLineIsTitle extends Plugin {
                                         await this.app.fileManager.processFrontMatter(file, (frontmatter) => {
                                             frontmatter[this.settings.disableRenamingKey] = this.parsePropertyValue(this.settings.disableRenamingValue);
                                         });
-                                        new Notice(`Disabled renaming for: ${file.basename}`);
+                                        new Notice(t('notifications.disabledRenamingFor', { filename: file.basename }));
                                     } catch (error) {
                                         console.error('Failed to disable renaming:', error);
-                                        new Notice(`Failed to disable renaming. Check console for details.`);
+                                        new Notice(t('notifications.failedToDisable'));
                                     }
                                 });
                         });
@@ -579,17 +591,17 @@ export default class FirstLineIsTitle extends Plugin {
                         }
                         menu.addItem((item) => {
                             item
-                                .setTitle("Enable renaming for note")
+                                .setTitle(t('commands.enableRenamingForNote'))
                                 .setIcon("square-check")
                                 .onClick(async () => {
                                     try {
                                         await this.app.fileManager.processFrontMatter(file, (frontmatter) => {
                                             delete frontmatter[this.settings.disableRenamingKey];
                                         });
-                                        new Notice(`Enabled renaming for: ${file.basename}`);
+                                        new Notice(t('notifications.enabledRenamingFor', { filename: file.basename }));
                                     } catch (error) {
                                         console.error('Failed to enable renaming:', error);
-                                        new Notice(`Failed to enable renaming. Check console for details.`);
+                                        new Notice(t('notifications.failedToEnable'));
                                     }
                                 });
                         });
@@ -603,7 +615,7 @@ export default class FirstLineIsTitle extends Plugin {
                         }
                         menu.addItem((item) => {
                             item
-                                .setTitle("Put first line in title")
+                                .setTitle(t('commands.putFirstLineInTitle'))
                                 .setIcon("folder-pen")
                                 .onClick(() => {
                                     new RenameFolderModal(this.app, this, file).open();
@@ -676,7 +688,7 @@ export default class FirstLineIsTitle extends Plugin {
                         }
                         menu.addItem((item) => {
                             item
-                                .setTitle(`Put first line in title (${markdownFiles.length} notes)`)
+                                .setTitle(tp('commands.putFirstLineInTitleNNotes', markdownFiles.length))
                                 .setIcon("file-pen")
                                 .onClick(async () => {
                                     new RenameModal(this.app, this, markdownFiles).open();
@@ -692,7 +704,7 @@ export default class FirstLineIsTitle extends Plugin {
                         }
                         menu.addItem((item) => {
                             item
-                                .setTitle(`Disable renaming (${markdownFiles.length} notes)`)
+                                .setTitle(tp('commands.disableRenamingNNotes', markdownFiles.length))
                                 .setIcon("square-x")
                                 .onClick(async () => {
                                     new DisableEnableModal(this.app, this, markdownFiles, 'disable').open();
@@ -708,7 +720,7 @@ export default class FirstLineIsTitle extends Plugin {
                         }
                         menu.addItem((item) => {
                             item
-                                .setTitle(`Enable renaming (${markdownFiles.length} notes)`)
+                                .setTitle(tp('commands.enableRenamingNNotes', markdownFiles.length))
                                 .setIcon("square-check")
                                 .onClick(async () => {
                                     new DisableEnableModal(this.app, this, markdownFiles, 'enable').open();
@@ -855,7 +867,7 @@ export default class FirstLineIsTitle extends Plugin {
                     }
                     menu.addItem((item) => {
                         item
-                            .setTitle(`Put first line in title (${files.length} notes)`)
+                            .setTitle(tp('commands.putFirstLineInTitleNNotes', files.length))
                             .setIcon("file-pen")
                             .onClick(async () => {
                                 new RenameModal(this.app, this, files).open();
@@ -871,7 +883,7 @@ export default class FirstLineIsTitle extends Plugin {
                     }
                     menu.addItem((item) => {
                         item
-                            .setTitle(`Disable renaming (${files.length} notes)`)
+                            .setTitle(tp('commands.disableRenamingNNotes', files.length))
                             .setIcon("square-x")
                             .onClick(async () => {
                                 new DisableEnableModal(this.app, this, files, 'disable').open();
@@ -886,7 +898,7 @@ export default class FirstLineIsTitle extends Plugin {
                     }
                     menu.addItem((item) => {
                         item
-                            .setTitle(`Enable renaming (${files.length} notes)`)
+                            .setTitle(tp('commands.enableRenamingNNotes', files.length))
                             .setIcon("square-check")
                             .onClick(async () => {
                                 new DisableEnableModal(this.app, this, files, 'enable').open();
@@ -897,46 +909,8 @@ export default class FirstLineIsTitle extends Plugin {
         );
 
 
-        this.registerEvent(
-            this.app.workspace.on("active-leaf-change", async (leaf) => {
-                if (this.settings.renameOnFocus && leaf && leaf.view && leaf.view.file && leaf.view.file instanceof TFile && leaf.view.file.extension === 'md') {
-                    verboseLog(this, `File focused: ${leaf.view.file.path}`);
-                    await this.renameEngine.processFile(leaf.view.file, true);
-
-                    // Initialize lastProcessedContent to prevent first editor change from triggering due to undefined comparison
-                    if (leaf.view instanceof MarkdownView && leaf.view.editor) {
-                        const editor = leaf.view.editor;
-                        const content = editor.getValue();
-                        const lines = content.split('\n');
-                        let firstLineIndex = 0;
-
-                        if (lines.length > 0 && lines[0].trim() === '---') {
-                            for (let i = 1; i < lines.length; i++) {
-                                if (lines[i].trim() === '---') {
-                                    firstLineIndex = i + 1;
-                                    break;
-                                }
-                            }
-                        }
-
-                        let firstLine = '';
-                        for (let i = firstLineIndex; i < lines.length; i++) {
-                            const line = lines[i];
-                            if (line.trim() !== '') {
-                                firstLine = line;
-                                break;
-                            }
-                        }
-
-                        // Extract title same way processEditorChangeOptimal does
-                        const contentWithoutFrontmatter = lines.slice(firstLineIndex).join('\n');
-                        const { extractTitle } = await import('./src/utils');
-                        const trackingContent = extractTitle(firstLine, this.settings);
-                        this.renameEngine.setLastProcessedContent(leaf.view.file.path, trackingContent);
-                    }
-                }
-            })
-        );
+        // Rename-on-focus is now handled in EditorLifecycleManager.updateActiveEditorTracking()
+        // This provides consistent behavior for both keyboard and mouse navigation
 
         this.registerEvent(
             this.app.workspace.on("editor-change", async (editor, info) => {
@@ -963,6 +937,12 @@ export default class FirstLineIsTitle extends Plugin {
 
                 if (!this.isFullyLoaded) {
                     verboseLog(this, `Skipping: plugin not fully loaded`);
+                    return;
+                }
+
+                // Skip processing if file is in creation delay (respect newNoteDelay setting)
+                if (this.editorLifecycle.isFileInCreationDelay(info.file.path)) {
+                    verboseLog(this, `Skipping editor-change: file in creation delay: ${info.file.path}`);
                     return;
                 }
 
@@ -1012,6 +992,19 @@ export default class FirstLineIsTitle extends Plugin {
         this.registerEvent(
             this.app.vault.on("rename", (abstractFile, oldPath) => {
                 if (abstractFile instanceof TFile) {
+                    // Clear creation delay timer for old path (prevents orphaned timers during rapid typing)
+                    this.editorLifecycle.clearCreationDelayTimer(oldPath);
+
+                    // Clear view readiness timer for old path (prevents orphaned view checks)
+                    this.editorLifecycle.clearViewReadinessTimer(oldPath);
+
+                    // Update lastEditorContent map for manual renames
+                    const lastContent = this.renameEngine.getLastEditorContent(oldPath);
+                    if (lastContent !== undefined) {
+                        this.renameEngine.deleteLastEditorContent(oldPath);
+                        this.renameEngine.setLastEditorContent(abstractFile.path, lastContent);
+                    }
+
                     if (this.cacheManager) {
                         this.cacheManager.notifyFileRenamed(oldPath, abstractFile.path);
                     }

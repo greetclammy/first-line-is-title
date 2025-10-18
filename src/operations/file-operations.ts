@@ -1,6 +1,7 @@
 import { TFile, TFolder, MarkdownView, Notice } from "obsidian";
 import { PluginSettings } from '../types';
 import { verboseLog, shouldProcessFile, hasDisablePropertyInFile } from '../utils';
+import { t } from '../i18n';
 import { TITLE_CHAR_REVERSAL_MAP } from '../constants';
 import FirstLineIsTitle from '../../main';
 
@@ -35,7 +36,8 @@ export class FileOperations {
     async insertTitleOnCreation(file: TFile, initialContent?: string, templateContent?: string): Promise<boolean> {
         try {
             // Check if filename is "Untitled" or "Untitled n" (where n is a positive integer)
-            const untitledPattern = /^Untitled(\s[1-9]\d*)?$/;
+            const untitledWord = t('untitled').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const untitledPattern = new RegExp(`^${untitledWord}(\\s[1-9]\\d*)?$`);
             if (untitledPattern.test(file.basename)) {
                 verboseLog(this.plugin, `Skipping title insertion for untitled file: ${file.path}`);
                 return false;
@@ -427,10 +429,12 @@ export class FileOperations {
     /**
      * Check if file is excluded from processing (folder/tag/property exclusions + disable property)
      * Uses real-time content checking for tags if content provided
+     * @param skipFolderCheck - If true, ignore folder exclusions (only check tags/properties)
      */
-    async isFileExcludedForCursorPositioning(file: TFile, content?: string): Promise<boolean> {
+    async isFileExcludedForCursorPositioning(file: TFile, content?: string, skipFolderCheck: boolean = false): Promise<boolean> {
         // Check folder/tag/property exclusions
-        if (!shouldProcessFile(file, this.settings, this.app, content)) {
+        const exclusionOverrides = skipFolderCheck ? { ignoreFolder: true } : undefined;
+        if (!shouldProcessFile(file, this.settings, this.app, content, exclusionOverrides)) {
             return true;
         }
 

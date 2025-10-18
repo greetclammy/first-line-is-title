@@ -3,6 +3,7 @@ import { PluginSettings } from '../types';
 import { verboseLog, generateSafeLinkTarget } from '../utils';
 import { InternalLinkModal } from '../modals';
 import FirstLineIsTitle from '../../main';
+import { t } from '../i18n';
 
 export class CommandSetup {
     private commandPaletteObserver: MutationObserver | null = null;
@@ -25,7 +26,7 @@ export class CommandSetup {
         const commandIcons = new Map([
             ['Put first line in title', 'file-pen'],
             ['Put first line in title (unless excluded)', 'file-pen'],
-            ['Put first line in title in all notes', 'files'],
+            ['Put first line in title in all notes', 'file-stack'],
             ['Disable renaming for note', 'square-x'],
             ['Enable renaming for note', 'square-check'],
             ['Toggle automatic renaming', 'file-cog']
@@ -100,7 +101,7 @@ export class CommandSetup {
                     const activeFile = this.app.workspace.getActiveFile();
                     if (!activeFile || activeFile.extension !== 'md') {
                         verboseLog(this.plugin, `Showing notice: Error: no active note.`);
-                        new Notice("Error: no active note.");
+                        new Notice(t('notifications.errorNoActiveNote'));
                         return;
                     }
                     verboseLog(this.plugin, `Ribbon command triggered for ${activeFile.path} (ignoring folder/tag/property exclusions)`);
@@ -110,7 +111,7 @@ export class CommandSetup {
             },
             {
                 condition: this.settings.ribbonVisibility.renameAllNotes,
-                icon: 'files',
+                icon: 'file-stack',
                 title: 'Put first line in title in all notes',
                 callback: () => {
                     const { RenameAllFilesModal } = require('../modals');
@@ -127,7 +128,7 @@ export class CommandSetup {
                     this.plugin.debugLog('renameNotes', newValue);
                     await this.plugin.saveSettings();
                     verboseLog(this.plugin, `Showing notice: Automatic renaming ${newValue === "automatically" ? "enabled" : "disabled"}.`);
-                    new Notice(`Automatic renaming ${newValue === "automatically" ? "enabled" : "disabled"}.`);
+                    new Notice(newValue === "automatically" ? t('notifications.automaticRenamingEnabled') : t('notifications.automaticRenamingDisabled'));
                 }
             }
         ];
@@ -156,7 +157,7 @@ export class CommandSetup {
         const activeEditor = this.app.workspace.activeEditor?.editor;
         if (!activeEditor) {
             verboseLog(this.plugin, `Showing notice: Error: no active note.`);
-            new Notice("Error: no active note.");
+            new Notice(t('notifications.errorNoActiveNote'));
             return;
         }
 
@@ -186,7 +187,7 @@ export class CommandSetup {
         const activeEditor = this.app.workspace.activeEditor?.editor;
         if (!activeEditor) {
             verboseLog(this.plugin, `Showing notice: Error: no active note.`);
-            new Notice("Error: no active note.");
+            new Notice(t('notifications.errorNoActiveNote'));
             return;
         }
 

@@ -2,6 +2,7 @@ import { Notice } from "obsidian";
 import FirstLineIsTitle from '../../main';
 import { generateSafeLinkTarget } from '../utils';
 import { InternalLinkModal } from '../modals';
+import { t } from '../i18n';
 
 export class LinkManager {
     private plugin: FirstLineIsTitle;
@@ -14,7 +15,7 @@ export class LinkManager {
         // Try to get active editor from any view type (markdown, canvas, etc.)
         const activeEditor = this.plugin.app.workspace.activeEditor?.editor;
         if (!activeEditor) {
-            new Notice("Error: no active note.");
+            new Notice(t('notifications.errorNoActiveNote'));
             return;
         }
 
@@ -40,7 +41,7 @@ export class LinkManager {
         // Try to get active editor from any view type (markdown, canvas, etc.)
         const activeEditor = this.plugin.app.workspace.activeEditor?.editor;
         if (!activeEditor) {
-            new Notice("Error: no active note.");
+            new Notice(t('notifications.errorNoActiveNote'));
             return;
         }
 

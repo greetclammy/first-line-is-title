@@ -2,6 +2,7 @@ import { Setting, setIcon } from "obsidian";
 import { SettingsTabBase, FirstLineIsTitlePlugin } from './settings-base';
 import { DEFAULT_SETTINGS } from '../constants';
 import { RenameAllFilesModal } from '../modals';
+import { t, getCurrentLocale } from '../i18n';
 
 export class GeneralTab extends SettingsTabBase {
     constructor(plugin: FirstLineIsTitlePlugin, containerEl: HTMLElement) {
@@ -16,7 +17,6 @@ export class GeneralTab extends SettingsTabBase {
         const updateAutomaticRenameVisibility = () => {
             if (this.plugin.settings.renameNotes === "automatically") {
                 renameOnFocusContainer.show();
-                updateCursorOptionsVisibility();
             } else {
                 renameOnFocusContainer.hide();
             }
@@ -24,17 +24,17 @@ export class GeneralTab extends SettingsTabBase {
 
         // 1. rename notes
         const renameNotesSetting = new Setting(this.containerEl)
-            .setName("Rename notes")
+            .setName(t('settings.general.renameNotes.name'))
             .setDesc("");
 
         // Create styled description for rename notes
         const renameNotesDesc = renameNotesSetting.descEl;
-        renameNotesDesc.appendText("Set how notes should be processed.");
+        renameNotesDesc.appendText(t('settings.general.renameNotes.desc'));
 
         renameNotesSetting.addDropdown((dropdown) =>
                 dropdown
-                    .addOption("automatically", "Automatically when open and modified")
-                    .addOption("manually", "Manually with command only")
+                    .addOption("automatically", t('settings.general.renameNotes.automatically'))
+                    .addOption("manually", t('settings.general.renameNotes.manually'))
                     .setValue(this.plugin.settings.renameNotes)
                     .onChange(async (value) => {
                         this.plugin.settings.renameNotes = value as "automatically" | "manually";
@@ -50,8 +50,8 @@ export class GeneralTab extends SettingsTabBase {
 
         // Create sub-option for rename on focus
         const renameOnFocusSetting = new Setting(automaticRenameContainer)
-            .setName("Rename on focus")
-            .setDesc("Also process notes when they get opened in the editor.")
+            .setName(t('settings.general.renameOnFocus.name'))
+            .setDesc(t('settings.general.renameOnFocus.desc'))
             .addToggle((toggle) =>
                 toggle
                     .setValue(this.plugin.settings.renameOnFocus)
@@ -62,10 +62,32 @@ export class GeneralTab extends SettingsTabBase {
                     })
             );
 
+        // Alias container for visibility updates
+        renameOnFocusContainer = automaticRenameContainer;
+
+        // Set initial visibility
+        updateAutomaticRenameVisibility();
+
+        // 2. what to put in title
+        new Setting(this.containerEl)
+            .setName(t('settings.general.whatToPutInTitle.name'))
+            .setDesc(t('settings.general.whatToPutInTitle.desc'))
+            .addDropdown((dropdown) =>
+                dropdown
+                    .addOption("any_first_line_content", t('settings.general.whatToPutInTitle.anyText'))
+                    .addOption("headings_only", t('settings.general.whatToPutInTitle.headingsOnly'))
+                    .setValue(this.plugin.settings.whatToPutInTitle)
+                    .onChange(async (value) => {
+                        this.plugin.settings.whatToPutInTitle = value as "any_first_line_content" | "headings_only";
+                        this.plugin.debugLog('whatToPutInTitle', value);
+                        await this.plugin.saveSettings();
+                    })
+            );
+
         // Move cursor to first line
-        new Setting(automaticRenameContainer)
-            .setName("Move cursor to first line")
-            .setDesc("Place the cursor in the first line when creating a new note unless in excluded folder.")
+        new Setting(this.containerEl)
+            .setName(t('settings.general.moveCursorToFirstLine.name'))
+            .setDesc(t('settings.general.moveCursorToFirstLine.desc'))
             .addToggle((toggle) =>
                 toggle
                     .setValue(this.plugin.settings.moveCursorToFirstLine)
@@ -78,12 +100,12 @@ export class GeneralTab extends SettingsTabBase {
             );
 
         // Create cursor options sub-container
-        const cursorOptionsContainer = automaticRenameContainer.createDiv('flit-sub-settings');
+        const cursorOptionsContainer = this.containerEl.createDiv('flit-sub-settings');
 
         // Place cursor at line end
         placeCursorSetting = new Setting(cursorOptionsContainer)
-            .setName("Place cursor at line end")
-            .setDesc("When moving the cursor to a first line with content, place it at the end of the line instead of the start.")
+            .setName(t('settings.general.placeCursorAtLineEnd.name'))
+            .setDesc(t('settings.general.placeCursorAtLineEnd.desc'))
             .addToggle((toggle) =>
                 toggle
                     .setValue(this.plugin.settings.placeCursorAtLineEnd)
@@ -94,10 +116,24 @@ export class GeneralTab extends SettingsTabBase {
                     })
             );
 
+        // Disable in excluded folders
+        new Setting(cursorOptionsContainer)
+            .setName(t('settings.general.disableInExcludedFolders.name'))
+            .setDesc(t('settings.general.disableInExcludedFolders.desc'))
+            .addToggle((toggle) =>
+                toggle
+                    .setValue(this.plugin.settings.disableCursorInExcludedFolders)
+                    .onChange(async (value) => {
+                        this.plugin.settings.disableCursorInExcludedFolders = value;
+                        this.plugin.debugLog('disableCursorInExcludedFolders', value);
+                        await this.plugin.saveSettings();
+                    })
+            );
+
         // Wait for cursor template
         waitForTemplateCursorSetting = new Setting(cursorOptionsContainer)
-            .setName("Wait for template")
-            .setDesc("Move the cursor after a new note template is applied and it does not have an excluded tag or property.")
+            .setName(t('settings.general.waitForTemplate.name'))
+            .setDesc(t('settings.general.waitForTemplate.desc'))
             .addToggle((toggle) =>
                 toggle
                     .setValue(this.plugin.settings.waitForCursorTemplate)
@@ -120,29 +156,6 @@ export class GeneralTab extends SettingsTabBase {
         // Set initial visibility for cursor options
         updateCursorOptionsVisibility();
 
-        // Alias container for visibility updates
-        renameOnFocusContainer = automaticRenameContainer;
-
-        // Set initial visibility
-        updateAutomaticRenameVisibility();
-
-        // 2. what to put in title
-        new Setting(this.containerEl)
-            .setName("What to put in title")
-            .setDesc("Set what first line content should be copied to filename.")
-            .addDropdown((dropdown) =>
-                dropdown
-                    .addOption("any_first_line_content", "Any text")
-                    .addOption("headings_only", "Headings only")
-                    .setValue(this.plugin.settings.whatToPutInTitle)
-                    .onChange(async (value) => {
-                        this.plugin.settings.whatToPutInTitle = value as "any_first_line_content" | "headings_only";
-                        this.plugin.debugLog('whatToPutInTitle', value);
-                        await this.plugin.saveSettings();
-                    })
-            );
-
-
         // Define wait for template container and visibility function
         let waitForTemplateContainer: HTMLElement;
 
@@ -156,16 +169,24 @@ export class GeneralTab extends SettingsTabBase {
 
         // Insert title in first line on note creation
         const insertTitleSetting = new Setting(this.containerEl)
-            .setName("Insert title in first line on note creation")
+            .setName(t('settings.general.insertTitleOnCreation.name'))
             .setDesc("");
 
         // Create styled description
         const insertTitleDesc = insertTitleSetting.descEl;
-        insertTitleDesc.appendText("Place the filename in the first line when creating a new empty note (unless ");
-        insertTitleDesc.createEl("em", { text: "Untitled" });
-        insertTitleDesc.appendText("). Convert forbidden character replacements back to their original forms, as set in ");
-        insertTitleDesc.createEl("em", { text: "Replace characters" });
-        insertTitleDesc.appendText(".");
+        insertTitleDesc.appendText(t('settings.general.insertTitleOnCreation.desc.part1'));
+        if (getCurrentLocale() === 'ru') {
+            insertTitleDesc.appendText('«' + t('settings.general.insertTitleOnCreation.desc.untitled') + '»');
+        } else {
+            insertTitleDesc.createEl("em", { text: t('settings.general.insertTitleOnCreation.desc.untitled') });
+        }
+        insertTitleDesc.appendText(t('settings.general.insertTitleOnCreation.desc.part2'));
+        if (getCurrentLocale() === 'ru') {
+            insertTitleDesc.appendText('«' + t('settings.general.insertTitleOnCreation.desc.replaceCharacters') + '»');
+        } else {
+            insertTitleDesc.createEl("em", { text: t('settings.general.insertTitleOnCreation.desc.replaceCharacters') });
+        }
+        insertTitleDesc.appendText(t('settings.general.insertTitleOnCreation.desc.part3'));
 
         insertTitleSetting.addToggle((toggle) =>
             toggle
@@ -183,8 +204,8 @@ export class GeneralTab extends SettingsTabBase {
 
         // Create sub-option for wait for template
         const waitForTemplateSetting = new Setting(waitForTemplateContainer)
-            .setName("Insert after template")
-            .setDesc("Let a new note template insert a Properties block before inserting the filename.")
+            .setName(t('settings.general.insertAfterTemplate.name'))
+            .setDesc(t('settings.general.insertAfterTemplate.desc'))
             .addToggle((toggle) =>
                 toggle
                     .setValue(this.plugin.settings.waitForTemplate)
@@ -197,8 +218,8 @@ export class GeneralTab extends SettingsTabBase {
 
         // Create sub-option for add heading
         new Setting(waitForTemplateContainer)
-            .setName("Format as heading")
-            .setDesc("Make the first line a heading.")
+            .setName(t('settings.general.formatAsHeading.name'))
+            .setDesc(t('settings.general.formatAsHeading.desc'))
             .addToggle((toggle) =>
                 toggle
                     .setValue(this.plugin.settings.addHeadingToTitle)
@@ -214,8 +235,8 @@ export class GeneralTab extends SettingsTabBase {
 
         // Rename on save
         new Setting(this.containerEl)
-            .setName("Rename on save")
-            .setDesc("Rename notes on manual save (Ctrl/Cmd-S on desktop by default).")
+            .setName(t('settings.general.renameOnSave.name'))
+            .setDesc(t('settings.general.renameOnSave.desc'))
             .addToggle((toggle) =>
                 toggle
                     .setValue(this.plugin.settings.renameOnSave)
@@ -228,10 +249,10 @@ export class GeneralTab extends SettingsTabBase {
 
         // Rename all notes (moved to end)
         new Setting(this.containerEl)
-            .setName("Rename all notes")
-            .setDesc("Process all notes in vault. Can also be run from the Command palette.")
+            .setName(t('settings.general.renameAllNotes.name'))
+            .setDesc(t('settings.general.renameAllNotes.desc'))
             .addButton((button) =>
-                button.setButtonText("Rename").onClick(() => {
+                button.setButtonText(t('settings.general.renameAllNotes.button')).onClick(() => {
                     new RenameAllFilesModal(this.plugin.app, this.plugin).open();
                 })
             );
@@ -263,6 +284,6 @@ export class GeneralTab extends SettingsTabBase {
         setIcon(iconDiv, "message-square-reply");
 
         // Add text
-        button.appendText("Leave feedback");
+        button.appendText(t('settings.general.leaveFeedback'));
     }
 }

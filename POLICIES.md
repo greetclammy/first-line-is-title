@@ -4,7 +4,7 @@
 
 First Line is Title SHALL only processFile() if:
 
-1. **renameNotes = "Automatically" AND (note modified in open editor OR note focused in open editor if renameOnFocus is ON):**
+1. **renameNotes = "Automatically" AND (note content below YAML modified in open editor OR note focused in open editor if renameOnFocus is ON):**
    - No 'Property to disable renaming' present
    - Note passes folder/tag/excluded-properties checks
    - checkInterval = 0: process immediately on change
@@ -72,12 +72,12 @@ Console log messages must NOT contain plugin name:
 
 ## ⚠️ STYLE MANUAL
 
-- Use the term 'note' over 'file'.
-- Use the term 'Properties' or 'Properties block' (both capitalized) over 'YAML' or 'frontmatter'.
-- Use the verb 'set' over 'configure' or 'control'.
-- Use the term 'forbidden' (characters) over 'illegal'.
+- Prefer the term 'note' over 'file'.
+- Prefer the term 'Properties' or 'Properties block' (both capitalized) over 'YAML' or 'frontmatter'.
+- Prefer the verb 'set' over 'configure', 'control', 'choose' or 'specify'.
+- Prefer the term 'forbidden characters' over 'illegal characters'.
 
 ## Setting descriptions
 
-- Use the term 'filename' over 'title'.
+- Prefer the term 'filename' over 'title'.
 - Italicize names of commands and names of plugin settings sections.

@@ -1,6 +1,7 @@
 import { TFile, MarkdownView } from "obsidian";
 import FirstLineIsTitle from '../../main';
 import { verboseLog } from '../utils';
+import { t } from '../i18n';
 import { TITLE_CHAR_REVERSAL_MAP } from '../constants';
 
 export class TitleInsertion {
@@ -13,7 +14,8 @@ export class TitleInsertion {
     async insertTitleOnCreation(file: TFile): Promise<void> {
         try {
             // Check if filename is "Untitled" or "Untitled n" (where n is any integer)
-            const untitledPattern = /^Untitled(\s\d+)?$/;
+            const untitledWord = t('untitled').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const untitledPattern = new RegExp(`^${untitledWord}(\\s\\d+)?$`);
             if (untitledPattern.test(file.basename)) {
                 verboseLog(this.plugin, `Skipping title insertion for untitled file: ${file.path}`);
                 return;

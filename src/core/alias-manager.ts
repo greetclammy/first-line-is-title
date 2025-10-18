@@ -1,7 +1,8 @@
-import { TFile, MarkdownView } from "obsidian";
+import { TFile, MarkdownView, getFrontMatterInfo, parseYaml } from "obsidian";
 import { NodeError } from './obsidian-ex';
 import { PluginSettings } from '../types';
-import { verboseLog, shouldProcessFile, extractTitle, hasDisablePropertyInFile } from '../utils';
+import { verboseLog, shouldProcessFile, extractTitle, hasDisablePropertyInFile, findTitleSourceLine } from '../utils';
+import { t } from '../i18n';
 import FirstLineIsTitle from '../../main';
 
 export class AliasManager {
@@ -29,7 +30,7 @@ export class AliasManager {
             .filter(key => key.length > 0);
     }
 
-    async updateAliasIfNeeded(file: TFile, providedContent?: string, targetFileName?: string): Promise<void> {
+    async updateAliasIfNeeded(file: TFile, providedContent?: string, targetTitle?: string): Promise<void> {
         // Track plugin usage
         this.plugin.trackUsage();
 
@@ -73,25 +74,39 @@ export class AliasManager {
 
             const contentWithoutFrontmatter = this.plugin.renameEngine.stripFrontmatterFromContent(content, file);
             const lines = contentWithoutFrontmatter.split('\n');
-            const firstLine = lines.length > 0 ? lines[0] : '';
 
-            if (!firstLine || firstLine.trim() === '') {
+            // Find first non-empty line (consistent with rename-engine.ts)
+            let firstNonEmptyLine = '';
+            for (const line of lines) {
+                if (line.trim() !== '') {
+                    firstNonEmptyLine = line;
+                    break;
+                }
+            }
+
+            if (!firstNonEmptyLine || firstNonEmptyLine.trim() === '') {
                 if (this.settings.enableAliases) {
                     await this.removePluginAliasesFromFile(file);
                 }
                 return;
             }
 
+            // Determine titleSourceLine using shared utility function
+            // This may differ from firstNonEmptyLine in special cases (card links, code blocks, tables)
+            const titleSourceLine = findTitleSourceLine(firstNonEmptyLine, lines, this.settings, this.plugin);
+
             if (!this.settings.enableAliases) {
                 return;
             }
 
-            const metadata = this.app.metadataCache.getFileCache(file);
-            const frontmatter = metadata?.frontmatter;
+            // Parse frontmatter from fresh editor content instead of stale cache
+            // This prevents race conditions where cache hasn't updated yet during YAML edits
+            const frontmatterInfo = getFrontMatterInfo(content);
+            const frontmatter = frontmatterInfo.exists ? parseYaml(frontmatterInfo.frontmatter) : null;
 
-            const processedFirstLine = extractTitle(firstLine, this.settings);
-            const fileNameToCompare = targetFileName !== undefined ? targetFileName.trim() : file.basename.trim();
-            const processedLineMatchesFilename = (processedFirstLine.trim() === fileNameToCompare);
+            const processedFirstLine = extractTitle(firstNonEmptyLine, this.settings);
+            const titleToCompare = targetTitle !== undefined ? targetTitle.trim() : file.basename.trim();
+            const processedLineMatchesFilename = (processedFirstLine.trim() === titleToCompare);
 
             const shouldHaveAlias = !this.settings.addAliasOnlyIfFirstLineDiffers || !processedLineMatchesFilename;
 
@@ -102,8 +117,8 @@ export class AliasManager {
             const aliasPropertyKeys = this.getAliasPropertyKeys();
             const zwspMarker = '\u200B'; // Zero-width space marker
             const expectedAlias = this.settings.stripMarkupInAlias ?
-                extractTitle(firstLine, this.settings) : firstLine;
-            const expectedAliasWithMarker = expectedAlias + zwspMarker;
+                extractTitle(titleSourceLine, this.settings) : titleSourceLine;
+            const expectedAliasWithMarker = zwspMarker + expectedAlias + zwspMarker;
 
             let allPropertiesHaveCorrectAlias = true;
             for (const aliasPropertyKey of aliasPropertyKeys) {
@@ -135,7 +150,7 @@ export class AliasManager {
 
             try {
                 verboseLog(this.plugin, `Adding alias to ${file.path} - no correct alias found`);
-                await this.addAliasToFile(file, firstLine, fileNameToCompare, content);
+                await this.addAliasToFile(file, titleSourceLine, titleToCompare, content);
             } finally {
                 this.aliasUpdateInProgress.delete(fileKey);
             }
@@ -146,7 +161,7 @@ export class AliasManager {
         }
     }
 
-    async addAliasToFile(file: TFile, originalFirstLine: string, newFileName: string, content: string): Promise<void> {
+    async addAliasToFile(file: TFile, originalFirstNonEmptyLine: string, newTitle: string, content: string): Promise<void> {
         try {
             // Check if file still exists before processing
             const currentFile = this.app.vault.getAbstractFileByPath(file.path);
@@ -158,11 +173,11 @@ export class AliasManager {
             // Update our file reference to the current one from vault
             file = currentFile;
 
-            // Step 1: Parse first line (original, unprocessed)
-            const firstLine = originalFirstLine;
+            // Step 1: Parse first non-empty line (original, unprocessed)
+            const firstNonEmptyLine = originalFirstNonEmptyLine;
 
             // Step 2: Compute what the alias will be (first line without forbidden char replacements)
-            let aliasProcessedLine = firstLine;
+            let aliasProcessedLine = firstNonEmptyLine;
 
             // Apply custom replacements to alias if enabled
             if (this.settings.enableCustomReplacements && this.settings.applyCustomRulesInAlias) {
@@ -200,15 +215,15 @@ export class AliasManager {
             this.settings.enableForbiddenCharReplacements = originalCharReplacementSetting;
             this.settings.enableStripMarkup = originalStripMarkupSetting;
 
-            // Step 3: Compare alias (without forbidden chars) to target filename (with forbidden chars)
-            const targetFileNameWithoutExt = newFileName.trim();
-            const aliasMatchesFilename = (aliasToAdd.trim() === targetFileNameWithoutExt);
+            // Step 3: Compare alias (without forbidden chars) to target title (with forbidden chars)
+            const targetTitle = newTitle.trim();
+            const aliasMatchesFilename = (aliasToAdd.trim() === targetTitle);
 
             // Step 4: Check if we need to add alias based on setting
             const shouldAddAlias = !this.settings.addAliasOnlyIfFirstLineDiffers || !aliasMatchesFilename;
 
             if (!shouldAddAlias) {
-                verboseLog(this.plugin, `Removing plugin aliases and skipping add - alias matches filename: \`${aliasToAdd}\` = \`${targetFileNameWithoutExt}\``);
+                verboseLog(this.plugin, `Removing plugin aliases and skipping add - alias matches filename: \`${aliasToAdd}\` = \`${targetTitle}\``);
                 await this.removePluginAliasesFromFile(file);
                 return;
             }
@@ -228,12 +243,13 @@ export class AliasManager {
             }
 
             // Prevent "Untitled" or "Untitled n" aliases UNLESS first line is literally that
-            const untitledPattern = /^Untitled(\s+[1-9]\d*)?$/;
+            const untitledWord = t('untitled').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const untitledPattern = new RegExp(`^${untitledWord}(\\s+[1-9]\\d*)?$`);
             if (untitledPattern.test(aliasToAdd.trim())) {
-                // Check if original first line (before processing) was literally "Untitled" or "Untitled n"
-                const originalFirstLineTrimmed = firstLine.trim();
+                // Check if original first non-empty line (before processing) was literally "Untitled" or "Untitled n"
+                const originalFirstLineTrimmed = firstNonEmptyLine.trim();
                 if (!untitledPattern.test(originalFirstLineTrimmed)) {
-                    verboseLog(this.plugin, `Removing plugin alias - extracted title is "${aliasToAdd}" but first line is not literally Untitled`);
+                    verboseLog(this.plugin, `Removing plugin alias - extracted title is "${aliasToAdd}" but first line is not literally ${t('untitled')}`);
                     await this.removePluginAliasesFromFile(file);
                     return;
                 }

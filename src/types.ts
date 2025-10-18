@@ -19,6 +19,12 @@ export interface ExcludedProperty {
     value: string;
 }
 
+export interface TitleRegionCache {
+    firstNonEmptyLine: string;
+    titleSourceLine: string;
+    lastUpdated: number;
+}
+
 export type OSPreset = 'macOS' | 'Windows' | 'Linux';
 export type NotificationMode = 'Always' | 'On title change' | 'Never';
 export type ExclusionStrategy = 'Only exclude...' | 'Exclude all except...';
@@ -152,6 +158,7 @@ export interface PluginSettings {
     hasEnabledSafewords: boolean;
     hasEnabledAliases: boolean;
     grabTitleFromCardLink: boolean;
+    stripTableMarkup: boolean;
     excludeSubfolders: boolean;
     tagMatchingMode: TagMatchingMode;
     excludeChildTags: boolean;
@@ -213,6 +220,7 @@ export interface PluginSettings {
     moveCursorToFirstLine: boolean;
     insertTitleOnCreation: boolean;
     placeCursorAtLineEnd: boolean;
+    disableCursorInExcludedFolders: boolean;
     waitForCursorTemplate: boolean;
     suppressMergeNotifications: boolean;
     newNoteDelay: number;

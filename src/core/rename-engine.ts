@@ -1,5 +1,5 @@
-import { TFile, Editor, Notice } from "obsidian";
-import { PluginSettings } from '../types';
+import { TFile, Editor, Notice, getFrontMatterInfo } from "obsidian";
+import { PluginSettings, TitleRegionCache } from '../types';
 import { UNIVERSAL_FORBIDDEN_CHARS, WINDOWS_ANDROID_CHARS } from '../constants';
 import {
     verboseLog,
@@ -8,18 +8,22 @@ import {
     hasDisablePropertyInFile,
     containsSafeword,
     extractTitle,
-    isValidHeading
+    isValidHeading,
+    findTitleSourceLine
 } from '../utils';
+import { t } from '../i18n';
 
 import FirstLineIsTitle from '../../main';
 
 // Cache manager now accessed via plugin instance
 export class RenameEngine {
     private plugin: FirstLineIsTitle;
-    private lastProcessedContent = new Map<string, string>();
+    private lastEditorContent = new Map<string, string>();
+    private titleRegionCache = new Map<string, TitleRegionCache>();
     private fileTimeTracker = new Map<string, {timestamp: number, count: number}>();
     private globalOperationTracker = {timestamp: Date.now(), count: 0};
     private lastSelfRefNotice = new Map<string, number>();
+    private filesBeingProcessed = new Set<string>();
 
     constructor(plugin: FirstLineIsTitle) {
         this.plugin = plugin;
@@ -78,116 +82,105 @@ export class RenameEngine {
             }
 
             const currentContent = editor.getValue();
-            const lines = currentContent.split('\n');
-            let firstLineIndex = 0;
 
-            if (lines.length > 0 && lines[0].trim() === '---') {
-                for (let i = 1; i < lines.length; i++) {
-                    if (lines[i].trim() === '---') {
-                        firstLineIndex = i + 1;
-                        break;
-                    }
+            // Detect if only frontmatter changed (skip processing to preserve YAML formatting)
+            const previousContent = this.lastEditorContent.get(file.path);
+            if (previousContent) {
+                const currentFrontmatterInfo = getFrontMatterInfo(currentContent);
+                const previousFrontmatterInfo = getFrontMatterInfo(previousContent);
+
+                const currentContentAfterFrontmatter = currentContent.substring(currentFrontmatterInfo.contentStart);
+                const previousContentAfterFrontmatter = previousContent.substring(previousFrontmatterInfo.contentStart);
+
+                // If only frontmatter changed, skip ALL processing (rename + alias)
+                if (currentContentAfterFrontmatter === previousContentAfterFrontmatter) {
+                    verboseLog(this.plugin, `Skipping - only frontmatter edited: ${file.path}`);
+                    this.lastEditorContent.set(file.path, currentContent);
+                    return;
                 }
             }
+
+            // Update lastEditorContent for next comparison
+            this.lastEditorContent.set(file.path, currentContent);
+
+            // Extract title region and check cache
+            const currentTitleRegion = this.extractTitleRegion(editor, file);
+            const cachedTitleRegion = this.titleRegionCache.get(file.path);
+
+            if (cachedTitleRegion &&
+                currentTitleRegion.firstNonEmptyLine === cachedTitleRegion.firstNonEmptyLine &&
+                currentTitleRegion.titleSourceLine === cachedTitleRegion.titleSourceLine) {
+
+                verboseLog(this.plugin, `Title region unchanged - skipping processing: ${file.path}`);
+
+                // Still process aliases if alias settings changed (edge case)
+                // For now, skip all processing when title region unchanged
+                return;
+            }
+
+            // Title changed - update cache and process
+            this.titleRegionCache.set(file.path, currentTitleRegion);
+            verboseLog(this.plugin, `Title region changed - processing: ${file.path}`, {
+                previous: cachedTitleRegion,
+                current: currentTitleRegion
+            });
 
             const metadata = this.plugin.app.metadataCache.getFileCache(file);
 
-            let firstLine = '';
-            for (let i = firstLineIndex; i < lines.length; i++) {
-                const line = lines[i];
-                if (line.trim() !== '') {
-                    firstLine = line;
-                    break;
-                }
-            }
-
-            // Extract final title using same logic as processFile to track changes accurately
-            let trackingContent = firstLine;
-
-            // Build content without frontmatter from lines
-            const contentWithoutFrontmatter = lines.slice(firstLineIndex).join('\n');
-            const trimmedFirstLine = firstLine.trim();
-
-            // Check for card link - extract title
-            if (this.plugin.settings.grabTitleFromCardLink && trimmedFirstLine.match(/^```(embed|cardlink)$/)) {
-                const allLines = contentWithoutFrontmatter.split('\n');
-                let nonEmptyCount = 0;
-                for (let i = 0; i < allLines.length; i++) {
-                    const line = allLines[i].trim();
-                    if (line === '') continue;
-
-                    nonEmptyCount++;
-                    if (nonEmptyCount === 1) continue;
-                    if (nonEmptyCount > 10) break;
-
-                    if (line.startsWith('title:')) {
-                        let title = line.substring(6).trim();
-                        if ((title.startsWith('"') && title.endsWith('"')) || (title.startsWith("'") && title.endsWith("'"))) {
-                            title = title.substring(1, title.length - 1);
-                        }
-                        trackingContent = title;
-                        break;
-                    }
-                    if (line.startsWith('```')) {
-                        trackingContent = 'Untitled';
-                        break;
-                    }
-                }
-            }
-            // Check for code block - pass 2 lines to extractTitle
-            else if (trimmedFirstLine.startsWith('```') && !trimmedFirstLine.match(/^```(embed|cardlink)$/)) {
-                const contentLines = contentWithoutFrontmatter.split('\n');
-                let extractedLines: string[] = [];
-                for (const line of contentLines) {
-                    if (line.trim() !== '') {
-                        extractedLines.push(line);
-                        if (extractedLines.length >= 2) break;
-                    }
-                }
-                trackingContent = extractTitle(extractedLines.join('\n'), this.plugin.settings);
-            }
-            // Normal content - just use extractTitle
-            else {
-                trackingContent = extractTitle(firstLine, this.plugin.settings);
-            }
-
-            const lastContent = this.lastProcessedContent.get(file.path);
-
-            if (trackingContent !== lastContent) {
-                const timeSinceStart = Date.now() - startTime;
-                verboseLog(this.plugin, `[TIMING] KEYSTROKE: ${file.path} - "${lastContent}" -> "${trackingContent}" (processed in ${timeSinceStart}ms)`);
-
-                await this.processFileImmediate(file, currentContent, metadata);
-                this.lastProcessedContent.set(file.path, trackingContent);
-                this.plugin.editorLifecycle.updateLastFirstLine(file.path, trackingContent);
-            } else {
-                // Policy: process on ANY modification (not just first line changes)
-                // Still update aliases if enabled, even when first line hasn't changed
-                if (this.plugin.settings.enableAliases) {
-                    verboseLog(this.plugin, `Editor change - first line unchanged but checking alias: ${file.path}`);
-
-                    // Read content based on fileReadMethod setting for alias processing
-                    let contentForAlias: string;
-                    if (this.plugin.settings.fileReadMethod === 'Editor') {
-                        contentForAlias = currentContent;
-                        verboseLog(this.plugin, `Using editor content for alias update (${contentForAlias.length} chars)`);
-                    } else if (this.plugin.settings.fileReadMethod === 'Cache') {
-                        contentForAlias = await this.plugin.app.vault.cachedRead(file);
-                        verboseLog(this.plugin, `Using cached content for alias update (${contentForAlias.length} chars)`);
-                    } else {
-                        // File method
-                        contentForAlias = await this.plugin.app.vault.read(file);
-                        verboseLog(this.plugin, `Using file content for alias update (${contentForAlias.length} chars)`);
-                    }
-
-                    await this.plugin.aliasManager.updateAliasIfNeeded(file, contentForAlias);
-                } else {
-                    verboseLog(this.plugin, `Editor change ignored - no first line change: ${file.path}`);
-                }
-            }
+            // Policy: Process on ANY content change (not just first line changes)
+            const timeSinceStart = Date.now() - startTime;
+            verboseLog(this.plugin, `[TIMING] Content changed in ${timeSinceStart}ms: ${file.path}`);
+            await this.processFileImmediate(file, currentContent, metadata);
         } catch (error) {
             console.error(`Error in optimal editor-change processing for ${file.path}:`, error);
         }
+    }
+
+    /**
+     * Extract title region (first non-empty line and title source line) from editor content
+     * Returns TitleRegionCache with extracted strings
+     */
+    extractTitleRegion(editor: Editor, file: TFile): TitleRegionCache {
+        const content = editor.getValue();
+        const metadata = this.plugin.app.metadataCache.getFileCache(file);
+
+        // Skip frontmatter
+        let startLine = 0;
+        if (metadata?.frontmatterPosition) {
+            startLine = metadata.frontmatterPosition.end.line + 1;
+        }
+
+        const lines = content.split('\n');
+
+        // Find first non-empty line
+        let firstNonEmptyLine = '';
+        for (let i = startLine; i < lines.length; i++) {
+            if (lines[i].trim() !== '') {
+                firstNonEmptyLine = lines[i];
+                break;
+            }
+        }
+
+        if (firstNonEmptyLine === '') {
+            return { firstNonEmptyLine: '', titleSourceLine: '', lastUpdated: Date.now() };
+        }
+
+        // Get lines after frontmatter for title source computation
+        const contentLines = lines.slice(startLine);
+
+        // Use shared utility function to find title source line
+        const titleSourceLine = findTitleSourceLine(
+            firstNonEmptyLine,
+            contentLines,
+            this.plugin.settings,
+            this.plugin
+        );
+
+        return {
+            firstNonEmptyLine,
+            titleSourceLine,
+            lastUpdated: Date.now()
+        };
     }
 
     async processFileImmediate(file: TFile, content: string, metadata: any): Promise<void> {
@@ -248,6 +241,35 @@ export class RenameEngine {
             verboseLog(this.plugin, `Skipping non-markdown file: ${file.path}`);
             return { success: false, reason: 'not-markdown' };
         }
+
+        // Capture original path before acquiring lock (path may change during rename)
+        const originalPath = file.path;
+
+        // Check if file is already being processed (prevents concurrent processFile race conditions)
+        if (this.filesBeingProcessed.has(originalPath)) {
+            verboseLog(this.plugin, `Skipping - file already being processed: ${originalPath}`);
+            return { success: false, reason: 'already-processing' };
+        }
+
+        // Acquire processing lock with original path
+        this.filesBeingProcessed.add(originalPath);
+
+        try {
+            return await this.processFileInternal(file, noDelay, showNotices, providedContent, isBatchOperation, exclusionOverrides);
+        } finally {
+            // Always release lock using original path (file.path may have changed during rename)
+            this.filesBeingProcessed.delete(originalPath);
+        }
+    }
+
+    private async processFileInternal(
+        file: TFile,
+        noDelay: boolean,
+        showNotices: boolean,
+        providedContent?: string,
+        isBatchOperation = false,
+        exclusionOverrides?: { ignoreFolder?: boolean; ignoreTag?: boolean; ignoreProperty?: boolean }
+    ): Promise<{ success: boolean, reason?: string }> {
 
         // ABSOLUTE FIRST-GATE: Check disable property - cannot be overridden by any command or exclusionOverrides
         if (await hasDisablePropertyInFile(file, this.plugin.app, this.plugin.settings.disableRenamingKey, this.plugin.settings.disableRenamingValue)) {
@@ -341,19 +363,37 @@ export class RenameEngine {
 
         const currentName = file.basename;
 
+        /**
+         * Title Processing Pipeline:
+         *
+         * 1. firstNonEmptyLine - Literal first non-empty line after frontmatter
+         *    (never modified, preserved for reference)
+         *
+         * 2. titleSourceLine - The raw line that becomes the filename source
+         *    (derived from firstNonEmptyLine with special case handling:
+         *     - Card links: Extract title from ```embed/```cardlink blocks
+         *     - Code blocks: Use second line if first is ``` fence)
+         *
+         * 3. newTitle - Final title after all transformations:
+         *    - Custom replacements applied to titleSourceLine
+         *    - Markup stripping via extractTitle() (removes headings, bold, italics, etc.)
+         *    - Forbidden character replacement
+         *    - Trim and forbidden name fallback
+         */
+
         // Find first non-empty line after frontmatter
         const contentWithoutFrontmatter = this.stripFrontmatterFromContent(content, file);
         const lines = contentWithoutFrontmatter.split('\n');
-        let firstLine = '';
+        let firstNonEmptyLine = '';
         for (const line of lines) {
             if (line.trim() !== '') {
-                firstLine = line;
+                firstNonEmptyLine = line;
                 break;
             }
         }
 
         // If first line is empty (no content after frontmatter)
-        if (firstLine === '') {
+        if (firstNonEmptyLine === '') {
             // Check if file had previous content
             const previousContentWithoutFrontmatter = previousFileContent
                 ? this.stripFrontmatterFromContent(previousFileContent, file)
@@ -362,8 +402,8 @@ export class RenameEngine {
 
             if (hadPreviousContent) {
                 // Content was deleted - rename to Untitled
-                verboseLog(this.plugin, `Content became empty - renaming to Untitled: ${file.path}`);
-                firstLine = 'Untitled';
+                verboseLog(this.plugin, `Content became empty - renaming to ${t('untitled')}: ${file.path}`);
+                firstNonEmptyLine = t('untitled');
             } else {
                 // File was always empty - retain current filename
                 cacheManager?.setContent(file.path, content);
@@ -378,60 +418,19 @@ export class RenameEngine {
 
         // Check if only headings should be processed
         if (this.plugin.settings.whatToPutInTitle === "headings_only") {
-            if (!isValidHeading(firstLine)) {
+            if (!isValidHeading(firstNonEmptyLine)) {
                 verboseLog(this.plugin, `Skipping file - first line is not a valid heading: ${file.path}`);
                 return { success: false, reason: 'not-heading' };
             }
         }
 
-        // Check for card links if enabled - extract title but continue to normal processing
-        if (this.plugin.settings.grabTitleFromCardLink) {
-            // Check if first non-empty line is ```embed or ```cardlink
-            const cardLinkMatch = firstLine.trim().match(/^```(embed|cardlink)$/);
-            if (cardLinkMatch) {
-                // Found embed or cardlink at start, parse lines until we find title: or closing ```
-                const allLines = contentWithoutFrontmatter.split('\n');
-                let foundTitle = false;
-                let nonEmptyCount = 0;
-                for (let i = 0; i < allLines.length; i++) {
-                    const line = allLines[i].trim();
-                    if (line === '') continue;
-
-                    nonEmptyCount++;
-                    // Skip first non-empty line (the opening ```embed/```cardlink)
-                    if (nonEmptyCount === 1) continue;
-
-                    if (nonEmptyCount > 10) break;
-
-                    // Check for title line
-                    if (line.startsWith('title:')) {
-                        let title = line.substring(6).trim();
-                        // Remove quotes if present
-                        if ((title.startsWith('"') && title.endsWith('"')) || (title.startsWith("'") && title.endsWith("'"))) {
-                            title = title.substring(1, title.length - 1);
-                        }
-                        firstLine = title;
-                        foundTitle = true;
-                        verboseLog(this.plugin, `Found ${cardLinkMatch[1]} card link in ${file.path}`, { title: firstLine });
-                        break;
-                    }
-                    // Check for closing ``` before finding title
-                    if (line.startsWith('```')) {
-                        firstLine = 'Untitled';
-                        verboseLog(this.plugin, `Card link in ${file.path} has no title, using Untitled`);
-                        break;
-                    }
-                }
-                if (!foundTitle && firstLine !== 'Untitled') {
-                    // Reached limit without finding title or closing
-                    firstLine = 'Untitled';
-                }
-            }
-        }
+        // Determine titleSourceLine using shared utility function
+        // This handles special cases like card links, code blocks, and markdown tables
+        const titleSourceLine = findTitleSourceLine(firstNonEmptyLine, lines, this.plugin.settings, this.plugin);
 
         // Store current content for next check in cache (only if not handled above)
         // Don't update cache if content became empty and we're renaming to Untitled (prevents cache poisoning)
-        const contentBecameEmpty = contentWithoutFrontmatter.trim() === '' && firstLine === 'Untitled';
+        const contentBecameEmpty = contentWithoutFrontmatter.trim() === '' && firstNonEmptyLine === t('untitled');
         if (!contentBecameEmpty) {
             cacheManager?.setContent(file.path, content);
         }
@@ -455,15 +454,15 @@ export class RenameEngine {
 
         let isSelfReferencing = false;
 
-        // Check for self-referencing wikilink in original first line (before custom replacements)
-        if (wikiLinkRegex.test(firstLine)) {
+        // Check for self-referencing wikilink in titleSourceLine (before custom replacements)
+        if (wikiLinkRegex.test(titleSourceLine)) {
             isSelfReferencing = true;
             verboseLog(this.plugin, `Found self-referencing wikilink in ${file.path} before custom replacements`);
         }
 
         // Check for self-referencing Markdown link by parsing the actual URL (ignoring link text)
         let match;
-        while ((match = markdownLinkRegex.exec(firstLine)) !== null) {
+        while ((match = markdownLinkRegex.exec(titleSourceLine)) !== null) {
             const url = match[2];
 
             // Decode percent-encoding for comparison
@@ -498,8 +497,8 @@ export class RenameEngine {
             }
         }
 
-        // First apply custom replacements to the original line (before forbidden char processing)
-        let processedTitle = firstLine;
+        // Apply custom replacements to titleSourceLine (before forbidden char processing)
+        let newTitle = titleSourceLine;
 
         // Apply custom replacements first
         verboseLog(this.plugin, `Custom replacements enabled: ${this.plugin.settings.enableCustomReplacements}, count: ${this.plugin.settings.customReplacements?.length || 0}`);
@@ -513,21 +512,21 @@ export class RenameEngine {
                     onlyWholeLine: replacement.onlyWholeLine,
                     onlyAtStart: replacement.onlyAtStart,
                     enabled: replacement.enabled,
-                    currentLine: processedTitle
+                    currentLine: newTitle
                 });
 
-                let tempLine = processedTitle;
+                let tempLine = newTitle;
 
                 if (replacement.onlyWholeLine) {
                     // Only replace if the entire line matches
-                    if (processedTitle.trim() === replacement.searchText.trim()) {
+                    if (newTitle.trim() === replacement.searchText.trim()) {
                         tempLine = replacement.replaceText;
-                        verboseLog(this.plugin, `Applied whole line replacement:`, { from: processedTitle, to: tempLine });
+                        verboseLog(this.plugin, `Applied whole line replacement:`, { from: newTitle, to: tempLine });
                     }
                 } else if (replacement.onlyAtStart) {
                     if (tempLine.startsWith(replacement.searchText)) {
                         tempLine = replacement.replaceText + tempLine.slice(replacement.searchText.length);
-                        verboseLog(this.plugin, `Applied start replacement:`, { from: processedTitle, to: tempLine });
+                        verboseLog(this.plugin, `Applied start replacement:`, { from: newTitle, to: tempLine });
                     }
                 } else {
                     const beforeReplace = tempLine;
@@ -537,35 +536,25 @@ export class RenameEngine {
                     }
                 }
 
-                processedTitle = tempLine;
+                newTitle = tempLine;
             }
         }
 
         // If custom replacements resulted in empty string or whitespace only, use "Untitled"
-        if (processedTitle.trim() === '') {
-            processedTitle = "Untitled";
+        if (newTitle.trim() === '') {
+            newTitle = t('untitled');
         }
 
         verboseLog(this.plugin, isSelfReferencing ? `Self-reference found in ${file.path}` : `No self-reference found in ${file.path}`);
 
-        // Now extract title from the processed line (custom replacements already applied above)
-        // For code block detection, pass first 2 lines if first line starts with ``` (but not card links)
-        let contentForExtraction = processedTitle;
-        const trimmedFirstLine = firstLine.trim();
-        if (trimmedFirstLine.startsWith('```') && !trimmedFirstLine.match(/^```(embed|cardlink)$/)) {
-            // Extract first 2 non-empty lines after frontmatter for code block pattern matching
-            const contentLines = contentWithoutFrontmatter.split('\n');
-            let extractedLines: string[] = [];
-            for (const line of contentLines) {
-                if (line.trim() !== '') {
-                    extractedLines.push(line);
-                    if (extractedLines.length >= 2) break;
-                }
-            }
-            contentForExtraction = extractedLines.join('\n');
-        }
-        const extractedTitle = extractTitle(contentForExtraction, this.plugin.settings);
-        verboseLog(this.plugin, `Extracted title from ${file.path}`, { original: firstLine, afterCustomReplacements: processedTitle, extracted: extractedTitle });
+        // Extract title from newTitle (custom replacements already applied above)
+        // titleSourceLine already determined (card links and code blocks handled earlier)
+        newTitle = extractTitle(newTitle, this.plugin.settings);
+        verboseLog(this.plugin, `Extracted title from ${file.path}`, {
+            firstNonEmptyLine: firstNonEmptyLine,
+            titleSourceLine: titleSourceLine,
+            extracted: newTitle
+        });
 
         const charMap: { [key: string]: string } = {
             '/': this.plugin.settings.charReplacements.slash,
@@ -600,19 +589,22 @@ export class RenameEngine {
             "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9", "COM0",
             "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9", "LPT0",
         ];
-        let newFileName: string = "";
 
-        for (let i: number = 0; i < extractedTitle.length; i++) {
-            if (newFileName.length >= this.plugin.settings.charCount - 1) {
-                newFileName = newFileName.trimEnd();
-                newFileName += "…";
+        // Process forbidden characters in newTitle
+        const titleBeforeForbiddenCharProcessing = newTitle;
+        newTitle = "";
+
+        for (let i: number = 0; i < titleBeforeForbiddenCharProcessing.length; i++) {
+            if (newTitle.length >= this.plugin.settings.charCount - 1) {
+                newTitle = newTitle.trimEnd();
+                newTitle += "…";
                 break;
             }
-            let char = extractedTitle[i];
+            let char = titleBeforeForbiddenCharProcessing[i];
 
             if (char === '.') {
                 // Special handling for dots - only forbidden at filename start
-                if (newFileName === '') {
+                if (newTitle === '') {
                     // Dot at start of filename
                     if (this.plugin.settings.enableForbiddenCharReplacements && this.plugin.settings.charReplacementEnabled.dot) {
                         const replacement = charMap['.'] || '';
@@ -620,11 +612,11 @@ export class RenameEngine {
                             // Check for whitespace trimming
                             if (this.plugin.settings.charReplacementTrimRight.dot) {
                                 // Skip upcoming whitespace characters
-                                while (i + 1 < extractedTitle.length && /\s/.test(extractedTitle[i + 1])) {
+                                while (i + 1 < titleBeforeForbiddenCharProcessing.length && /\s/.test(titleBeforeForbiddenCharProcessing[i + 1])) {
                                     i++;
                                 }
                             }
-                            newFileName += replacement;
+                            newTitle += replacement;
                             verboseLog(this.plugin, `Replaced leading dot with \`${replacement}\` in ${file.path}`);
                         }
                         // If replacement is empty, omit the dot (don't add anything)
@@ -632,7 +624,7 @@ export class RenameEngine {
                     // If dot replacement is disabled, omit the dot (don't add anything)
                 } else {
                     // Dot not at start - always keep it
-                    newFileName += '.';
+                    newTitle += '.';
                 }
             } else if (forbiddenChars.includes(char)) {
                 let shouldReplace = false;
@@ -672,14 +664,14 @@ export class RenameEngine {
                         if (replacement !== '') {
                             // Trim whitespace to the left
                             if (this.plugin.settings.charReplacementTrimLeft[settingKey]) {
-                                // Remove trailing whitespace from newFileName
-                                newFileName = newFileName.trimEnd();
+                                // Remove trailing whitespace from newTitle
+                                newTitle = newTitle.trimEnd();
                             }
 
                             // Check if we should trim whitespace to the right
                             if (this.plugin.settings.charReplacementTrimRight[settingKey]) {
                                 // Skip upcoming whitespace characters
-                                while (i + 1 < extractedTitle.length && /\s/.test(extractedTitle[i + 1])) {
+                                while (i + 1 < titleBeforeForbiddenCharProcessing.length && /\s/.test(titleBeforeForbiddenCharProcessing[i + 1])) {
                                     i++;
                                 }
                             }
@@ -688,32 +680,32 @@ export class RenameEngine {
                 }
 
                 if (shouldReplace && replacement !== '') {
-                    newFileName += replacement;
+                    newTitle += replacement;
                     verboseLog(this.plugin, `Replaced forbidden char \`${char}\` with \`${replacement}\` in ${file.path}`);
                 }
                 // If master toggle is off, individual toggle is off, or replacement is empty, omit the character (continue to next char)
             } else {
-                newFileName += char;
+                newTitle += char;
             }
         }
 
-        newFileName = newFileName
+        newTitle = newTitle
             .trim()
             .replace(/\s+/g, " ");
 
         // Check if filename is empty or a forbidden name
         const isForbiddenName =
-            newFileName === "" ||
-            forbiddenNames.includes(newFileName.toUpperCase());
+            newTitle === "" ||
+            forbiddenNames.includes(newTitle.toUpperCase());
         if (isForbiddenName) {
-            newFileName = "Untitled";
-            verboseLog(this.plugin, `Using fallback name \`Untitled\` for ${file.path}`);
+            newTitle = t('untitled');
+            verboseLog(this.plugin, `Using fallback name \`${t('untitled')}\` for ${file.path}`);
         }
 
         const parentPath =
             file.parent?.path === "/" ? "" : file.parent?.path + "/";
 
-        let newPath: string = `${parentPath}${newFileName}.md`;
+        let newPath: string = `${parentPath}${newTitle}.md`;
 
         verboseLog(this.plugin, `Initial target path: ${newPath} for file: ${file.path}`);
 
@@ -746,13 +738,13 @@ export class RenameEngine {
 
                     // File passed exclusion checks - process aliases when enabled
                     if (this.plugin.settings.enableAliases) {
-                        await this.plugin.aliasManager.updateAliasIfNeeded(file, originalContentWithFrontmatter, newFileName);
+                        await this.plugin.aliasManager.updateAliasIfNeeded(file, originalContentWithFrontmatter, newTitle);
                     }
 
                     // Show notification for manual renames only (not batch operations)
                     if (showNotices && !isBatchOperation) {
                         // Extract actual final filename from newPath (includes counter)
-                        const finalFileName = newPath.replace(/\.md$/, '').split('/').pop() || newFileName;
+                        const finalFileName = newPath.replace(/\.md$/, '').split('/').pop() || newTitle;
                         const titleChanged = currentName !== finalFileName;
                         const shouldShowNotice =
                             this.plugin.settings.manualNotificationMode === 'Always' ||
@@ -760,14 +752,14 @@ export class RenameEngine {
 
                         if (shouldShowNotice) {
                             verboseLog(this.plugin, `Showing notice: Updated title: ${currentName} → ${finalFileName}`);
-                            new Notice(`Renamed to: ${finalFileName}`);
+                            new Notice(t('notifications.renamedTo').replace('{{filename}}', finalFileName));
                         }
                     }
 
                     return { success: false, reason: 'no-rename-needed' };
                 }
                 counter += 1;
-                newPath = `${parentPath}${newFileName} ${counter}.md`;
+                newPath = `${parentPath}${newTitle} ${counter}.md`;
                 fileExists = this.checkFileExistsCaseInsensitive(newPath);
             }
             verboseLog(this.plugin, `Found available filename with counter ${counter}: ${newPath}`);
@@ -784,7 +776,7 @@ export class RenameEngine {
                 const lastNoticeTime = this.lastSelfRefNotice.get(file.path) || 0;
                 if (now - lastNoticeTime >= 2000) {
                     verboseLog(this.plugin, `Showing notice: File not renamed due to self-referential link in first line: ${file.basename}`);
-                    new Notice(`Note not renamed due to self-referential link in first line: ${file.basename}`);
+                    new Notice(t('notifications.notRenamedSelfReference').replace('{{filename}}', file.basename));
                     this.lastSelfRefNotice.set(file.path, now);
                 }
             }
@@ -798,7 +790,7 @@ export class RenameEngine {
 
         // File passed exclusion checks - process aliases when enabled
         if (this.plugin.settings.enableAliases) {
-            await this.plugin.aliasManager.updateAliasIfNeeded(file, originalContentWithFrontmatter, newFileName);
+            await this.plugin.aliasManager.updateAliasIfNeeded(file, originalContentWithFrontmatter, newTitle);
         }
 
         try {
@@ -824,12 +816,15 @@ export class RenameEngine {
                 this.plugin.markBatchOperationEnd(newPath);
             }
 
-            // Update cache with new path
-            const lastContent = this.lastProcessedContent.get(oldPath);
+            // Update lastEditorContent with new path
+            const lastContent = this.lastEditorContent.get(oldPath);
             if (lastContent !== undefined) {
-                this.lastProcessedContent.delete(oldPath);
-                this.lastProcessedContent.set(newPath, lastContent);
+                this.lastEditorContent.delete(oldPath);
+                this.lastEditorContent.set(newPath, lastContent);
             }
+
+            // Update title region cache key
+            this.updateTitleRegionCacheKey(oldPath, newPath);
 
             // Notify cache manager of rename
             cacheManager?.notifyFileRenamed(oldPath, newPath);
@@ -837,7 +832,7 @@ export class RenameEngine {
             // Show notification for manual renames only (not batch operations)
             if (showNotices && !isBatchOperation) {
                 // Extract actual final filename from newPath (includes counter if added)
-                const finalFileName = newPath.replace(/\.md$/, '').split('/').pop() || newFileName;
+                const finalFileName = newPath.replace(/\.md$/, '').split('/').pop() || newTitle;
                 const titleChanged = currentName !== finalFileName;
                 const shouldShowNotice =
                     this.plugin.settings.manualNotificationMode === 'Always' ||
@@ -845,7 +840,7 @@ export class RenameEngine {
 
                 if (shouldShowNotice) {
                     verboseLog(this.plugin, `Showing notice: Updated title: ${currentName} → ${finalFileName}`);
-                    new Notice(`Renamed to: ${finalFileName}`);
+                    new Notice(t('notifications.renamedTo').replace('{{filename}}', finalFileName));
                 }
             }
 
@@ -882,18 +877,48 @@ export class RenameEngine {
         verboseLog(this.plugin, 'Cache cleanup completed');
     }
 
-    // Getter for lastProcessedContent (for use in main.ts)
-    getLastProcessedContent(): Map<string, string> {
-        return this.lastProcessedContent;
+    // Getter for lastEditorContent (for use in main.ts)
+    getLastEditorContent(path: string): string | undefined {
+        return this.lastEditorContent.get(path);
     }
 
-    // Setter for lastProcessedContent (for use in main.ts)
-    setLastProcessedContent(path: string, content: string): void {
-        this.lastProcessedContent.set(path, content);
+    // Setter for lastEditorContent (for use in main.ts)
+    setLastEditorContent(path: string, content: string): void {
+        this.lastEditorContent.set(path, content);
     }
 
-    // Clear method for lastProcessedContent (for use in main.ts)
-    clearLastProcessedContent(): void {
-        this.lastProcessedContent.clear();
+    // Delete method for lastEditorContent (for use in main.ts)
+    deleteLastEditorContent(path: string): void {
+        this.lastEditorContent.delete(path);
+    }
+
+    // ==================== TITLE REGION CACHE MANAGEMENT ====================
+
+    /**
+     * Clear all title region cache entries (used when settings change)
+     */
+    clearTitleRegionCache(): void {
+        this.titleRegionCache.clear();
+        verboseLog(this.plugin, 'Cleared title region cache');
+    }
+
+    /**
+     * Delete title region cache entry for a specific file
+     */
+    deleteTitleRegionCache(path: string): void {
+        this.titleRegionCache.delete(path);
+        verboseLog(this.plugin, `Deleted title region cache for: ${path}`);
+    }
+
+    /**
+     * Update title region cache key when file is renamed
+     */
+    updateTitleRegionCacheKey(oldPath: string, newPath: string): void {
+        const cached = this.titleRegionCache.get(oldPath);
+        if (cached) {
+            this.titleRegionCache.delete(oldPath);
+            this.titleRegionCache.set(newPath, cached);
+            verboseLog(this.plugin, `Updated title region cache key: ${oldPath} → ${newPath}`);
+        }
     }
 }

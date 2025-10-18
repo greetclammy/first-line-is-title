@@ -2,6 +2,7 @@ import { Notice } from "obsidian";
 import { verboseLog } from '../utils';
 import { RenameAllFilesModal } from '../modals';
 import FirstLineIsTitle from '../../main';
+import { t } from '../i18n';
 
 /**
  * CommandRegistrar
@@ -54,13 +55,13 @@ export class CommandRegistrar {
 
         this.plugin.addCommand({
             id: 'rename-current-file',
-            name: 'Put first line in title',
+            name: t('commands.putFirstLineInTitle'),
             icon: 'file-pen',
             callback: async () => {
                 const activeFile = this.app.workspace.getActiveFile();
                 if (!activeFile || activeFile.extension !== 'md') {
                     verboseLog(this.plugin, `Showing notice: Error: no active note.`);
-                    new Notice("Error: no active note.");
+                    new Notice(t('notifications.errorNoActiveNote'));
                     return;
                 }
                 verboseLog(this.plugin, `Manual rename command triggered for ${activeFile.path} (ignoring folder/tag/property exclusions, respecting disable property)`);
@@ -80,13 +81,13 @@ export class CommandRegistrar {
 
         this.plugin.addCommand({
             id: 'rename-current-file-unless-excluded',
-            name: 'Put first line in title (unless excluded)',
+            name: t('commands.putFirstLineInTitleUnlessExcluded'),
             icon: 'file-pen',
             callback: async () => {
                 const activeFile = this.app.workspace.getActiveFile();
                 if (!activeFile || activeFile.extension !== 'md') {
                     verboseLog(this.plugin, `Showing notice: Error: no active note.`);
-                    new Notice("Error: no active note.");
+                    new Notice(t('notifications.errorNoActiveNote'));
                     return;
                 }
                 verboseLog(this.plugin, `Manual rename command triggered for ${activeFile.path} (unless excluded)`);
@@ -105,8 +106,8 @@ export class CommandRegistrar {
 
         this.plugin.addCommand({
             id: 'rename-all-files',
-            name: 'Put first line in title in all notes',
-            icon: 'file-pen',
+            name: t('commands.putFirstLineInTitleAllNotes'),
+            icon: 'file-stack',
             callback: () => {
                 verboseLog(this.plugin, 'Bulk rename command triggered');
                 new RenameAllFilesModal(this.app, this.plugin).open();
@@ -124,7 +125,7 @@ export class CommandRegistrar {
 
         this.plugin.addCommand({
             id: 'add-safe-internal-link',
-            name: 'Add safe internal link',
+            name: t('commands.addSafeInternalLink'),
             icon: 'link',
             callback: async () => {
                 await this.plugin.addSafeInternalLink();
@@ -142,7 +143,7 @@ export class CommandRegistrar {
 
         this.plugin.addCommand({
             id: 'add-safe-internal-link-with-caption',
-            name: 'Add safe internal link with selection as caption',
+            name: t('commands.addSafeInternalLinkWithCaption'),
             icon: 'link',
             callback: async () => {
                 await this.plugin.addSafeInternalLinkWithCaption();
@@ -160,13 +161,14 @@ export class CommandRegistrar {
 
         this.plugin.addCommand({
             id: 'toggle-automatic-renaming',
-            name: 'Toggle automatic renaming',
+            name: t('commands.toggleAutomaticRenaming'),
             icon: 'file-cog',
             callback: async () => {
                 const newValue = this.settings.renameNotes === "automatically" ? "manually" : "automatically";
                 this.settings.renameNotes = newValue;
                 await this.plugin.saveSettings();
-                new Notice(`Automatic renaming ${newValue === "automatically" ? "enabled" : "disabled"}.`);
+                const notificationKey = newValue === "automatically" ? 'notifications.automaticRenamingEnabled' : 'notifications.automaticRenamingDisabled';
+                new Notice(t(notificationKey));
             }
         });
     }
@@ -177,8 +179,8 @@ export class CommandRegistrar {
     async executeRenameCurrentFile(): Promise<void> {
         const activeFile = this.app.workspace.getActiveFile();
         if (!activeFile || activeFile.extension !== 'md') {
-            verboseLog(this.plugin, `Showing notice: Error: no active note.`);
-            new Notice("Error: no active note.");
+            verboseLog(this.plugin, `Showing notice: ${t('notifications.errorNoActiveNote')}`);
+            new Notice(t('notifications.errorNoActiveNote'));
             return;
         }
         verboseLog(this.plugin, `Manual rename command triggered for ${activeFile.path} (ignoring folder/tag/property exclusions, respecting disable property)`);
@@ -192,8 +194,8 @@ export class CommandRegistrar {
     async executeRenameUnlessExcluded(): Promise<void> {
         const activeFile = this.app.workspace.getActiveFile();
         if (!activeFile || activeFile.extension !== 'md') {
-            verboseLog(this.plugin, `Showing notice: Error: no active note.`);
-            new Notice("Error: no active note.");
+            verboseLog(this.plugin, `Showing notice: ${t('notifications.errorNoActiveNote')}`);
+            new Notice(t('notifications.errorNoActiveNote'));
             return;
         }
         verboseLog(this.plugin, `Manual rename command triggered for ${activeFile.path} (unless excluded)`);
@@ -207,6 +209,7 @@ export class CommandRegistrar {
         const newValue = this.settings.renameNotes === "automatically" ? "manually" : "automatically";
         this.settings.renameNotes = newValue;
         await this.plugin.saveSettings();
-        new Notice(`Automatic renaming ${newValue === "automatically" ? "enabled" : "disabled"}.`);
+        const notificationKey = newValue === "automatically" ? 'notifications.automaticRenamingEnabled' : 'notifications.automaticRenamingDisabled';
+        new Notice(t(notificationKey));
     }
 }

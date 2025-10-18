@@ -1,7 +1,8 @@
 import { Menu, TFile, TFolder, setIcon } from "obsidian";
 import { verboseLog } from '../utils';
-import { ProcessTagModal } from '../modals';
+import { ProcessTagModal, RenameMultipleFoldersModal } from '../modals';
 import FirstLineIsTitlePlugin from '../../main';
+import { t, tp } from '../i18n';
 
 /**
  * Manages all context menu operations for the First Line is Title plugin.
@@ -95,14 +96,14 @@ export class ContextMenuManager {
         if (this.plugin.settings.folderScopeStrategy === 'Only exclude...') {
             // Only exclude strategy: list contains DISABLED folders
             return {
-                disable: "Disable renaming in folder",
-                enable: "Enable renaming in folder"
+                disable: t('commands.disableRenamingInFolder'),
+                enable: t('commands.enableRenamingInFolder')
             };
         } else {
             // Exclude all except strategy: list contains ENABLED folders
             return {
-                disable: "Disable renaming in folder",
-                enable: "Enable renaming in folder"
+                disable: t('commands.disableRenamingInFolder'),
+                enable: t('commands.enableRenamingInFolder')
             };
         }
     }
@@ -114,14 +115,14 @@ export class ContextMenuManager {
         if (this.plugin.settings.tagScopeStrategy === 'Only exclude...') {
             // Only exclude strategy: list contains DISABLED tags
             return {
-                disable: "Disable renaming for tag",
-                enable: "Enable renaming for tag"
+                disable: t('commands.disableRenamingForTag'),
+                enable: t('commands.enableRenamingForTag')
             };
         } else {
             // Exclude all except strategy: list contains ENABLED tags
             return {
-                disable: "Disable renaming for tag",
-                enable: "Enable renaming for tag"
+                disable: t('commands.disableRenamingForTag'),
+                enable: t('commands.enableRenamingForTag')
             };
         }
     }
@@ -149,7 +150,7 @@ export class ContextMenuManager {
         if (this.plugin.settings.commandVisibility.tagPutFirstLineInTitle) {
             menu.addItem((item) => {
                 item
-                    .setTitle("Put first line in title")
+                    .setTitle(t('commands.putFirstLineInTitle'))
                     .setIcon("file-pen")
                     .onClick(() => {
                         new ProcessTagModal(this.plugin.app, this.plugin, tagName).open();
@@ -195,7 +196,7 @@ export class ContextMenuManager {
             const menuItem = menuEl.createEl('div', { cls: 'menu-item' });
             const iconEl = menuItem.createEl('div', { cls: 'menu-item-icon' });
             setIcon(iconEl, 'file-pen');
-            menuItem.createEl('div', { cls: 'menu-item-title', text: 'Put first line in title' });
+            menuItem.createEl('div', { cls: 'menu-item-title', text: t('commands.putFirstLineInTitle') });
 
             menuItem.addEventListener('click', () => {
                 new ProcessTagModal(this.plugin.app, this.plugin, tagName).open();
@@ -240,28 +241,33 @@ export class ContextMenuManager {
             totalFiles += files.length;
         });
 
-        if (totalFiles === 0) return;
+        // Check if any commands should be visible
+        const hasRenameCommand = this.plugin.settings.commandVisibility.folderPutFirstLineInTitle && totalFiles > 0;
+        const hasDisableCommand = this.plugin.settings.commandVisibility.folderExclude;
+        const hasEnableCommand = this.plugin.settings.commandVisibility.folderStopExcluding;
+
+        if (!hasRenameCommand && !hasDisableCommand && !hasEnableCommand) return;
 
         // Add separator before our items
         menu.addSeparator();
 
-        // Add "Put first line in title" command for multiple folders
-        if (this.plugin.settings.commandVisibility.folderPutFirstLineInTitle) {
+        // Add "Put first line in title" command for multiple folders (only if there are files)
+        if (hasRenameCommand) {
             menu.addItem((item) => {
                 item
-                    .setTitle(`Put first line in title (${folders.length} folders)`)
+                    .setTitle(tp('commands.putFirstLineInTitleNFolders', folders.length))
                     .setIcon("folder-pen")
-                    .onClick(async () => {
-                        await this.plugin.processMultipleFolders(folders, 'rename');
+                    .onClick(() => {
+                        new RenameMultipleFoldersModal(this.plugin.app, this.plugin, folders).open();
                     });
             });
         }
 
         // Add "Disable renaming" command for multiple folders
-        if (this.plugin.settings.commandVisibility.folderExclude) {
+        if (hasDisableCommand) {
             menu.addItem((item) => {
                 item
-                    .setTitle(`Disable renaming (${folders.length} folders)`)
+                    .setTitle(tp('commands.disableRenamingNFolders', folders.length))
                     .setIcon("square-x")
                     .onClick(async () => {
                         await this.plugin.processMultipleFolders(folders, 'disable');
@@ -270,10 +276,10 @@ export class ContextMenuManager {
         }
 
         // Add "Enable renaming" command for multiple folders
-        if (this.plugin.settings.commandVisibility.folderStopExcluding) {
+        if (hasEnableCommand) {
             menu.addItem((item) => {
                 item
-                    .setTitle(`Enable renaming (${folders.length} folders)`)
+                    .setTitle(tp('commands.enableRenamingNFolders', folders.length))
                     .setIcon("square-check")
                     .onClick(async () => {
                         await this.plugin.processMultipleFolders(folders, 'enable');

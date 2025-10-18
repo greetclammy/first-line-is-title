@@ -1,6 +1,7 @@
 import { Platform, Setting, setIcon } from "obsidian";
 import { SettingsTabBase, FirstLineIsTitlePlugin } from './settings-base';
 import { DEFAULT_SETTINGS } from '../constants';
+import { t, getCurrentLocale } from '../i18n';
 
 export class PropertiesTab extends SettingsTabBase {
     constructor(plugin: FirstLineIsTitlePlugin, containerEl: HTMLElement) {
@@ -55,8 +56,8 @@ export class PropertiesTab extends SettingsTabBase {
 
         // Add alias setting
         const aliasToggleSetting = new Setting(this.containerEl)
-            .setName("Add alias")
-            .setDesc("Always copy the first line to a property when renaming notes.")
+            .setName(t('settings.alias.addAlias.name'))
+            .setDesc(t('settings.alias.addAlias.desc'))
             .addToggle((toggle) =>
                 toggle
                     .setValue(this.plugin.settings.enableAliases)
@@ -135,12 +136,12 @@ export class PropertiesTab extends SettingsTabBase {
 
         // Sub-options at first level
         const aliasPropertyKeySetting = new Setting(aliasContainer)
-            .setName("Alias property name")
+            .setName(t('settings.alias.aliasPropertyName.name'))
             .setDesc("");
 
         // Create styled description for alias property key
         const aliasKeyDesc = aliasPropertyKeySetting.descEl;
-        aliasKeyDesc.appendText("Set the property key in which to insert the alias.");
+        aliasKeyDesc.appendText(t('settings.alias.aliasPropertyName.desc'));
 
         // Create bullet list for notes within descEl
         const aliasNotesDesc = aliasKeyDesc.createEl("div");
@@ -151,42 +152,42 @@ export class PropertiesTab extends SettingsTabBase {
         ul.style.margin = '0';
         ul.style.paddingLeft = '20px';
 
-        ul.createEl('li', { text: 'Use \'aliases\' to make the alias searchable in the Quick switcher.' });
+        ul.createEl('li', { text: t('settings.alias.aliasPropertyName.quickSwitcher') });
 
-        ul.createEl('li', { text: 'To populate multiple properties, separate by comma (e.g., \'aliases, title\').' });
+        ul.createEl('li', { text: t('settings.alias.aliasPropertyName.multipleProperties') });
 
         const li2 = ul.createEl('li');
-        li2.appendText('This property can be set as note title in ');
+        li2.appendText(t('settings.alias.aliasPropertyName.noteTitle.part1'));
         li2.createEl("a", {
             text: "Omnisearch",
             href: "obsidian://show-plugin?id=omnisearch"
         });
-        li2.appendText(', ');
-        li2.createEl("a", {
-            text: "Front Matter Title",
-            href: "obsidian://show-plugin?id=obsidian-front-matter-title-plugin"
-        });
-        li2.appendText(', and ');
+        li2.appendText(t('settings.alias.aliasPropertyName.noteTitle.part2'));
         li2.createEl("a", {
             text: "Notebook Navigator",
             href: "obsidian://show-plugin?id=notebook-navigator"
         });
-        li2.appendText('.');
+        li2.appendText(t('settings.alias.aliasPropertyName.noteTitle.part3'));
+        li2.createEl("a", {
+            text: "Front Matter Title",
+            href: "obsidian://show-plugin?id=obsidian-front-matter-title-plugin"
+        });
+        li2.appendText(t('settings.alias.aliasPropertyName.noteTitle.part4'));
 
         aliasKeyDesc.createEl("br");
-        aliasKeyDesc.createEl("small").createEl("strong", { text: "Default: aliases" });
+        aliasKeyDesc.createEl("small").createEl("strong", { text: t('settings.alias.aliasPropertyName.default') });
 
         // Create input container for alias property key with restore button
         const aliasPropertyKeyContainer = aliasPropertyKeySetting.controlEl.createDiv({ cls: "flit-char-text-input-container" });
 
         const aliasPropertyKeyRestoreButton = aliasPropertyKeyContainer.createEl("button", {
             cls: "clickable-icon flit-restore-icon",
-            attr: { "aria-label": "Restore default" }
+            attr: { "aria-label": t('settings.replaceCharacters.restoreDefault') }
         });
         setIcon(aliasPropertyKeyRestoreButton, "rotate-ccw");
 
         const aliasPropertyKeyTextInput = aliasPropertyKeyContainer.createEl("input", { type: "text", cls: "flit-char-text-input" });
-        aliasPropertyKeyTextInput.placeholder = "Empty";
+        aliasPropertyKeyTextInput.placeholder = t('settings.replaceCharacters.emptyPlaceholder');
         aliasPropertyKeyTextInput.style.width = "120px";
         aliasPropertyKeyTextInput.value = this.plugin.settings.aliasPropertyKey;
 
@@ -205,8 +206,8 @@ export class PropertiesTab extends SettingsTabBase {
         });
 
         const addAliasConditionalSetting = new Setting(aliasContainer)
-            .setName("Only add alias if first line differs from title")
-            .setDesc("For example, if the filename was truncated, or some characters have been omitted or replaced.")
+            .setName(t('settings.alias.onlyAddIfDiffers.name'))
+            .setDesc(t('settings.alias.onlyAddIfDiffers.desc'))
             .addToggle((toggle) => {
                 addAliasConditionalToggle = toggle;
                 toggle
@@ -219,16 +220,24 @@ export class PropertiesTab extends SettingsTabBase {
             });
 
         const truncateAliasSetting = new Setting(aliasContainer)
-            .setName("Truncate alias")
+            .setName(t('settings.alias.truncateAlias.name'))
             .setDesc("");
 
         // Create styled description for truncate alias
         const truncateDesc = truncateAliasSetting.descEl;
-        truncateDesc.appendText("In accordance with the ");
-        truncateDesc.createEl("em", { text: "Character count" });
-        truncateDesc.appendText(" value in ");
-        truncateDesc.createEl("em", { text: "General" });
-        truncateDesc.appendText(" settings.");
+        truncateDesc.appendText(t('settings.alias.truncateAlias.desc.part1'));
+        if (getCurrentLocale() === 'ru') {
+            truncateDesc.appendText('«' + t('settings.alias.truncateAlias.desc.charCount') + '»');
+        } else {
+            truncateDesc.createEl("em", { text: t('settings.alias.truncateAlias.desc.charCount') });
+        }
+        truncateDesc.appendText(t('settings.alias.truncateAlias.desc.part2'));
+        if (getCurrentLocale() === 'ru') {
+            truncateDesc.appendText('«' + t('settings.alias.truncateAlias.desc.miscellaneous') + '»');
+        } else {
+            truncateDesc.createEl("em", { text: t('settings.alias.truncateAlias.desc.miscellaneous') });
+        }
+        truncateDesc.appendText(t('settings.alias.truncateAlias.desc.part3'));
 
         truncateAliasSetting.addToggle((toggle) => {
                 truncateAliasToggle = toggle;
@@ -242,14 +251,18 @@ export class PropertiesTab extends SettingsTabBase {
             });
 
         const applyCustomRulesInAliasSetting = new Setting(aliasContainer)
-            .setName("Apply custom rules")
+            .setName(t('settings.alias.applyCustomRules.name'))
             .setDesc("");
 
         // Create styled description for apply custom rules
         const customRulesDesc = applyCustomRulesInAliasSetting.descEl;
-        customRulesDesc.appendText("Apply custom text replacements to alias, as set in ");
-        customRulesDesc.createEl("em", { text: "Custom rules" });
-        customRulesDesc.appendText(" settings.");
+        customRulesDesc.appendText(t('settings.alias.applyCustomRules.desc.part1'));
+        if (getCurrentLocale() === 'ru') {
+            customRulesDesc.appendText('«' + t('settings.alias.applyCustomRules.desc.customRules') + '»');
+        } else {
+            customRulesDesc.createEl("em", { text: t('settings.alias.applyCustomRules.desc.customRules') });
+        }
+        customRulesDesc.appendText(t('settings.alias.applyCustomRules.desc.part2'));
 
         applyCustomRulesInAliasSetting.addToggle((toggle) => {
                 applyCustomRulesToggle = toggle;
@@ -271,14 +284,18 @@ export class PropertiesTab extends SettingsTabBase {
             });
 
         const stripMarkupInAliasSetting = new Setting(aliasContainer)
-            .setName("Strip markup")
+            .setName(t('settings.alias.stripMarkup.name'))
             .setDesc("");
 
         // Create styled description for strip markup
         const stripMarkupDesc = stripMarkupInAliasSetting.descEl;
-        stripMarkupDesc.appendText("Omit markup syntax in alias, as set in ");
-        stripMarkupDesc.createEl("em", { text: "Strip markup" });
-        stripMarkupDesc.appendText(" settings.");
+        stripMarkupDesc.appendText(t('settings.alias.stripMarkup.desc.part1'));
+        if (getCurrentLocale() === 'ru') {
+            stripMarkupDesc.appendText('«' + t('settings.alias.stripMarkup.desc.stripMarkup') + '»');
+        } else {
+            stripMarkupDesc.createEl("em", { text: t('settings.alias.stripMarkup.desc.stripMarkup') });
+        }
+        stripMarkupDesc.appendText(t('settings.alias.stripMarkup.desc.part2'));
 
         stripMarkupInAliasSetting
             .addToggle((toggle) => {
@@ -301,8 +318,8 @@ export class PropertiesTab extends SettingsTabBase {
             });
 
         const keepEmptyAliasPropertySetting = new Setting(aliasContainer)
-            .setName("Keep empty alias property")
-            .setDesc("When the plugin removes the first line alias and no other aliases remain, keep the empty property rather than delete it.")
+            .setName(t('settings.alias.keepEmptyProperty.name'))
+            .setDesc(t('settings.alias.keepEmptyProperty.desc'))
             .addToggle((toggle) => {
                 keepEmptyToggle = toggle;
                 toggle
@@ -315,13 +332,13 @@ export class PropertiesTab extends SettingsTabBase {
             });
 
         const hideAliasPropertySetting = new Setting(aliasContainer)
-            .setName("Hide alias property")
-            .setDesc("Hide the alias property in Reading view and Live Preview. Will always remain visible in Source view.")
+            .setName(t('settings.alias.hideProperty.name'))
+            .setDesc(t('settings.alias.hideProperty.desc'))
             .addDropdown((dropdown) =>
                 dropdown
-                    .addOption('never', 'Never')
-                    .addOption('when_empty', 'Only when empty')
-                    .addOption('always', 'Always')
+                    .addOption('never', t('settings.alias.hideProperty.never'))
+                    .addOption('when_empty', t('settings.alias.hideProperty.onlyWhenEmpty'))
+                    .addOption('always', t('settings.alias.hideProperty.always'))
                     .setValue(this.plugin.settings.hideAliasProperty)
                     .onChange(async (value) => {
                         this.plugin.settings.hideAliasProperty = value as 'never' | 'when_empty' | 'always';
@@ -336,8 +353,8 @@ export class PropertiesTab extends SettingsTabBase {
         const hideInSidebarContainer = aliasContainer.createDiv('flit-sub-settings');
 
         const hideInSidebarSetting = new Setting(hideInSidebarContainer)
-            .setName("Hide in sidebar")
-            .setDesc("Also hide the property in the properties sidebar.")
+            .setName(t('settings.alias.hideInSidebar.name'))
+            .setDesc(t('settings.alias.hideInSidebar.desc'))
             .addToggle((toggle) => {
                 hideInSidebarToggle = toggle;
                 toggle
@@ -355,8 +372,8 @@ export class PropertiesTab extends SettingsTabBase {
         hideInSidebarSetting.settingEl.style.display = (this.plugin.settings.hideAliasProperty === 'when_empty' || this.plugin.settings.hideAliasProperty === 'always') ? '' : 'none';
 
         const suppressMergeNotificationsSetting = new Setting(aliasContainer)
-            .setName("Hide merge notifications")
-            .setDesc("Suppress notifications about files being modified externally and merged automatically.")
+            .setName(t('settings.alias.hideMergeNotifications.name'))
+            .setDesc(t('settings.alias.hideMergeNotifications.desc'))
             .addToggle((toggle) => {
                 suppressMergeToggle = toggle;
                 toggle
@@ -371,7 +388,7 @@ export class PropertiesTab extends SettingsTabBase {
         // Limitations subsection (desktop only)
         if (!Platform.isMobile) {
             const limitationsSetting = new Setting(aliasContainer)
-                .setName("Limitations")
+                .setName(t('settings.alias.limitations.title'))
                 .setDesc("");
 
             limitationsSetting.settingEl.addClass('flit-section-header');
@@ -380,12 +397,12 @@ export class PropertiesTab extends SettingsTabBase {
             const limitationsContainer = aliasContainer.createDiv();
             const limitationsDesc = limitationsContainer.createEl("p", { cls: "setting-item-description" });
             limitationsDesc.style.marginTop = "12px";
-            limitationsDesc.appendText("First line alias updates can be unreliable when editing in a page preview. Using ");
+            limitationsDesc.appendText(t('settings.alias.limitations.desc.part1'));
             limitationsDesc.createEl("a", {
                 text: "Hover Editor",
                 href: "obsidian://show-plugin?id=obsidian-hover-editor"
             });
-            limitationsDesc.appendText(" is recommended.");
+            limitationsDesc.appendText(t('settings.alias.limitations.desc.part2'));
         }
 
         // Initialize UI

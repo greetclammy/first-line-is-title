@@ -1,5 +1,6 @@
 import { Setting, setIcon } from "obsidian";
 import { SettingsTabBase, FirstLineIsTitlePlugin } from './settings-base';
+import { t, getCurrentLocale } from '../i18n';
 
 export class CustomReplacementsTab extends SettingsTabBase {
     constructor(plugin: FirstLineIsTitlePlugin, containerEl: HTMLElement) {
@@ -9,7 +10,7 @@ export class CustomReplacementsTab extends SettingsTabBase {
     render(): void {
         // Enable custom replacements toggle as regular setting
         const customHeaderToggleSetting = new Setting(this.containerEl)
-            .setName("Enable custom rules")
+            .setName(t('settings.customRules.name'))
             .setDesc("")
             .addToggle((toggle) => {
                 toggle.setValue(this.plugin.settings.enableCustomReplacements)
@@ -51,7 +52,7 @@ export class CustomReplacementsTab extends SettingsTabBase {
             customBulletListEl.empty();
 
             // Main description (always visible)
-            customDescEl.createEl('span', { text: 'Set custom text replacements.' });
+            customDescEl.createEl('span', { text: t('settings.customRules.desc') });
             customDescEl.createEl('br');
             customDescEl.createEl('br');
 
@@ -60,22 +61,38 @@ export class CustomReplacementsTab extends SettingsTabBase {
             ul.style.margin = '0';
             ul.style.paddingLeft = '20px';
 
-            const li1 = ul.createEl('li', { text: 'Rules are applied sequentially from top to bottom.' });
-            const li3 = ul.createEl('li', { text: 'Whitespace preserved.' });
+            const li1 = ul.createEl('li', { text: t('settings.customRules.rulesAppliedSequentially') });
+            const li3 = ul.createEl('li', { text: t('settings.customRules.whitespacePreserved') });
 
             const li4 = ul.createEl('li');
-            li4.appendText('Leave ');
-            li4.createEl('em', { text: 'Replace with' });
-            li4.appendText(' blank to omit text entirely.');
+            li4.appendText(t('settings.customRules.leaveBlank.part1'));
+            if (getCurrentLocale() === 'ru') {
+                li4.appendText('«' + t('settings.customRules.leaveBlank.replaceWith') + '»');
+            } else {
+                li4.createEl("em", { text: t('settings.customRules.leaveBlank.replaceWith') });
+            }
+            li4.appendText(t('settings.customRules.leaveBlank.part2'));
 
             const li5 = ul.createEl('li');
-            li5.appendText('If ');
-            li5.createEl('em', { text: 'Replace with' });
-            li5.appendText(' is blank and ');
-            li5.createEl('em', { text: 'Text to replace' });
-            li5.appendText(' matches whole line, filename becomes ');
-            li5.createEl('em', { text: 'Untitled' });
-            li5.appendText('.');
+            li5.appendText(t('settings.customRules.untitledWarning.part1'));
+            if (getCurrentLocale() === 'ru') {
+                li5.appendText('«' + t('settings.customRules.untitledWarning.replaceWith') + '»');
+            } else {
+                li5.createEl("em", { text: t('settings.customRules.untitledWarning.replaceWith') });
+            }
+            li5.appendText(t('settings.customRules.untitledWarning.part2'));
+            if (getCurrentLocale() === 'ru') {
+                li5.appendText('«' + t('settings.customRules.untitledWarning.textToReplace') + '»');
+            } else {
+                li5.createEl("em", { text: t('settings.customRules.untitledWarning.textToReplace') });
+            }
+            li5.appendText(t('settings.customRules.untitledWarning.part3'));
+            if (getCurrentLocale() === 'ru') {
+                li5.appendText('«' + t('settings.customRules.untitledWarning.untitled') + '»');
+            } else {
+                li5.createEl("em", { text: t('settings.customRules.untitledWarning.untitled') });
+            }
+            li5.appendText(t('settings.customRules.untitledWarning.part4'));
         };
 
         updateCustomDescriptionContent();
@@ -150,27 +167,27 @@ export class CustomReplacementsTab extends SettingsTabBase {
 
             // Header for toggle
             const enableHeader = headerRow.createDiv({ cls: "flit-enable-column" });
-            enableHeader.textContent = "Enable";
+            enableHeader.textContent = t('settings.customRules.headers.enable');
 
             // Headers for input fields
             const textToReplaceHeader = headerRow.createDiv({ cls: "flit-text-column" });
-            textToReplaceHeader.textContent = "Text to replace";
+            textToReplaceHeader.textContent = t('settings.customRules.headers.textToReplace');
 
             const replaceWithHeader = headerRow.createDiv({ cls: "flit-text-column" });
-            replaceWithHeader.textContent = "Replace with";
+            replaceWithHeader.textContent = t('settings.customRules.headers.replaceWith');
 
             // Headers for toggle switches
             const startOnlyHeader = headerRow.createDiv({ cls: "flit-toggle-column" });
             const startLine1 = startOnlyHeader.createDiv();
-            startLine1.textContent = "Only match";
+            startLine1.textContent = t('settings.customRules.headers.onlyMatchLineStart').split('\n')[0];
             const startLine2 = startOnlyHeader.createDiv();
-            startLine2.textContent = "line start";
+            startLine2.textContent = t('settings.customRules.headers.onlyMatchLineStart').split('\n')[1] || '';
 
             const wholeLineHeader = headerRow.createDiv({ cls: "flit-toggle-column" });
             const wholeLine1 = wholeLineHeader.createDiv();
-            wholeLine1.textContent = "Only match";
+            wholeLine1.textContent = t('settings.customRules.headers.onlyMatchWholeLine').split('\n')[0];
             const wholeLine2 = wholeLineHeader.createDiv();
-            wholeLine2.textContent = "whole line";
+            wholeLine2.textContent = t('settings.customRules.headers.onlyMatchWholeLine').split('\n')[1] || '';
 
             // Empty header for action buttons
             const actionsHeader = headerRow.createDiv({ cls: "flit-actions-column" });
@@ -263,7 +280,7 @@ export class CustomReplacementsTab extends SettingsTabBase {
                 // Create text input 1 container and input
                 const input1Container = rowEl.createDiv({ cls: "flit-text-column" });
                 const input1 = input1Container.createEl("input", { type: "text" });
-                input1.placeholder = "Empty";
+                input1.placeholder = t('settings.replaceCharacters.emptyPlaceholder');
                 input1.value = replacement.searchText;
                 input1.addEventListener('input', async (e) => {
                     this.plugin.settings.customReplacements[index].searchText = (e.target as HTMLInputElement).value;
@@ -278,7 +295,7 @@ export class CustomReplacementsTab extends SettingsTabBase {
                 // Create text input 2 container and input
                 const input2Container = rowEl.createDiv({ cls: "flit-text-column" });
                 const input2 = input2Container.createEl("input", { type: "text" });
-                input2.placeholder = "Empty";
+                input2.placeholder = t('settings.replaceCharacters.emptyPlaceholder');
                 input2.value = replacement.replaceText;
                 input2.addEventListener('input', async (e) => {
                     this.plugin.settings.customReplacements[index].replaceText = (e.target as HTMLInputElement).value;
@@ -344,7 +361,7 @@ export class CustomReplacementsTab extends SettingsTabBase {
                 // Create up arrow button
                 const upButton = buttonContainer.createEl("button", {
                     cls: "clickable-icon flit-nav-button",
-                    attr: { "aria-label": "Move up" }
+                    attr: { "aria-label": t('settings.customRules.moveUp') }
                 });
                 if (index === 0) {
                     upButton.classList.add('disabled');
@@ -364,7 +381,7 @@ export class CustomReplacementsTab extends SettingsTabBase {
                 // Create down arrow button
                 const downButton = buttonContainer.createEl("button", {
                     cls: "clickable-icon flit-nav-button",
-                    attr: { "aria-label": "Move down" }
+                    attr: { "aria-label": t('settings.customRules.moveDown') }
                 });
                 if (index === this.plugin.settings.customReplacements.length - 1) {
                     downButton.classList.add('disabled');
@@ -384,7 +401,7 @@ export class CustomReplacementsTab extends SettingsTabBase {
                 // Create delete button matching ExtraButton structure
                 deleteButton = buttonContainer.createEl("button", {
                     cls: "clickable-icon flit-delete-button",
-                    attr: { "aria-label": "Delete", "type": "button" }
+                    attr: { "aria-label": t('settings.customRules.delete'), "type": "button" }
                 });
                 setIcon(deleteButton, "x");
 
@@ -447,7 +464,7 @@ export class CustomReplacementsTab extends SettingsTabBase {
             // Always add the "Add replacement" button at the end
             const addButtonSetting = new Setting(customReplacementsContainer)
                 .addButton((button) => {
-                    button.setButtonText("Add replacement")
+                    button.setButtonText(t('settings.customRules.addReplacement'))
                         .onClick(async () => {
                             // Check if last entry is empty
                             const lastIndex = this.plugin.settings.customReplacements.length - 1;
@@ -511,7 +528,7 @@ export class CustomReplacementsTab extends SettingsTabBase {
 
         // Processing order section
         globalProcessingHeaderSetting = new Setting(this.containerEl)
-            .setName("Processing order")
+            .setName(t('settings.customRules.processingOrder.title'))
             .setDesc("");
 
         globalProcessingHeaderSetting.settingEl.addClass('flit-section-header');
@@ -521,14 +538,18 @@ export class CustomReplacementsTab extends SettingsTabBase {
 
         // Apply after stripping or replacing forbidden characters
         const applyAfterForbiddenSetting = new Setting(processingOrderContainer)
-            .setName("Apply after stripping or replacing forbidden characters")
+            .setName(t('settings.customRules.processingOrder.applyAfterForbidden'))
             .setDesc("");
 
         // Create styled description
         const applyAfterForbiddenDesc = applyAfterForbiddenSetting.descEl;
-        applyAfterForbiddenDesc.appendText("As set in ");
-        applyAfterForbiddenDesc.createEl("em", { text: "Replace characters" });
-        applyAfterForbiddenDesc.appendText(".");
+        applyAfterForbiddenDesc.appendText(t('settings.customRules.processingOrder.asSetInReplace.part1'));
+        if (getCurrentLocale() === 'ru') {
+            applyAfterForbiddenDesc.appendText('«' + t('settings.customRules.processingOrder.asSetInReplace.replaceCharacters') + '»');
+        } else {
+            applyAfterForbiddenDesc.createEl("em", { text: t('settings.customRules.processingOrder.asSetInReplace.replaceCharacters') });
+        }
+        applyAfterForbiddenDesc.appendText(t('settings.customRules.processingOrder.asSetInReplace.part2'));
 
         applyAfterForbiddenSetting
             .addToggle((toggle) =>
@@ -572,14 +593,18 @@ export class CustomReplacementsTab extends SettingsTabBase {
 
         // Apply after markup stripping
         markupToggleSetting = new Setting(processingOrderContainer)
-            .setName("Apply after markup stripping")
+            .setName(t('settings.customRules.processingOrder.applyAfterMarkup'))
             .setDesc("");
 
         // Create styled description
         const applyAfterMarkupDesc = markupToggleSetting.descEl;
-        applyAfterMarkupDesc.appendText("As set in ");
-        applyAfterMarkupDesc.createEl("em", { text: "Strip markup" });
-        applyAfterMarkupDesc.appendText(".");
+        applyAfterMarkupDesc.appendText(t('settings.customRules.processingOrder.asSetInStrip.part1'));
+        if (getCurrentLocale() === 'ru') {
+            applyAfterMarkupDesc.appendText('«' + t('settings.customRules.processingOrder.asSetInStrip.stripMarkup') + '»');
+        } else {
+            applyAfterMarkupDesc.createEl("em", { text: t('settings.customRules.processingOrder.asSetInStrip.stripMarkup') });
+        }
+        applyAfterMarkupDesc.appendText(t('settings.customRules.processingOrder.asSetInStrip.part2'));
 
         markupToggleSetting
             .addToggle((toggle) => {

@@ -1,6 +1,7 @@
 import { TFile, App, Platform, normalizePath } from "obsidian";
 import { PluginSettings, OSPreset } from './types';
 import { UNIVERSAL_FORBIDDEN_CHARS, WINDOWS_ANDROID_CHARS } from './constants';
+import { t } from './i18n';
 
 export function verboseLog(plugin: { settings: PluginSettings }, message: string, data?: any) {
     if (plugin.settings.verboseLogging) {
@@ -596,7 +597,7 @@ export function extractTitle(line: string, settings: PluginSettings): string {
     if (settings.stripTemplaterSyntax) {
         line = line.replace(/<%\s*tp\.file\.cursor\(\)\s*%>/, '').trim();
         if (line === "<%*") {
-            return "Untitled";
+            return t('untitled');
         }
     }
 
@@ -607,7 +608,7 @@ export function extractTitle(line: string, settings: PluginSettings): string {
     // Empty heading must: start at line beginning (no preceding chars), have 1-6 hashes, end with optional spaces
     const isEmptyHeading = /^#{1,6}\s*$/.test(originalLine);
     if (isEmptyHeading) {
-        return "Untitled";
+        return t('untitled');
     }
 
     // Handle escaped characters based on backslash replacement setting
@@ -689,7 +690,7 @@ export function extractTitle(line: string, settings: PluginSettings): string {
             // Check if only ``` (empty code block) - return Untitled
             // Don't use multiline flag - we want to match entire string, not just first line
             if (/^\s*```\s*$/.test(line)) {
-                return "Untitled";
+                return t('untitled');
             }
 
             // Match lines with optional leading whitespace followed by ```
@@ -710,7 +711,7 @@ export function extractTitle(line: string, settings: PluginSettings): string {
                 }
                 // If only found ``` inside (both first and second line are ```), return Untitled
                 if (!foundLine) {
-                    return "Untitled";
+                    return t('untitled');
                 }
             }
         }
@@ -810,7 +811,7 @@ export function extractTitle(line: string, settings: PluginSettings): string {
     // If entire line is just empty links (regular or image), return "Untitled"
     const onlyEmptyLinksRegex = /^(\s*!?\[\]\([^)]*\)\s*)+$/;
     if (onlyEmptyLinksRegex.test(line)) {
-        return "Untitled";
+        return t('untitled');
     }
 
     // Handle regular Markdown links (only if strip markdown link markup is enabled)
@@ -966,4 +967,106 @@ export function generateSafeLinkTarget(text: string, settings: PluginSettings): 
     }
 
     return result.trim();
+}
+
+/**
+ * Finds the title source line from the first non-empty line
+ * Handles special cases like card links, code blocks, and markdown tables
+ *
+ * @param firstNonEmptyLine The first non-empty line (after frontmatter)
+ * @param contentLines Array of content lines (without frontmatter)
+ * @param settings Plugin settings
+ * @param plugin Optional plugin instance for verbose logging
+ * @returns The title source line to use for filename
+ */
+export function findTitleSourceLine(
+    firstNonEmptyLine: string,
+    contentLines: string[],
+    settings: PluginSettings,
+    plugin?: { settings: PluginSettings }
+): string {
+    let titleSourceLine = firstNonEmptyLine;
+
+    // Check for markdown table rows - use "Table" as title if stripTableMarkup is enabled
+    if (settings.stripTableMarkup) {
+        // Table rows have at least 3 pipes (e.g. | col1 | col2 | creates 2 columns with 3 pipes)
+        const pipeCount = (titleSourceLine.match(/\|/g) || []).length;
+        if (pipeCount >= 3) {
+            titleSourceLine = t('table');
+            if (plugin) {
+                verboseLog(plugin, `Table row detected, using "${t('table')}" as title`);
+            }
+        }
+    }
+
+    // Check for card links if enabled - extract title from card link
+    if (settings.grabTitleFromCardLink) {
+        const cardLinkMatch = titleSourceLine.trim().match(/^```(embed|cardlink)$/);
+        if (cardLinkMatch) {
+            // Found embed or cardlink, parse lines until we find title: or closing ```
+            let foundTitle = false;
+            const maxLinesToCheck = 20;
+            let nonEmptyCount = 0;
+
+            for (let i = 0; i < Math.min(contentLines.length, maxLinesToCheck); i++) {
+                const line = contentLines[i].trim();
+                if (line === '') continue;
+
+                nonEmptyCount++;
+                // Skip first non-empty line (the opening ```embed/```cardlink)
+                if (nonEmptyCount === 1) continue;
+
+                if (nonEmptyCount > 10) break;
+
+                // Look for title: field
+                if (line.toLowerCase().startsWith('title:')) {
+                    let title = line.substring(line.indexOf(':') + 1).trim();
+                    // Remove surrounding quotes if present
+                    if ((title.startsWith('"') && title.endsWith('"')) || (title.startsWith("'") && title.endsWith("'"))) {
+                        title = title.substring(1, title.length - 1);
+                    }
+                    titleSourceLine = title;
+                    foundTitle = true;
+                    if (plugin) {
+                        verboseLog(plugin, `Found ${cardLinkMatch[1]} card link`, { title: titleSourceLine });
+                    }
+                    break;
+                }
+                // Check for closing ``` before finding title
+                if (line.startsWith('```')) {
+                    titleSourceLine = t('untitled');
+                    if (plugin) {
+                        verboseLog(plugin, `Card link has no title, using ${t('untitled')}`);
+                    }
+                    break;
+                }
+            }
+            if (!foundTitle && titleSourceLine !== t('untitled')) {
+                // Reached limit without finding title or closing
+                titleSourceLine = t('untitled');
+            }
+        }
+    }
+
+    // Check for code blocks - use second line if first line is a code fence
+    const trimmedTitleSourceLine = titleSourceLine.trim();
+    if (trimmedTitleSourceLine.startsWith('```') && !trimmedTitleSourceLine.match(/^```(embed|cardlink)$/)) {
+        // First line is a code fence (not card link), extract second non-empty line
+        let nonEmptyCount = 0;
+        for (const line of contentLines) {
+            if (line.trim() !== '') {
+                nonEmptyCount++;
+                // Skip first non-empty line (the code fence)
+                if (nonEmptyCount === 2) {
+                    titleSourceLine = line;
+                    if (plugin) {
+                        verboseLog(plugin, `Code block detected, using second line as title source: ${titleSourceLine}`);
+                    }
+                    break;
+                }
+            }
+        }
+    }
+
+    return titleSourceLine;
 }

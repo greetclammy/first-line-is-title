@@ -6,13 +6,13 @@ import FirstLineIsTitle from '../../main';
  * EditorLifecycleManager
  *
  * Manages editor state tracking and polling/checking systems for detecting
- * first line changes in active editors.
+ * content changes in active editors.
  *
  * Responsibilities:
- * - Track open editors and their first line content
+ * - Track open editors and their content state
  * - Poll active editors for changes (interval-based)
  * - Immediate change detection (event-based)
- * - Manage editor lifecycle events
+ * - Manage editor lifecycle events (create, modify, close)
  */
 export class EditorLifecycleManager {
     private plugin: FirstLineIsTitle;
@@ -25,7 +25,7 @@ export class EditorLifecycleManager {
     private checkTimer: NodeJS.Timeout | null = null;
 
     // Track active editors for tab close detection
-    private activeEditorFiles = new Map<string, { file: TFile, editor: any, lastFirstLine: string, leafId: string }>();
+    private activeEditorFiles = new Map<string, { file: TFile, editor: any, leafId: string }>();
 
     // Throttle timer system for checkInterval > 0
     private throttleTimers = new Map<string, NodeJS.Timeout>();
@@ -33,8 +33,14 @@ export class EditorLifecycleManager {
     // Track files in creation delay period with their timer references
     private creationDelayTimers = new Map<string, NodeJS.Timeout>();
 
+    // Track view readiness check timers (for CREATE event)
+    private viewReadinessTimers = new Map<string, NodeJS.Timeout>();
+
     // Track files that were just processed on tab close to prevent duplicate processing
     private recentlyProcessedCloses = new Set<string>();
+
+    // Track last focused file for rename-on-focus detection
+    private lastFocusedFile: string | null = null;
 
     constructor(plugin: FirstLineIsTitle) {
         this.plugin = plugin;
@@ -81,6 +87,26 @@ export class EditorLifecycleManager {
      */
     isFileInCreationDelay(filePath: string): boolean {
         return this.creationDelayTimers.has(filePath);
+    }
+
+    /**
+     * Set view readiness timer for a file
+     */
+    setViewReadinessTimer(filePath: string, timer: NodeJS.Timeout): void {
+        this.viewReadinessTimers.set(filePath, timer);
+        verboseLog(this.plugin, `Set view readiness timer for: ${filePath}`);
+    }
+
+    /**
+     * Clear view readiness timer for a file
+     */
+    clearViewReadinessTimer(filePath: string): void {
+        const timer = this.viewReadinessTimers.get(filePath);
+        if (timer) {
+            clearTimeout(timer);
+            this.viewReadinessTimers.delete(filePath);
+            verboseLog(this.plugin, `Cleared view readiness timer for: ${filePath}`);
+        }
     }
 
     /**
@@ -143,7 +169,7 @@ export class EditorLifecycleManager {
      */
     async updateActiveEditorTracking(): Promise<void> {
         const markdownViews = this.app.workspace.getLeavesOfType("markdown");
-        const newActiveFiles = new Map<string, { file: TFile, editor: any, lastFirstLine: string, leafId: string }>();
+        const newActiveFiles = new Map<string, { file: TFile, editor: any, leafId: string }>();
 
         // Track which leafIds are currently active
         const activeLeafIds = new Set<string>();
@@ -156,13 +182,9 @@ export class EditorLifecycleManager {
                     const leafId = leaf.id;
                     activeLeafIds.add(leafId);
 
-                    const firstLine = this.extractFirstLineFromEditor(view.editor, view.file);
-                    const existing = this.activeEditorFiles.get(view.file.path);
-
                     newActiveFiles.set(view.file.path, {
                         file: view.file,
                         editor: view.editor,
-                        lastFirstLine: existing?.lastFirstLine || firstLine,
                         leafId: leafId
                     });
                 } catch (error) {
@@ -238,11 +260,31 @@ export class EditorLifecycleManager {
 
         this.activeEditorFiles = newActiveFiles;
         verboseLog(this.plugin, `Tracking ${this.activeEditorFiles.size} active editor files for tab close detection`);
+
+        // Handle rename-on-focus: detect when active file changes
+        if (this.settings.renameOnFocus && this.isFullyLoaded) {
+            const currentActiveFile = this.app.workspace.getActiveFile();
+            if (currentActiveFile && currentActiveFile.extension === 'md') {
+                const currentPath = currentActiveFile.path;
+
+                // Only process if the focused file actually changed
+                if (currentPath !== this.lastFocusedFile) {
+                    this.lastFocusedFile = currentPath;
+
+                    verboseLog(this.plugin, `File focused: ${currentPath}`);
+
+                    // Process file with rename-on-focus (async but don't await to avoid blocking)
+                    this.renameEngine.processFile(currentActiveFile, true).catch(error => {
+                        console.error(`Error processing rename-on-focus for ${currentPath}:`, error);
+                    });
+                }
+            }
+        }
     }
 
     /**
      * Handle editor change with throttle for checkInterval > 0
-     * Only starts timer if first line actually changed from last known state
+     * Policy: Process on ANY content change, not just first line changes
      */
     handleEditorChangeWithThrottle(editor: any, file: TFile): void {
         const filePath = file.path;
@@ -251,37 +293,6 @@ export class EditorLifecycleManager {
         if (this.isFileInCreationDelay(filePath)) {
             verboseLog(this.plugin, `File in creation delay, skipping throttle: ${filePath}`);
             return;
-        }
-
-        // Get current first line
-        const currentFirstLine = this.extractFirstLineFromEditor(editor, file);
-
-        // Get last known first line from tracking
-        let tracked = this.activeEditorFiles.get(filePath);
-
-        // If file not tracked yet (first change event before workspace event), initialize it now
-        if (!tracked) {
-            tracked = {
-                file: file,
-                editor: editor,
-                lastFirstLine: currentFirstLine,
-                leafId: '' // Will be set properly by updateActiveEditorTracking
-            };
-            this.activeEditorFiles.set(filePath, tracked);
-            verboseLog(this.plugin, `Initialized tracking on first editor change for ${filePath}: "${currentFirstLine}"`);
-        }
-
-        const lastFirstLine = tracked.lastFirstLine;
-
-        // If first line hasn't changed, skip throttle
-        if (lastFirstLine !== undefined && lastFirstLine === currentFirstLine) {
-            verboseLog(this.plugin, `First line unchanged for ${filePath}, skipping throttle`);
-            return;
-        }
-
-        // First line changed - update tracking
-        if (tracked) {
-            tracked.lastFirstLine = currentFirstLine;
         }
 
         // Check if timer already running for this file
@@ -322,19 +333,9 @@ export class EditorLifecycleManager {
     }
 
     /**
-     * Update lastFirstLine for a file after processing
-     * Called after rename completes to sync tracking state
-     */
-    updateLastFirstLine(filePath: string, firstLine: string): void {
-        const tracked = this.activeEditorFiles.get(filePath);
-        if (tracked) {
-            tracked.lastFirstLine = firstLine;
-            verboseLog(this.plugin, `Updated lastFirstLine for ${filePath}: "${firstLine}"`);
-        }
-    }
-
-    /**
      * Clear all checking systems and state
+     * Note: Does NOT clear creation delay timers or view readiness timers
+     * as those need to persist across initialization
      */
     clearCheckingSystems(): void {
         // Clear old interval system (kept for backward compatibility)
@@ -349,11 +350,8 @@ export class EditorLifecycleManager {
         }
         this.throttleTimers.clear();
 
-        // Clear creation delay timers
-        for (const timer of this.creationDelayTimers.values()) {
-            clearTimeout(timer);
-        }
-        this.creationDelayTimers.clear();
+        // DO NOT clear creation delay timers - they must persist across initialization
+        // DO NOT clear view readiness timers - they must persist across initialization
 
         this.activeEditorFiles.clear();
         this.pendingChecks.clear();
@@ -451,7 +449,7 @@ export class EditorLifecycleManager {
     /**
      * Get active editor files map (for external access)
      */
-    getActiveEditorFiles(): Map<string, { file: TFile, editor: any, lastFirstLine: string, leafId: string }> {
+    getActiveEditorFiles(): Map<string, { file: TFile, editor: any, leafId: string }> {
         return this.activeEditorFiles;
     }
 }

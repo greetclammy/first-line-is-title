@@ -1,5 +1,6 @@
 import { TFile, MarkdownView, setIcon, Notice } from "obsidian";
 import { verboseLog } from '../utils';
+import { t } from '../i18n';
 import FirstLineIsTitle from '../../main';
 
 /**
@@ -50,7 +51,7 @@ export class WorkspaceIntegration {
         const commandIcons = new Map([
             ['Put first line in title', 'file-pen'],
             ['Put first line in title (unless excluded)', 'file-pen'],
-            ['Put first line in title in all notes', 'files'],
+            ['Put first line in title in all notes', 'file-stack'],
             ['Disable renaming for note', 'square-x'],
             ['Enable renaming for note', 'square-check']
         ]);
@@ -119,13 +120,13 @@ export class WorkspaceIntegration {
             {
                 condition: this.settings.ribbonVisibility.renameCurrentFile,
                 icon: 'file-pen',
-                title: 'Put first line in title',
+                title: t('commands.putFirstLineInTitle'),
                 callback: () => this.plugin.commandRegistrar.executeRenameCurrentFile()
             },
             {
                 condition: this.settings.ribbonVisibility.renameAllNotes,
-                icon: 'files',
-                title: 'Put first line in title in all notes',
+                icon: 'file-stack',
+                title: t('commands.putFirstLineInTitleAllNotes'),
                 callback: () => {
                     const { RenameAllFilesModal } = require('../modals');
                     new RenameAllFilesModal(this.app, this.plugin).open();
@@ -134,7 +135,7 @@ export class WorkspaceIntegration {
             {
                 condition: this.settings.ribbonVisibility.toggleAutomaticRenaming,
                 icon: 'file-cog',
-                title: 'Toggle automatic renaming',
+                title: t('commands.toggleAutomaticRenaming'),
                 callback: () => this.plugin.commandRegistrar.executeToggleAutomaticRenaming()
             }
         ];
@@ -226,15 +227,18 @@ export class WorkspaceIntegration {
                 verboseLog(plugin, `CREATE: New file created, processing in ${settings.newNoteDelay}ms: ${file.name}`);
 
                 // Check if title will be skipped (early detection)
-                const untitledPattern = /^Untitled(\s[1-9]\d*)?$/;
+                const untitledWord = t('untitled').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                const untitledPattern = new RegExp(`^${untitledWord}(\\s[1-9]\\d*)?$`);
                 const isUntitled = untitledPattern.test(file.basename);
 
                 // Step 1: Move cursor based on waitForCursorTemplate setting
-                if (settings.renameNotes === "automatically" && settings.moveCursorToFirstLine) {
+                if (settings.moveCursorToFirstLine) {
                     // If waitForCursorTemplate is OFF, move cursor immediately
                     if (!settings.waitForCursorTemplate) {
-                        // Check if file is excluded from processing (folder/tag/property exclusions)
-                        const isExcluded = await plugin.fileOperations.isFileExcludedForCursorPositioning(file, initialContent);
+                        // Check if file is excluded from processing
+                        // When disableCursorInExcludedFolders is OFF: only check tag/property exclusions (skip folder check)
+                        // When disableCursorInExcludedFolders is ON: check all exclusions including folders
+                        const isExcluded = await plugin.fileOperations.isFileExcludedForCursorPositioning(file, initialContent, !settings.disableCursorInExcludedFolders);
 
                         if (!isExcluded) {
                             const activeView = app.workspace.getActiveViewOfType(MarkdownView);
@@ -279,8 +283,10 @@ export class WorkspaceIntegration {
                         // Store template content for title insertion to avoid re-waiting
                         (file as TFile & { _flitTemplateContent?: string })._flitTemplateContent = currentContent;
 
-                        // Check exclusions with current content (may have template tags/properties)
-                        const isExcluded = await plugin.fileOperations.isFileExcludedForCursorPositioning(file, currentContent);
+                        // Check exclusions with current content
+                        // When disableCursorInExcludedFolders is OFF: only check tag/property exclusions (skip folder check)
+                        // When disableCursorInExcludedFolders is ON: check all exclusions including folders
+                        const isExcluded = await plugin.fileOperations.isFileExcludedForCursorPositioning(file, currentContent, !settings.disableCursorInExcludedFolders);
 
                         if (!isExcluded) {
                             const activeView = app.workspace.getActiveViewOfType(MarkdownView);
@@ -316,7 +322,9 @@ export class WorkspaceIntegration {
                             // This ensures we don't insert title in excluded folders/tags/properties
                             let skipTitleDueToExclusion = false;
                             if (settings.waitForTemplate && templateContent) {
-                                const isExcluded = await plugin.fileOperations.isFileExcludedForCursorPositioning(file, templateContent);
+                                // When disableCursorInExcludedFolders is OFF: only check tag/property exclusions (skip folder check)
+                                // When disableCursorInExcludedFolders is ON: check all exclusions including folders
+                                const isExcluded = await plugin.fileOperations.isFileExcludedForCursorPositioning(file, templateContent, !settings.disableCursorInExcludedFolders);
                                 if (isExcluded) {
                                     verboseLog(plugin, `Skipping title insertion - file is excluded: ${file.path}`);
                                     skipTitleDueToExclusion = true;
@@ -330,7 +338,7 @@ export class WorkspaceIntegration {
                         }
 
                         // Step 3: Reposition cursor if title was inserted and placeCursorAtLineEnd is ON
-                        if (settings.renameNotes === "automatically" && settings.moveCursorToFirstLine) {
+                        if (settings.moveCursorToFirstLine) {
                             // Reposition to end of title if title was inserted and placeCursorAtLineEnd is ON
                             if (titleWasInserted && settings.placeCursorAtLineEnd) {
                                 // Get current content after title insertion
@@ -345,7 +353,9 @@ export class WorkspaceIntegration {
                                 }
 
                                 // Check exclusion after title insertion
-                                const isExcluded = await plugin.fileOperations.isFileExcludedForCursorPositioning(file, currentContent);
+                                // When disableCursorInExcludedFolders is OFF: only check tag/property exclusions (skip folder check)
+                                // When disableCursorInExcludedFolders is ON: check all exclusions including folders
+                                const isExcluded = await plugin.fileOperations.isFileExcludedForCursorPositioning(file, currentContent, !settings.disableCursorInExcludedFolders);
 
                                 if (!isExcluded) {
                                     const activeView = app.workspace.getActiveViewOfType(MarkdownView);
@@ -416,7 +426,7 @@ export class WorkspaceIntegration {
                     await processFileCreation();
                 } else {
                     // View not ready, wait and retry
-                    setTimeout(async () => {
+                    const timer = setTimeout(async () => {
                         const delayedCheck = await checkViewReady();
                         if (delayedCheck) {
                             // Process after view is ready
@@ -424,7 +434,9 @@ export class WorkspaceIntegration {
                         } else {
                             verboseLog(plugin, `CREATE: No markdown view found for ${file.name} after delay, skipping`);
                         }
+                        plugin.editorLifecycle.clearViewReadinessTimer(file.path);
                     }, 100);
+                    plugin.editorLifecycle.setViewReadinessTimer(file.path, timer);
                 }
             })
         );

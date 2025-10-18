@@ -1,0 +1,680 @@
+{
+  "untitled": "Untitled",
+  "table": "Table",
+  "commands": {
+    "putFirstLineInTitle": "Put first line in title",
+    "putFirstLineInTitleUnlessExcluded": "Put first line in title (unless excluded)",
+    "putFirstLineInTitleAllNotes": "Put first line in title in all notes",
+    "disableRenamingForNote": "Disable renaming for note",
+    "enableRenamingForNote": "Enable renaming for note",
+    "disableRenamingInFolder": "Disable renaming in folder",
+    "enableRenamingInFolder": "Enable renaming in folder",
+    "disableRenamingForTag": "Disable renaming for tag",
+    "enableRenamingForTag": "Enable renaming for tag",
+    "disableRenaming": "Disable renaming",
+    "enableRenaming": "Enable renaming",
+    "toggleAutomaticRenaming": "Toggle automatic renaming",
+    "addSafeInternalLink": "Add safe internal link",
+    "addSafeInternalLinkWithCaption": "Add safe internal link with caption",
+    "putFirstLineInTitleNFolders": {
+      "many": "Put first line in title ({{count}} folders)"
+    },
+    "disableRenamingNFolders": {
+      "many": "Disable renaming ({{count}} folders)"
+    },
+    "enableRenamingNFolders": {
+      "many": "Enable renaming ({{count}} folders)"
+    },
+    "putFirstLineInTitleNNotes": {
+      "many": "Put first line in title ({{count}} notes)"
+    },
+    "disableRenamingNNotes": {
+      "many": "Disable renaming ({{count}} notes)"
+    },
+    "enableRenamingNNotes": {
+      "many": "Enable renaming ({{count}} notes)"
+    },
+    "descriptions": {
+      "renameActiveNoteEvenExcluded": "Rename active note, even if in excluded folder or with excluded tag or property.",
+      "renameActiveNoteUnlessExcluded": "Rename active note except if in excluded folder or with excluded tag or property.",
+      "renameAllNotesExceptExcluded": "Rename all notes in vault except if in excluded folder or with excluded tag or property.",
+      "toggleRenameSetting": {
+        "part1": "Toggle the ",
+        "renameNotes": "Rename notes",
+        "part2": " setting between ",
+        "automatically": "Automatically",
+        "part3": " and ",
+        "manually": "Manually",
+        "part4": "."
+      },
+      "excludeActiveNote": "Exclude active note from renaming.",
+      "stopExcludingActiveNote": "Stop excluding active note from renaming.",
+      "createLinkWithForbiddenChars": {
+        "part1": "Create internal link with forbidden characters handled as set in ",
+        "replaceCharacters": "Replace characters",
+        "part2": "."
+      },
+      "createLinkWithValidPath": {
+        "part1": "Create internal link with forbidden characters handled as set in ",
+        "replaceCharacters": "Replace characters",
+        "part2": ", and with original text in caption."
+      },
+      "renameNoteEvenExcluded": "Rename note, even if in excluded folder or with excluded tag.",
+      "excludeNote": "Exclude note from renaming.",
+      "stopExcludingNote": "Stop excluding note from renaming.",
+      "renameAllNotesInFolder": "Rename all notes in folder.",
+      "excludeFolder": "Exclude folder from renaming.",
+      "stopExcludingFolder": "Stop excluding folder from renaming.",
+      "renameAllNotesWithTag": "Rename all notes with tag.",
+      "excludeTag": "Exclude tag from renaming.",
+      "stopExcludingTag": "Stop excluding tag from renaming.",
+      "renameAllNotesInSearchResults": "Rename all notes in search results.",
+      "excludeAllNotesInSearchResults": "Exclude all notes in search results.",
+      "stopExcludingAllNotesInSearchResults": "Stop excluding all notes in search results from renaming."
+    }
+  },
+  "notifications": {
+    "errorNoActiveNote": "Error: no active note.",
+    "renamingNNotes": "Renaming {{count}} notes...",
+    "renamedNotes": "Renamed {{renamed}}/{{total}} notes.",
+    "renamedNotesWithErrors": "Renamed {{renamed}}/{{total}} notes with {{errors}} errors. Check console for details.",
+    "noNotesFoundWithTag": "No notes found with #{{tag}}.",
+    "noNotesFoundInFolders": "No notes found in selected folders.",
+    "disabledRenamingFor": "Disabled renaming for: {{filename}}",
+    "failedToDisable": "Failed to disable renaming. Check console for details.",
+    "enabledRenamingFor": "Enabled renaming for: {{filename}}",
+    "failedToEnable": "Failed to enable renaming. Check console for details.",
+    "automaticRenamingEnabled": "Automatic renaming enabled.",
+    "automaticRenamingDisabled": "Automatic renaming disabled.",
+    "settingsCleared": "Settings have been cleared.",
+    "firstTimeNotice": "Please open First Line is Title settings to set your preferences. Ensure your files are regularly backed up.",
+    "disabledRenamingForNNotes": "Disabled renaming for {{count}} notes.",
+    "enabledRenamingForNNotes": "Enabled renaming for {{count}} notes.",
+    "renamedTo": "Renamed to: {{filename}}",
+    "notRenamedSelfReference": "Note not renamed due to self-referential link in first line: {{filename}}",
+    "noNotesFoundInFolder": "No notes found in: {{folder}}",
+    "disabledRenamingInFolder": "Disabled renaming in: {{folder}}",
+    "enabledRenamingInFolder": "Enabled renaming in: {{folder}}",
+    "enabledRenamingInNFolders": "Enabled renaming in {{count}} folders.",
+    "disabledRenamingInNFolders": "Disabled renaming in {{count}} folders."
+  },
+  "modals": {
+    "caution": "Caution",
+    "processNNotes": {
+      "one": {
+        "before": "This will process ",
+        "noun": "note",
+        "after": "."
+      },
+      "many": {
+        "before": "This will process ",
+        "noun": "notes",
+        "after": "."
+      }
+    },
+    "ensure": "Ensure:",
+    "filesBackedUp": "Your files are backed up in case of errors.",
+    "exclusionsConfigured": "Excluded folders, tags and properties are configured correctly in plugin settings.",
+    "ensureFilesBackedUp": "Ensure your files are backed up in case of errors.",
+    "renameInAllSubfolders": "Rename notes in all subfolders",
+    "renameInExcludedFolders": "Rename notes in excluded folders",
+    "renameWithExcludedTags": "Rename notes with excluded tags",
+    "renameWithExcludedProperties": "Rename notes with excluded properties",
+    "renameWithChildTags": "Rename notes with child tags (e.g., #parent/child)",
+    "resetAllSettings": "This will reset all plugin settings to their default values and delete all custom rules. This cannot be undone.",
+    "addRemoveProperty": "This will add/remove the key:value property in {{count}} note(s).",
+    "disableEnableAddProperty": "This will add the property ",
+    "disableEnableRemoveProperty": "This will remove the property ",
+    "propertyTo": " to ",
+    "propertyFrom": " from ",
+    "internalLink": "Internal link",
+    "enterText": "Enter text...",
+    "backedUpLinkText": "backed up",
+    "processNotesMessage": {
+      "one": {
+        "before": "This will process ",
+        "noun": "note",
+        "after": "."
+      },
+      "many": {
+        "before": "This will process ",
+        "noun": "notes",
+        "after": "."
+      }
+    },
+    "ensureBackup": "Ensure your files are backed up in case of errors.",
+    "propertyIn": " property in ",
+    "note": "note",
+    "noteFew": "notes",
+    "notes": "notes",
+    "notesPrepositional": "notes",
+    "buttons": {
+      "cancel": "Cancel",
+      "rename": "Rename",
+      "clearSettings": "Clear",
+      "disable": "Disable",
+      "enable": "Enable",
+      "add": "Add"
+    }
+  },
+  "ariaLabels": {
+    "restoreDefault": "Restore default",
+    "restoreDefaultContentRead": "Restore default content read method",
+    "remove": "Remove"
+  },
+  "settings": {
+    "tabs": {
+      "general": "General",
+      "exclusions": "Exclusions",
+      "replaceCharacters": "Replace characters",
+      "customRules": "Custom rules",
+      "safewords": "Safewords",
+      "stripMarkup": "Strip markup",
+      "alias": "Alias",
+      "commands": "Commands",
+      "miscellaneous": "Miscellaneous"
+    },
+    "general": {
+      "renameNotes": {
+        "name": "Rename notes",
+        "desc": "Set how notes should be processed.",
+        "automatically": "Automatically when modified while open",
+        "manually": "Manually with command only"
+      },
+      "renameOnFocus": {
+        "name": "Rename on focus",
+        "desc": "Also process notes when they become active in the editor."
+      },
+      "whatToPutInTitle": {
+        "name": "What to put in title",
+        "desc": "Set what first line content should be copied to filename.",
+        "anyText": "Any text",
+        "headingsOnly": "Headings only"
+      },
+      "moveCursorToFirstLine": {
+        "name": "Move cursor to first line",
+        "desc": "Place the cursor in the first line when creating a new note."
+      },
+      "placeCursorAtLineEnd": {
+        "name": "Place cursor at line end",
+        "desc": "When moving the cursor to a first line with content, place it at the end of the line instead of the start."
+      },
+      "disableInExcludedFolders": {
+        "name": "Disable in excluded folders",
+        "desc": "Don't move the cursor when creating notes in excluded folders."
+      },
+      "waitForTemplate": {
+        "name": "Wait for template",
+        "desc": "Move the cursor after a new note template is applied and it does not have an excluded tag or property."
+      },
+      "insertTitleOnCreation": {
+        "name": "Insert title in first line on note creation",
+        "desc": {
+          "part1": "Place the filename in the first line when creating a new empty note (unless ",
+          "untitled": "Untitled",
+          "part2": "). Convert forbidden character replacements back to their original forms, as set in ",
+          "replaceCharacters": "Replace characters",
+          "part3": "."
+        }
+      },
+      "insertAfterTemplate": {
+        "name": "Insert after template",
+        "desc": "Let a new note template insert a Properties block before inserting the filename."
+      },
+      "formatAsHeading": {
+        "name": "Format as heading",
+        "desc": "Make the first line a heading."
+      },
+      "renameOnSave": {
+        "name": "Rename on save",
+        "desc": "Rename notes on manual save (Ctrl/Cmd-S on desktop by default)."
+      },
+      "renameAllNotes": {
+        "name": "Rename all notes",
+        "desc": "Process all notes in the vault. Can also be run from the Command palette.",
+        "button": "Rename"
+      },
+      "leaveFeedback": "Leave feedback"
+    },
+    "exclusions": {
+      "desc": "Set how notes should be excluded from processing.",
+      "note": "Note: rules don't override other rules. For example, a note in excluded folder but with included tag will not be processed.",
+      "folders": {
+        "title": "Folders",
+        "desc": "Set folders to match.",
+        "renamedWarning": "Renamed, moved or deleted folders are not reflected below. Update manually if paths change.",
+        "matchSubfolders": {
+          "name": "Match subfolders",
+          "desc": "Also apply to all subfolders of folders listed below."
+        },
+        "exclusionMode": {
+          "name": "Exclusion mode",
+          "desc": "Set how folders should be excluded.",
+          "onlyExclude": "Only exclude...",
+          "excludeAllExcept": "Exclude all except..."
+        },
+        "placeholder": "Folder name",
+        "addButton": "Add folder"
+      },
+      "tags": {
+        "title": "Tags",
+        "desc": "Set tags to match.",
+        "excludeAllNote": {
+          "part1": "",
+          "excludeAllExcept": "Exclude all except...",
+          "part2": " also excludes notes with no tags."
+        },
+        "tagWranglerWarning": "Tags renamed with Tag Wrangler are not reflected below. Update manually after renaming.",
+        "matchTags": {
+          "name": "Match tags",
+          "desc": "Set where tags should be matched.",
+          "inPropertiesAndBody": "In Properties and note body",
+          "inPropertiesOnly": "In Properties only",
+          "inBodyOnly": "In note body only"
+        },
+        "matchChildTags": {
+          "name": "Match child tags",
+          "desc": "For example, also match #parent/child if #parent is listed below."
+        },
+        "exclusionMode": {
+          "name": "Exclusion mode",
+          "desc": "Set how tags should be excluded."
+        },
+        "placeholder": "Tag name",
+        "addButton": "Add tag"
+      },
+      "properties": {
+        "title": "Properties",
+        "desc": "Set properties to match.",
+        "leaveBlank": {
+          "part1": "Leave ",
+          "value": "value",
+          "part2": " blank to match all notes with this property key."
+        },
+        "caseInsensitive": "Case-insensitive.",
+        "excludeAllNote": {
+          "part1": "",
+          "excludeAllExcept": "Exclude all except...",
+          "part2": " also excludes notes with no properties."
+        },
+        "renamedWarning": "Renamed property keys aren't reflected below. Update manually after renaming.",
+        "exclusionMode": {
+          "name": "Exclusion mode",
+          "desc": "Set how properties should be excluded."
+        },
+        "keyPlaceholder": "key",
+        "valuePlaceholder": "value",
+        "separator": ":",
+        "addButton": "Add property"
+      },
+      "disableProperty": {
+        "title": "Property to disable renaming",
+        "desc": "Set the property to exclude notes from processing.",
+        "alwaysRespected": "Always respected — cannot get overridden by any command.",
+        "caseInsensitive": "Case-insensitive.",
+        "updateWarning": "Changing this will not automatically update properties that have been previously added to notes. Update manually after changing.",
+        "default": "Default: no rename:true"
+      }
+    },
+    "alias": {
+      "addAlias": {
+        "name": "Add alias",
+        "desc": "Always copy the first line to a property when renaming notes."
+      },
+      "aliasPropertyName": {
+        "name": "Alias property name",
+        "desc": "Set the property key in which to insert the alias.",
+        "quickSwitcher": "Use 'aliases' to make the alias searchable in the Quick switcher.",
+        "multipleProperties": "To populate multiple properties, separate by comma (e.g., 'aliases, title').",
+        "noteTitle": {
+          "part1": "This property can be set as note title in ",
+          "part2": ", ",
+          "part3": " and ",
+          "part4": "."
+        },
+        "default": "Default: aliases"
+      },
+      "onlyAddIfDiffers": {
+        "name": "Only add alias if first line differs from title",
+        "desc": "For example, if the filename was truncated, or some characters have been omitted or replaced."
+      },
+      "truncateAlias": {
+        "name": "Truncate alias",
+        "desc": {
+          "part1": "In accordance with the ",
+          "charCount": "Character count",
+          "part2": " value in ",
+          "miscellaneous": "Miscellaneous",
+          "part3": "."
+        }
+      },
+      "applyCustomRules": {
+        "name": "Apply custom rules",
+        "desc": {
+          "part1": "Apply custom text replacements to alias, as set in ",
+          "customRules": "Custom rules",
+          "part2": "."
+        }
+      },
+      "stripMarkup": {
+        "name": "Strip markup",
+        "desc": {
+          "part1": "Omit markup syntax in alias, as set in ",
+          "stripMarkup": "Strip markup",
+          "part2": "."
+        }
+      },
+      "keepEmptyProperty": {
+        "name": "Keep empty alias property",
+        "desc": "When the plugin removes the first line alias and no other aliases remain, keep the empty property rather than delete it."
+      },
+      "hideProperty": {
+        "name": "Hide alias property",
+        "desc": "Hide the alias property in Reading view and Live Preview. Will always remain visible in Source view.",
+        "never": "Never",
+        "onlyWhenEmpty": "Only when empty",
+        "always": "Always"
+      },
+      "hideInSidebar": {
+        "name": "Hide in sidebar",
+        "desc": "Also hide the property in the properties sidebar."
+      },
+      "hideMergeNotifications": {
+        "name": "Hide merge notifications",
+        "desc": "Suppress notifications about files being modified externally and merged automatically."
+      },
+      "limitations": {
+        "title": "Limitations",
+        "desc": {
+          "part1": "First line alias can be unreliable if editing in a page preview. Using ",
+          "part2": " is recommended."
+        }
+      }
+    },
+    "replaceCharacters": {
+      "name": "Replace forbidden characters",
+      "desc": "Set replacements for characters which are not allowed in filenames. Forbidden characters are omitted entirely if disabled.",
+      "allOSes": {
+        "title": "All OSes",
+        "desc": "Replace characters that are forbidden in Obsidian filenames on all OSes.",
+        "note": {
+          "part1": "Use ",
+          "trimLeft": "Trim left",
+          "part2": " to remove preceding whitespace. Use ",
+          "trimRight": "Trim right",
+          "part3": " to remove whitespace that follows."
+        }
+      },
+      "windowsAndroid": {
+        "title": "Windows/Android",
+        "desc": "Replace characters that are forbidden in Obsidian filenames on Windows and Android only."
+      },
+      "headers": {
+        "enable": "Enable",
+        "character": "Character",
+        "replaceWith": "Replace with",
+        "trimLeft": "Trim left",
+        "trimRight": "Trim right"
+      },
+      "characters": {
+        "leftBracket": "Left bracket [",
+        "rightBracket": "Right bracket ]",
+        "hash": "Hash #",
+        "caret": "Caret ^",
+        "pipe": "Pipe |",
+        "backslash": "Backslash \\",
+        "forwardSlash": "Forward slash /",
+        "colon": "Colon :",
+        "dot": "Dot .",
+        "dotNote": "Note: the dot is forbidden at filename start only.",
+        "asterisk": "Asterisk *",
+        "quote": "Quote \"",
+        "lessThan": "Less than <",
+        "greaterThan": "Greater than >",
+        "questionMark": "Question mark ?"
+      },
+      "emptyPlaceholder": "Empty",
+      "restoreDefault": "Restore default"
+    },
+    "customRules": {
+      "name": "Enable custom rules",
+      "desc": "Set custom text replacements.",
+      "rulesAppliedSequentially": "Rules are applied sequentially from top to bottom.",
+      "whitespacePreserved": "Whitespace preserved.",
+      "leaveBlank": {
+        "part1": "Leave ",
+        "replaceWith": "Replace with",
+        "part2": " blank to omit text entirely."
+      },
+      "untitledWarning": {
+        "part1": "If ",
+        "replaceWith": "Replace with",
+        "part2": " is blank and ",
+        "textToReplace": "Text to replace",
+        "part3": " matches the whole line, the filename becomes ",
+        "untitled": "Untitled",
+        "part4": "."
+      },
+      "headers": {
+        "enable": "Enable",
+        "textToReplace": "Text to replace",
+        "replaceWith": "Replace with",
+        "onlyMatchLineStart": "Only match line start",
+        "onlyMatchWholeLine": "Only match whole line"
+      },
+      "moveUp": "Move up",
+      "moveDown": "Move down",
+      "delete": "Delete",
+      "addReplacement": "Add replacement",
+      "processingOrder": {
+        "title": "Processing order",
+        "applyAfterForbidden": "Apply after stripping or replacing forbidden characters",
+        "asSetInReplace": {
+          "part1": "As set in ",
+          "replaceCharacters": "Replace characters",
+          "part2": "."
+        },
+        "applyAfterMarkup": "Apply after markup stripping",
+        "asSetInStrip": {
+          "part1": "As set in ",
+          "stripMarkup": "Strip markup",
+          "part2": "."
+        }
+      }
+    },
+    "stripMarkup": {
+      "name": "Strip markup",
+      "desc": "Omit markup syntax in filenames.",
+      "headings": {
+        "name": "Strip heading markup",
+        "desc": "For example, turn ### Hello into Hello."
+      },
+      "bold": {
+        "name": "Strip bold markup",
+        "desc": "For example, turn **Hello** or __Hello__ into Hello."
+      },
+      "italic": {
+        "name": "Strip italic markup",
+        "desc": "For example, turn *Hello* or _Hello_ into Hello."
+      },
+      "strikethrough": {
+        "name": "Strip strikethrough markup",
+        "desc": "For example, turn ~~Hello~~ into Hello."
+      },
+      "highlight": {
+        "name": "Strip highlight markup",
+        "desc": "For example, turn ==Hello== into Hello."
+      },
+      "wikilinks": {
+        "name": "Strip wikilink markup",
+        "desc": "For example, turn [[Hello]] or [[Hi|Hello]] into Hello."
+      },
+      "markdownLinks": {
+        "name": "Strip markdown link markup",
+        "desc": "For example, turn [Hello](https://example.org) into Hello."
+      },
+      "quote": {
+        "name": "Strip quote markup",
+        "desc": "For example, turn >Hello into Hello."
+      },
+      "callouts": {
+        "name": "Strip callout markup",
+        "desc": "For example, turn >[!info] Hello into Hello."
+      },
+      "unorderedLists": {
+        "name": "Strip unordered list markup",
+        "desc": "For example, turn - Hello or * Hello into Hello."
+      },
+      "orderedLists": {
+        "name": "Strip ordered list markup",
+        "desc": "For example, turn 1. Hello into Hello."
+      },
+      "taskLists": {
+        "name": "Strip task list markup",
+        "desc": "For example, turn - [x] Hello into Hello."
+      },
+      "code": {
+        "name": "Strip inline code markup",
+        "desc": "For example, turn `Hello` into Hello."
+      },
+      "codeBlocks": {
+        "name": "Strip code block markup",
+        "desc": "Instead, put the first line within code block in title."
+      },
+      "footnotes": {
+        "name": "Strip footnote markup",
+        "desc": "For example, turn Hello[^1] or Hello^[footnote] into Hello."
+      },
+      "comments": {
+        "name": "Strip comment markup",
+        "desc": "For example, turn %%Hello%% or <!--Hello--> into Hello."
+      },
+      "commentsEntirely": {
+        "name": "Strip comments entirely",
+        "desc": "Also strip comment content in title."
+      },
+      "stripTableMarkup": {
+        "name": "Strip table markup",
+        "desc": {
+          "part1": "Instead, put ",
+          "table": "Table",
+          "part2": " in title."
+        }
+      },
+      "tables": {
+        "name": "Strip table markup",
+        "desc": {
+          "part1": "Instead, put ",
+          "table": "Table",
+          "part2": " in title."
+        }
+      },
+      "htmlTags": {
+        "name": "Strip HTML tags",
+        "desc": "For example, turn <u>Hello</u> into Hello."
+      },
+      "templater": {
+        "name": "Strip Templater syntax",
+        "desc": {
+          "part1": "Omit ",
+          "part2": " syntax like ",
+          "code": "<% tp.file.cursor() %>",
+          "part3": "."
+        }
+      }
+    },
+    "commands": {
+      "ribbon": {
+        "title": "Ribbon commands",
+        "desc": "Set which commands appear in the ribbon menu. Reload plugin or Obsidian to apply."
+      },
+      "palette": {
+        "title": "Command palette commands",
+        "desc": "Set which commands appear in the Command palette (Ctrl/Cmd-P on desktop by default). Reload plugin or Obsidian to apply."
+      },
+      "file": {
+        "title": "File commands",
+        "desc": "Set which commands appear in the file context menu."
+      },
+      "folder": {
+        "title": "Folder commands",
+        "desc": "Set which commands appear in the folder context menu."
+      },
+      "tag": {
+        "title": "Tag commands",
+        "desc": "Set which commands appear in the tag context menu."
+      },
+      "search": {
+        "title": "Vault search commands",
+        "desc": "Set which commands appear in the context menu for search results."
+      }
+    },
+    "miscellaneous": {
+      "charCount": {
+        "name": "Character count",
+        "desc": "The maximum number of characters to put in filename.",
+        "default": "Default: 100"
+      },
+      "notificationMode": {
+        "name": "Show notification when renaming manually",
+        "desc": "Set when to show notifications for manual rename commands.",
+        "always": "Always",
+        "onTitleChange": "On title change",
+        "never": "Never"
+      },
+      "grabCardLink": {
+        "name": "Grab title from card link",
+        "desc": {
+          "part1": "If a note starts with a card link created with ",
+          "part2": " or ",
+          "part3": ", the card link title will be put in filename."
+        }
+      },
+      "newNoteDelay": {
+        "name": "New note delay",
+        "desc": "Delay processing new notes by this amount in milliseconds. May resolve issues on note creation.",
+        "default": "Default: 0"
+      },
+      "contentReadMethod": {
+        "name": "Content read method",
+        "desc": "Set how the plugin reads note content. Cache or file read may resolve issues but will be slower.",
+        "default": "Default: Editor",
+        "editor": "Editor",
+        "cache": "Cache",
+        "file": "File"
+      },
+      "checkInterval": {
+        "name": "Check interval",
+        "desc": "Interval in milliseconds for checking first-line changes. Increase in case of issues.",
+        "default": "Default: 0"
+      },
+      "debug": {
+        "name": "Debug",
+        "desc": "Log all of the plugin's activity to the developer console."
+      },
+      "debugOutputContent": {
+        "name": "Output full file content in console",
+        "desc": "Log the complete content of files (including YAML frontmatter) whenever they are modified."
+      },
+      "clearSettings": {
+        "name": "Clear settings",
+        "desc": "Reset all plugin settings to their default values.",
+        "modalButton": "Clear settings"
+      }
+    },
+    "safewords": {
+      "enableSafewords": {
+        "name": "Enable safewords",
+        "desc": "Specify text that prevents renaming if matched in filename."
+      },
+      "addButton": "Add safeword",
+      "headers": {
+        "enable": "Enable",
+        "safeword": "Safeword",
+        "onlyMatchStart": "Only match filename start",
+        "onlyMatchWhole": "Only match whole filename",
+        "caseSensitive": "Case-sensitive"
+      }
+    }
+  }
+}

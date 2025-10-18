@@ -2,6 +2,7 @@ import { Notice, TFile, TFolder, normalizePath } from "obsidian";
 import { verboseLog } from '../utils';
 import { PluginSettings } from '../types';
 import { RenameEngine } from '../core/rename-engine';
+import { t } from '../i18n';
 
 export class FolderOperations {
     constructor(
@@ -23,12 +24,12 @@ export class FolderOperations {
 
         if (files.length === 0) {
             verboseLog(this, `Showing notice: No markdown files found in this folder.`);
-            new Notice(`No notes found in: ${folder.name}`);
+            new Notice(t('notifications.noNotesFoundInFolder').replace('{{folder}}', folder.name));
             return;
         }
 
         verboseLog(this, `Showing notice: Renaming ${files.length} files in "${folder.path}"...`);
-        new Notice(`Renaming ${files.length} notes...`);
+        new Notice(t('notifications.renamingNNotes').replace('{{count}}', String(files.length)));
 
         let processedCount = 0;
         let errorCount = 0;
@@ -47,14 +48,14 @@ export class FolderOperations {
 
         if (errorCount > 0) {
             verboseLog(this, `Showing notice: Renamed ${processedCount}/${files.length} notes with ${errorCount} errors. Check console for details.`);
-            new Notice(`Renamed ${processedCount}/${files.length} notes with ${errorCount} errors. Check console for details.`, 0);
+            new Notice(t('notifications.renamedNotesWithErrors').replace('{{renamed}}', String(processedCount)).replace('{{total}}', String(files.length)).replace('{{errors}}', String(errorCount)), 0);
         } else {
             verboseLog(this, `Showing notice: Successfully processed ${processedCount} files.`);
-            new Notice(`Renamed ${processedCount}/${files.length} notes.`, 0);
+            new Notice(t('notifications.renamedNotes').replace('{{renamed}}', String(processedCount)).replace('{{total}}', String(files.length)), 0);
         }
     }
 
-    async toggleFolderExclusion(folderPath: string): Promise<void> {
+    async toggleFolderExclusion(folderPath: string, suppressNotice: boolean = false): Promise<void> {
         // Normalize folder path to handle cross-platform differences and user typos
         folderPath = normalizePath(folderPath);
 
@@ -70,14 +71,16 @@ export class FolderOperations {
             }
 
             // Determine action based on scope strategy
-            if (isInverted) {
-                // In inverted mode, removing from list = disabling renaming
-                verboseLog(this, `Showing notice: Renaming disabled for folder: ${folderPath}`);
-                new Notice(`Disabled renaming in: ${folderPath}`);
-            } else {
-                // In normal mode, removing from list = enabling renaming
-                verboseLog(this, `Showing notice: Renaming enabled for folder: ${folderPath}`);
-                new Notice(`Enabled renaming in: ${folderPath}`);
+            if (!suppressNotice) {
+                if (isInverted) {
+                    // In inverted mode, removing from list = disabling renaming
+                    verboseLog(this, `Showing notice: Renaming disabled for folder: ${folderPath}`);
+                    new Notice(t('notifications.disabledRenamingInFolder').replace('{{folder}}', folderPath));
+                } else {
+                    // In normal mode, removing from list = enabling renaming
+                    verboseLog(this, `Showing notice: Renaming enabled for folder: ${folderPath}`);
+                    new Notice(t('notifications.enabledRenamingInFolder').replace('{{folder}}', folderPath));
+                }
             }
         } else {
             // Add to list
@@ -88,14 +91,16 @@ export class FolderOperations {
             }
 
             // Determine action based on scope strategy
-            if (isInverted) {
-                // In inverted mode, adding to list = enabling renaming
-                verboseLog(this, `Showing notice: Renaming enabled for folder: ${folderPath}`);
-                new Notice(`Enabled renaming in: ${folderPath}`);
-            } else {
-                // In normal mode, adding to list = disabling renaming
-                verboseLog(this, `Showing notice: Renaming disabled for folder: ${folderPath}`);
-                new Notice(`Disabled renaming in: ${folderPath}`);
+            if (!suppressNotice) {
+                if (isInverted) {
+                    // In inverted mode, adding to list = enabling renaming
+                    verboseLog(this, `Showing notice: Renaming enabled for folder: ${folderPath}`);
+                    new Notice(t('notifications.enabledRenamingInFolder').replace('{{folder}}', folderPath));
+                } else {
+                    // In normal mode, adding to list = disabling renaming
+                    verboseLog(this, `Showing notice: Renaming disabled for folder: ${folderPath}`);
+                    new Notice(t('notifications.disabledRenamingInFolder').replace('{{folder}}', folderPath));
+                }
             }
         }
 
@@ -203,30 +208,27 @@ export class FolderOperations {
         let skipped = 0;
         let errors = 0;
 
-        // Collect all files from all folders
-        const allFiles: TFile[] = [];
-        folders.forEach(folder => {
-            const folderFiles = this.getAllMarkdownFilesInFolder(folder);
-            allFiles.push(...folderFiles);
-        });
-
-        if (allFiles.length === 0) {
-            verboseLog(this, `Showing notice: No markdown files found in selected folders.`);
-            new Notice("No notes found in selected folders.");
-            return;
-        }
-
         if (action === 'rename') {
+            // Collect all files from all folders
+            const allFiles: TFile[] = [];
+            folders.forEach(folder => {
+                const folderFiles = this.getAllMarkdownFilesInFolder(folder);
+                allFiles.push(...folderFiles);
+            });
+
+            if (allFiles.length === 0) {
+                verboseLog(this, `Showing notice: No markdown files found in selected folders.`);
+                new Notice(t('notifications.noNotesFoundInFolders'));
+                return;
+            }
+
             verboseLog(this, `Showing notice: Renaming ${allFiles.length} files from ${folders.length} folders...`);
-            new Notice(`Renaming ${allFiles.length} notes...`);
+            new Notice(t('notifications.renamingNNotes').replace('{{count}}', String(allFiles.length)));
 
             // Use the existing file processing logic
             await this.processMultipleFiles(allFiles, 'rename');
         } else {
             // For folder exclusion, we work with folder paths directly
-            verboseLog(this, `Showing notice: Renaming ${folders.length} folders...`);
-            new Notice(`Renaming ${folders.length} notes...`);
-
             for (const folder of folders) {
                 try {
                     const normalizedFolderPath = normalizePath(folder.path);
@@ -234,11 +236,11 @@ export class FolderOperations {
 
                     if (action === 'disable' && !isCurrentlyExcluded) {
                         // Only toggle if not already excluded
-                        await this.toggleFolderExclusion(folder.path);
+                        await this.toggleFolderExclusion(folder.path, true);
                         processed++;
                     } else if (action === 'enable' && isCurrentlyExcluded) {
                         // Only toggle if currently excluded
-                        await this.toggleFolderExclusion(folder.path);
+                        await this.toggleFolderExclusion(folder.path, true);
                         processed++;
                     } else {
                         // Already in desired state
@@ -251,9 +253,8 @@ export class FolderOperations {
             }
 
             // Show completion notice
-            const actionText = action === 'disable' ? 'Disabled' : 'Enabled';
-            verboseLog(this, `Showing notice: ${actionText} renaming for ${processed} folders.`);
-            new Notice(`${actionText} renaming in ${processed} folders.`);
+            verboseLog(this, `${action === 'disable' ? 'Disabled' : 'Enabled'} renaming for ${folders.length} folders.`);
+            new Notice((action === 'enable' ? t('notifications.enabledRenamingInNFolders') : t('notifications.disabledRenamingInNFolders')).replace('{{count}}', String(folders.length)));
         }
     }
 }

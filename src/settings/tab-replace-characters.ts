@@ -2,6 +2,7 @@ import { Setting, setIcon } from "obsidian";
 import { SettingsTabBase, FirstLineIsTitlePlugin } from './settings-base';
 import { detectOS } from '../utils';
 import { DEFAULT_SETTINGS } from '../constants';
+import { t, getCurrentLocale } from '../i18n';
 
 export class ForbiddenCharsTab extends SettingsTabBase {
     constructor(plugin: FirstLineIsTitlePlugin, containerEl: HTMLElement) {
@@ -11,7 +12,7 @@ export class ForbiddenCharsTab extends SettingsTabBase {
     render(): void {
         // Replace forbidden characters toggle as regular setting
         const headerToggleSetting = new Setting(this.containerEl)
-            .setName("Replace forbidden characters")
+            .setName(t('settings.replaceCharacters.name'))
             .setDesc("")
             .addToggle((toggle) => {
                 toggle.setValue(this.plugin.settings.enableForbiddenCharReplacements)
@@ -67,7 +68,7 @@ export class ForbiddenCharsTab extends SettingsTabBase {
         const charDescEl = this.containerEl.createEl("div", { cls: "setting-item-description" });
 
         const updateCharDescriptionContent = () => {
-            charDescEl.setText("Set replacements for characters which are not allowed in filenames. Forbidden characters are omitted entirely if disabled.");
+            charDescEl.setText(t('settings.replaceCharacters.desc'));
         };
 
         updateCharDescriptionContent();
@@ -99,23 +100,23 @@ export class ForbiddenCharsTab extends SettingsTabBase {
 
         // Define character arrays first (moved outside updateCharacterSettings)
         const primaryCharSettings: Array<{key: keyof typeof this.plugin.settings.charReplacements, name: string, char: string, description?: string}> = [
-            { key: 'leftBracket', name: 'Left bracket [', char: '[' },
-            { key: 'rightBracket', name: 'Right bracket ]', char: ']' },
-            { key: 'hash', name: 'Hash #', char: '#' },
-            { key: 'caret', name: 'Caret ^', char: '^' },
-            { key: 'pipe', name: 'Pipe |', char: '|' },
-            { key: 'backslash', name: 'Backslash \\', char: String.fromCharCode(92) },
-            { key: 'slash', name: 'Forward slash /', char: '/' },
-            { key: 'colon', name: 'Colon :', char: ':' },
-            { key: 'dot', name: 'Dot .', char: '.', description: 'Note: the dot is forbidden at filename start only.' }
+            { key: 'leftBracket', name: t('settings.replaceCharacters.characters.leftBracket'), char: '[' },
+            { key: 'rightBracket', name: t('settings.replaceCharacters.characters.rightBracket'), char: ']' },
+            { key: 'hash', name: t('settings.replaceCharacters.characters.hash'), char: '#' },
+            { key: 'caret', name: t('settings.replaceCharacters.characters.caret'), char: '^' },
+            { key: 'pipe', name: t('settings.replaceCharacters.characters.pipe'), char: '|' },
+            { key: 'backslash', name: t('settings.replaceCharacters.characters.backslash'), char: String.fromCharCode(92) },
+            { key: 'slash', name: t('settings.replaceCharacters.characters.forwardSlash'), char: '/' },
+            { key: 'colon', name: t('settings.replaceCharacters.characters.colon'), char: ':' },
+            { key: 'dot', name: t('settings.replaceCharacters.characters.dot'), char: '.', description: t('settings.replaceCharacters.characters.dotNote') }
         ];
 
         const windowsAndroidChars: Array<{key: keyof typeof this.plugin.settings.charReplacements, name: string, char: string}> = [
-            { key: 'asterisk', name: 'Asterisk *', char: '*' },
-            { key: 'quote', name: 'Quote "', char: '"' },
-            { key: 'lessThan', name: 'Less than <', char: '<' },
-            { key: 'greaterThan', name: 'Greater than >', char: '>' },
-            { key: 'question', name: 'Question mark ?', char: '?' }
+            { key: 'asterisk', name: t('settings.replaceCharacters.characters.asterisk'), char: '*' },
+            { key: 'quote', name: t('settings.replaceCharacters.characters.quote'), char: '"' },
+            { key: 'lessThan', name: t('settings.replaceCharacters.characters.lessThan'), char: '<' },
+            { key: 'greaterThan', name: t('settings.replaceCharacters.characters.greaterThan'), char: '>' },
+            { key: 'question', name: t('settings.replaceCharacters.characters.questionMark'), char: '?' }
         ];
 
         // Declare Windows/Android table container ref (will be set in updateCharacterSettings)
@@ -127,10 +128,27 @@ export class ForbiddenCharsTab extends SettingsTabBase {
 
             // Add All OSes subsection
             const allOSesHeaderSetting = new Setting(charSettingsContainer)
-                .setName("All OSes")
-                .setDesc("Replace characters that are forbidden in Obsidian filenames on all OSes.");
+                .setName(t('settings.replaceCharacters.allOSes.title'))
+                .setDesc(t('settings.replaceCharacters.allOSes.desc'));
             allOSesHeaderSetting.settingEl.addClass('flit-master-toggle');
-            charSettingsContainer.createEl("br");
+
+            // Add note about Trim left and Trim right
+            const allOSesNoteEl = charSettingsContainer.createEl("div", { cls: "setting-item-description" });
+            allOSesNoteEl.style.marginTop = "15px";
+            allOSesNoteEl.style.marginBottom = "15px";
+            allOSesNoteEl.appendText(t('settings.replaceCharacters.allOSes.note.part1'));
+            if (getCurrentLocale() === 'ru') {
+                allOSesNoteEl.appendText('«' + t('settings.replaceCharacters.allOSes.note.trimLeft') + '»');
+            } else {
+                allOSesNoteEl.createEl("em", { text: t('settings.replaceCharacters.allOSes.note.trimLeft') });
+            }
+            allOSesNoteEl.appendText(t('settings.replaceCharacters.allOSes.note.part2'));
+            if (getCurrentLocale() === 'ru') {
+                allOSesNoteEl.appendText('«' + t('settings.replaceCharacters.allOSes.note.trimRight') + '»');
+            } else {
+                allOSesNoteEl.createEl("em", { text: t('settings.replaceCharacters.allOSes.note.trimRight') });
+            }
+            allOSesNoteEl.appendText(t('settings.replaceCharacters.allOSes.note.part3'));
 
             // Create table container for All OSes
             const allOSesTableContainer = charSettingsContainer.createEl('div', { cls: 'flit-table-container' });
@@ -141,21 +159,21 @@ export class ForbiddenCharsTab extends SettingsTabBase {
 
             // Header columns
             const enableHeader = headerRow.createDiv({ cls: "flit-enable-column" });
-            enableHeader.textContent = "Enable";
+            enableHeader.textContent = t('settings.replaceCharacters.headers.enable');
 
             const charNameHeader = headerRow.createDiv({ cls: "flit-char-name-column" });
-            charNameHeader.textContent = "Character";
+            charNameHeader.textContent = t('settings.replaceCharacters.headers.character');
 
             const inputHeader = headerRow.createDiv({ cls: "flit-char-text-input-container" });
-            inputHeader.textContent = "Replace with";
+            inputHeader.textContent = t('settings.replaceCharacters.headers.replaceWith');
 
             const trimLeftHeader = headerRow.createDiv({ cls: "flit-toggle-column center" });
             const trimLeftLine1 = trimLeftHeader.createDiv();
-            trimLeftLine1.textContent = "Trim left";
+            trimLeftLine1.textContent = t('settings.replaceCharacters.headers.trimLeft');
 
             const trimRightHeader = headerRow.createDiv({ cls: "flit-toggle-column center" });
             const trimRightLine1 = trimRightHeader.createDiv();
-            trimRightLine1.textContent = "Trim right";
+            trimRightLine1.textContent = t('settings.replaceCharacters.headers.trimRight');
 
             // Create rows for each primary character
             primaryCharSettings.forEach(setting => {
@@ -197,7 +215,7 @@ export class ForbiddenCharsTab extends SettingsTabBase {
 
                 const restoreButton = inputContainer.createEl("button", {
                     cls: "clickable-icon flit-restore-icon",
-                    attr: { "aria-label": "Restore default" }
+                    attr: { "aria-label": t('settings.replaceCharacters.restoreDefault') }
                 });
                 setIcon(restoreButton, "rotate-ccw");
                 restoreButton.addEventListener('click', async () => {
@@ -207,7 +225,7 @@ export class ForbiddenCharsTab extends SettingsTabBase {
                 });
 
                 const textInput = inputContainer.createEl("input", { type: "text", cls: "flit-char-text-input" });
-                textInput.placeholder = "Empty";
+                textInput.placeholder = t('settings.replaceCharacters.emptyPlaceholder');
                 textInput.value = this.plugin.settings.charReplacements[setting.key];
                 textInput.style.width = "120px";
                 textInput.addEventListener('input', async (e) => {
@@ -252,8 +270,8 @@ export class ForbiddenCharsTab extends SettingsTabBase {
 
             // Add Windows/Android subsection header
             const windowsAndroidHeaderSetting = new Setting(charSettingsContainer)
-                .setName("Windows/Android")
-                .setDesc("Replace characters that are forbidden in Obsidian filenames on Windows and Android only.")
+                .setName(t('settings.replaceCharacters.windowsAndroid.title'))
+                .setDesc(t('settings.replaceCharacters.windowsAndroid.desc'))
                 .addToggle((toggle) => {
                     windowsAndroidToggleComponent = toggle; // Store reference
                     toggle.setValue(this.plugin.settings.windowsAndroidEnabled)
@@ -295,21 +313,21 @@ export class ForbiddenCharsTab extends SettingsTabBase {
 
             // Header columns
             const winEnableHeader = winAndroidHeaderRow.createDiv({ cls: "flit-enable-column" });
-            winEnableHeader.textContent = "Enable";
+            winEnableHeader.textContent = t('settings.replaceCharacters.headers.enable');
 
             const winCharNameHeader = winAndroidHeaderRow.createDiv({ cls: "flit-char-name-column" });
-            winCharNameHeader.textContent = "Character";
+            winCharNameHeader.textContent = t('settings.replaceCharacters.headers.character');
 
             const winInputHeader = winAndroidHeaderRow.createDiv({ cls: "flit-char-text-input-container" });
-            winInputHeader.textContent = "Replace with";
+            winInputHeader.textContent = t('settings.replaceCharacters.headers.replaceWith');
 
             const winTrimLeftHeader = winAndroidHeaderRow.createDiv({ cls: "flit-toggle-column center" });
             const winTrimLeftLine1 = winTrimLeftHeader.createDiv();
-            winTrimLeftLine1.textContent = "Trim left";
+            winTrimLeftLine1.textContent = t('settings.replaceCharacters.headers.trimLeft');
 
             const winTrimRightHeader = winAndroidHeaderRow.createDiv({ cls: "flit-toggle-column center" });
             const winTrimRightLine1 = winTrimRightHeader.createDiv();
-            winTrimRightLine1.textContent = "Trim right";
+            winTrimRightLine1.textContent = t('settings.replaceCharacters.headers.trimRight');
 
             // Create rows for each Windows/Android character
             windowsAndroidChars.forEach(setting => {
@@ -347,7 +365,7 @@ export class ForbiddenCharsTab extends SettingsTabBase {
 
                 const restoreButton = inputContainer.createEl("button", {
                     cls: "clickable-icon flit-restore-icon",
-                    attr: { "aria-label": "Restore default" }
+                    attr: { "aria-label": t('settings.replaceCharacters.restoreDefault') }
                 });
                 setIcon(restoreButton, "rotate-ccw");
                 restoreButton.addEventListener('click', async () => {
@@ -357,7 +375,7 @@ export class ForbiddenCharsTab extends SettingsTabBase {
                 });
 
                 const textInput = inputContainer.createEl("input", { type: "text", cls: "flit-char-text-input" });
-                textInput.placeholder = "Empty";
+                textInput.placeholder = t('settings.replaceCharacters.emptyPlaceholder');
                 textInput.value = this.plugin.settings.charReplacements[setting.key];
                 textInput.style.width = "120px";
                 textInput.addEventListener('input', async (e) => {

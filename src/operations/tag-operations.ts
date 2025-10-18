@@ -2,6 +2,7 @@ import { Notice, TFile } from "obsidian";
 import { verboseLog } from '../utils';
 import { PluginSettings } from '../types';
 import { RenameEngine } from '../core/rename-engine';
+import { t } from '../i18n';
 
 export class TagOperations {
     constructor(
@@ -88,12 +89,12 @@ export class TagOperations {
 
         if (matchingFiles.length === 0) {
             verboseLog(this, `Showing notice: No files found with tag ${tagToFind}.`);
-            new Notice(`No notes found with #${tagToFind}.`);
+            new Notice(t('notifications.noNotesFoundWithTag').replace('{{tag}}', tagToFind));
             return;
         }
 
         verboseLog(this, `Showing notice: Renaming ${matchingFiles.length} files with tag ${tagToFind}...`);
-        new Notice(`Renaming ${matchingFiles.length} notes...`);
+        new Notice(t('notifications.renamingNNotes').replace('{{count}}', String(matchingFiles.length)));
 
         let processedCount = 0;
         let errorCount = 0;
@@ -112,10 +113,10 @@ export class TagOperations {
 
         if (errorCount > 0) {
             verboseLog(this, `Showing notice: Renamed ${processedCount}/${matchingFiles.length} notes with ${errorCount} errors. Check console for details.`);
-            new Notice(`Renamed ${processedCount}/${matchingFiles.length} notes with ${errorCount} errors. Check console for details.`, 0);
+            new Notice(t('notifications.renamedNotesWithErrors').replace('{{renamed}}', String(processedCount)).replace('{{total}}', String(matchingFiles.length)).replace('{{errors}}', String(errorCount)), 0);
         } else {
             verboseLog(this, `Showing notice: Successfully processed ${processedCount} files with tag ${tagToFind}.`);
-            new Notice(`Renamed ${processedCount}/${matchingFiles.length} notes.`, 0);
+            new Notice(t('notifications.renamedNotes').replace('{{renamed}}', String(processedCount)).replace('{{total}}', String(matchingFiles.length)), 0);
         }
     }
 
@@ -136,11 +137,11 @@ export class TagOperations {
             if (isInverted) {
                 // In inverted mode, removing from list = disabling renaming
                 verboseLog(this, `Showing notice: Renaming disabled for ${tagToFind}`);
-                new Notice(`Disabled renaming for ${tagToFind}.`);
+                new Notice(t('notifications.disabledRenamingFor', { filename: tagToFind }));
             } else {
                 // In normal mode, removing from list = enabling renaming
                 verboseLog(this, `Showing notice: Renaming enabled for ${tagToFind}`);
-                new Notice(`Enabled renaming for ${tagToFind}.`);
+                new Notice(t('notifications.enabledRenamingFor', { filename: tagToFind }));
             }
         } else {
             // Add to list
@@ -154,11 +155,11 @@ export class TagOperations {
             if (isInverted) {
                 // In inverted mode, adding to list = enabling renaming
                 verboseLog(this, `Showing notice: Renaming enabled for ${tagToFind}`);
-                new Notice(`Enabled renaming for ${tagToFind}.`);
+                new Notice(t('notifications.enabledRenamingFor', { filename: tagToFind }));
             } else {
                 // In normal mode, adding to list = disabling renaming
                 verboseLog(this, `Showing notice: Renaming disabled for ${tagToFind}`);
-                new Notice(`Disabled renaming for ${tagToFind}.`);
+                new Notice(t('notifications.disabledRenamingFor', { filename: tagToFind }));
             }
         }
 

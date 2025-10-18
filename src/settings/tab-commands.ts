@@ -1,5 +1,6 @@
 import { Setting, setIcon } from "obsidian";
 import { SettingsTabBase, FirstLineIsTitlePlugin } from './settings-base';
+import { t, getCurrentLocale } from '../i18n';
 
 export class CommandsTab extends SettingsTabBase {
     constructor(plugin: FirstLineIsTitlePlugin, containerEl: HTMLElement) {
@@ -9,8 +10,8 @@ export class CommandsTab extends SettingsTabBase {
     render(): void {
         // Ribbon Section
         const ribbonHeaderSetting = new Setting(this.containerEl)
-            .setName("Ribbon commands")
-            .setDesc("Control which commands appear in the ribbon menu. Reload plugin or Obsidian to apply.")
+            .setName(t('settings.commands.ribbon.title'))
+            .setDesc(t('settings.commands.ribbon.desc'))
             .addToggle((toggle) => {
                 toggle.setValue(this.plugin.settings.enableRibbon)
                     .onChange(async (value) => {
@@ -35,8 +36,8 @@ export class CommandsTab extends SettingsTabBase {
         };
 
         const ribbonCurrentSetting = new Setting(ribbonContainer)
-            .setName("Put first line in title")
-            .setDesc("Rename active note, even if in excluded folder or with excluded tag.")
+            .setName(t('commands.putFirstLineInTitle'))
+            .setDesc(t('commands.descriptions.renameActiveNoteEvenExcluded'))
             .addToggle((toggle) => {
                 toggle.setValue(this.plugin.settings.ribbonVisibility.renameCurrentFile)
                     .onChange(async (value) => {
@@ -50,8 +51,8 @@ export class CommandsTab extends SettingsTabBase {
         ribbonCurrentSetting.nameEl.insertBefore(ribbonCurrentIcon, ribbonCurrentSetting.nameEl.firstChild);
 
         const ribbonBulkSetting = new Setting(ribbonContainer)
-            .setName("Put first line in title in all notes")
-            .setDesc("Rename all notes in vault except if in excluded folder or with excluded tag.")
+            .setName(t('commands.putFirstLineInTitleAllNotes'))
+            .setDesc(t('commands.descriptions.renameAllNotesExceptExcluded'))
             .addToggle((toggle) => {
                 toggle.setValue(this.plugin.settings.ribbonVisibility.renameAllNotes)
                     .onChange(async (value) => {
@@ -61,22 +62,33 @@ export class CommandsTab extends SettingsTabBase {
                     });
             });
                 const ribbonBulkIcon = ribbonBulkSetting.nameEl.createDiv({ cls: "setting-item-icon" });
-        setIcon(ribbonBulkIcon, "files");
+        setIcon(ribbonBulkIcon, "file-stack");
         ribbonBulkSetting.nameEl.insertBefore(ribbonBulkIcon, ribbonBulkSetting.nameEl.firstChild);
 
         const ribbonToggleSetting = new Setting(ribbonContainer)
-            .setName("Toggle automatic renaming")
+            .setName(t('commands.toggleAutomaticRenaming'))
             .setDesc("");
 
-        // Create styled description
         const ribbonToggleDesc = ribbonToggleSetting.descEl;
-        ribbonToggleDesc.appendText("Toggle the ");
-        ribbonToggleDesc.createEl("em", { text: "Rename notes" });
-        ribbonToggleDesc.appendText(" setting between ");
-        ribbonToggleDesc.createEl("em", { text: "Automatically" });
-        ribbonToggleDesc.appendText(" and ");
-        ribbonToggleDesc.createEl("em", { text: "Manually" });
-        ribbonToggleDesc.appendText(".");
+        ribbonToggleDesc.appendText(t('commands.descriptions.toggleRenameSetting.part1'));
+        if (getCurrentLocale() === 'ru') {
+            ribbonToggleDesc.appendText('«' + t('commands.descriptions.toggleRenameSetting.renameNotes') + '»');
+        } else {
+            ribbonToggleDesc.createEl("em", { text: t('commands.descriptions.toggleRenameSetting.renameNotes') });
+        }
+        ribbonToggleDesc.appendText(t('commands.descriptions.toggleRenameSetting.part2'));
+        if (getCurrentLocale() === 'ru') {
+            ribbonToggleDesc.appendText('«' + t('commands.descriptions.toggleRenameSetting.automatically') + '»');
+        } else {
+            ribbonToggleDesc.createEl("em", { text: t('commands.descriptions.toggleRenameSetting.automatically') });
+        }
+        ribbonToggleDesc.appendText(t('commands.descriptions.toggleRenameSetting.part3'));
+        if (getCurrentLocale() === 'ru') {
+            ribbonToggleDesc.appendText('«' + t('commands.descriptions.toggleRenameSetting.manually') + '»');
+        } else {
+            ribbonToggleDesc.createEl("em", { text: t('commands.descriptions.toggleRenameSetting.manually') });
+        }
+        ribbonToggleDesc.appendText(t('commands.descriptions.toggleRenameSetting.part4'));
 
         ribbonToggleSetting.addToggle((toggle) => {
                 toggle.setValue(this.plugin.settings.ribbonVisibility.toggleAutomaticRenaming)
@@ -95,8 +107,8 @@ export class CommandsTab extends SettingsTabBase {
 
         // Command Palette Section
         const commandPaletteHeaderSetting = new Setting(this.containerEl)
-            .setName("Command palette commands")
-            .setDesc("Control which commands appear in the Command palette (Ctrl/Cmd-P on desktop by default). Reload plugin or Obsidian to apply.")
+            .setName(t('settings.commands.palette.title'))
+            .setDesc(t('settings.commands.palette.desc'))
             .addToggle((toggle) => {
                 toggle.setValue(this.plugin.settings.enableCommandPalette)
                     .onChange(async (value) => {
@@ -122,8 +134,8 @@ export class CommandsTab extends SettingsTabBase {
         };
 
         const setting1 = new Setting(commandPaletteContainer)
-            .setName("Put first line in title")
-            .setDesc("Rename active note, even if in excluded folder or with excluded tag.")
+            .setName(t('commands.putFirstLineInTitle'))
+            .setDesc(t('commands.descriptions.renameActiveNoteEvenExcluded'))
             .addToggle(toggle =>
                 toggle
                     .setValue(this.plugin.settings.commandPaletteVisibility.renameCurrentFile)
@@ -139,8 +151,8 @@ export class CommandsTab extends SettingsTabBase {
         setting1.nameEl.insertBefore(icon1, setting1.nameEl.firstChild);
 
         const setting2 = new Setting(commandPaletteContainer)
-            .setName("Put first line in title (unless excluded)")
-            .setDesc("Rename active note except if in excluded folder or with excluded tag.")
+            .setName(t('commands.putFirstLineInTitleUnlessExcluded'))
+            .setDesc(t('commands.descriptions.renameActiveNoteUnlessExcluded'))
             .addToggle(toggle =>
                 toggle
                     .setValue(this.plugin.settings.commandPaletteVisibility.renameCurrentFileUnlessExcluded)
@@ -156,8 +168,8 @@ export class CommandsTab extends SettingsTabBase {
         setting2.nameEl.insertBefore(icon2, setting2.nameEl.firstChild);
 
         const setting3 = new Setting(commandPaletteContainer)
-            .setName("Put first line in title in all notes")
-            .setDesc("Rename all notes in vault except if in excluded folder or with excluded tag.")
+            .setName(t('commands.putFirstLineInTitleAllNotes'))
+            .setDesc(t('commands.descriptions.renameAllNotesExceptExcluded'))
             .addToggle(toggle =>
                 toggle
                     .setValue(this.plugin.settings.commandPaletteVisibility.renameAllFiles)
@@ -169,22 +181,33 @@ export class CommandsTab extends SettingsTabBase {
             );
 
                 const icon3 = setting3.nameEl.createDiv({ cls: "setting-item-icon" });
-        setIcon(icon3, "files");
+        setIcon(icon3, "file-stack");
         setting3.nameEl.insertBefore(icon3, setting3.nameEl.firstChild);
 
         const setting8 = new Setting(commandPaletteContainer)
-            .setName("Toggle automatic renaming")
+            .setName(t('commands.toggleAutomaticRenaming'))
             .setDesc("");
 
-        // Create styled description
-        const toggleDesc = setting8.descEl;
-        toggleDesc.appendText("Toggle the ");
-        toggleDesc.createEl("em", { text: "Rename notes" });
-        toggleDesc.appendText(" setting between ");
-        toggleDesc.createEl("em", { text: "Automatically" });
-        toggleDesc.appendText(" and ");
-        toggleDesc.createEl("em", { text: "Manually" });
-        toggleDesc.appendText(".");
+        const setting8Desc = setting8.descEl;
+        setting8Desc.appendText(t('commands.descriptions.toggleRenameSetting.part1'));
+        if (getCurrentLocale() === 'ru') {
+            setting8Desc.appendText('«' + t('commands.descriptions.toggleRenameSetting.renameNotes') + '»');
+        } else {
+            setting8Desc.createEl("em", { text: t('commands.descriptions.toggleRenameSetting.renameNotes') });
+        }
+        setting8Desc.appendText(t('commands.descriptions.toggleRenameSetting.part2'));
+        if (getCurrentLocale() === 'ru') {
+            setting8Desc.appendText('«' + t('commands.descriptions.toggleRenameSetting.automatically') + '»');
+        } else {
+            setting8Desc.createEl("em", { text: t('commands.descriptions.toggleRenameSetting.automatically') });
+        }
+        setting8Desc.appendText(t('commands.descriptions.toggleRenameSetting.part3'));
+        if (getCurrentLocale() === 'ru') {
+            setting8Desc.appendText('«' + t('commands.descriptions.toggleRenameSetting.manually') + '»');
+        } else {
+            setting8Desc.createEl("em", { text: t('commands.descriptions.toggleRenameSetting.manually') });
+        }
+        setting8Desc.appendText(t('commands.descriptions.toggleRenameSetting.part4'));
 
         setting8.addToggle(toggle =>
                 toggle
@@ -201,8 +224,8 @@ export class CommandsTab extends SettingsTabBase {
         setting8.nameEl.insertBefore(icon8, setting8.nameEl.firstChild);
 
         const setting4 = new Setting(commandPaletteContainer)
-            .setName("Disable renaming for note")
-            .setDesc("Exclude active note from renaming.")
+            .setName(t('commands.disableRenamingForNote'))
+            .setDesc(t('commands.descriptions.excludeActiveNote'))
             .addToggle(toggle =>
                 toggle
                     .setValue(this.plugin.settings.commandPaletteVisibility.disableRenaming)
@@ -218,8 +241,8 @@ export class CommandsTab extends SettingsTabBase {
         setting4.nameEl.insertBefore(icon4, setting4.nameEl.firstChild);
 
         const setting5 = new Setting(commandPaletteContainer)
-            .setName("Enable renaming for note")
-            .setDesc("Stop excluding active note from renaming.")
+            .setName(t('commands.enableRenamingForNote'))
+            .setDesc(t('commands.descriptions.stopExcludingActiveNote'))
             .addToggle(toggle =>
                 toggle
                     .setValue(this.plugin.settings.commandPaletteVisibility.enableRenaming)
@@ -235,8 +258,19 @@ export class CommandsTab extends SettingsTabBase {
         setting5.nameEl.insertBefore(icon5, setting5.nameEl.firstChild);
 
         const setting6 = new Setting(commandPaletteContainer)
-            .setName("Add safe internal link")
-            .setDesc("Create internal link with forbidden characters handled according to plugin settings.")
+            .setName(t('commands.addSafeInternalLink'))
+            .setDesc("");
+
+        const setting6Desc = setting6.descEl;
+        setting6Desc.appendText(t('commands.descriptions.createLinkWithForbiddenChars.part1'));
+        if (getCurrentLocale() === 'ru') {
+            setting6Desc.appendText('«' + t('commands.descriptions.createLinkWithForbiddenChars.replaceCharacters') + '»');
+        } else {
+            setting6Desc.createEl("em", { text: t('commands.descriptions.createLinkWithForbiddenChars.replaceCharacters') });
+        }
+        setting6Desc.appendText(t('commands.descriptions.createLinkWithForbiddenChars.part2'));
+
+        setting6
             .addToggle(toggle =>
                 toggle
                     .setValue(this.plugin.settings.commandVisibility.addSafeInternalLink)
@@ -252,8 +286,19 @@ export class CommandsTab extends SettingsTabBase {
         setting6.nameEl.insertBefore(icon6, setting6.nameEl.firstChild);
 
         const setting7 = new Setting(commandPaletteContainer)
-            .setName("Add safe internal link with selection as caption")
-            .setDesc("Create internal link with safe target and original text as caption.")
+            .setName(t('commands.addSafeInternalLinkWithCaption'))
+            .setDesc("");
+
+        const setting7Desc = setting7.descEl;
+        setting7Desc.appendText(t('commands.descriptions.createLinkWithValidPath.part1'));
+        if (getCurrentLocale() === 'ru') {
+            setting7Desc.appendText('«' + t('commands.descriptions.createLinkWithValidPath.replaceCharacters') + '»');
+        } else {
+            setting7Desc.createEl("em", { text: t('commands.descriptions.createLinkWithValidPath.replaceCharacters') });
+        }
+        setting7Desc.appendText(t('commands.descriptions.createLinkWithValidPath.part2'));
+
+        setting7
             .addToggle(toggle =>
                 toggle
                     .setValue(this.plugin.settings.commandVisibility.addSafeInternalLinkWithCaption)
@@ -279,8 +324,8 @@ export class CommandsTab extends SettingsTabBase {
 
         // File Section
         const fileHeaderSetting = new Setting(this.containerEl)
-            .setName("File commands")
-            .setDesc("Control which commands appear in the file context menu.")
+            .setName(t('settings.commands.file.title'))
+            .setDesc(t('settings.commands.file.desc'))
             .addToggle((toggle) => {
                 toggle.setValue(fileCommandsExpanded)
                     .onChange(async (value) => {
@@ -304,8 +349,8 @@ export class CommandsTab extends SettingsTabBase {
         };
 
         const filePutFirstLineSetting = new Setting(fileContainer)
-            .setName("Put first line in title")
-            .setDesc("Rename note, even if in excluded folder or with excluded tag.")
+            .setName(t('commands.putFirstLineInTitle'))
+            .setDesc(t('commands.descriptions.renameNoteEvenExcluded'))
             .addToggle(toggle =>
                 toggle
                     .setValue(this.plugin.settings.commandVisibility.filePutFirstLineInTitle)
@@ -320,8 +365,8 @@ export class CommandsTab extends SettingsTabBase {
         filePutFirstLineSetting.nameEl.insertBefore(fileIcon, filePutFirstLineSetting.nameEl.firstChild);
 
         const fileDisableSetting = new Setting(fileContainer)
-            .setName("Disable renaming for note")
-            .setDesc("Exclude note from renaming.")
+            .setName(t('commands.disableRenamingForNote'))
+            .setDesc(t('commands.descriptions.excludeNote'))
             .addToggle(toggle =>
                 toggle
                     .setValue(this.plugin.settings.commandVisibility.fileExclude)
@@ -336,8 +381,8 @@ export class CommandsTab extends SettingsTabBase {
         fileDisableSetting.nameEl.insertBefore(fileDisableIcon, fileDisableSetting.nameEl.firstChild);
 
         const fileEnableSetting = new Setting(fileContainer)
-            .setName("Enable renaming for note")
-            .setDesc("Stop excluding note from renaming.")
+            .setName(t('commands.enableRenamingForNote'))
+            .setDesc(t('commands.descriptions.stopExcludingNote'))
             .addToggle(toggle =>
                 toggle
                     .setValue(this.plugin.settings.commandVisibility.fileStopExcluding)
@@ -353,8 +398,8 @@ export class CommandsTab extends SettingsTabBase {
 
         // Folder Section
         const folderHeaderSetting = new Setting(this.containerEl)
-            .setName("Folder commands")
-            .setDesc("Control which commands appear in the folder context menu.")
+            .setName(t('settings.commands.folder.title'))
+            .setDesc(t('settings.commands.folder.desc'))
             .addToggle((toggle) => {
                 toggle.setValue(folderCommandsExpanded)
                     .onChange(async (value) => {
@@ -378,8 +423,8 @@ export class CommandsTab extends SettingsTabBase {
         };
 
         const folderPutFirstLineSetting = new Setting(folderContainer)
-            .setName("Put first line in title")
-            .setDesc("Rename all notes in folder.")
+            .setName(t('commands.putFirstLineInTitle'))
+            .setDesc(t('commands.descriptions.renameAllNotesInFolder'))
             .addToggle(toggle =>
                 toggle
                     .setValue(this.plugin.settings.commandVisibility.folderPutFirstLineInTitle)
@@ -394,8 +439,8 @@ export class CommandsTab extends SettingsTabBase {
         folderPutFirstLineSetting.nameEl.insertBefore(folderIcon, folderPutFirstLineSetting.nameEl.firstChild);
 
         const folderDisableSetting = new Setting(folderContainer)
-            .setName("Disable renaming in folder")
-            .setDesc("Exclude folder from renaming.")
+            .setName(t('commands.disableRenamingInFolder'))
+            .setDesc(t('commands.descriptions.excludeFolder'))
             .addToggle(toggle =>
                 toggle
                     .setValue(this.plugin.settings.commandVisibility.folderExclude)
@@ -410,8 +455,8 @@ export class CommandsTab extends SettingsTabBase {
         folderDisableSetting.nameEl.insertBefore(folderDisableIcon, folderDisableSetting.nameEl.firstChild);
 
         const folderEnableSetting = new Setting(folderContainer)
-            .setName("Enable renaming in folder")
-            .setDesc("Stop excluding folder from renaming.")
+            .setName(t('commands.enableRenamingInFolder'))
+            .setDesc(t('commands.descriptions.stopExcludingFolder'))
             .addToggle(toggle =>
                 toggle
                     .setValue(this.plugin.settings.commandVisibility.folderStopExcluding)
@@ -427,8 +472,8 @@ export class CommandsTab extends SettingsTabBase {
 
         // Tag Section
         const tagHeaderSetting = new Setting(this.containerEl)
-            .setName("Tag commands")
-            .setDesc("Control which commands appear in the tag context menu.")
+            .setName(t('settings.commands.tag.title'))
+            .setDesc(t('settings.commands.tag.desc'))
             .addToggle((toggle) => {
                 toggle.setValue(tagCommandsExpanded)
                     .onChange(async (value) => {
@@ -452,8 +497,8 @@ export class CommandsTab extends SettingsTabBase {
         };
 
         const tagPutFirstLineSetting = new Setting(tagContainer)
-            .setName("Put first line in title")
-            .setDesc("Rename all notes with tag.")
+            .setName(t('commands.putFirstLineInTitle'))
+            .setDesc(t('commands.descriptions.renameAllNotesWithTag'))
             .addToggle(toggle =>
                 toggle
                     .setValue(this.plugin.settings.commandVisibility.tagPutFirstLineInTitle)
@@ -468,8 +513,8 @@ export class CommandsTab extends SettingsTabBase {
         tagPutFirstLineSetting.nameEl.insertBefore(tagIcon, tagPutFirstLineSetting.nameEl.firstChild);
 
         const tagDisableSetting = new Setting(tagContainer)
-            .setName("Disable renaming for tag")
-            .setDesc("Exclude tag from renaming.")
+            .setName(t('commands.disableRenamingForTag'))
+            .setDesc(t('commands.descriptions.excludeTag'))
             .addToggle(toggle =>
                 toggle
                     .setValue(this.plugin.settings.commandVisibility.tagExclude)
@@ -484,8 +529,8 @@ export class CommandsTab extends SettingsTabBase {
         tagDisableSetting.nameEl.insertBefore(tagDisableIcon, tagDisableSetting.nameEl.firstChild);
 
         const tagEnableSetting = new Setting(tagContainer)
-            .setName("Enable renaming for tag")
-            .setDesc("Stop excluding tag from renaming.")
+            .setName(t('commands.enableRenamingForTag'))
+            .setDesc(t('commands.descriptions.stopExcludingTag'))
             .addToggle(toggle =>
                 toggle
                     .setValue(this.plugin.settings.commandVisibility.tagStopExcluding)
@@ -501,8 +546,8 @@ export class CommandsTab extends SettingsTabBase {
 
         // Vault Search Section
         const vaultSearchHeaderSetting = new Setting(this.containerEl)
-            .setName("Vault search commands")
-            .setDesc("Control which commands appear in the context menu for search results.")
+            .setName(t('settings.commands.search.title'))
+            .setDesc(t('settings.commands.search.desc'))
             .addToggle((toggle) => {
                 toggle.setValue(this.plugin.settings.enableVaultSearchContextMenu)
                     .onChange(async (value) => {
@@ -529,8 +574,8 @@ export class CommandsTab extends SettingsTabBase {
         };
 
         const vaultSearchPutFirstLineSetting = new Setting(vaultSearchContainer)
-            .setName("Put first line in title")
-            .setDesc("Rename all notes in search results.")
+            .setName(t('commands.putFirstLineInTitle'))
+            .setDesc(t('commands.descriptions.renameAllNotesInSearchResults'))
             .addToggle(toggle =>
                 toggle
                     .setValue(this.plugin.settings.vaultSearchContextMenuVisibility.putFirstLineInTitle)
@@ -545,8 +590,8 @@ export class CommandsTab extends SettingsTabBase {
         vaultSearchPutFirstLineSetting.nameEl.insertBefore(vaultSearchIcon, vaultSearchPutFirstLineSetting.nameEl.firstChild);
 
         const vaultSearchDisableSetting = new Setting(vaultSearchContainer)
-            .setName("Disable renaming for notes")
-            .setDesc("Exclude all notes in search results.")
+            .setName(t('commands.disableRenaming'))
+            .setDesc(t('commands.descriptions.excludeAllNotesInSearchResults'))
             .addToggle(toggle =>
                 toggle
                     .setValue(this.plugin.settings.vaultSearchContextMenuVisibility.disable)
@@ -561,8 +606,8 @@ export class CommandsTab extends SettingsTabBase {
         vaultSearchDisableSetting.nameEl.insertBefore(vaultSearchDisableIcon, vaultSearchDisableSetting.nameEl.firstChild);
 
         const vaultSearchEnableSetting = new Setting(vaultSearchContainer)
-            .setName("Enable renaming for notes")
-            .setDesc("Stop excluding all notes in search results from renaming.")
+            .setName(t('commands.enableRenaming'))
+            .setDesc(t('commands.descriptions.stopExcludingAllNotesInSearchResults'))
             .addToggle(toggle =>
                 toggle
                     .setValue(this.plugin.settings.vaultSearchContextMenuVisibility.enable)
