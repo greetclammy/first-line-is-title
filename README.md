@@ -74,7 +74,7 @@ Note: to get updates for _First Line is Title_, you will have to check for and i
 - This plugin builds on [Auto Filename](https://github.com/rcsaquino/obsidian-auto-filename) and employs some of its code.
 - Tag context menu functionality implements patterns from [Tag Wrangler](https://github.com/pjeby/tag-wrangler).
 
-## 👨‍💻 What else I made
+## 👨‍💻 My other plugins
 
 - [Copy Link](https://github.com/greetclammy/copy-link) - Add commands to quickly copy links to files, headings and blocks.
 - [Adapt to Current View](https://github.com/greetclammy/adapt-to-current-view/) - Set different accent colors for Reading view, Live Preview and Source view.
