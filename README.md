@@ -68,6 +68,7 @@ Note: to get updates for _First Line is Title_, you will have to check for and i
 - [Filename Sanitizer](https://github.com/devHudi/obsidian-filename-sanitizer)
 - [Front Matter Title](https://obsidian.md/plugins?id=obsidian-front-matter-title-plugin)
 - [Title As Link Text](https://obsidian.md/plugins?id=title-as-link-text)
+- (Sync-safe file names](https://github.com/j-maas/sync-safe-file-names)
 
 ## 🙏 Thanks
 
