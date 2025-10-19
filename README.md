@@ -61,14 +61,23 @@ Note: to get updates for _First Line is Title_, you will have to check for and i
 
 ## 👀 Similar plugins
 
+Put first line/heading into filename or property:
+
 - [Auto Filename](https://obsidian.md/plugins?id=auto-filename)
 - [File Title Updater](https://obsidian.md/plugins?id=file-title-updater)
 - [Filename Heading Sync](https://obsidian.md/plugins?id=obsidian-filename-heading-sync)
 - [Linter](https://obsidian.md/plugins?id=obsidian-linter)
+
+Remove forbidden characters in filenames:
+
+- [Safe Filename Linter](https://obsidian.md/plugins?id=safe-filename-linter)
 - [Filename Sanitizer](https://github.com/devHudi/obsidian-filename-sanitizer)
+- [Sync-safe file names](https://github.com/j-maas/sync-safe-file-names)
+
+Show custom titles in place of filenames:
+
 - [Front Matter Title](https://obsidian.md/plugins?id=obsidian-front-matter-title-plugin)
 - [Title As Link Text](https://obsidian.md/plugins?id=title-as-link-text)
-- [Sync-safe file names](https://github.com/j-maas/sync-safe-file-names)
 
 ## 🙏 Thanks
 
