@@ -1,6 +1,8 @@
 {
   "untitled": "Untitled",
   "table": "Table",
+  "mathBlock": "Math block",
+  "diagram": "Diagram",
   "commands": {
     "putFirstLineInTitle": "Put first line in title",
     "putFirstLineInTitleUnlessExcluded": "Put first line in title (unless excluded)",
@@ -92,6 +94,8 @@
     "enabledRenamingForNNotes": "Enabled renaming for {{count}} notes.",
     "renamedTo": "Renamed to: {{filename}}",
     "notRenamedSelfReference": "Note not renamed due to self-referential link in first line: {{filename}}",
+    "safewordPreventedRename": "Safeword prevented rename of: {{filename}}",
+    "renamingDisabledForNote": "To rename this note, remove property to disable renaming.",
     "noNotesFoundInFolder": "No notes found in: {{folder}}",
     "disabledRenamingInFolder": "Disabled renaming in: {{folder}}",
     "enabledRenamingInFolder": "Enabled renaming in: {{folder}}",
@@ -185,11 +189,9 @@
         "name": "Rename on focus",
         "desc": "Also process notes when they become active in the editor."
       },
-      "whatToPutInTitle": {
-        "name": "What to put in title",
-        "desc": "Set what first line content should be copied to filename.",
-        "anyText": "Any text",
-        "headingsOnly": "Headings only"
+      "onlyRenameIfHeading": {
+        "name": "Only rename if first line is a heading",
+        "desc": "Don't rename notes if the first line is not a heading."
       },
       "moveCursorToFirstLine": {
         "name": "Move cursor to first line",
@@ -199,27 +201,45 @@
         "name": "Place cursor at line end",
         "desc": "When moving the cursor to a first line with content, place it at the end of the line instead of the start."
       },
-      "disableInExcludedFolders": {
-        "name": "Disable in excluded folders",
-        "desc": "Don't move the cursor when creating notes in excluded folders."
+      "disableInExcludedNotes": {
+        "name": "Disable in excluded notes",
+        "desc": "Don't move the cursor when creating notes in excluded folders, or from a template with excluded tags or properties."
       },
       "waitForTemplate": {
         "name": "Wait for template",
-        "desc": "Move the cursor after a new note template is applied and it does not have an excluded tag or property."
+        "desc": {
+          "part1": "Let ",
+          "templater": "Templater",
+          "part2": " automatically insert a new-note template before moving the cursor. Allows to match tags and properties that are set in ",
+          "exclusions": "Exclusions",
+          "part3": ", or to position the cursor at the end of the inserted line if ",
+          "placeCursorAtLineEnd": "Place cursor at line end",
+          "part4": " is enabled."
+        }
       },
       "insertTitleOnCreation": {
         "name": "Insert title in first line on note creation",
         "desc": {
           "part1": "Place the filename in the first line when creating a new empty note (unless ",
           "untitled": "Untitled",
-          "part2": "). Convert forbidden character replacements back to their original forms, as set in ",
+          "part2": ")."
+        }
+      },
+      "convertReplacementCharactersInTitle": {
+        "name": "Convert replacement characters",
+        "desc": {
+          "part1": "Convert forbidden character replacements back to their original forms, as set in ",
           "replaceCharacters": "Replace characters",
-          "part3": "."
+          "part2": "."
         }
       },
       "insertAfterTemplate": {
         "name": "Insert after template",
-        "desc": "Let a new note template insert a Properties block before inserting the filename."
+        "desc": {
+          "part1": "Let ",
+          "templater": "Templater",
+          "part2": " automatically insert a new-note template before inserting the filename. The filename will not be inserted if the template adds content below Properties."
+        }
       },
       "formatAsHeading": {
         "name": "Format as heading",
@@ -393,14 +413,14 @@
     },
     "replaceCharacters": {
       "name": "Replace forbidden characters",
-      "desc": "Set replacements for characters which are not allowed in filenames. Forbidden characters are omitted entirely if disabled.",
+      "desc": "Replace characters which are not allowed in filenames. Forbidden characters are stripped entirely if disabled.",
       "allOSes": {
         "title": "All OSes",
         "desc": "Replace characters that are forbidden in Obsidian filenames on all OSes.",
         "note": {
           "part1": "Use ",
           "trimLeft": "Trim left",
-          "part2": " to remove preceding whitespace. Use ",
+          "part2": " to remove preceding whitespace in filename. Use ",
           "trimRight": "Trim right",
           "part3": " to remove whitespace that follows."
         }
@@ -438,7 +458,7 @@
     },
     "customRules": {
       "name": "Enable custom rules",
-      "desc": "Set custom text replacements.",
+      "desc": "Apply custom text replacements to filename.",
       "rulesAppliedSequentially": "Rules are applied sequentially from top to bottom.",
       "whitespacePreserved": "Whitespace preserved.",
       "leaveBlank": {
@@ -487,67 +507,177 @@
       "desc": "Omit markup syntax in filenames.",
       "headings": {
         "name": "Strip heading markup",
-        "desc": "For example, turn ### Hello into Hello."
+        "desc": {
+          "part1": "For example, turn ",
+          "example1": "### Hello",
+          "part2": " into ",
+          "example2": "Hello",
+          "part3": "."
+        }
       },
       "bold": {
         "name": "Strip bold markup",
-        "desc": "For example, turn **Hello** or __Hello__ into Hello."
+        "desc": {
+          "part1": "For example, turn ",
+          "example1": "**Hello**",
+          "part2": " or ",
+          "example2": "__Hello__",
+          "part3": " into ",
+          "example3": "Hello",
+          "part4": "."
+        }
       },
       "italic": {
         "name": "Strip italic markup",
-        "desc": "For example, turn *Hello* or _Hello_ into Hello."
+        "desc": {
+          "part1": "For example, turn ",
+          "example1": "*Hello*",
+          "part2": " or ",
+          "example2": "_Hello_",
+          "part3": " into ",
+          "example3": "Hello",
+          "part4": "."
+        }
       },
       "strikethrough": {
         "name": "Strip strikethrough markup",
-        "desc": "For example, turn ~~Hello~~ into Hello."
+        "desc": {
+          "part1": "For example, turn ",
+          "example1": "~~Hello~~",
+          "part2": " into ",
+          "example2": "Hello",
+          "part3": "."
+        }
       },
       "highlight": {
         "name": "Strip highlight markup",
-        "desc": "For example, turn ==Hello== into Hello."
+        "desc": {
+          "part1": "For example, turn ",
+          "example1": "==Hello==",
+          "part2": " into ",
+          "example2": "Hello",
+          "part3": "."
+        }
       },
       "wikilinks": {
         "name": "Strip wikilink markup",
-        "desc": "For example, turn [[Hello]] or [[Hi|Hello]] into Hello."
+        "desc": {
+          "part1": "For example, turn ",
+          "example1": "[[Hello]]",
+          "part2": " or ",
+          "example2": "[[Hi|Hello]]",
+          "part3": " into ",
+          "example3": "Hello",
+          "part4": "."
+        }
       },
       "markdownLinks": {
         "name": "Strip markdown link markup",
-        "desc": "For example, turn [Hello](https://example.org) into Hello."
+        "desc": {
+          "part1": "For example, turn ",
+          "example1": "[Hello](https://example.org)",
+          "part2": " into ",
+          "example2": "Hello",
+          "part3": "."
+        }
       },
       "quote": {
         "name": "Strip quote markup",
-        "desc": "For example, turn >Hello into Hello."
+        "desc": {
+          "part1": "For example, turn ",
+          "example1": ">Hello",
+          "part2": " into ",
+          "example2": "Hello",
+          "part3": "."
+        }
       },
       "callouts": {
         "name": "Strip callout markup",
-        "desc": "For example, turn >[!info] Hello into Hello."
+        "desc": {
+          "part1": "For example, turn ",
+          "example1": ">[!info] Hello",
+          "part2": " into ",
+          "example2": "Hello",
+          "part3": "."
+        }
       },
       "unorderedLists": {
         "name": "Strip unordered list markup",
-        "desc": "For example, turn - Hello or * Hello into Hello."
+        "desc": {
+          "part1": "For example, turn ",
+          "example1": "- Hello",
+          "part2": " or ",
+          "example2": "* Hello",
+          "part3": " into ",
+          "example3": "Hello",
+          "part4": "."
+        }
       },
       "orderedLists": {
         "name": "Strip ordered list markup",
-        "desc": "For example, turn 1. Hello into Hello."
+        "desc": {
+          "part1": "For example, turn ",
+          "example1": "1. Hello",
+          "part2": " into ",
+          "example2": "Hello",
+          "part3": "."
+        }
       },
       "taskLists": {
         "name": "Strip task list markup",
-        "desc": "For example, turn - [x] Hello into Hello."
+        "desc": {
+          "part1": "For example, turn ",
+          "example1": "- [x] Hello",
+          "part2": " into ",
+          "example2": "Hello",
+          "part3": "."
+        }
       },
       "code": {
         "name": "Strip inline code markup",
-        "desc": "For example, turn `Hello` into Hello."
+        "desc": {
+          "part1": "For example, turn ",
+          "example1": "`Hello`",
+          "part2": " into ",
+          "example2": "Hello",
+          "part3": "."
+        }
       },
       "codeBlocks": {
         "name": "Strip code block markup",
         "desc": "Instead, put the first line within code block in title."
       },
+      "detectDiagrams": {
+        "name": "Detect diagrams",
+        "desc": {
+          "part1": "For Mermaid diagram blocks, put ",
+          "diagram": "Diagram",
+          "part2": " in title."
+        }
+      },
       "footnotes": {
         "name": "Strip footnote markup",
-        "desc": "For example, turn Hello[^1] or Hello^[footnote] into Hello."
+        "desc": {
+          "part1": "For example, turn ",
+          "example1": "Hello[^1]",
+          "part2": " or ",
+          "example2": "Hello^[footnote]",
+          "part3": " into ",
+          "example3": "Hello",
+          "part4": "."
+        }
       },
       "comments": {
         "name": "Strip comment markup",
-        "desc": "For example, turn %%Hello%% or <!--Hello--> into Hello."
+        "desc": {
+          "part1": "For example, turn ",
+          "example1": "%%Hello%%",
+          "part2": " or ",
+          "example2": "<!--Hello-->",
+          "part3": " into ",
+          "example3": "Hello",
+          "part4": "."
+        }
       },
       "commentsEntirely": {
         "name": "Strip comments entirely",
@@ -561,6 +691,24 @@
           "part2": " in title."
         }
       },
+      "stripInlineMathMarkup": {
+        "name": "Strip inline math markup",
+        "desc": {
+          "part1": "For example, turn ",
+          "example1": "$F=ma$",
+          "part2": " into ",
+          "example2": "F=ma",
+          "part3": "."
+        }
+      },
+      "stripMathBlockMarkup": {
+        "name": "Strip math block markup",
+        "desc": {
+          "part1": "Instead, put ",
+          "mathBlock": "Math block",
+          "part2": " in title."
+        }
+      },
       "tables": {
         "name": "Strip table markup",
         "desc": {
@@ -571,7 +719,13 @@
       },
       "htmlTags": {
         "name": "Strip HTML tags",
-        "desc": "For example, turn <u>Hello</u> into Hello."
+        "desc": {
+          "part1": "For example, turn ",
+          "example1": "<u>Hello</u>",
+          "part2": " into ",
+          "example2": "Hello",
+          "part3": "."
+        }
       },
       "templater": {
         "name": "Strip Templater syntax",
@@ -665,7 +819,7 @@
     "safewords": {
       "enableSafewords": {
         "name": "Enable safewords",
-        "desc": "Specify text that prevents renaming if matched in filename."
+        "desc": "Don't rename notes when there is a safeword in the filename."
       },
       "addButton": "Add safeword",
       "headers": {

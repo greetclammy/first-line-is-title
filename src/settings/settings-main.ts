@@ -1,6 +1,7 @@
 import { PluginSettingTab, App } from "obsidian";
 import { FirstLineIsTitlePlugin } from './settings-base';
 import { t, getCurrentLocale } from '../i18n';
+import { TIMING } from '../constants/timing';
 
 // Import all tab classes
 import { GeneralTab } from './tab-general';
@@ -32,14 +33,13 @@ export class FirstLineIsTitleSettings extends PluginSettingTab {
     }
 
     constructor(app: App, plugin: FirstLineIsTitlePlugin) {
-        super(app, plugin);
+        super(app, plugin as any);
         this.plugin = plugin;
     }
 
     display(): void {
         this.containerEl.empty();
 
-        // Create tab bar
         const tabBar = this.containerEl.createEl('nav', { cls: 'flit-settings-tab-bar' });
         tabBar.setAttribute('role', 'tablist');
 
@@ -52,19 +52,17 @@ export class FirstLineIsTitleSettings extends PluginSettingTab {
 
         const activateTab = (tabEl: HTMLElement, tabInfo: typeof this.TABS[keyof typeof this.TABS]) => {
             // Remove active class from all tabs
-            for (const child of tabBar.children) {
+            for (const child of Array.from(tabBar.children)) {
                 child.removeClass('flit-settings-tab-active');
                 child.setAttribute('aria-selected', 'false');
                 child.setAttribute('tabindex', '-1');
             }
 
-            // Add active class to selected tab
             tabEl.addClass('flit-settings-tab-active');
             tabEl.setAttribute('aria-selected', 'true');
             tabEl.setAttribute('tabindex', '0');
 
-            // Update settings and render
-            this.plugin.settings.currentSettingsTab = tabInfo.id;
+            this.plugin.settings.core.currentSettingsTab = tabInfo.id;
             this.plugin.saveSettings();
             this.renderTab(tabInfo.id);
         };
@@ -74,7 +72,7 @@ export class FirstLineIsTitleSettings extends PluginSettingTab {
             tabEl.setAttribute('data-tab-id', tabInfo.id);
             tabEl.setAttribute('role', 'tab');
 
-            const isActive = this.plugin.settings.currentSettingsTab === tabInfo.id;
+            const isActive = this.plugin.settings.core.currentSettingsTab === tabInfo.id;
             tabEl.setAttribute('tabindex', isActive ? '0' : '-1');
             tabEl.setAttribute('aria-selected', isActive ? 'true' : 'false');
 
@@ -194,18 +192,16 @@ export class FirstLineIsTitleSettings extends PluginSettingTab {
             tabElements.push(tabEl);
         }
 
-        // Create settings page container
         this.settingsPage = this.containerEl.createDiv({ cls: 'flit-settings-page' });
 
-        // Render initial tab
-        this.renderTab(this.plugin.settings.currentSettingsTab);
+        this.renderTab(this.plugin.settings.core.currentSettingsTab);
 
         // Remove focus from active tab to prevent outline on initial display
         setTimeout(() => {
             if (document.activeElement instanceof HTMLElement) {
                 document.activeElement.blur();
             }
-        }, 0);
+        }, TIMING.NEXT_TICK_MS);
 
         // Handle first Tab press to focus active tab
         let hasHandledFirstTab = false;
@@ -232,15 +228,12 @@ export class FirstLineIsTitleSettings extends PluginSettingTab {
 
         this.settingsPage.empty();
 
-        // Find the tab configuration
         const tabConfig = Object.values(this.TABS).find(tab => tab.id === tabId);
 
         if (tabConfig) {
-            // Create and render the tab
             const tabInstance = new tabConfig.class(this.plugin, this.settingsPage);
             await tabInstance.render();
         } else {
-            // Default to general tab
             const generalTab = new GeneralTab(this.plugin, this.settingsPage);
             await generalTab.render();
         }

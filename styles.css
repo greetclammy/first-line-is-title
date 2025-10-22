@@ -1402,6 +1402,7 @@ hr.flit-divider {
 .flit-display-empty { display: ''; }
 
 /* Gap utilities */
+.flit-gap-8 { gap: 8px; }
 .flit-gap-10 { gap: 10px; }
 
 /* Opacity utilities */
@@ -1415,10 +1416,67 @@ hr.flit-divider {
 .flit-pointer-empty { pointer-events: ''; }
 
 /* Width utilities */
+.flit-width-100 { width: 100%; }
 .flit-width-120 { width: 120px; }
 
 /* Margin utilities */
 .flit-margin-0 { margin: 0; }
+.flit-margin-top-5 { margin-top: 5px; }
+.flit-margin-top-6 { margin-top: 6px; }
+.flit-margin-top-10 { margin-top: 10px; }
+.flit-margin-top-12 { margin-top: 12px; }
+.flit-margin-top-15 { margin-top: 15px; }
+.flit-margin-bottom-0 { margin-bottom: 0; }
+.flit-margin-bottom-10 { margin-bottom: 10px; }
+.flit-margin-bottom-15 { margin-bottom: 15px; }
+.flit-margin-bottom-20 { margin-bottom: 20px; }
+
+/* Padding utilities */
+.flit-padding-left-20 { padding-left: 20px; }
 
 /* Alignment utilities */
 .flit-align-center { display: flex; align-items: center; gap: 8px; }
+.flit-align-items-center { align-items: center; }
+
+/* Justify content utilities */
+.flit-justify-center { justify-content: center; }
+
+/* Feedback button container - replaces cssText */
+.flit-feedback-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    margin: 20px 0;
+    padding: 4px 0;
+    overflow: visible;
+}
+
+/* Feedback button styling - replaces inline styles */
+.flit-feedback-button {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* Border utilities */
+.flit-border-top-none { border-top: none; }
+
+/* State management utilities - for enable/disable interactions */
+.flit-state-disabled {
+    opacity: 0.5;
+    pointer-events: none;
+}
+
+.flit-state-enabled {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+/* Property container - used in exclusions tab */
+.flit-property-control-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+}

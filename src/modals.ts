@@ -1,6 +1,6 @@
 import { Modal, App, TFile, TFolder, Notice } from "obsidian";
 import { PluginSettings } from './types';
-import { verboseLog, shouldProcessFile } from './utils';
+import { verboseLog, shouldProcessFile, normalizeTag } from './utils';
 import { t, getPluralForm, tpSplit } from './i18n';
 
 interface FirstLineIsTitlePlugin {
@@ -42,13 +42,9 @@ export class RenameAllFilesModal extends Modal {
         messagePara.createEl("strong", { text: `${count} ${parts.noun}` });
         messagePara.appendText(parts.after);
 
-        const ensureList = contentEl.createEl("p", { text: t('modals.ensure') });
-        ensureList.style.marginTop = "10px";
-        ensureList.style.marginBottom = "10px";
+        const ensureList = contentEl.createEl("p", { text: t('modals.ensure'), cls: "flit-margin-top-10 flit-margin-bottom-10" });
 
-        const ul = contentEl.createEl("ul");
-        ul.style.marginTop = "0";
-        ul.style.paddingLeft = "20px";
+        const ul = contentEl.createEl("ul", { cls: "flit-margin-0 flit-padding-left-20" });
 
         const li1 = ul.createEl("li");
         const backupText = t('modals.filesBackedUp');
@@ -75,7 +71,7 @@ export class RenameAllFilesModal extends Modal {
     async renameAllFiles() {
         let filesToRename: TFile[] = [];
         this.app.vault.getMarkdownFiles().forEach((file) => {
-            if (shouldProcessFile(file, this.plugin.settings, this.app)) {
+            if (shouldProcessFile(file, this.plugin.settings, this.app, undefined, undefined, this.plugin)) {
                 filesToRename.push(file);
             }
         });
@@ -179,7 +175,7 @@ export class RenameFolderModal extends Modal {
         const subfoldersContainer = optionsContainer.createDiv({ cls: "flit-checkbox-container" });
         const subfoldersCheckbox = subfoldersContainer.createEl("input", { type: "checkbox" });
         subfoldersCheckbox.id = "rename-subfolders";
-        subfoldersCheckbox.checked = this.plugin.settings.modalCheckboxStates.folderRename.includeSubfolders;
+        subfoldersCheckbox.checked = this.plugin.settings.core.modalCheckboxStates.folderRename.includeSubfolders;
 
         const subfoldersLabel = subfoldersContainer.createEl("label");
         subfoldersLabel.setAttribute("for", "rename-subfolders");
@@ -188,7 +184,7 @@ export class RenameFolderModal extends Modal {
         const excludedFoldersContainer = optionsContainer.createDiv({ cls: "flit-checkbox-container" });
         const excludedFoldersCheckbox = excludedFoldersContainer.createEl("input", { type: "checkbox" });
         excludedFoldersCheckbox.id = "rename-excluded-folders";
-        excludedFoldersCheckbox.checked = this.plugin.settings.modalCheckboxStates.folderRename.renameExcludedFolders;
+        excludedFoldersCheckbox.checked = this.plugin.settings.core.modalCheckboxStates.folderRename.renameExcludedFolders;
 
         const excludedFoldersLabel = excludedFoldersContainer.createEl("label");
         excludedFoldersLabel.setAttribute("for", "rename-excluded-folders");
@@ -198,7 +194,7 @@ export class RenameFolderModal extends Modal {
         const excludedTagsContainer = optionsContainer.createDiv({ cls: "flit-checkbox-container" });
         const excludedTagsCheckbox = excludedTagsContainer.createEl("input", { type: "checkbox" });
         excludedTagsCheckbox.id = "rename-excluded-tags";
-        excludedTagsCheckbox.checked = this.plugin.settings.modalCheckboxStates.folderRename.renameExcludedTags;
+        excludedTagsCheckbox.checked = this.plugin.settings.core.modalCheckboxStates.folderRename.renameExcludedTags;
 
         const excludedTagsLabel = excludedTagsContainer.createEl("label");
         excludedTagsLabel.setAttribute("for", "rename-excluded-tags");
@@ -208,7 +204,7 @@ export class RenameFolderModal extends Modal {
         const excludedPropsContainer = optionsContainer.createDiv({ cls: "flit-checkbox-container" });
         const excludedPropsCheckbox = excludedPropsContainer.createEl("input", { type: "checkbox" });
         excludedPropsCheckbox.id = "rename-excluded-properties";
-        excludedPropsCheckbox.checked = this.plugin.settings.modalCheckboxStates.folderRename.renameExcludedProperties;
+        excludedPropsCheckbox.checked = this.plugin.settings.core.modalCheckboxStates.folderRename.renameExcludedProperties;
 
         const excludedPropsLabel = excludedPropsContainer.createEl("label");
         excludedPropsLabel.setAttribute("for", "rename-excluded-properties");
@@ -222,10 +218,10 @@ export class RenameFolderModal extends Modal {
         const renameButton = buttonContainer.createEl("button", { text: t('modals.buttons.rename') });
         renameButton.addClass("mod-cta");
         renameButton.onclick = async () => {
-            this.plugin.settings.modalCheckboxStates.folderRename.includeSubfolders = subfoldersCheckbox.checked;
-            this.plugin.settings.modalCheckboxStates.folderRename.renameExcludedFolders = excludedFoldersCheckbox.checked;
-            this.plugin.settings.modalCheckboxStates.folderRename.renameExcludedTags = excludedTagsCheckbox.checked;
-            this.plugin.settings.modalCheckboxStates.folderRename.renameExcludedProperties = excludedPropsCheckbox.checked;
+            this.plugin.settings.core.modalCheckboxStates.folderRename.includeSubfolders = subfoldersCheckbox.checked;
+            this.plugin.settings.core.modalCheckboxStates.folderRename.renameExcludedFolders = excludedFoldersCheckbox.checked;
+            this.plugin.settings.core.modalCheckboxStates.folderRename.renameExcludedTags = excludedTagsCheckbox.checked;
+            this.plugin.settings.core.modalCheckboxStates.folderRename.renameExcludedProperties = excludedPropsCheckbox.checked;
             await this.plugin.saveSettings();
 
             this.close();
@@ -344,7 +340,7 @@ export class RenameMultipleFoldersModal extends Modal {
         const subfoldersContainer = optionsContainer.createDiv({ cls: "flit-checkbox-container" });
         const subfoldersCheckbox = subfoldersContainer.createEl("input", { type: "checkbox" });
         subfoldersCheckbox.id = "rename-subfolders";
-        subfoldersCheckbox.checked = this.plugin.settings.modalCheckboxStates.folderRename.includeSubfolders;
+        subfoldersCheckbox.checked = this.plugin.settings.core.modalCheckboxStates.folderRename.includeSubfolders;
 
         const subfoldersLabel = subfoldersContainer.createEl("label");
         subfoldersLabel.setAttribute("for", "rename-subfolders");
@@ -353,7 +349,7 @@ export class RenameMultipleFoldersModal extends Modal {
         const excludedFoldersContainer = optionsContainer.createDiv({ cls: "flit-checkbox-container" });
         const excludedFoldersCheckbox = excludedFoldersContainer.createEl("input", { type: "checkbox" });
         excludedFoldersCheckbox.id = "rename-excluded-folders";
-        excludedFoldersCheckbox.checked = this.plugin.settings.modalCheckboxStates.folderRename.renameExcludedFolders;
+        excludedFoldersCheckbox.checked = this.plugin.settings.core.modalCheckboxStates.folderRename.renameExcludedFolders;
 
         const excludedFoldersLabel = excludedFoldersContainer.createEl("label");
         excludedFoldersLabel.setAttribute("for", "rename-excluded-folders");
@@ -362,7 +358,7 @@ export class RenameMultipleFoldersModal extends Modal {
         const excludedTagsContainer = optionsContainer.createDiv({ cls: "flit-checkbox-container" });
         const excludedTagsCheckbox = excludedTagsContainer.createEl("input", { type: "checkbox" });
         excludedTagsCheckbox.id = "rename-excluded-tags";
-        excludedTagsCheckbox.checked = this.plugin.settings.modalCheckboxStates.folderRename.renameExcludedTags;
+        excludedTagsCheckbox.checked = this.plugin.settings.core.modalCheckboxStates.folderRename.renameExcludedTags;
 
         const excludedTagsLabel = excludedTagsContainer.createEl("label");
         excludedTagsLabel.setAttribute("for", "rename-excluded-tags");
@@ -371,7 +367,7 @@ export class RenameMultipleFoldersModal extends Modal {
         const excludedPropsContainer = optionsContainer.createDiv({ cls: "flit-checkbox-container" });
         const excludedPropsCheckbox = excludedPropsContainer.createEl("input", { type: "checkbox" });
         excludedPropsCheckbox.id = "rename-excluded-properties";
-        excludedPropsCheckbox.checked = this.plugin.settings.modalCheckboxStates.folderRename.renameExcludedProperties;
+        excludedPropsCheckbox.checked = this.plugin.settings.core.modalCheckboxStates.folderRename.renameExcludedProperties;
 
         const excludedPropsLabel = excludedPropsContainer.createEl("label");
         excludedPropsLabel.setAttribute("for", "rename-excluded-properties");
@@ -385,10 +381,10 @@ export class RenameMultipleFoldersModal extends Modal {
         const renameButton = buttonContainer.createEl("button", { text: t('modals.buttons.rename') });
         renameButton.addClass("mod-cta");
         renameButton.onclick = async () => {
-            this.plugin.settings.modalCheckboxStates.folderRename.includeSubfolders = subfoldersCheckbox.checked;
-            this.plugin.settings.modalCheckboxStates.folderRename.renameExcludedFolders = excludedFoldersCheckbox.checked;
-            this.plugin.settings.modalCheckboxStates.folderRename.renameExcludedTags = excludedTagsCheckbox.checked;
-            this.plugin.settings.modalCheckboxStates.folderRename.renameExcludedProperties = excludedPropsCheckbox.checked;
+            this.plugin.settings.core.modalCheckboxStates.folderRename.includeSubfolders = subfoldersCheckbox.checked;
+            this.plugin.settings.core.modalCheckboxStates.folderRename.renameExcludedFolders = excludedFoldersCheckbox.checked;
+            this.plugin.settings.core.modalCheckboxStates.folderRename.renameExcludedTags = excludedTagsCheckbox.checked;
+            this.plugin.settings.core.modalCheckboxStates.folderRename.renameExcludedProperties = excludedPropsCheckbox.checked;
             await this.plugin.saveSettings();
 
             this.close();
@@ -493,7 +489,7 @@ export class ProcessTagModal extends Modal {
                     ? cache.frontmatter.tags
                     : [cache.frontmatter.tags];
                 for (const tag of frontmatterTags) {
-                    const normalizedTag = tag.startsWith('#') ? tag.slice(1) : tag;
+                    const normalizedTag = normalizeTag(tag);
                     if (normalizedTag === this.tag || normalizedTag.startsWith(`${this.tag}/`)) {
                         count++;
                         break;
@@ -502,7 +498,7 @@ export class ProcessTagModal extends Modal {
             }
             if (cache?.tags) {
                 for (const tagCache of cache.tags) {
-                    const normalizedTag = tagCache.tag.startsWith('#') ? tagCache.tag.slice(1) : tagCache.tag;
+                    const normalizedTag = normalizeTag(tagCache.tag);
                     if (normalizedTag === this.tag || normalizedTag.startsWith(`${this.tag}/`)) {
                         count++;
                         break;
@@ -530,7 +526,7 @@ export class ProcessTagModal extends Modal {
         const childTagsContainer = optionsContainer.createDiv({ cls: "flit-checkbox-container" });
         const childTagsCheckbox = childTagsContainer.createEl("input", { type: "checkbox" });
         childTagsCheckbox.id = "rename-child-tags";
-        childTagsCheckbox.checked = this.plugin.settings.modalCheckboxStates.tagRename.includeChildTags;
+        childTagsCheckbox.checked = this.plugin.settings.core.modalCheckboxStates.tagRename.includeChildTags;
 
         const childTagsLabel = childTagsContainer.createEl("label");
         childTagsLabel.setAttribute("for", "rename-child-tags");
@@ -540,7 +536,7 @@ export class ProcessTagModal extends Modal {
         const excludedFoldersContainer = optionsContainer.createDiv({ cls: "flit-checkbox-container" });
         const excludedFoldersCheckbox = excludedFoldersContainer.createEl("input", { type: "checkbox" });
         excludedFoldersCheckbox.id = "rename-excluded-folders";
-        excludedFoldersCheckbox.checked = this.plugin.settings.modalCheckboxStates.tagRename.renameExcludedFolders;
+        excludedFoldersCheckbox.checked = this.plugin.settings.core.modalCheckboxStates.tagRename.renameExcludedFolders;
 
         const excludedFoldersLabel = excludedFoldersContainer.createEl("label");
         excludedFoldersLabel.setAttribute("for", "rename-excluded-folders");
@@ -550,7 +546,7 @@ export class ProcessTagModal extends Modal {
         const excludedTagsContainer = optionsContainer.createDiv({ cls: "flit-checkbox-container" });
         const excludedTagsCheckbox = excludedTagsContainer.createEl("input", { type: "checkbox" });
         excludedTagsCheckbox.id = "rename-excluded-tags";
-        excludedTagsCheckbox.checked = this.plugin.settings.modalCheckboxStates.tagRename.renameExcludedTags;
+        excludedTagsCheckbox.checked = this.plugin.settings.core.modalCheckboxStates.tagRename.renameExcludedTags;
 
         const excludedTagsLabel = excludedTagsContainer.createEl("label");
         excludedTagsLabel.setAttribute("for", "rename-excluded-tags");
@@ -560,7 +556,7 @@ export class ProcessTagModal extends Modal {
         const excludedPropsContainer = optionsContainer.createDiv({ cls: "flit-checkbox-container" });
         const excludedPropsCheckbox = excludedPropsContainer.createEl("input", { type: "checkbox" });
         excludedPropsCheckbox.id = "rename-excluded-properties";
-        excludedPropsCheckbox.checked = this.plugin.settings.modalCheckboxStates.tagRename.renameExcludedProperties;
+        excludedPropsCheckbox.checked = this.plugin.settings.core.modalCheckboxStates.tagRename.renameExcludedProperties;
 
         const excludedPropsLabel = excludedPropsContainer.createEl("label");
         excludedPropsLabel.setAttribute("for", "rename-excluded-properties");
@@ -575,10 +571,10 @@ export class ProcessTagModal extends Modal {
         renameButton.addClass("mod-cta");
         renameButton.onclick = async () => {
             // Save checkbox states only when command is run
-            this.plugin.settings.modalCheckboxStates.tagRename.includeChildTags = childTagsCheckbox.checked;
-            this.plugin.settings.modalCheckboxStates.tagRename.renameExcludedFolders = excludedFoldersCheckbox.checked;
-            this.plugin.settings.modalCheckboxStates.tagRename.renameExcludedTags = excludedTagsCheckbox.checked;
-            this.plugin.settings.modalCheckboxStates.tagRename.renameExcludedProperties = excludedPropsCheckbox.checked;
+            this.plugin.settings.core.modalCheckboxStates.tagRename.includeChildTags = childTagsCheckbox.checked;
+            this.plugin.settings.core.modalCheckboxStates.tagRename.renameExcludedFolders = excludedFoldersCheckbox.checked;
+            this.plugin.settings.core.modalCheckboxStates.tagRename.renameExcludedTags = excludedTagsCheckbox.checked;
+            this.plugin.settings.core.modalCheckboxStates.tagRename.renameExcludedProperties = excludedPropsCheckbox.checked;
             await this.plugin.saveSettings();
 
             this.close();
@@ -611,7 +607,7 @@ export class ProcessTagModal extends Modal {
                     : [cache.frontmatter.tags];
 
                 for (const tag of frontmatterTags) {
-                    const normalizedTag = tag.startsWith('#') ? tag.slice(1) : tag;
+                    const normalizedTag = normalizeTag(tag);
                     if (normalizedTag === this.tag) {
                         hasMatchingTag = true;
                         break;
@@ -768,7 +764,7 @@ export class RenameModal extends Modal {
         const excludedFoldersContainer = optionsContainer.createDiv({ cls: "flit-checkbox-container" });
         const excludedFoldersCheckbox = excludedFoldersContainer.createEl("input", { type: "checkbox" });
         excludedFoldersCheckbox.id = "rename-excluded-folders";
-        excludedFoldersCheckbox.checked = this.plugin.settings.modalCheckboxStates.searchRename.renameExcludedFolders;
+        excludedFoldersCheckbox.checked = this.plugin.settings.core.modalCheckboxStates.searchRename.renameExcludedFolders;
 
         const excludedFoldersLabel = excludedFoldersContainer.createEl("label");
         excludedFoldersLabel.setAttribute("for", "rename-excluded-folders");
@@ -778,7 +774,7 @@ export class RenameModal extends Modal {
         const excludedTagsContainer = optionsContainer.createDiv({ cls: "flit-checkbox-container" });
         const excludedTagsCheckbox = excludedTagsContainer.createEl("input", { type: "checkbox" });
         excludedTagsCheckbox.id = "rename-excluded-tags";
-        excludedTagsCheckbox.checked = this.plugin.settings.modalCheckboxStates.searchRename.renameExcludedTags;
+        excludedTagsCheckbox.checked = this.plugin.settings.core.modalCheckboxStates.searchRename.renameExcludedTags;
 
         const excludedTagsLabel = excludedTagsContainer.createEl("label");
         excludedTagsLabel.setAttribute("for", "rename-excluded-tags");
@@ -788,7 +784,7 @@ export class RenameModal extends Modal {
         const excludedPropsContainer = optionsContainer.createDiv({ cls: "flit-checkbox-container" });
         const excludedPropsCheckbox = excludedPropsContainer.createEl("input", { type: "checkbox" });
         excludedPropsCheckbox.id = "rename-excluded-properties";
-        excludedPropsCheckbox.checked = this.plugin.settings.modalCheckboxStates.searchRename.renameExcludedProperties;
+        excludedPropsCheckbox.checked = this.plugin.settings.core.modalCheckboxStates.searchRename.renameExcludedProperties;
 
         const excludedPropsLabel = excludedPropsContainer.createEl("label");
         excludedPropsLabel.setAttribute("for", "rename-excluded-properties");
@@ -803,9 +799,9 @@ export class RenameModal extends Modal {
         renameButton.addClass("mod-cta");
         renameButton.onclick = async () => {
             // Save checkbox states only when command is run
-            this.plugin.settings.modalCheckboxStates.searchRename.renameExcludedFolders = excludedFoldersCheckbox.checked;
-            this.plugin.settings.modalCheckboxStates.searchRename.renameExcludedTags = excludedTagsCheckbox.checked;
-            this.plugin.settings.modalCheckboxStates.searchRename.renameExcludedProperties = excludedPropsCheckbox.checked;
+            this.plugin.settings.core.modalCheckboxStates.searchRename.renameExcludedFolders = excludedFoldersCheckbox.checked;
+            this.plugin.settings.core.modalCheckboxStates.searchRename.renameExcludedTags = excludedTagsCheckbox.checked;
+            this.plugin.settings.core.modalCheckboxStates.searchRename.renameExcludedProperties = excludedPropsCheckbox.checked;
             await this.plugin.saveSettings();
 
             this.close();
@@ -883,8 +879,8 @@ export class DisableEnableModal extends Modal {
 
         const heading = contentEl.createEl("h2", { text: t('modals.caution'), cls: "flit-modal-heading" });
 
-        const key = this.plugin.settings.disableRenamingKey;
-        const value = this.plugin.settings.disableRenamingValue;
+        const key = this.plugin.settings.exclusions.disableRenamingKey;
+        const value = this.plugin.settings.exclusions.disableRenamingValue;
         const count = this.files.length;
 
         const messagePara = contentEl.createEl("p");
@@ -931,8 +927,8 @@ export class DisableEnableModal extends Modal {
         const pleaseWaitNotice = new Notice(renamingMsg, 0);
 
         let processedCount = 0;
-        const key = this.plugin.settings.disableRenamingKey;
-        const value = this.plugin.settings.disableRenamingValue;
+        const key = this.plugin.settings.exclusions.disableRenamingKey;
+        const value = this.plugin.settings.exclusions.disableRenamingValue;
 
         try {
             for (const file of filesToProcess) {

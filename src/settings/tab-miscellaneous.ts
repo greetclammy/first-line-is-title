@@ -5,6 +5,7 @@ import { DEFAULT_SETTINGS } from '../constants';
 import { ClearSettingsModal } from '../modals';
 import { verboseLog } from '../utils';
 import { t } from '../i18n';
+import { PluginInitializer } from '../core/plugin-initializer';
 
 export class MiscellaneousTab extends SettingsTabBase {
     private conditionalSettings: Setting[] = [];
@@ -16,7 +17,6 @@ export class MiscellaneousTab extends SettingsTabBase {
     }
 
     render(): void {
-        // Character count
         const charCountSetting = new Setting(this.containerEl)
             .setName(t('settings.miscellaneous.charCount.name'))
             .setDesc("");
@@ -27,7 +27,6 @@ export class MiscellaneousTab extends SettingsTabBase {
         charCountDesc.createEl("br");
         charCountDesc.createEl("small").createEl("strong", { text: t('settings.miscellaneous.charCount.default') });
 
-        // Create container for slider with reset button
         const charCountContainer = charCountSetting.controlEl.createDiv({ cls: "flit-char-text-input-container" });
 
         const charCountRestoreButton = charCountContainer.createEl("button", {
@@ -36,16 +35,15 @@ export class MiscellaneousTab extends SettingsTabBase {
         });
         setIcon(charCountRestoreButton, "rotate-ccw");
 
-        // Create slider element manually and append to container
         const sliderDiv = charCountContainer.createDiv();
 
         charCountSetting.addSlider((slider) => {
             slider
                 .setLimits(1, 255, 1)
-                .setValue(this.plugin.settings.charCount)
+                .setValue(this.plugin.settings.core.charCount)
                 .setDynamicTooltip()
                 .onChange(async (value) => {
-                    this.plugin.settings.charCount = value;
+                    this.plugin.settings.core.charCount = value;
                     this.plugin.debugLog('charCount', value);
                     await this.plugin.saveSettings();
                 });
@@ -55,20 +53,19 @@ export class MiscellaneousTab extends SettingsTabBase {
         });
 
         charCountRestoreButton.addEventListener('click', async () => {
-            this.plugin.settings.charCount = DEFAULT_SETTINGS.charCount;
-            this.plugin.debugLog('charCount', this.plugin.settings.charCount);
+            this.plugin.settings.core.charCount = DEFAULT_SETTINGS.core.charCount;
+            this.plugin.debugLog('charCount', this.plugin.settings.core.charCount);
             await this.plugin.saveSettings();
 
             // Update the slider value by triggering a re-render or finding the slider element
             const sliderInput = sliderDiv.querySelector('input[type="range"]') as HTMLInputElement;
             if (sliderInput) {
-                sliderInput.value = String(DEFAULT_SETTINGS.charCount);
+                sliderInput.value = String(DEFAULT_SETTINGS.core.charCount);
                 sliderInput.dispatchEvent(new Event('input', { bubbles: true }));
             }
         });
 
 
-        // Show notification setting (moved from General)
         const notificationSetting = new Setting(this.containerEl)
             .setName(t('settings.miscellaneous.notificationMode.name'))
             .setDesc(t('settings.miscellaneous.notificationMode.desc'));
@@ -78,15 +75,14 @@ export class MiscellaneousTab extends SettingsTabBase {
                 .addOption('Always', t('settings.miscellaneous.notificationMode.always'))
                 .addOption('On title change', t('settings.miscellaneous.notificationMode.onTitleChange'))
                 .addOption('Never', t('settings.miscellaneous.notificationMode.never'))
-                .setValue(this.plugin.settings.manualNotificationMode)
+                .setValue(this.plugin.settings.core.manualNotificationMode)
                 .onChange(async (value: NotificationMode) => {
-                    this.plugin.settings.manualNotificationMode = value;
+                    this.plugin.settings.core.manualNotificationMode = value;
                     this.plugin.debugLog('manualNotificationMode', value);
                     await this.plugin.saveSettings();
                 })
         );
 
-        // Grab title from card link setting
         const cardLinkSetting = new Setting(this.containerEl)
             .setName(t('settings.miscellaneous.grabCardLink.name'))
             .setDesc("");
@@ -106,20 +102,18 @@ export class MiscellaneousTab extends SettingsTabBase {
 
         cardLinkSetting.addToggle((toggle) =>
             toggle
-                .setValue(this.plugin.settings.grabTitleFromCardLink)
+                .setValue(this.plugin.settings.markupStripping.grabTitleFromCardLink)
                 .onChange(async (value) => {
-                    this.plugin.settings.grabTitleFromCardLink = value;
+                    this.plugin.settings.markupStripping.grabTitleFromCardLink = value;
                     this.plugin.debugLog('grabTitleFromCardLink', value);
                     await this.plugin.saveSettings();
                 })
         );
 
-        // New note delay
         const newNoteDelaySetting = new Setting(this.containerEl)
             .setName(t('settings.miscellaneous.newNoteDelay.name'))
             .setDesc(t('settings.miscellaneous.newNoteDelay.desc'));
 
-        // Create container for slider with reset button
         const newNoteDelayContainer = newNoteDelaySetting.controlEl.createDiv({ cls: "flit-char-text-input-container" });
 
         const newNoteDelayRestoreButton = newNoteDelayContainer.createEl("button", {
@@ -128,16 +122,15 @@ export class MiscellaneousTab extends SettingsTabBase {
         });
         setIcon(newNoteDelayRestoreButton, "rotate-ccw");
 
-        // Create slider element manually and append to container
         const newNoteDelaySliderDiv = newNoteDelayContainer.createDiv();
 
         newNoteDelaySetting.addSlider((slider) => {
             slider
                 .setLimits(0, 5000, 50)
-                .setValue(this.plugin.settings.newNoteDelay)
+                .setValue(this.plugin.settings.core.newNoteDelay)
                 .setDynamicTooltip()
                 .onChange(async (value) => {
-                    this.plugin.settings.newNoteDelay = value;
+                    this.plugin.settings.core.newNoteDelay = value;
                     this.plugin.debugLog('newNoteDelay', value);
                     await this.plugin.saveSettings();
                 });
@@ -147,69 +140,58 @@ export class MiscellaneousTab extends SettingsTabBase {
         });
 
         newNoteDelayRestoreButton.addEventListener('click', async () => {
-            this.plugin.settings.newNoteDelay = DEFAULT_SETTINGS.newNoteDelay;
-            this.plugin.debugLog('newNoteDelay', this.plugin.settings.newNoteDelay);
+            this.plugin.settings.core.newNoteDelay = DEFAULT_SETTINGS.core.newNoteDelay;
+            this.plugin.debugLog('newNoteDelay', this.plugin.settings.core.newNoteDelay);
             await this.plugin.saveSettings();
 
             // Update the slider value by triggering a re-render or finding the slider element
             const sliderInput = newNoteDelaySliderDiv.querySelector('input[type="range"]') as HTMLInputElement;
             if (sliderInput) {
-                sliderInput.value = String(DEFAULT_SETTINGS.newNoteDelay);
+                sliderInput.value = String(DEFAULT_SETTINGS.core.newNoteDelay);
                 sliderInput.dispatchEvent(new Event('input', { bubbles: true }));
             }
         });
 
-        // Content read method setting
         const contentReadMethodSetting = new Setting(this.containerEl)
             .setName(t('settings.miscellaneous.contentReadMethod.name'))
             .setDesc(t('settings.miscellaneous.contentReadMethod.desc'));
 
-        // Create container for dropdown with reset button
-        const contentReadContainer = contentReadMethodSetting.controlEl.createDiv({ cls: "flit-content-read-container" });
-        contentReadContainer.style.display = "flex";
-        contentReadContainer.style.gap = "10px";
+        const contentReadContainer = contentReadMethodSetting.controlEl.createDiv({ cls: "flit-content-read-container flit-display-flex flit-gap-10" });
 
-        // Reset button (to the left)
         const contentReadRestoreButton = contentReadContainer.createEl("button", {
             attr: { "aria-label": t('ariaLabels.restoreDefaultContentRead') },
             cls: "clickable-icon flit-restore-button"
         });
         setIcon(contentReadRestoreButton, "rotate-ccw");
 
-        // Dropdown
         const dropdown = contentReadContainer.createEl("select", { cls: "dropdown" });
         dropdown.createEl("option", { value: "Editor", text: t('settings.miscellaneous.contentReadMethod.editor') });
         dropdown.createEl("option", { value: "Cache", text: t('settings.miscellaneous.contentReadMethod.cache') });
         dropdown.createEl("option", { value: "File", text: t('settings.miscellaneous.contentReadMethod.file') });
-        dropdown.value = this.plugin.settings.fileReadMethod;
+        dropdown.value = this.plugin.settings.core.fileReadMethod;
 
-        // Reset button click handler
         contentReadRestoreButton.addEventListener('click', async () => {
-            dropdown.value = DEFAULT_SETTINGS.fileReadMethod;
-            this.plugin.settings.fileReadMethod = DEFAULT_SETTINGS.fileReadMethod;
-            this.plugin.debugLog('fileReadMethod', this.plugin.settings.fileReadMethod);
+            dropdown.value = DEFAULT_SETTINGS.core.fileReadMethod;
+            this.plugin.settings.core.fileReadMethod = DEFAULT_SETTINGS.core.fileReadMethod;
+            this.plugin.debugLog('fileReadMethod', this.plugin.settings.core.fileReadMethod);
             await this.plugin.saveSettings();
             this.updateAutomaticRenameVisibility();
         });
 
-        // Dropdown change handler
         dropdown.addEventListener('change', async (e) => {
             const newMode = (e.target as HTMLSelectElement).value as FileReadMethod;
-            this.plugin.settings.fileReadMethod = newMode;
-            this.plugin.debugLog('fileReadMethod', this.plugin.settings.fileReadMethod);
+            this.plugin.settings.core.fileReadMethod = newMode;
+            this.plugin.debugLog('fileReadMethod', this.plugin.settings.core.fileReadMethod);
             await this.plugin.saveSettings();
             this.updateAutomaticRenameVisibility();
         });
 
-        // Container for content read method sub-options (always visible, children controlled individually)
         const contentReadSubSettingsContainer = this.containerEl.createDiv('flit-sub-settings');
 
-        // Check interval setting - only visible when fileReadMethod="Editor" AND renameNotes="automatically"
         const checkIntervalSetting = new Setting(contentReadSubSettingsContainer)
             .setName(t('settings.miscellaneous.checkInterval.name'))
             .setDesc(t('settings.miscellaneous.checkInterval.desc'));
 
-        // Create input container for check interval with restore button
         const checkIntervalContainer = checkIntervalSetting.controlEl.createDiv({ cls: "flit-char-text-input-container" });
 
         const checkIntervalRestoreButton = checkIntervalContainer.createEl("button", {
@@ -218,15 +200,14 @@ export class MiscellaneousTab extends SettingsTabBase {
         });
         setIcon(checkIntervalRestoreButton, "rotate-ccw");
 
-        const checkIntervalTextInput = checkIntervalContainer.createEl("input", { type: "text", cls: "flit-char-text-input" });
+        const checkIntervalTextInput = checkIntervalContainer.createEl("input", { type: "text", cls: "flit-char-text-input flit-width-120" });
         checkIntervalTextInput.placeholder = t('settings.replaceCharacters.emptyPlaceholder');
-        checkIntervalTextInput.style.width = "120px";
-        checkIntervalTextInput.value = String(this.plugin.settings.checkInterval);
+        checkIntervalTextInput.value = String(this.plugin.settings.core.checkInterval);
 
         checkIntervalRestoreButton.addEventListener('click', async () => {
-            this.plugin.settings.checkInterval = DEFAULT_SETTINGS.checkInterval;
-            checkIntervalTextInput.value = String(DEFAULT_SETTINGS.checkInterval);
-            this.plugin.debugLog('checkInterval', this.plugin.settings.checkInterval);
+            this.plugin.settings.core.checkInterval = DEFAULT_SETTINGS.core.checkInterval;
+            checkIntervalTextInput.value = String(DEFAULT_SETTINGS.core.checkInterval);
+            this.plugin.debugLog('checkInterval', this.plugin.settings.core.checkInterval);
             await this.plugin.saveSettings();
 
             // Reinitialize checking system with default interval
@@ -248,8 +229,8 @@ export class MiscellaneousTab extends SettingsTabBase {
             // Handle empty input
             if (value === '') {
                 input.value = '';
-                this.plugin.settings.checkInterval = DEFAULT_SETTINGS.checkInterval;
-                this.plugin.debugLog('checkInterval', this.plugin.settings.checkInterval);
+                this.plugin.settings.core.checkInterval = DEFAULT_SETTINGS.core.checkInterval;
+                this.plugin.debugLog('checkInterval', this.plugin.settings.core.checkInterval);
                 await this.plugin.saveSettings();
                 this.plugin.editorLifecycle?.initializeCheckingSystem();
                 return;
@@ -262,77 +243,70 @@ export class MiscellaneousTab extends SettingsTabBase {
             input.value = String(numValue);
 
             // Save setting
-            this.plugin.settings.checkInterval = numValue;
-            this.plugin.debugLog('checkInterval', this.plugin.settings.checkInterval);
+            this.plugin.settings.core.checkInterval = numValue;
+            this.plugin.debugLog('checkInterval', this.plugin.settings.core.checkInterval);
             await this.plugin.saveSettings();
 
             // Reinitialize checking system with new interval
             this.plugin.editorLifecycle?.initializeCheckingSystem();
         });
 
-        // Store references to conditional settings for visibility control
         this.conditionalSettings = [
             checkIntervalSetting
         ];
 
-        // Define debug function and container first
         let debugSubSettingsContainer: HTMLElement;
 
         const updateDebugSubOptionVisibility = () => {
-            if (this.plugin.settings.verboseLogging) {
-                debugSubSettingsContainer.style.display = '';
+            if (this.plugin.settings.core.verboseLogging) {
+                debugSubSettingsContainer.removeClass('flit-display-none');
             } else {
-                debugSubSettingsContainer.style.display = 'none';
+                debugSubSettingsContainer.addClass('flit-display-none');
             }
         };
 
-        // Debug setting
         new Setting(this.containerEl)
             .setName(t('settings.miscellaneous.debug.name'))
             .setDesc(t('settings.miscellaneous.debug.desc'))
             .addToggle((toggle) =>
                 toggle
-                    .setValue(this.plugin.settings.verboseLogging)
+                    .setValue(this.plugin.settings.core.verboseLogging)
                     .onChange(async (value) => {
                         // Log BEFORE changing the value so we can see the OFF message
                         this.plugin.debugLog('verboseLogging', value);
 
-                        this.plugin.settings.verboseLogging = value;
+                        this.plugin.settings.core.verboseLogging = value;
                         // Update debug enabled timestamp when turning ON
                         if (value) {
-                            this.plugin.settings.debugEnabledTimestamp = this.plugin.getCurrentTimestamp();
+                            this.plugin.settings.core.debugEnabledTimestamp = this.plugin.getCurrentTimestamp?.() || '';
                         }
                         await this.plugin.saveSettings();
                         // Show/hide the sub-option based on debug state
                         updateDebugSubOptionVisibility();
                         // Output all settings when debug mode is turned ON
                         if (value) {
-                            this.plugin.outputAllSettings();
+                            this.plugin.outputAllSettings?.();
                         }
                     })
             );
 
-        // Create container for debug sub-settings
         debugSubSettingsContainer = this.containerEl.createDiv('flit-sub-settings');
 
-        // Debug sub-option: Output full file content
         const debugContentSetting = new Setting(debugSubSettingsContainer)
             .setName(t('settings.miscellaneous.debugOutputContent.name'))
             .setDesc(t('settings.miscellaneous.debugOutputContent.desc'))
             .addToggle((toggle) =>
                 toggle
-                    .setValue(this.plugin.settings.debugOutputFullContent)
+                    .setValue(this.plugin.settings.core.debugOutputFullContent)
                     .onChange(async (value) => {
-                        this.plugin.settings.debugOutputFullContent = value;
+                        this.plugin.settings.core.debugOutputFullContent = value;
                         this.plugin.debugLog('debugOutputFullContent', value);
                         await this.plugin.saveSettings();
                     })
             );
 
-        // Initialize visibility
         updateDebugSubOptionVisibility();
 
-        // Clear all settings
         new Setting(this.containerEl)
             .setName(t('settings.miscellaneous.clearSettings.name'))
             .setDesc(t('settings.miscellaneous.clearSettings.desc'))
@@ -341,20 +315,22 @@ export class MiscellaneousTab extends SettingsTabBase {
                     .setButtonText(t('modals.buttons.clearSettings'))
                     .setWarning()
                     .onClick(async () => {
-                        new ClearSettingsModal(this.plugin.app, this.plugin, async () => {
+                        new ClearSettingsModal(this.plugin.app, this.plugin as any, async () => {
                             // Reset all settings to defaults with deep copy
                             this.plugin.settings = JSON.parse(JSON.stringify(DEFAULT_SETTINGS));
 
-                            // Ensure scope strategy is explicitly set to default
-                            this.plugin.settings.scopeStrategy = 'Don\'t rename in...';
-
                             // Keep tracking that settings have been shown (don't show first-time notice again)
-                            this.plugin.settings.hasShownFirstTimeNotice = true;
+                            this.plugin.settings.core.hasShownFirstTimeNotice = true;
                             // Update last usage date to current date
-                            this.plugin.settings.lastUsageDate = this.plugin.getTodayDateString();
+                            this.plugin.settings.core.lastUsageDate = this.plugin.getTodayDateString?.() || '';
 
                             // Save the cleared settings
                             await this.plugin.saveSettings();
+
+                            // Re-run first-time setup logic (enable defaults, detect template folders/excalidraw)
+                            const pluginInitializer = new PluginInitializer(this.plugin as any);
+                            await pluginInitializer.initializeFirstEnableLogic();
+                            await pluginInitializer.checkFirstTimeExclusionsSetup();
 
                             // Show notification
                             verboseLog(this.plugin, `Showing notice: ${t('notifications.settingsCleared')}`);
@@ -374,24 +350,23 @@ export class MiscellaneousTab extends SettingsTabBase {
                     });
             });
 
-        // Set initial visibility based on current setting (after all settings are created)
         this.updateAutomaticRenameVisibility();
     }
 
     private updateAutomaticRenameVisibility(): void {
         if (this.conditionalSettings.length === 0) return;
 
-        const shouldShow = this.plugin.settings.renameNotes === "automatically";
-        const isEditorMethod = this.plugin.settings.fileReadMethod === 'Editor';
+        const shouldShow = this.plugin.settings.core.renameNotes === "automatically";
+        const isEditorMethod = this.plugin.settings.core.fileReadMethod === 'Editor';
 
         // Check interval should only show when BOTH conditions are true:
         // 1. renameNotes === "automatically"
         // 2. fileReadMethod === "Editor"
         this.conditionalSettings.forEach(setting => {
             if (shouldShow && isEditorMethod) {
-                setting.settingEl.style.display = '';
+                setting.settingEl.removeClass('flit-display-none');
             } else {
-                setting.settingEl.style.display = 'none';
+                setting.settingEl.addClass('flit-display-none');
             }
         });
     }

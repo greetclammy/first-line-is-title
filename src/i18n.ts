@@ -1,44 +1,41 @@
 import { moment } from 'obsidian';
+import enTranslations from '../locale/en.json';
+import ruTranslations from '../locale/ru.json';
 
 // Translation type
 type TranslationStrings = {
     [key: string]: string | TranslationStrings;
 };
 
-let translations: TranslationStrings = {};
-let currentLocale = 'en';
+// Module state - initialized immediately to prevent tree-shaking
+var state = (() => {
+    return {
+        availableTranslations: {
+            'en': enTranslations,
+            'ru': ruTranslations
+        } as any,
+        translations: enTranslations,
+        currentLocale: 'en'
+    };
+})();
 
 /**
  * Initialize i18n system
  */
 export function initI18n(): void {
-    // Try to get locale from Obsidian (v1.8.7+)
-    try {
-        // @ts-ignore - getLanguage() is available in Obsidian 1.8.7+
-        if (typeof window.localStorage !== 'undefined' && window.localStorage.getItem('language')) {
-            // @ts-ignore
-            currentLocale = window.localStorage.getItem('language') || 'en';
-        }
-    } catch (e) {
-        // Fallback: use moment.locale() for older versions
-        currentLocale = moment.locale();
-    }
+    // Get locale from Obsidian using moment.locale() which respects Obsidian's language settings
+    state.currentLocale = moment.locale();
 
     // Normalize locale (e.g., 'ru-RU' -> 'ru', 'en-US' -> 'en')
-    currentLocale = currentLocale.split('-')[0].toLowerCase();
+    state.currentLocale = state.currentLocale.split('-')[0].toLowerCase();
 
     // Load translations
-    try {
-        translations = require(`../locale/${currentLocale}.json`);
-    } catch (e) {
-        // Fallback to English if locale file doesn't exist
-        currentLocale = 'en';
-        try {
-            translations = require(`../locale/en.json`);
-        } catch (err) {
-            console.error('Failed to load translations:', err);
-            translations = {};
-        }
+    if (state.availableTranslations[state.currentLocale]) {
+        state.translations = state.availableTranslations[state.currentLocale];
+    } else {
+        // Fallback to English if locale not available
+        state.currentLocale = 'en';
+        state.translations = state.availableTranslations['en'];
     }
 }
 
@@ -63,7 +60,7 @@ export function t(keyPath: string, variables?: Record<string, string | number> |
     }
 
     const keys = keyPath.split('.');
-    let value: any = translations;
+    let value: any = state.translations;
 
     for (const key of keys) {
         if (value && typeof value === 'object' && key in value) {
@@ -89,7 +86,7 @@ export function t(keyPath: string, variables?: Record<string, string | number> |
  * Get current locale
  */
 export function getCurrentLocale(): string {
-    return currentLocale;
+    return state.currentLocale;
 }
 
 /**
@@ -101,7 +98,7 @@ export function getCurrentLocale(): string {
  * @returns Appropriate plural form
  */
 export function getPluralForm(count: number, one: string, few: string, many: string): string {
-    if (currentLocale !== 'ru') {
+    if (state.currentLocale !== 'ru') {
         return count === 1 ? one : many;
     }
 
@@ -126,7 +123,7 @@ export function getPluralForm(count: number, one: string, few: string, many: str
  */
 export function tp(keyPath: string, count: number, fallback?: string): string {
     const keys = keyPath.split('.');
-    let value: any = translations;
+    let value: any = state.translations;
 
     for (const key of keys) {
         if (value && typeof value === 'object' && key in value) {
@@ -143,7 +140,7 @@ export function tp(keyPath: string, count: number, fallback?: string): string {
 
     // Get the appropriate plural form
     let pluralKey: string;
-    if (currentLocale !== 'ru') {
+    if (state.currentLocale !== 'ru') {
         pluralKey = count === 1 ? 'one' : 'many';
     } else {
         const mod10 = count % 10;
@@ -170,7 +167,7 @@ export function tp(keyPath: string, count: number, fallback?: string): string {
  */
 export function tpSplit(keyPath: string, count: number): { before: string; noun: string; after: string } {
     const keys = keyPath.split('.');
-    let value: any = translations;
+    let value: any = state.translations;
 
     for (const key of keys) {
         if (value && typeof value === 'object' && key in value) {
@@ -182,7 +179,7 @@ export function tpSplit(keyPath: string, count: number): { before: string; noun:
 
     // Get the appropriate plural form
     let pluralKey: string;
-    if (currentLocale !== 'ru') {
+    if (state.currentLocale !== 'ru') {
         pluralKey = count === 1 ? 'one' : 'many';
     } else {
         const mod10 = count % 10;

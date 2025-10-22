@@ -59,10 +59,10 @@ export class PropertyManager {
                                 };
 
                                 // Suppress if all conditions are met AND the setting is enabled
-                                if (this.settings.suppressMergeNotifications &&
+                                if (this.settings.core.suppressMergeNotifications &&
                                     conditions.hasExternal && conditions.hasMd && conditions.noUpdated &&
                                     conditions.startsQuote && conditions.shortEnough) {
-                                    notice.style.display = 'none';
+                                    notice.classList.add('flit-display-none');
                                     verboseLog(this.plugin, `Suppressed external modification notice: ${noticeText.substring(0, 50)}...`);
                                 }
                             }
@@ -133,6 +133,21 @@ export class PropertyManager {
     }
 
     /**
+     * Normalize property values to their actual types
+     * Converts string representations to boolean, null, or number as appropriate
+     */
+    static normalizePropertyValue(value: any): any {
+        if (typeof value !== 'string') return value;
+        if (value === 'true') return true;
+        if (value === 'false') return false;
+        if (value === 'null') return null;
+        if (value !== '' && !isNaN(Number(value))) {
+            return Number(value);
+        }
+        return value;
+    }
+
+    /**
      * Check if value is boolean (true or false)
      */
     private isBooleanValue(value: any): boolean {
@@ -157,8 +172,8 @@ export class PropertyManager {
      * regardless of what type it was before or if it existed at all.
      */
     async ensurePropertyTypeIsCheckbox(): Promise<void> {
-        const propertyKey = this.settings.disableRenamingKey;
-        const propertyValue = this.settings.disableRenamingValue;
+        const propertyKey = this.settings.exclusions.disableRenamingKey;
+        const propertyValue = this.settings.exclusions.disableRenamingValue;
 
         if (!propertyKey) return;
 

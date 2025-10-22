@@ -1,6 +1,5 @@
 import { TFile, MarkdownView, setIcon, Notice } from "obsidian";
 import { verboseLog } from '../utils';
-import { t } from '../i18n';
 import FirstLineIsTitle from '../../main';
 
 /**
@@ -58,49 +57,58 @@ export class WorkspaceIntegration {
 
         // Observer to watch for command palette suggestions
         const observer = new MutationObserver((mutations) => {
-            mutations.forEach((mutation) => {
-                mutation.addedNodes.forEach((node) => {
-                    if (node instanceof HTMLElement) {
-                        // Look for suggestion items in the command palette
-                        const suggestionItems = node.querySelectorAll('.suggestion-item, [class*="suggestion"]');
+            try {
+                mutations.forEach((mutation) => {
+                    mutation.addedNodes.forEach((node) => {
+                        if (node instanceof HTMLElement) {
+                            // Look for suggestion items in the command palette
+                            const suggestionItems = node.querySelectorAll('.suggestion-item, [class*="suggestion"]');
 
-                        suggestionItems.forEach((item) => {
-                            if (item instanceof HTMLElement) {
-                                const titleElement = item.querySelector('.suggestion-title, [class*="title"]');
-                                if (titleElement) {
-                                    const commandName = titleElement.textContent?.trim();
-                                    if (commandName && commandIcons.has(commandName)) {
-                                        // Check if icon already exists
-                                        if (!item.querySelector('.flit-command-icon')) {
-                                            const iconName = commandIcons.get(commandName);
+                            suggestionItems.forEach((item) => {
+                                if (item instanceof HTMLElement) {
+                                    const titleElement = item.querySelector('.suggestion-title, [class*="title"]');
+                                    if (titleElement) {
+                                        const commandName = titleElement.textContent?.trim();
+                                        if (commandName && commandIcons.has(commandName)) {
+                                            // Check if icon already exists
+                                            if (!item.querySelector('.flit-command-icon')) {
+                                                const iconName = commandIcons.get(commandName);
+                                                if (!iconName) return; // Skip if no icon name found
 
-                                            // Create icon element
-                                            const iconElement = document.createElement('div');
-                                            iconElement.classList.add('flit-command-icon');
+                                                // Create icon element
+                                                const iconElement = document.createElement('div');
+                                                iconElement.classList.add('flit-command-icon');
 
-                                            // Use Obsidian's setIcon function to add the icon
-                                            setIcon(iconElement, iconName);
+                                                // Use Obsidian's setIcon function to add the icon
+                                                setIcon(iconElement, iconName);
 
-                                            // Insert icon at the beginning of the suggestion item
-                                            item.insertBefore(iconElement, item.firstChild);
+                                                // Insert icon at the beginning of the suggestion item
+                                                item.insertBefore(iconElement, item.firstChild);
+                                            }
                                         }
                                     }
                                 }
-                            }
-                        });
-                    }
+                            });
+                        }
+                    });
                 });
+            } catch (error) {
+                console.error('Error in command palette observer:', error);
+            }
+        });
+
+        try {
+            // Start observing the document for changes
+            observer.observe(document.body, {
+                childList: true,
+                subtree: true
             });
-        });
 
-        // Start observing the document for changes
-        observer.observe(document.body, {
-            childList: true,
-            subtree: true
-        });
-
-        // Store the observer for cleanup
-        this.commandPaletteObserver = observer;
+            // Store the observer for cleanup
+            this.commandPaletteObserver = observer;
+        } catch (error) {
+            console.error('Error starting command palette observer:', error);
+        }
     }
 
     /**
@@ -118,24 +126,24 @@ export class WorkspaceIntegration {
             callback: () => void | Promise<void>;
         }> = [
             {
-                condition: this.settings.ribbonVisibility.renameCurrentFile,
+                condition: this.settings.core.ribbonVisibility.renameCurrentFile,
                 icon: 'file-pen',
-                title: t('commands.putFirstLineInTitle'),
+                title: 'Put first line in title',
                 callback: () => this.plugin.commandRegistrar.executeRenameCurrentFile()
             },
             {
-                condition: this.settings.ribbonVisibility.renameAllNotes,
+                condition: this.settings.core.ribbonVisibility.renameAllNotes,
                 icon: 'file-stack',
-                title: t('commands.putFirstLineInTitleAllNotes'),
+                title: 'Put first line in title in all notes',
                 callback: () => {
                     const { RenameAllFilesModal } = require('../modals');
                     new RenameAllFilesModal(this.app, this.plugin).open();
                 }
             },
             {
-                condition: this.settings.ribbonVisibility.toggleAutomaticRenaming,
+                condition: this.settings.core.ribbonVisibility.toggleAutomaticRenaming,
                 icon: 'file-cog',
-                title: t('commands.toggleAutomaticRenaming'),
+                title: 'Toggle automatic renaming',
                 callback: () => this.plugin.commandRegistrar.executeToggleAutomaticRenaming()
             }
         ];
@@ -164,7 +172,7 @@ export class WorkspaceIntegration {
                 const result = this.originalSaveCallback ? this.originalSaveCallback(checking) : true;
 
                 // If not checking and save succeeded, run our rename logic - process immediately regardless of check interval
-                if (!checking && this.settings.renameOnSave) {
+                if (!checking && this.settings.core.renameOnSave) {
                     const activeFile = this.app.workspace.getActiveFile();
                     if (activeFile && activeFile.extension === 'md') {
                         // Run rename (unless excluded) with no delay and show notices like manual command
@@ -198,7 +206,7 @@ export class WorkspaceIntegration {
                 // Capture plugin reference explicitly for inner function
                 const plugin = this.plugin;
                 const app = this.app;
-                const settings = this.settings;
+                const settings = this.settings.core;
 
                 // Guard: ensure plugin is fully initialized
                 if (!plugin?.fileOperations) {
@@ -227,88 +235,22 @@ export class WorkspaceIntegration {
                 verboseLog(plugin, `CREATE: New file created, processing in ${settings.newNoteDelay}ms: ${file.name}`);
 
                 // Check if title will be skipped (early detection)
-                const untitledWord = t('untitled').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-                const untitledPattern = new RegExp(`^${untitledWord}(\\s[1-9]\\d*)?$`);
+                const untitledPattern = /^Untitled(\s[1-9]\d*)?$/;
                 const isUntitled = untitledPattern.test(file.basename);
 
-                // Step 1: Move cursor based on waitForCursorTemplate setting
-                if (settings.moveCursorToFirstLine) {
-                    // If waitForCursorTemplate is OFF, move cursor immediately
-                    if (!settings.waitForCursorTemplate) {
-                        // Check if file is excluded from processing
-                        // When disableCursorInExcludedFolders is OFF: only check tag/property exclusions (skip folder check)
-                        // When disableCursorInExcludedFolders is ON: check all exclusions including folders
-                        const isExcluded = await plugin.fileOperations.isFileExcludedForCursorPositioning(file, initialContent, !settings.disableCursorInExcludedFolders);
+                // Track Step 1's template wait promise
+                let step1TemplateWaitPromise: Promise<void> | null = null;
 
-                        if (!isExcluded) {
-                            const activeView = app.workspace.getActiveViewOfType(MarkdownView);
-                            const inCanvas = !activeView;
-                            if (!inCanvas) {
-                                // Use minimal delay to ensure editor is ready
-                                requestAnimationFrame(() => {
-                                    setTimeout(() => {
-                                        // Use captured initial content to check if file has content
-                                        const hasContent = initialContent.trim() !== '';
-
-                                        // Determine if title insertion will be skipped
-                                        const willSkipTitleInsertion = !settings.insertTitleOnCreation || isUntitled || hasContent;
-
-                                        // Position cursor with placeCursorAtLineEnd if title will be skipped
-                                        plugin.fileOperations.handleCursorPositioning(file, willSkipTitleInsertion);
-                                    }, 200);
-                                });
-                            }
-                        } else {
-                            verboseLog(plugin, `Skipping cursor positioning - file is excluded: ${file.path}`);
-                        }
-                    } else {
-                        // waitForCursorTemplate is ON - wait for YAML (600ms timeout), then move cursor
-                        verboseLog(plugin, `Waiting for template before cursor positioning: ${file.path}`);
-
-                        // Wait for YAML or timeout (600ms for Editor mode)
-                        const templateWaitTime = 600;
-                        await plugin.fileOperations.waitForYamlOrTimeout(file, templateWaitTime);
-
-                        // Get current content after template
-                        const leaves = app.workspace.getLeavesOfType("markdown");
-                        let currentContent: string | undefined;
-                        for (const leaf of leaves) {
-                            const view = leaf.view as MarkdownView;
-                            if (view && view.file?.path === file.path && view.editor) {
-                                currentContent = view.editor.getValue();
-                                break;
-                            }
-                        }
-
-                        // Store template content for title insertion to avoid re-waiting
-                        (file as TFile & { _flitTemplateContent?: string })._flitTemplateContent = currentContent;
-
-                        // Check exclusions with current content
-                        // When disableCursorInExcludedFolders is OFF: only check tag/property exclusions (skip folder check)
-                        // When disableCursorInExcludedFolders is ON: check all exclusions including folders
-                        const isExcluded = await plugin.fileOperations.isFileExcludedForCursorPositioning(file, currentContent, !settings.disableCursorInExcludedFolders);
-
-                        if (!isExcluded) {
-                            const activeView = app.workspace.getActiveViewOfType(MarkdownView);
-                            const inCanvas = !activeView;
-                            if (!inCanvas) {
-                                requestAnimationFrame(() => {
-                                    setTimeout(() => {
-                                        // Determine if we should use placeCursorAtLineEnd setting
-                                        const hasContent = currentContent && currentContent.trim() !== '';
-                                        const willSkipTitleInsertion = !settings.insertTitleOnCreation || isUntitled || hasContent;
-                                        plugin.fileOperations.handleCursorPositioning(file, willSkipTitleInsertion);
-                                    }, 200);
-                                });
-                            }
-                        } else {
-                            verboseLog(plugin, `Skipping cursor positioning after template - file is excluded: ${file.path}`);
-                        }
-                    }
-                }
-
+                // Set creation delay timer IMMEDIATELY to block editor-change events
+                // during cursor positioning and template waiting
                 const timer = setTimeout(async () => {
                     verboseLog(plugin, `CREATE: Processing new file after delay: ${file.name}`);
+
+                    // Wait for Step 1's template wait to complete if it's running
+                    if (step1TemplateWaitPromise) {
+                        verboseLog(plugin, `CREATE: Waiting for Step 1 template wait to complete before Step 2`);
+                        await step1TemplateWaitPromise;
+                    }
 
                     let titleWasInserted = false;
 
@@ -322,9 +264,7 @@ export class WorkspaceIntegration {
                             // This ensures we don't insert title in excluded folders/tags/properties
                             let skipTitleDueToExclusion = false;
                             if (settings.waitForTemplate && templateContent) {
-                                // When disableCursorInExcludedFolders is OFF: only check tag/property exclusions (skip folder check)
-                                // When disableCursorInExcludedFolders is ON: check all exclusions including folders
-                                const isExcluded = await plugin.fileOperations.isFileExcludedForCursorPositioning(file, templateContent, !settings.disableCursorInExcludedFolders);
+                                const isExcluded = await plugin.fileOperations.isFileExcludedForCursorPositioning(file, templateContent);
                                 if (isExcluded) {
                                     verboseLog(plugin, `Skipping title insertion - file is excluded: ${file.path}`);
                                     skipTitleDueToExclusion = true;
@@ -337,11 +277,15 @@ export class WorkspaceIntegration {
                             }
                         }
 
-                        // Step 3: Reposition cursor if title was inserted and placeCursorAtLineEnd is ON
-                        if (settings.moveCursorToFirstLine) {
-                            // Reposition to end of title if title was inserted and placeCursorAtLineEnd is ON
-                            if (titleWasInserted && settings.placeCursorAtLineEnd) {
-                                // Get current content after title insertion
+                        // Step 3: Handle cursor positioning when both settings are ON
+                        if (settings.renameNotes === "automatically" && settings.moveCursorToFirstLine) {
+                            // When both insertTitleOnCreation and placeCursorAtLineEnd are ON:
+                            // - If title was inserted: cursor already at line end from insertion code
+                            // - If title was NOT inserted: need to position cursor at line end here
+                            const shouldPositionCursor = settings.insertTitleOnCreation && settings.placeCursorAtLineEnd && !titleWasInserted;
+
+                            if (shouldPositionCursor) {
+                                // Get current content
                                 const leaves = app.workspace.getLeavesOfType("markdown");
                                 let currentContent: string | undefined;
                                 for (const leaf of leaves) {
@@ -352,24 +296,40 @@ export class WorkspaceIntegration {
                                     }
                                 }
 
-                                // Check exclusion after title insertion
-                                // When disableCursorInExcludedFolders is OFF: only check tag/property exclusions (skip folder check)
-                                // When disableCursorInExcludedFolders is ON: check all exclusions including folders
-                                const isExcluded = await plugin.fileOperations.isFileExcludedForCursorPositioning(file, currentContent, !settings.disableCursorInExcludedFolders);
+                                // Check exclusion (only if disableCursorInExcludedNotes setting is ON)
+                                const isExcluded = settings.disableCursorInExcludedNotes
+                                    ? await plugin.fileOperations.isFileExcludedForCursorPositioning(file, currentContent)
+                                    : false;
 
                                 if (!isExcluded) {
-                                    const activeView = app.workspace.getActiveViewOfType(MarkdownView);
-                                    const inCanvas = !activeView;
+                                    const view = await plugin.fileOperations.waitForViewReady(file);
+                                    if (view && view.editor) {
+                                        // Find first content line and position cursor at line end
+                                        const content = view.editor.getValue();
+                                        const lines = content.split('\n');
 
-                                    if (!inCanvas) {
-                                        requestAnimationFrame(() => {
-                                            setTimeout(() => {
-                                                plugin.fileOperations.handleCursorPositioning(file);
-                                            }, 200);
-                                        });
+                                        // Detect YAML
+                                        let yamlEndLine = -1;
+                                        if (lines[0] === '---') {
+                                            for (let i = 1; i < lines.length; i++) {
+                                                if (lines[i] === '---') {
+                                                    yamlEndLine = i;
+                                                    break;
+                                                }
+                                            }
+                                        }
+
+                                        // Find first content line after YAML
+                                        const contentLine = yamlEndLine !== -1 ? yamlEndLine + 1 : 0;
+                                        const lineContent = view.editor.getLine(contentLine);
+                                        const lineLength = lineContent.length;
+
+                                        view.editor.focus();
+                                        view.editor.setCursor({ line: contentLine, ch: lineLength });
+                                        verboseLog(plugin, `CREATE: Positioned cursor at end of line ${contentLine} (${lineLength} chars) - title not inserted`);
                                     }
                                 } else {
-                                    verboseLog(plugin, `Skipping post-title cursor repositioning - file is excluded: ${file.path}`);
+                                    verboseLog(plugin, `Skipping cursor positioning - file is excluded: ${file.path}`);
                                 }
                             }
                         }
@@ -380,7 +340,7 @@ export class WorkspaceIntegration {
                             let editorContent: string | undefined;
                             const leaves = app.workspace.getLeavesOfType("markdown");
                             for (const leaf of leaves) {
-                                const view = leaf.view as { file?: TFile; editor?: any };
+                                const view = leaf.view as any;
                                 if (view && view.file && view.file.path === file.path && view.editor) {
                                     const value = view.editor.getValue();
                                     if (typeof value === 'string') {
@@ -389,7 +349,10 @@ export class WorkspaceIntegration {
                                     break;
                                 }
                             }
-                            await plugin.renameEngine.processFile(file, true, false, editorContent);
+                            // Only process if file is open in editor (policy requirement)
+                            if (editorContent !== undefined) {
+                                await plugin.renameEngine.processFile(file, true, false, editorContent);
+                            }
                         }
 
                         verboseLog(plugin, `CREATE: Completed processing new file: ${file.name}`);
@@ -397,47 +360,92 @@ export class WorkspaceIntegration {
                         console.error(`CREATE: Failed to process new file ${file.path}:`, error);
                     } finally {
                         // Always clean up template content to prevent memory leak
-                        delete (file as TFile & { _flitTemplateContent?: string })._flitTemplateContent;
+                        delete (file as any)._flitTemplateContent;
                         plugin.editorLifecycle.clearCreationDelayTimer(file.path);
                     }
                 }, settings.newNoteDelay);
 
                 plugin.editorLifecycle.setCreationDelayTimer(file.path, timer);
+
+                // Step 1: Move cursor in note body based on waitForCursorTemplate setting
+                if (settings.renameNotes === "automatically" && settings.moveCursorToFirstLine) {
+                    // If waitForCursorTemplate is OFF, move cursor immediately
+                    if (!settings.waitForCursorTemplate) {
+                        // Check if file is excluded from processing (folder/tag/property exclusions)
+                        // Only check if disableCursorInExcludedNotes setting is ON
+                        const isExcluded = settings.disableCursorInExcludedNotes
+                            ? await plugin.fileOperations.isFileExcludedForCursorPositioning(file, initialContent)
+                            : false;
+
+                        if (!isExcluded) {
+                            const view = await plugin.fileOperations.waitForViewReady(file);
+                            if (view) {
+                                // Use captured initial content to check if file has content
+                                const hasContent = initialContent.trim() !== '';
+
+                                // Determine if title insertion will be skipped
+                                const willSkipTitleInsertion = !settings.insertTitleOnCreation || isUntitled || hasContent;
+
+                                // Determine if we should use placeCursorAtLineEnd in Step 1:
+                                // - If both insertTitleOnCreation and placeCursorAtLineEnd are ON: don't use placeCursorAtLineEnd here (Step 3 or title insertion handles it)
+                                // - Otherwise: use placeCursorAtLineEnd if title insertion will be skipped
+                                const usePlaceCursorAtLineEnd = settings.insertTitleOnCreation && settings.placeCursorAtLineEnd
+                                    ? false
+                                    : willSkipTitleInsertion;
+
+                                await plugin.fileOperations.handleCursorPositioning(file, usePlaceCursorAtLineEnd);
+                            }
+                        } else {
+                            verboseLog(plugin, `Skipping cursor positioning - file is excluded: ${file.path}`);
+                        }
+                    } else {
+                        // waitForCursorTemplate is ON - wait for template using shared utility
+                        verboseLog(plugin, `Waiting for template before cursor positioning: ${file.path}`);
+
+                        // Wrap Step 1's wait in a promise so Step 2 can await it
+                        step1TemplateWaitPromise = (async () => {
+                            const currentContent = await plugin.fileOperations.waitForTemplate(file, settings.newNoteDelay);
+
+                            // Store template content for title insertion to avoid re-waiting
+                            (file as any)._flitTemplateContent = currentContent;
+
+                            // Check exclusions with current content (may have template tags/properties)
+                            // Only check if disableCursorInExcludedNotes setting is ON
+                            const isExcluded = settings.disableCursorInExcludedNotes
+                                ? await plugin.fileOperations.isFileExcludedForCursorPositioning(file, currentContent)
+                                : false;
+
+                            if (!isExcluded) {
+                                const view = await plugin.fileOperations.waitForViewReady(file);
+                                if (view) {
+                                    // Determine if we should use placeCursorAtLineEnd setting
+                                    const hasContent = !!(currentContent && currentContent.trim() !== '');
+                                    const willSkipTitleInsertion = !settings.insertTitleOnCreation || isUntitled || hasContent;
+
+                                    // Determine if we should use placeCursorAtLineEnd in Step 1:
+                                    // - If both insertTitleOnCreation and placeCursorAtLineEnd are ON: don't use placeCursorAtLineEnd here (Step 3 or title insertion handles it)
+                                    // - Otherwise: use placeCursorAtLineEnd if title insertion will be skipped
+                                    const usePlaceCursorAtLineEnd = settings.insertTitleOnCreation && settings.placeCursorAtLineEnd
+                                        ? false
+                                        : willSkipTitleInsertion;
+
+                                    await plugin.fileOperations.handleCursorPositioning(file, usePlaceCursorAtLineEnd);
+                                }
+                            } else {
+                                verboseLog(plugin, `Skipping cursor positioning after template - file is excluded: ${file.path}`);
+                            }
+                        })();
+
+                        // Await the Step 1 promise
+                        await step1TemplateWaitPromise;
+                    }
+                }
                 }; // End processFileCreation
 
-                // Wait for markdown view to be ready (handles both existing tabs and new first file)
-                const checkViewReady = async () => {
-                    const leaves = app.workspace.getLeavesOfType("markdown");
-                    for (const leaf of leaves) {
-                        const view = leaf.view as MarkdownView;
-                        if (view && view.file?.path === file.path) {
-                            verboseLog(plugin, `CREATE: Markdown view ready for ${file.name}`);
-                            return true;
-                        }
-                    }
-                    return false;
-                };
-
-                // Try immediate check first
-                const immediateCheck = await checkViewReady();
-                if (immediateCheck) {
-                    // View is ready immediately, process now
-                    verboseLog(plugin, `CREATE: File created ${file.name}, markdown view ready`);
-                    await processFileCreation();
-                } else {
-                    // View not ready, wait and retry
-                    const timer = setTimeout(async () => {
-                        const delayedCheck = await checkViewReady();
-                        if (delayedCheck) {
-                            // Process after view is ready
-                            await processFileCreation();
-                        } else {
-                            verboseLog(plugin, `CREATE: No markdown view found for ${file.name} after delay, skipping`);
-                        }
-                        plugin.editorLifecycle.clearViewReadinessTimer(file.path);
-                    }, 100);
-                    plugin.editorLifecycle.setViewReadinessTimer(file.path, timer);
-                }
+                // Process file creation (handles both markdown views and canvas files)
+                // Individual steps will wait for view readiness if needed
+                verboseLog(plugin, `CREATE: File created ${file.name}, starting processing`);
+                await processFileCreation();
             })
         );
     }

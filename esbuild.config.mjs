@@ -38,4 +38,7 @@ esbuild.build({
 	sourcemap: prod ? false : "inline",
 	treeShaking: true,
 	outfile: "main.js",
+	loader: {
+		'.json': 'json'
+	}
 }).catch(() => process.exit(1));

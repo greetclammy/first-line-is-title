@@ -8,44 +8,38 @@ export class StripMarkupTab extends SettingsTabBase {
     }
 
     render(): void {
-        // Master toggle
         const masterToggleSetting = new Setting(this.containerEl)
             .setName(t('settings.stripMarkup.name'))
             .setDesc(t('settings.stripMarkup.desc'))
             .addToggle((toggle) => {
-                toggle.setValue(this.plugin.settings.enableStripMarkup)
+                toggle.setValue(this.plugin.settings.markupStripping.enableStripMarkup)
                     .onChange(async (value) => {
-                        this.plugin.settings.enableStripMarkup = value;
+                        this.plugin.settings.markupStripping.enableStripMarkup = value;
                         this.plugin.debugLog("enableStripMarkup", value);
 
                         // Auto-toggle OFF dependent settings when disabling
                         if (!value) {
-                            if (this.plugin.settings.stripMarkupInAlias) {
-                                this.plugin.settings.stripMarkupInAlias = false;
+                            if (this.plugin.settings.markupStripping.stripMarkupInAlias) {
+                                this.plugin.settings.markupStripping.stripMarkupInAlias = false;
                             }
                         }
 
                         await this.plugin.saveSettings();
                         updateStripMarkupUI();
-                        // Notify other tabs to update dependent settings
                         (this.plugin as typeof this.plugin & { updateAliasConditionalSettings?: () => Promise<void> }).updateAliasConditionalSettings?.();
                     });
             });
 
         masterToggleSetting.settingEl.addClass('flit-master-toggle');
         masterToggleSetting.settingEl.addClass('flit-no-border');
-        masterToggleSetting.settingEl.style.marginBottom = '20px';
+        masterToggleSetting.settingEl.addClass('flit-margin-bottom-20');
 
-        // Container for individual settings
         const stripMarkupContainer = this.containerEl.createDiv({ cls: 'flit-strip-markup-container' });
 
         const updateStripMarkupUI = () => {
-            this.updateInteractiveState(stripMarkupContainer, this.plugin.settings.enableStripMarkup);
-            // Also update any disabled rows
+            this.updateInteractiveState(stripMarkupContainer, this.plugin.settings.markupStripping.enableStripMarkup);
             this.updateDisabledRowsAccessibility(stripMarkupContainer);
         };
-
-        // Individual markup toggles
         const markupToggles = [
             { key: 'headings' },
             { key: 'bold' },
@@ -64,17 +58,28 @@ export class StripMarkupTab extends SettingsTabBase {
             { key: 'footnotes' },
             { key: 'comments' },
             { key: 'stripTableMarkup', isCustom: true },
+            { key: 'stripInlineMathMarkup', isCustom: true },
+            { key: 'stripMathBlockMarkup', isCustom: true },
             { key: 'htmlTags' }
         ];
 
-        // Define container and visibility function for comments sub-option
         let stripCommentsEntirelyContainer: HTMLElement;
 
         const updateStripCommentsEntirelyVisibility = () => {
-            if (this.plugin.settings.stripMarkupSettings.comments) {
+            if (this.plugin.settings.markupStripping.stripMarkupSettings.comments) {
                 stripCommentsEntirelyContainer.show();
             } else {
                 stripCommentsEntirelyContainer.hide();
+            }
+        };
+
+        let detectDiagramsContainer: HTMLElement;
+
+        const updateDetectDiagramsVisibility = () => {
+            if (this.plugin.settings.markupStripping.stripMarkupSettings.codeBlocks) {
+                detectDiagramsContainer.show();
+            } else {
+                detectDiagramsContainer.hide();
             }
         };
 
@@ -82,78 +87,159 @@ export class StripMarkupTab extends SettingsTabBase {
             const setting = new Setting(stripMarkupContainer)
                 .setName(t(`settings.stripMarkup.${toggle.key}.name`))
                 .setDesc("");
+            const desc = setting.descEl;
+            const isRussian = getCurrentLocale() === 'ru';
+            const descKey = `settings.stripMarkup.${toggle.key}.desc`;
+            const part1Key = `${descKey}.part1`;
+            const part1Value = t(part1Key);
+            if (part1Value !== part1Key) {
+                let index = 1;
 
-            // Create styled description if needed
-            if (toggle.key === 'stripTableMarkup') {
-                const desc = setting.descEl;
-                desc.appendText(t('settings.stripMarkup.stripTableMarkup.desc.part1'));
-                if (getCurrentLocale() === 'ru') {
-                    desc.appendText('«' + t('settings.stripMarkup.stripTableMarkup.desc.table') + '»');
-                } else {
-                    desc.createEl("em", { text: t('settings.stripMarkup.stripTableMarkup.desc.table') });
+                while (true) {
+                    let foundAny = false;
+                    const partKey = `${descKey}.part${index}`;
+                    const partValue = t(partKey);
+                    if (partValue !== partKey) {
+                        desc.appendText(partValue);
+                        foundAny = true;
+                    }
+                    const exampleKey = `${descKey}.example${index}`;
+                    const exampleValue = t(exampleKey);
+                    if (exampleValue !== exampleKey) {
+                        desc.createEl("code", { text: exampleValue });
+                        foundAny = true;
+                    }
+                    if (index === 1) {
+                        const specialKeys = ['table', 'mathBlock'];
+                        for (const specialKey of specialKeys) {
+                            const fullKey = `${descKey}.${specialKey}`;
+                            const specialValue = t(fullKey);
+                            if (specialValue !== fullKey) {
+                                if (isRussian) {
+                                    desc.appendText('«' + specialValue + '»');
+                                } else {
+                                    desc.createEl("em", { text: specialValue });
+                                }
+                                foundAny = true;
+                                break;
+                            }
+                        }
+                    }
+
+                    if (!foundAny) break;
+                    index++;
                 }
-                desc.appendText(t('settings.stripMarkup.stripTableMarkup.desc.part2'));
             } else {
-                setting.descEl.appendText(t(`settings.stripMarkup.${toggle.key}.desc`));
+                desc.appendText(t(descKey));
             }
 
             setting.addToggle((toggleControl) => {
                 if ((toggle as any).isCustom) {
-                    // Custom setting - access directly from plugin settings
                     toggleControl
-                        .setValue(this.plugin.settings[toggle.key as keyof typeof this.plugin.settings] as boolean)
+                        .setValue(this.plugin.settings.markupStripping[toggle.key as keyof typeof this.plugin.settings.markupStripping] as boolean)
                         .onChange(async (value) => {
-                            (this.plugin.settings[toggle.key as keyof typeof this.plugin.settings] as boolean) = value;
+                            (this.plugin.settings.markupStripping[toggle.key as keyof typeof this.plugin.settings.markupStripping] as boolean) = value;
                             this.plugin.debugLog(toggle.key, value);
                             await this.plugin.saveSettings();
                         });
                 } else {
-                    // Standard markup setting
                     toggleControl
-                        .setValue(this.plugin.settings.stripMarkupSettings[toggle.key as keyof typeof this.plugin.settings.stripMarkupSettings])
+                        .setValue(this.plugin.settings.markupStripping.stripMarkupSettings[toggle.key as keyof typeof this.plugin.settings.markupStripping.stripMarkupSettings])
                         .onChange(async (value) => {
-                            this.plugin.settings.stripMarkupSettings[toggle.key as keyof typeof this.plugin.settings.stripMarkupSettings] = value;
+                            this.plugin.settings.markupStripping.stripMarkupSettings[toggle.key as keyof typeof this.plugin.settings.markupStripping.stripMarkupSettings] = value;
                             this.plugin.debugLog(`stripMarkupSettings.${toggle.key}`, value);
                             await this.plugin.saveSettings();
-
-                            // Update visibility of comments sub-option
                             if (toggle.key === 'comments') {
                                 updateStripCommentsEntirelyVisibility();
+                            }
+                            if (toggle.key === 'codeBlocks') {
+                                updateDetectDiagramsVisibility();
                             }
                         });
                 }
             });
-
-            // Add sub-option right after comments toggle
             if (toggle.key === 'comments') {
                 const stripCommentsEntirelySetting = new Setting(stripMarkupContainer)
                     .setName(t('settings.stripMarkup.commentsEntirely.name'))
                     .setDesc(t('settings.stripMarkup.commentsEntirely.desc'))
                     .addToggle((toggle) =>
                         toggle
-                            .setValue(this.plugin.settings.stripCommentsEntirely)
+                            .setValue(this.plugin.settings.markupStripping.stripCommentsEntirely)
                             .onChange(async (value) => {
-                                this.plugin.settings.stripCommentsEntirely = value;
+                                this.plugin.settings.markupStripping.stripCommentsEntirely = value;
                                 this.plugin.debugLog('stripCommentsEntirely', value);
                                 await this.plugin.saveSettings();
                             })
                     );
 
-                // Create container for strip comments entirely sub-option
                 stripCommentsEntirelyContainer = stripMarkupContainer.createDiv('flit-sub-settings');
                 stripCommentsEntirelyContainer.appendChild(stripCommentsEntirelySetting.settingEl);
 
-                // Set initial visibility
                 updateStripCommentsEntirelyVisibility();
+            }
+            if (toggle.key === 'codeBlocks') {
+                const detectDiagramsSetting = new Setting(stripMarkupContainer)
+                    .setName(t('settings.stripMarkup.detectDiagrams.name'))
+                    .setDesc("");
+                const desc = detectDiagramsSetting.descEl;
+                const isRussian = getCurrentLocale() === 'ru';
+                const descKey = 'settings.stripMarkup.detectDiagrams.desc';
+                const part1Key = `${descKey}.part1`;
+                const part1Value = t(part1Key);
+
+                if (part1Value !== part1Key) {
+                    let index = 1;
+                    while (true) {
+                        let foundAny = false;
+
+                        const partKey = `${descKey}.part${index}`;
+                        const partValue = t(partKey);
+                        if (partValue !== partKey) {
+                            desc.appendText(partValue);
+                            foundAny = true;
+                        }
+                        if (index === 1) {
+                            const specialKeys = ['diagram'];
+                            for (const specialKey of specialKeys) {
+                                const fullKey = `${descKey}.${specialKey}`;
+                                const specialValue = t(fullKey);
+                                if (specialValue !== fullKey) {
+                                    if (isRussian) {
+                                        desc.appendText('«' + specialValue + '»');
+                                    } else {
+                                        desc.createEl("em", { text: specialValue });
+                                    }
+                                    foundAny = true;
+                                    break;
+                                }
+                            }
+                        }
+
+                        if (!foundAny) break;
+                        index++;
+                    }
+                }
+
+                detectDiagramsSetting.addToggle((toggle) =>
+                    toggle
+                        .setValue(this.plugin.settings.markupStripping.detectDiagrams)
+                        .onChange(async (value) => {
+                            this.plugin.settings.markupStripping.detectDiagrams = value;
+                            this.plugin.debugLog('detectDiagrams', value);
+                            await this.plugin.saveSettings();
+                        })
+                );
+
+                detectDiagramsContainer = stripMarkupContainer.createDiv('flit-sub-settings');
+                detectDiagramsContainer.appendChild(detectDiagramsSetting.settingEl);
+
+                updateDetectDiagramsVisibility();
             }
         });
 
-        // Legacy Templater toggle
         const templaterSetting = new Setting(stripMarkupContainer)
             .setName(t('settings.stripMarkup.templater.name'))
             .setDesc("");
-
-        // Create styled description for Templater setting
         const templaterDesc = templaterSetting.descEl;
         templaterDesc.appendText(t('settings.stripMarkup.templater.desc.part1'));
         templaterDesc.createEl("a", {
@@ -167,15 +253,14 @@ export class StripMarkupTab extends SettingsTabBase {
         templaterSetting
             .addToggle((toggle) =>
                 toggle
-                    .setValue(this.plugin.settings.stripTemplaterSyntax)
+                    .setValue(this.plugin.settings.markupStripping.stripTemplaterSyntax)
                     .onChange(async (value) => {
-                        this.plugin.settings.stripTemplaterSyntax = value;
+                        this.plugin.settings.markupStripping.stripTemplaterSyntax = value;
                         this.plugin.debugLog('stripTemplaterSyntax', value);
                         await this.plugin.saveSettings();
                     })
             );
 
-        // Initialize UI
         updateStripMarkupUI();
     }
 }

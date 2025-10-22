@@ -8,14 +8,13 @@ export class CommandsTab extends SettingsTabBase {
     }
 
     render(): void {
-        // Ribbon Section
         const ribbonHeaderSetting = new Setting(this.containerEl)
             .setName(t('settings.commands.ribbon.title'))
             .setDesc(t('settings.commands.ribbon.desc'))
             .addToggle((toggle) => {
-                toggle.setValue(this.plugin.settings.enableRibbon)
+                toggle.setValue(this.plugin.settings.core.enableRibbon)
                     .onChange(async (value) => {
-                        this.plugin.settings.enableRibbon = value;
+                        this.plugin.settings.core.enableRibbon = value;
                         this.plugin.debugLog('enableRibbon', value);
                         await this.plugin.saveSettings();
                         updateRibbonUI();
@@ -24,11 +23,10 @@ export class CommandsTab extends SettingsTabBase {
         ribbonHeaderSetting.settingEl.addClass('flit-master-toggle');
         this.containerEl.createEl("br");
 
-        // Create container for ribbon settings
         const ribbonContainer = this.containerEl.createDiv();
 
         const updateRibbonUI = () => {
-            if (this.plugin.settings.enableRibbon) {
+            if (this.plugin.settings.core.enableRibbon) {
                 ribbonContainer.show();
             } else {
                 ribbonContainer.hide();
@@ -39,9 +37,9 @@ export class CommandsTab extends SettingsTabBase {
             .setName(t('commands.putFirstLineInTitle'))
             .setDesc(t('commands.descriptions.renameActiveNoteEvenExcluded'))
             .addToggle((toggle) => {
-                toggle.setValue(this.plugin.settings.ribbonVisibility.renameCurrentFile)
+                toggle.setValue(this.plugin.settings.core.ribbonVisibility.renameCurrentFile)
                     .onChange(async (value) => {
-                        this.plugin.settings.ribbonVisibility.renameCurrentFile = value;
+                        this.plugin.settings.core.ribbonVisibility.renameCurrentFile = value;
                         this.plugin.debugLog('ribbonVisibility.renameCurrentFile', value);
                         await this.plugin.saveSettings();
                     });
@@ -54,9 +52,9 @@ export class CommandsTab extends SettingsTabBase {
             .setName(t('commands.putFirstLineInTitleAllNotes'))
             .setDesc(t('commands.descriptions.renameAllNotesExceptExcluded'))
             .addToggle((toggle) => {
-                toggle.setValue(this.plugin.settings.ribbonVisibility.renameAllNotes)
+                toggle.setValue(this.plugin.settings.core.ribbonVisibility.renameAllNotes)
                     .onChange(async (value) => {
-                        this.plugin.settings.ribbonVisibility.renameAllNotes = value;
+                        this.plugin.settings.core.ribbonVisibility.renameAllNotes = value;
                         this.plugin.debugLog('ribbonVisibility.renameAllNotes', value);
                         await this.plugin.saveSettings();
                     });
@@ -91,9 +89,9 @@ export class CommandsTab extends SettingsTabBase {
         ribbonToggleDesc.appendText(t('commands.descriptions.toggleRenameSetting.part4'));
 
         ribbonToggleSetting.addToggle((toggle) => {
-                toggle.setValue(this.plugin.settings.ribbonVisibility.toggleAutomaticRenaming)
+                toggle.setValue(this.plugin.settings.core.ribbonVisibility.toggleAutomaticRenaming)
                     .onChange(async (value) => {
-                        this.plugin.settings.ribbonVisibility.toggleAutomaticRenaming = value;
+                        this.plugin.settings.core.ribbonVisibility.toggleAutomaticRenaming = value;
                         this.plugin.debugLog('ribbonVisibility.toggleAutomaticRenaming', value);
                         await this.plugin.saveSettings();
                     });
@@ -102,17 +100,14 @@ export class CommandsTab extends SettingsTabBase {
         setIcon(ribbonToggleIcon, "file-cog");
         ribbonToggleSetting.nameEl.insertBefore(ribbonToggleIcon, ribbonToggleSetting.nameEl.firstChild);
 
-        // Initialize ribbon UI
         updateRibbonUI();
-
-        // Command Palette Section
         const commandPaletteHeaderSetting = new Setting(this.containerEl)
             .setName(t('settings.commands.palette.title'))
             .setDesc(t('settings.commands.palette.desc'))
             .addToggle((toggle) => {
-                toggle.setValue(this.plugin.settings.enableCommandPalette)
+                toggle.setValue(this.plugin.settings.core.enableCommandPalette)
                     .onChange(async (value) => {
-                        this.plugin.settings.enableCommandPalette = value;
+                        this.plugin.settings.core.enableCommandPalette = value;
                         this.plugin.debugLog('enableCommandPalette', value);
                         await this.plugin.saveSettings();
                         updateCommandPaletteUI();
@@ -121,12 +116,11 @@ export class CommandsTab extends SettingsTabBase {
         commandPaletteHeaderSetting.settingEl.addClass('flit-master-toggle');
         this.containerEl.createEl("br");
 
-        // Create container for command palette settings
         const commandPaletteContainer = this.containerEl.createDiv();
         commandPaletteContainer.addClass('flit-master-disable-target');
 
         const updateCommandPaletteUI = () => {
-            if (this.plugin.settings.enableCommandPalette) {
+            if (this.plugin.settings.core.enableCommandPalette) {
                 commandPaletteContainer.show();
             } else {
                 commandPaletteContainer.hide();
@@ -138,9 +132,9 @@ export class CommandsTab extends SettingsTabBase {
             .setDesc(t('commands.descriptions.renameActiveNoteEvenExcluded'))
             .addToggle(toggle =>
                 toggle
-                    .setValue(this.plugin.settings.commandPaletteVisibility.renameCurrentFile)
+                    .setValue(this.plugin.settings.core.commandPaletteVisibility.renameCurrentFile)
                     .onChange(async (value) => {
-                        this.plugin.settings.commandPaletteVisibility.renameCurrentFile = value;
+                        this.plugin.settings.core.commandPaletteVisibility.renameCurrentFile = value;
                         this.plugin.debugLog('commandPaletteVisibility.renameCurrentFile', value);
                         await this.plugin.saveSettings();
                     })
@@ -155,9 +149,9 @@ export class CommandsTab extends SettingsTabBase {
             .setDesc(t('commands.descriptions.renameActiveNoteUnlessExcluded'))
             .addToggle(toggle =>
                 toggle
-                    .setValue(this.plugin.settings.commandPaletteVisibility.renameCurrentFileUnlessExcluded)
+                    .setValue(this.plugin.settings.core.commandPaletteVisibility.renameCurrentFileUnlessExcluded)
                     .onChange(async (value) => {
-                        this.plugin.settings.commandPaletteVisibility.renameCurrentFileUnlessExcluded = value;
+                        this.plugin.settings.core.commandPaletteVisibility.renameCurrentFileUnlessExcluded = value;
                         this.plugin.debugLog('commandPaletteVisibility.renameCurrentFileUnlessExcluded', value);
                         await this.plugin.saveSettings();
                     })
@@ -172,9 +166,9 @@ export class CommandsTab extends SettingsTabBase {
             .setDesc(t('commands.descriptions.renameAllNotesExceptExcluded'))
             .addToggle(toggle =>
                 toggle
-                    .setValue(this.plugin.settings.commandPaletteVisibility.renameAllFiles)
+                    .setValue(this.plugin.settings.core.commandPaletteVisibility.renameAllFiles)
                     .onChange(async (value) => {
-                        this.plugin.settings.commandPaletteVisibility.renameAllFiles = value;
+                        this.plugin.settings.core.commandPaletteVisibility.renameAllFiles = value;
                         this.plugin.debugLog('commandPaletteVisibility.renameAllFiles', value);
                         await this.plugin.saveSettings();
                     })
@@ -211,9 +205,9 @@ export class CommandsTab extends SettingsTabBase {
 
         setting8.addToggle(toggle =>
                 toggle
-                    .setValue(this.plugin.settings.commandPaletteVisibility.toggleAutomaticRenaming)
+                    .setValue(this.plugin.settings.core.commandPaletteVisibility.toggleAutomaticRenaming)
                     .onChange(async (value) => {
-                        this.plugin.settings.commandPaletteVisibility.toggleAutomaticRenaming = value;
+                        this.plugin.settings.core.commandPaletteVisibility.toggleAutomaticRenaming = value;
                         this.plugin.debugLog('commandPaletteVisibility.toggleAutomaticRenaming', value);
                         await this.plugin.saveSettings();
                     })
@@ -228,9 +222,9 @@ export class CommandsTab extends SettingsTabBase {
             .setDesc(t('commands.descriptions.excludeActiveNote'))
             .addToggle(toggle =>
                 toggle
-                    .setValue(this.plugin.settings.commandPaletteVisibility.disableRenaming)
+                    .setValue(this.plugin.settings.core.commandPaletteVisibility.disableRenaming)
                     .onChange(async (value) => {
-                        this.plugin.settings.commandPaletteVisibility.disableRenaming = value;
+                        this.plugin.settings.core.commandPaletteVisibility.disableRenaming = value;
                         this.plugin.debugLog('commandPaletteVisibility.disableRenaming', value);
                         await this.plugin.saveSettings();
                     })
@@ -245,9 +239,9 @@ export class CommandsTab extends SettingsTabBase {
             .setDesc(t('commands.descriptions.stopExcludingActiveNote'))
             .addToggle(toggle =>
                 toggle
-                    .setValue(this.plugin.settings.commandPaletteVisibility.enableRenaming)
+                    .setValue(this.plugin.settings.core.commandPaletteVisibility.enableRenaming)
                     .onChange(async (value) => {
-                        this.plugin.settings.commandPaletteVisibility.enableRenaming = value;
+                        this.plugin.settings.core.commandPaletteVisibility.enableRenaming = value;
                         this.plugin.debugLog('commandPaletteVisibility.enableRenaming', value);
                         await this.plugin.saveSettings();
                     })
@@ -273,9 +267,9 @@ export class CommandsTab extends SettingsTabBase {
         setting6
             .addToggle(toggle =>
                 toggle
-                    .setValue(this.plugin.settings.commandVisibility.addSafeInternalLink)
+                    .setValue(this.plugin.settings.core.commandVisibility.addSafeInternalLink)
                     .onChange(async (value) => {
-                        this.plugin.settings.commandVisibility.addSafeInternalLink = value;
+                        this.plugin.settings.core.commandVisibility.addSafeInternalLink = value;
                         this.plugin.debugLog('commandVisibility.addSafeInternalLink', value);
                         await this.plugin.saveSettings();
                     })
@@ -301,9 +295,9 @@ export class CommandsTab extends SettingsTabBase {
         setting7
             .addToggle(toggle =>
                 toggle
-                    .setValue(this.plugin.settings.commandVisibility.addSafeInternalLinkWithCaption)
+                    .setValue(this.plugin.settings.core.commandVisibility.addSafeInternalLinkWithCaption)
                     .onChange(async (value) => {
-                        this.plugin.settings.commandVisibility.addSafeInternalLinkWithCaption = value;
+                        this.plugin.settings.core.commandVisibility.addSafeInternalLinkWithCaption = value;
                         this.plugin.debugLog('commandVisibility.addSafeInternalLinkWithCaption', value);
                         await this.plugin.saveSettings();
                     })
@@ -313,23 +307,16 @@ export class CommandsTab extends SettingsTabBase {
         setIcon(icon7, "link");
         setting7.nameEl.insertBefore(icon7, setting7.nameEl.firstChild);
 
-        // Initialize command palette UI state
         updateCommandPaletteUI();
-
-        // Track individual subsection toggle states
-        let fileCommandsExpanded = true;
-        let folderCommandsExpanded = true;
-        let tagCommandsExpanded = true;
-        let vaultSearchCommandsExpanded = true;
-
-        // File Section
         const fileHeaderSetting = new Setting(this.containerEl)
             .setName(t('settings.commands.file.title'))
             .setDesc(t('settings.commands.file.desc'))
             .addToggle((toggle) => {
-                toggle.setValue(fileCommandsExpanded)
+                toggle.setValue(this.plugin.settings.core.enableFileCommands)
                     .onChange(async (value) => {
-                        fileCommandsExpanded = value;
+                        this.plugin.settings.core.enableFileCommands = value;
+                        this.plugin.debugLog('enableFileCommands', value);
+                        await this.plugin.saveSettings();
                         updateFileUI();
                     });
             });
@@ -341,7 +328,7 @@ export class CommandsTab extends SettingsTabBase {
         fileContainer.addClass('flit-master-disable-target');
 
         const updateFileUI = () => {
-            if (fileCommandsExpanded) {
+            if (this.plugin.settings.core.enableFileCommands) {
                 fileContainer.show();
             } else {
                 fileContainer.hide();
@@ -353,9 +340,9 @@ export class CommandsTab extends SettingsTabBase {
             .setDesc(t('commands.descriptions.renameNoteEvenExcluded'))
             .addToggle(toggle =>
                 toggle
-                    .setValue(this.plugin.settings.commandVisibility.filePutFirstLineInTitle)
+                    .setValue(this.plugin.settings.core.commandVisibility.filePutFirstLineInTitle)
                     .onChange(async (value) => {
-                        this.plugin.settings.commandVisibility.filePutFirstLineInTitle = value;
+                        this.plugin.settings.core.commandVisibility.filePutFirstLineInTitle = value;
                         this.plugin.debugLog('commandVisibility.filePutFirstLineInTitle', value);
                         await this.plugin.saveSettings();
                     })
@@ -369,9 +356,9 @@ export class CommandsTab extends SettingsTabBase {
             .setDesc(t('commands.descriptions.excludeNote'))
             .addToggle(toggle =>
                 toggle
-                    .setValue(this.plugin.settings.commandVisibility.fileExclude)
+                    .setValue(this.plugin.settings.core.commandVisibility.fileExclude)
                     .onChange(async (value) => {
-                        this.plugin.settings.commandVisibility.fileExclude = value;
+                        this.plugin.settings.core.commandVisibility.fileExclude = value;
                         this.plugin.debugLog('commandVisibility.fileExclude', value);
                         await this.plugin.saveSettings();
                     })
@@ -385,9 +372,9 @@ export class CommandsTab extends SettingsTabBase {
             .setDesc(t('commands.descriptions.stopExcludingNote'))
             .addToggle(toggle =>
                 toggle
-                    .setValue(this.plugin.settings.commandVisibility.fileStopExcluding)
+                    .setValue(this.plugin.settings.core.commandVisibility.fileStopExcluding)
                     .onChange(async (value) => {
-                        this.plugin.settings.commandVisibility.fileStopExcluding = value;
+                        this.plugin.settings.core.commandVisibility.fileStopExcluding = value;
                         this.plugin.debugLog('commandVisibility.fileStopExcluding', value);
                         await this.plugin.saveSettings();
                     })
@@ -396,14 +383,15 @@ export class CommandsTab extends SettingsTabBase {
         setIcon(fileEnableIcon, "square-check");
         fileEnableSetting.nameEl.insertBefore(fileEnableIcon, fileEnableSetting.nameEl.firstChild);
 
-        // Folder Section
         const folderHeaderSetting = new Setting(this.containerEl)
             .setName(t('settings.commands.folder.title'))
             .setDesc(t('settings.commands.folder.desc'))
             .addToggle((toggle) => {
-                toggle.setValue(folderCommandsExpanded)
+                toggle.setValue(this.plugin.settings.core.enableFolderCommands)
                     .onChange(async (value) => {
-                        folderCommandsExpanded = value;
+                        this.plugin.settings.core.enableFolderCommands = value;
+                        this.plugin.debugLog('enableFolderCommands', value);
+                        await this.plugin.saveSettings();
                         updateFolderUI();
                     });
             });
@@ -415,7 +403,7 @@ export class CommandsTab extends SettingsTabBase {
         folderContainer.addClass('flit-master-disable-target');
 
         const updateFolderUI = () => {
-            if (folderCommandsExpanded) {
+            if (this.plugin.settings.core.enableFolderCommands) {
                 folderContainer.show();
             } else {
                 folderContainer.hide();
@@ -427,9 +415,9 @@ export class CommandsTab extends SettingsTabBase {
             .setDesc(t('commands.descriptions.renameAllNotesInFolder'))
             .addToggle(toggle =>
                 toggle
-                    .setValue(this.plugin.settings.commandVisibility.folderPutFirstLineInTitle)
+                    .setValue(this.plugin.settings.core.commandVisibility.folderPutFirstLineInTitle)
                     .onChange(async (value) => {
-                        this.plugin.settings.commandVisibility.folderPutFirstLineInTitle = value;
+                        this.plugin.settings.core.commandVisibility.folderPutFirstLineInTitle = value;
                         this.plugin.debugLog('commandVisibility.folderPutFirstLineInTitle', value);
                         await this.plugin.saveSettings();
                     })
@@ -443,9 +431,9 @@ export class CommandsTab extends SettingsTabBase {
             .setDesc(t('commands.descriptions.excludeFolder'))
             .addToggle(toggle =>
                 toggle
-                    .setValue(this.plugin.settings.commandVisibility.folderExclude)
+                    .setValue(this.plugin.settings.core.commandVisibility.folderExclude)
                     .onChange(async (value) => {
-                        this.plugin.settings.commandVisibility.folderExclude = value;
+                        this.plugin.settings.core.commandVisibility.folderExclude = value;
                         this.plugin.debugLog('commandVisibility.folderExclude', value);
                         await this.plugin.saveSettings();
                     })
@@ -459,9 +447,9 @@ export class CommandsTab extends SettingsTabBase {
             .setDesc(t('commands.descriptions.stopExcludingFolder'))
             .addToggle(toggle =>
                 toggle
-                    .setValue(this.plugin.settings.commandVisibility.folderStopExcluding)
+                    .setValue(this.plugin.settings.core.commandVisibility.folderStopExcluding)
                     .onChange(async (value) => {
-                        this.plugin.settings.commandVisibility.folderStopExcluding = value;
+                        this.plugin.settings.core.commandVisibility.folderStopExcluding = value;
                         this.plugin.debugLog('commandVisibility.folderStopExcluding', value);
                         await this.plugin.saveSettings();
                     })
@@ -470,14 +458,15 @@ export class CommandsTab extends SettingsTabBase {
         setIcon(folderEnableIcon, "square-check");
         folderEnableSetting.nameEl.insertBefore(folderEnableIcon, folderEnableSetting.nameEl.firstChild);
 
-        // Tag Section
         const tagHeaderSetting = new Setting(this.containerEl)
             .setName(t('settings.commands.tag.title'))
             .setDesc(t('settings.commands.tag.desc'))
             .addToggle((toggle) => {
-                toggle.setValue(tagCommandsExpanded)
+                toggle.setValue(this.plugin.settings.core.enableTagCommands)
                     .onChange(async (value) => {
-                        tagCommandsExpanded = value;
+                        this.plugin.settings.core.enableTagCommands = value;
+                        this.plugin.debugLog('enableTagCommands', value);
+                        await this.plugin.saveSettings();
                         updateTagUI();
                     });
             });
@@ -489,7 +478,7 @@ export class CommandsTab extends SettingsTabBase {
         tagContainer.addClass('flit-master-disable-target');
 
         const updateTagUI = () => {
-            if (tagCommandsExpanded) {
+            if (this.plugin.settings.core.enableTagCommands) {
                 tagContainer.show();
             } else {
                 tagContainer.hide();
@@ -501,9 +490,9 @@ export class CommandsTab extends SettingsTabBase {
             .setDesc(t('commands.descriptions.renameAllNotesWithTag'))
             .addToggle(toggle =>
                 toggle
-                    .setValue(this.plugin.settings.commandVisibility.tagPutFirstLineInTitle)
+                    .setValue(this.plugin.settings.core.commandVisibility.tagPutFirstLineInTitle)
                     .onChange(async (value) => {
-                        this.plugin.settings.commandVisibility.tagPutFirstLineInTitle = value;
+                        this.plugin.settings.core.commandVisibility.tagPutFirstLineInTitle = value;
                         this.plugin.debugLog('commandVisibility.tagPutFirstLineInTitle', value);
                         await this.plugin.saveSettings();
                     })
@@ -517,9 +506,9 @@ export class CommandsTab extends SettingsTabBase {
             .setDesc(t('commands.descriptions.excludeTag'))
             .addToggle(toggle =>
                 toggle
-                    .setValue(this.plugin.settings.commandVisibility.tagExclude)
+                    .setValue(this.plugin.settings.core.commandVisibility.tagExclude)
                     .onChange(async (value) => {
-                        this.plugin.settings.commandVisibility.tagExclude = value;
+                        this.plugin.settings.core.commandVisibility.tagExclude = value;
                         this.plugin.debugLog('commandVisibility.tagExclude', value);
                         await this.plugin.saveSettings();
                     })
@@ -533,9 +522,9 @@ export class CommandsTab extends SettingsTabBase {
             .setDesc(t('commands.descriptions.stopExcludingTag'))
             .addToggle(toggle =>
                 toggle
-                    .setValue(this.plugin.settings.commandVisibility.tagStopExcluding)
+                    .setValue(this.plugin.settings.core.commandVisibility.tagStopExcluding)
                     .onChange(async (value) => {
-                        this.plugin.settings.commandVisibility.tagStopExcluding = value;
+                        this.plugin.settings.core.commandVisibility.tagStopExcluding = value;
                         this.plugin.debugLog('commandVisibility.tagStopExcluding', value);
                         await this.plugin.saveSettings();
                     })
@@ -544,14 +533,13 @@ export class CommandsTab extends SettingsTabBase {
         setIcon(tagEnableIcon, "square-check");
         tagEnableSetting.nameEl.insertBefore(tagEnableIcon, tagEnableSetting.nameEl.firstChild);
 
-        // Vault Search Section
         const vaultSearchHeaderSetting = new Setting(this.containerEl)
             .setName(t('settings.commands.search.title'))
             .setDesc(t('settings.commands.search.desc'))
             .addToggle((toggle) => {
-                toggle.setValue(this.plugin.settings.enableVaultSearchContextMenu)
+                toggle.setValue(this.plugin.settings.core.enableVaultSearchContextMenu)
                     .onChange(async (value) => {
-                        this.plugin.settings.enableVaultSearchContextMenu = value;
+                        this.plugin.settings.core.enableVaultSearchContextMenu = value;
                         this.plugin.debugLog('enableVaultSearchContextMenu', value);
                         await this.plugin.saveSettings();
                         updateVaultSearchUI();
@@ -561,12 +549,11 @@ export class CommandsTab extends SettingsTabBase {
         vaultSearchHeaderSetting.settingEl.addClass('flit-master-toggle');
         this.containerEl.createEl("br");
 
-        // Create dedicated container for vault search content
         const vaultSearchContainer = this.containerEl.createDiv({ cls: 'flit-vault-search-container' });
         vaultSearchContainer.addClass('flit-master-disable-target');
 
         const updateVaultSearchUI = () => {
-            if (this.plugin.settings.enableVaultSearchContextMenu) {
+            if (this.plugin.settings.core.enableVaultSearchContextMenu) {
                 vaultSearchContainer.show();
             } else {
                 vaultSearchContainer.hide();
@@ -578,9 +565,9 @@ export class CommandsTab extends SettingsTabBase {
             .setDesc(t('commands.descriptions.renameAllNotesInSearchResults'))
             .addToggle(toggle =>
                 toggle
-                    .setValue(this.plugin.settings.vaultSearchContextMenuVisibility.putFirstLineInTitle)
+                    .setValue(this.plugin.settings.core.vaultSearchContextMenuVisibility.putFirstLineInTitle)
                     .onChange(async (value) => {
-                        this.plugin.settings.vaultSearchContextMenuVisibility.putFirstLineInTitle = value;
+                        this.plugin.settings.core.vaultSearchContextMenuVisibility.putFirstLineInTitle = value;
                         this.plugin.debugLog('vaultSearchContextMenuVisibility.putFirstLineInTitle', value);
                         await this.plugin.saveSettings();
                     })
@@ -594,9 +581,9 @@ export class CommandsTab extends SettingsTabBase {
             .setDesc(t('commands.descriptions.excludeAllNotesInSearchResults'))
             .addToggle(toggle =>
                 toggle
-                    .setValue(this.plugin.settings.vaultSearchContextMenuVisibility.disable)
+                    .setValue(this.plugin.settings.core.vaultSearchContextMenuVisibility.disable)
                     .onChange(async (value) => {
-                        this.plugin.settings.vaultSearchContextMenuVisibility.disable = value;
+                        this.plugin.settings.core.vaultSearchContextMenuVisibility.disable = value;
                         this.plugin.debugLog('vaultSearchContextMenuVisibility.disable', value);
                         await this.plugin.saveSettings();
                     })
@@ -610,9 +597,9 @@ export class CommandsTab extends SettingsTabBase {
             .setDesc(t('commands.descriptions.stopExcludingAllNotesInSearchResults'))
             .addToggle(toggle =>
                 toggle
-                    .setValue(this.plugin.settings.vaultSearchContextMenuVisibility.enable)
+                    .setValue(this.plugin.settings.core.vaultSearchContextMenuVisibility.enable)
                     .onChange(async (value) => {
-                        this.plugin.settings.vaultSearchContextMenuVisibility.enable = value;
+                        this.plugin.settings.core.vaultSearchContextMenuVisibility.enable = value;
                         this.plugin.debugLog('vaultSearchContextMenuVisibility.enable', value);
                         await this.plugin.saveSettings();
                     })
@@ -621,7 +608,6 @@ export class CommandsTab extends SettingsTabBase {
         setIcon(vaultSearchEnableIcon, "square-check");
         vaultSearchEnableSetting.nameEl.insertBefore(vaultSearchEnableIcon, vaultSearchEnableSetting.nameEl.firstChild);
 
-        // Initialize all UI states
         updateFileUI();
         updateFolderUI();
         updateTagUI();

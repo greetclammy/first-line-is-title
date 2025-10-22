@@ -2,7 +2,8 @@ import { TFile, MarkdownView } from "obsidian";
 import FirstLineIsTitle from '../../main';
 import { verboseLog } from '../utils';
 import { t } from '../i18n';
-import { TITLE_CHAR_REVERSAL_MAP } from '../constants';
+import { readFileContent } from '../utils/content-reader';
+import { TIMING, LIMITS } from '../constants/timing';
 
 export class TitleInsertion {
     private plugin: FirstLineIsTitle;
@@ -24,7 +25,7 @@ export class TitleInsertion {
             // Read current file content
             let content: string;
             try {
-                content = await this.plugin.app.vault.read(file);
+                content = await readFileContent(this.plugin, file, { preferFresh: true });
             } catch (error) {
                 console.error(`Failed to read file ${file.path} for title insertion:`, error);
                 return;
@@ -42,9 +43,54 @@ export class TitleInsertion {
             // Get clean title by reversing forbidden character replacements
             let cleanTitle = file.basename;
 
-            // Apply character reversal mapping
-            for (const [forbiddenChar, normalChar] of Object.entries(TITLE_CHAR_REVERSAL_MAP)) {
-                cleanTitle = cleanTitle.replaceAll(forbiddenChar, normalChar);
+            // Build dynamic reversal map from current user settings
+            if (this.plugin.settings.core.convertReplacementCharactersInTitle) {
+                verboseLog(this.plugin, `[TITLE-REVERSAL] Starting reversal for: "${cleanTitle}"`);
+                const charMap: Record<string, string> = {
+                    '/': 'slash',
+                    ':': 'colon',
+                    '*': 'asterisk',
+                    '?': 'question',
+                    '<': 'lessThan',
+                    '>': 'greaterThan',
+                    '"': 'quote',
+                    '|': 'pipe',
+                    '#': 'hash',
+                    '[': 'leftBracket',
+                    ']': 'rightBracket',
+                    '^': 'caret',
+                    '\\': 'backslash',
+                    '.': 'dot'
+                };
+
+                // Find duplicate replacement strings (ambiguous - can't reverse)
+                const replacementCounts = new Map<string, number>();
+                for (const settingKey of Object.values(charMap)) {
+                    const replacement = this.plugin.settings.replaceCharacters.charReplacements[settingKey as keyof typeof this.plugin.settings.replaceCharacters.charReplacements];
+                    if (replacement.enabled && replacement.replacement) {
+                        replacementCounts.set(replacement.replacement, (replacementCounts.get(replacement.replacement) || 0) + 1);
+                        verboseLog(this.plugin, `[TITLE-REVERSAL] ${settingKey}: enabled=true, replacement="${replacement.replacement}"`);
+                    }
+                }
+
+                // Reverse each enabled replacement using actual user settings
+                for (const [originalChar, settingKey] of Object.entries(charMap)) {
+                    const replacement = this.plugin.settings.replaceCharacters.charReplacements[settingKey as keyof typeof this.plugin.settings.replaceCharacters.charReplacements];
+                    if (replacement.enabled && replacement.replacement) {
+                        // Skip if this replacement string is used by multiple enabled characters (ambiguous)
+                        const count = replacementCounts.get(replacement.replacement) || 0;
+                        if (count > 1) {
+                            verboseLog(this.plugin, `[TITLE-REVERSAL] Skipping "${replacement.replacement}" → "${originalChar}" (duplicate, count=${count})`);
+                            continue;
+                        }
+                        const before = cleanTitle;
+                        cleanTitle = cleanTitle.replaceAll(replacement.replacement, originalChar);
+                        if (before !== cleanTitle) {
+                            verboseLog(this.plugin, `[TITLE-REVERSAL] Reversed "${replacement.replacement}" → "${originalChar}": "${before}" → "${cleanTitle}"`);
+                        }
+                    }
+                }
+                verboseLog(this.plugin, `[TITLE-REVERSAL] Final result: "${cleanTitle}"`);
             }
 
             verboseLog(this.plugin, `Inserting title "${cleanTitle}" in new file: ${file.path}`);
@@ -57,8 +103,8 @@ export class TitleInsertion {
             let newContent = cleanTitle;
 
             // Only add cursor if not in canvas and moveCursorToFirstLine is enabled
-            if (!inCanvas && this.plugin.settings.moveCursorToFirstLine) {
-                if (this.plugin.settings.placeCursorAtLineEnd) {
+            if (!inCanvas && this.plugin.settings.core.moveCursorToFirstLine) {
+                if (this.plugin.settings.core.placeCursorAtLineEnd) {
                     newContent += "\n"; // Place cursor at end of title line
                 } else {
                     newContent += "\n"; // Place cursor on new line after title
@@ -70,12 +116,12 @@ export class TitleInsertion {
             // Re-read current content with retry logic (template may still be applying)
             let currentContent: string;
             let retryCount = 0;
-            const maxRetries = 3;
-            const retryDelay = 500;
+            const maxRetries = LIMITS.MAX_TITLE_INSERTION_RETRIES;
+            const retryDelay = TIMING.TITLE_INSERTION_RETRY_DELAY_MS;
 
             do {
                 try {
-                    currentContent = await this.plugin.app.vault.read(file);
+                    currentContent = await readFileContent(this.plugin, file, { preferFresh: true });
                     verboseLog(this.plugin, `Re-read file content (attempt ${retryCount + 1}). Length: ${currentContent.length} chars`);
 
                     if (currentContent.trim() !== '') {
@@ -101,32 +147,33 @@ export class TitleInsertion {
 
                 // Use metadata cache to find where to insert title
                 const metadata = this.plugin.app.metadataCache.getFileCache(file);
-                const lines = currentContent.split('\n');
 
-                if (metadata?.frontmatterPosition) {
-                    // Insert title after frontmatter
-                    const insertLine = metadata.frontmatterPosition.end.line + 1;
-                    lines.splice(insertLine, 0, cleanTitle);
-                    verboseLog(this.plugin, `Inserted title after frontmatter at line ${insertLine}`);
-                } else {
-                    // Insert title at beginning
-                    lines.unshift(cleanTitle);
-                    verboseLog(this.plugin, `Inserted title at beginning of file`);
-                }
+                await this.plugin.app.vault.process(file, (content) => {
+                    const lines = content.split('\n');
 
-                const finalContent = lines.join('\n');
-                await this.plugin.app.vault.modify(file, finalContent);
+                    if (metadata?.frontmatterPosition) {
+                        const insertLine = metadata.frontmatterPosition.end.line + 1;
+                        lines.splice(insertLine, 0, cleanTitle);
+                        verboseLog(this.plugin, `Inserted title after frontmatter at line ${insertLine}`);
+                    } else {
+                        lines.unshift(cleanTitle);
+                        verboseLog(this.plugin, `Inserted title at beginning of file`);
+                    }
+
+                    return lines.join('\n');
+                });
             } else {
-                // File still empty, use original behavior
                 verboseLog(this.plugin, `File still empty, inserting title as new content`);
-                await this.plugin.app.vault.modify(file, newContent);
+                await this.plugin.app.vault.process(file, () => newContent);
             }
 
             // Handle cursor positioning and view mode if file is currently open
-            if (!inCanvas && this.plugin.settings.moveCursorToFirstLine) {
-                setTimeout(() => {
-                    this.handleCursorPositioning(file);
-                }, 50);
+            if (!inCanvas && this.plugin.settings.core.moveCursorToFirstLine) {
+                // Use shared waitForViewReady from file operations
+                const view = await this.plugin.fileOperations.waitForViewReady(file);
+                if (view) {
+                    await this.handleCursorPositioning(file, view);
+                }
             }
 
             verboseLog(this.plugin, `Successfully inserted title in ${file.path}`);
@@ -136,54 +183,48 @@ export class TitleInsertion {
         }
     }
 
-    private async handleCursorPositioning(file: TFile): Promise<void> {
+    private async handleCursorPositioning(file: TFile, view: MarkdownView): Promise<void> {
         try {
             verboseLog(this.plugin, `handleCursorPositioning called for ${file.path}`);
-            const activeView = this.plugin.app.workspace.getActiveViewOfType(MarkdownView);
-            verboseLog(this.plugin, `Active view found: ${!!activeView}, file matches: ${activeView?.file?.path === file.path}`);
 
-            if (activeView && activeView.file?.path === file.path) {
-                // Set to source mode
-                await activeView.leaf.setViewState({
-                    type: "markdown",
-                    state: {
-                        mode: "source",
-                        source: false
-                    }
-                });
-
-                // Focus the editor
-                await activeView.editor?.focus();
-
-                // Position cursor - find actual title line using metadata cache
-                let titleLineNumber = 0;
-                let titleLineLength = 0;
-
-                // Use metadata cache to determine frontmatter position
-                const metadata = this.plugin.app.metadataCache.getFileCache(file);
-                if (metadata?.frontmatterPosition) {
-                    // Title is on the line after frontmatter
-                    titleLineNumber = metadata.frontmatterPosition.end.line + 1;
-                    verboseLog(this.plugin, `Found frontmatter ending at line ${metadata.frontmatterPosition.end.line}, title on line ${titleLineNumber}`);
-                } else {
-                    // No frontmatter, title is on first line
-                    titleLineNumber = 0;
-                    verboseLog(this.plugin, `No frontmatter found, title on line ${titleLineNumber}`);
+            // Set to source mode
+            await view.leaf.setViewState({
+                type: "markdown",
+                state: {
+                    mode: "source",
+                    source: false
                 }
+            });
 
-                titleLineLength = activeView.editor?.getLine(titleLineNumber)?.length || 0;
+            // Focus the editor
+            await view.editor?.focus();
 
-                if (this.plugin.settings.placeCursorAtLineEnd) {
-                    // Move to end of title line
-                    activeView.editor?.setCursor({ line: titleLineNumber, ch: titleLineLength });
-                    verboseLog(this.plugin, `Moved cursor to end of title line ${titleLineNumber} (${titleLineLength} chars) via handleCursorPositioning for ${file.path}`);
-                } else {
-                    // Move to line after title
-                    activeView.editor?.setCursor({ line: titleLineNumber + 1, ch: 0 });
-                    verboseLog(this.plugin, `Moved cursor to line after title (line ${titleLineNumber + 1}) via handleCursorPositioning for ${file.path}`);
-                }
+            // Position cursor - find actual title line using metadata cache
+            let titleLineNumber = 0;
+            let titleLineLength = 0;
+
+            // Use metadata cache to determine frontmatter position
+            const metadata = this.plugin.app.metadataCache.getFileCache(file);
+            if (metadata?.frontmatterPosition) {
+                // Title is on the line after frontmatter
+                titleLineNumber = metadata.frontmatterPosition.end.line + 1;
+                verboseLog(this.plugin, `Found frontmatter ending at line ${metadata.frontmatterPosition.end.line}, title on line ${titleLineNumber}`);
             } else {
-                verboseLog(this.plugin, `Skipping cursor positioning - no matching active view for ${file.path}`);
+                // No frontmatter, title is on first line
+                titleLineNumber = 0;
+                verboseLog(this.plugin, `No frontmatter found, title on line ${titleLineNumber}`);
+            }
+
+            titleLineLength = view.editor?.getLine(titleLineNumber)?.length || 0;
+
+            if (this.plugin.settings.core.placeCursorAtLineEnd) {
+                // Move to end of title line
+                view.editor?.setCursor({ line: titleLineNumber, ch: titleLineLength });
+                verboseLog(this.plugin, `Moved cursor to end of title line ${titleLineNumber} (${titleLineLength} chars) via handleCursorPositioning for ${file.path}`);
+            } else {
+                // Move to line after title
+                view.editor?.setCursor({ line: titleLineNumber + 1, ch: 0 });
+                verboseLog(this.plugin, `Moved cursor to line after title (line ${titleLineNumber + 1}) via handleCursorPositioning for ${file.path}`);
             }
         } catch (error) {
             console.error(`Error positioning cursor for ${file.path}:`, error);

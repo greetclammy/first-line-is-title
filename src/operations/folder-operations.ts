@@ -7,7 +7,7 @@ import { t } from '../i18n';
 export class FolderOperations {
     constructor(
         private app: any,
-        private settings: PluginSettings,
+        public settings: PluginSettings,
         private renameEngine: RenameEngine,
         private saveSettings: () => Promise<void>,
         private debugLog: (settingName: string, value: any) => void,
@@ -16,9 +16,8 @@ export class FolderOperations {
 
     async putFirstLineInTitleForFolder(folder: TFolder): Promise<void> {
         const files = this.app.vault.getAllLoadedFiles()
-            .filter((file): file is TFile => file instanceof TFile && file.extension === 'md')
-            .filter(file => {
-                // Check if file is in the target folder or its subfolders
+            .filter((file: any): file is TFile => file instanceof TFile && file.extension === 'md')
+            .filter((file: TFile) => {
                 return file.path.startsWith(folder.path + "/") || file.parent?.path === folder.path;
             });
 
@@ -59,18 +58,16 @@ export class FolderOperations {
         // Normalize folder path to handle cross-platform differences and user typos
         folderPath = normalizePath(folderPath);
 
-        const isInList = this.settings.excludedFolders.includes(folderPath);
-        const isInverted = this.settings.folderScopeStrategy === 'Exclude all except...';
+        const isInList = this.settings.exclusions.excludedFolders.includes(folderPath);
+        const isInverted = this.settings.exclusions.folderScopeStrategy === 'Exclude all except...';
 
         if (isInList) {
-            // Remove from list
-            this.settings.excludedFolders = this.settings.excludedFolders.filter(path => path !== folderPath);
+            this.settings.exclusions.excludedFolders = this.settings.exclusions.excludedFolders.filter(path => path !== folderPath);
             // Ensure there's always at least one entry (even if empty)
-            if (this.settings.excludedFolders.length === 0) {
-                this.settings.excludedFolders.push("");
+            if (this.settings.exclusions.excludedFolders.length === 0) {
+                this.settings.exclusions.excludedFolders.push("");
             }
 
-            // Determine action based on scope strategy
             if (!suppressNotice) {
                 if (isInverted) {
                     // In inverted mode, removing from list = disabling renaming
@@ -83,14 +80,12 @@ export class FolderOperations {
                 }
             }
         } else {
-            // Add to list
-            if (this.settings.excludedFolders.length === 1 && this.settings.excludedFolders[0] === "") {
-                this.settings.excludedFolders[0] = folderPath;
+            if (this.settings.exclusions.excludedFolders.length === 1 && this.settings.exclusions.excludedFolders[0] === "") {
+                this.settings.exclusions.excludedFolders[0] = folderPath;
             } else {
-                this.settings.excludedFolders.push(folderPath);
+                this.settings.exclusions.excludedFolders.push(folderPath);
             }
 
-            // Determine action based on scope strategy
             if (!suppressNotice) {
                 if (isInverted) {
                     // In inverted mode, adding to list = enabling renaming
@@ -104,7 +99,7 @@ export class FolderOperations {
             }
         }
 
-        this.debugLog('excludedFolders', this.settings.excludedFolders);
+        this.debugLog('excludedFolders', this.settings.exclusions.excludedFolders);
         await this.saveSettings();
         verboseLog(this, `Folder exclusion toggled for: ${folderPath}`, { isNowInList: !isInList });
     }
@@ -125,11 +120,9 @@ export class FolderOperations {
         selectors.forEach(selector => {
             const elements = document.querySelectorAll(selector);
             elements.forEach(element => {
-                // Try to get folder path from various attributes/parents
                 let folderPath = element.getAttribute('data-path');
 
                 if (!folderPath) {
-                    // Check parent elements
                     const parent = element.closest('.nav-folder, .tree-item');
                     if (parent) {
                         folderPath = parent.getAttribute('data-path');
@@ -191,7 +184,7 @@ export class FolderOperations {
             currentFolder.children.forEach(child => {
                 if (child instanceof TFile && child.extension === 'md') {
                     files.push(child);
-                } else if (child instanceof TFolder && this.settings.includeSubfolders) {
+                } else if (child instanceof TFolder && this.settings.exclusions.includeSubfolders) {
                     processFolder(child);
                 }
             });
@@ -209,7 +202,6 @@ export class FolderOperations {
         let errors = 0;
 
         if (action === 'rename') {
-            // Collect all files from all folders
             const allFiles: TFile[] = [];
             folders.forEach(folder => {
                 const folderFiles = this.getAllMarkdownFilesInFolder(folder);
@@ -225,25 +217,20 @@ export class FolderOperations {
             verboseLog(this, `Showing notice: Renaming ${allFiles.length} files from ${folders.length} folders...`);
             new Notice(t('notifications.renamingNNotes').replace('{{count}}', String(allFiles.length)));
 
-            // Use the existing file processing logic
             await this.processMultipleFiles(allFiles, 'rename');
         } else {
-            // For folder exclusion, we work with folder paths directly
             for (const folder of folders) {
                 try {
                     const normalizedFolderPath = normalizePath(folder.path);
-                    const isCurrentlyExcluded = this.settings.excludedFolders.includes(normalizedFolderPath);
+                    const isCurrentlyExcluded = this.settings.exclusions.excludedFolders.includes(normalizedFolderPath);
 
                     if (action === 'disable' && !isCurrentlyExcluded) {
-                        // Only toggle if not already excluded
                         await this.toggleFolderExclusion(folder.path, true);
                         processed++;
                     } else if (action === 'enable' && isCurrentlyExcluded) {
-                        // Only toggle if currently excluded
                         await this.toggleFolderExclusion(folder.path, true);
                         processed++;
                     } else {
-                        // Already in desired state
                         skipped++;
                     }
                 } catch (error) {
@@ -252,7 +239,6 @@ export class FolderOperations {
                 }
             }
 
-            // Show completion notice
             verboseLog(this, `${action === 'disable' ? 'Disabled' : 'Enabled'} renaming for ${folders.length} folders.`);
             new Notice((action === 'enable' ? t('notifications.enabledRenamingInNFolders') : t('notifications.disabledRenamingInNFolders')).replace('{{count}}', String(folders.length)));
         }

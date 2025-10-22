@@ -1,6 +1,7 @@
 import { TFile, MarkdownView } from "obsidian";
 import { verboseLog } from '../utils';
 import FirstLineIsTitle from '../../main';
+import { TIMING } from '../constants/timing';
 
 /**
  * EditorLifecycleManager
@@ -22,19 +23,12 @@ export class EditorLifecycleManager {
 
     // Interval-based checking system
     private pendingChecks = new Map<string, { editor: any, file: TFile, lastChangeTime: number }>();
-    private checkTimer: NodeJS.Timeout | null = null;
 
     // Track active editors for tab close detection
     private activeEditorFiles = new Map<string, { file: TFile, editor: any, leafId: string }>();
 
     // Throttle timer system for checkInterval > 0
     private throttleTimers = new Map<string, NodeJS.Timeout>();
-
-    // Track files in creation delay period with their timer references
-    private creationDelayTimers = new Map<string, NodeJS.Timeout>();
-
-    // Track view readiness check timers (for CREATE event)
-    private viewReadinessTimers = new Map<string, NodeJS.Timeout>();
 
     // Track files that were just processed on tab close to prevent duplicate processing
     private recentlyProcessedCloses = new Set<string>();
@@ -66,7 +60,7 @@ export class EditorLifecycleManager {
      * Set creation delay timer for a file
      */
     setCreationDelayTimer(filePath: string, timer: NodeJS.Timeout): void {
-        this.creationDelayTimers.set(filePath, timer);
+        this.plugin.fileStateManager.setCreationDelayTimer(filePath, timer);
         verboseLog(this.plugin, `Set creation delay timer for: ${filePath}`);
     }
 
@@ -74,26 +68,22 @@ export class EditorLifecycleManager {
      * Clear creation delay timer for a file
      */
     clearCreationDelayTimer(filePath: string): void {
-        const timer = this.creationDelayTimers.get(filePath);
-        if (timer) {
-            clearTimeout(timer);
-            this.creationDelayTimers.delete(filePath);
-            verboseLog(this.plugin, `Cleared creation delay timer for: ${filePath}`);
-        }
+        this.plugin.fileStateManager.clearCreationDelayTimer(filePath);
+        verboseLog(this.plugin, `Cleared creation delay timer for: ${filePath}`);
     }
 
     /**
      * Check if a file is in creation delay period
      */
     isFileInCreationDelay(filePath: string): boolean {
-        return this.creationDelayTimers.has(filePath);
+        return this.plugin.fileStateManager.isFileInCreationDelay(filePath);
     }
 
     /**
      * Set view readiness timer for a file
      */
     setViewReadinessTimer(filePath: string, timer: NodeJS.Timeout): void {
-        this.viewReadinessTimers.set(filePath, timer);
+        this.plugin.fileStateManager.setViewReadinessTimer(filePath, timer);
         verboseLog(this.plugin, `Set view readiness timer for: ${filePath}`);
     }
 
@@ -101,12 +91,8 @@ export class EditorLifecycleManager {
      * Clear view readiness timer for a file
      */
     clearViewReadinessTimer(filePath: string): void {
-        const timer = this.viewReadinessTimers.get(filePath);
-        if (timer) {
-            clearTimeout(timer);
-            this.viewReadinessTimers.delete(filePath);
-            verboseLog(this.plugin, `Cleared view readiness timer for: ${filePath}`);
-        }
+        this.plugin.fileStateManager.clearViewReadinessTimer(filePath);
+        verboseLog(this.plugin, `Cleared view readiness timer for: ${filePath}`);
     }
 
     /**
@@ -119,7 +105,7 @@ export class EditorLifecycleManager {
         // Always track active editors for tab close detection
         this.trackActiveEditors();
 
-        if (this.settings.checkInterval === 0) {
+        if (this.settings.core.checkInterval === 0) {
             // Use event-based immediate checking
             this.setupEventBasedChecking();
         } else {
@@ -140,7 +126,7 @@ export class EditorLifecycleManager {
      * Setup throttle-based checking (process N ms after editor change)
      */
     private setupThrottleBasedChecking(): void {
-        verboseLog(this.plugin, `Setting up throttle-based checking (${this.settings.checkInterval}ms delay)`);
+        verboseLog(this.plugin, `Setting up throttle-based checking (${this.settings.core.checkInterval}ms delay)`);
     }
 
     /**
@@ -180,6 +166,8 @@ export class EditorLifecycleManager {
             if (view && view.file && view.editor) {
                 try {
                     const leafId = leaf.id;
+                    if (!leafId) continue; // Skip if leaf has no ID
+
                     activeLeafIds.add(leafId);
 
                     newActiveFiles.set(view.file.path, {
@@ -194,7 +182,7 @@ export class EditorLifecycleManager {
         }
 
         // Process files that were closed (in old map but not in new map)
-        if (this.isFullyLoaded && this.settings.renameNotes === "automatically") {
+        if (this.isFullyLoaded && this.settings.core.renameNotes === "automatically") {
             for (const [filePath, oldData] of this.activeEditorFiles) {
                 if (!newActiveFiles.has(filePath)) {
                     // Check if this TFile object still exists in new tracking (just renamed, not closed)
@@ -226,14 +214,11 @@ export class EditorLifecycleManager {
                     // Tab actually closed - handle based on pending delays
                     verboseLog(this.plugin, `Tab closed for: ${filePath}`);
 
-                    // Clear first rename tracking when tab closes
-                    this.plugin.cacheManager?.clearFirstRenameTracking(filePath);
-
                     // Mark as processed to prevent duplicate processing from multiple events
                     this.recentlyProcessedCloses.add(filePath);
                     setTimeout(() => {
                         this.recentlyProcessedCloses.delete(filePath);
-                    }, 100); // Clear after 100ms (workspace events settle quickly)
+                    }, TIMING.EVENT_TRACKER_CLEAR_DELAY_MS); // Clear after workspace events settle
 
                     // Check if there's a pending throttle timer (first line was modified)
                     const hasThrottleTimer = this.throttleTimers.has(filePath);
@@ -262,7 +247,7 @@ export class EditorLifecycleManager {
         verboseLog(this.plugin, `Tracking ${this.activeEditorFiles.size} active editor files for tab close detection`);
 
         // Handle rename-on-focus: detect when active file changes
-        if (this.settings.renameOnFocus && this.isFullyLoaded) {
+        if (this.settings.core.renameOnFocus && this.isFullyLoaded) {
             const currentActiveFile = this.app.workspace.getActiveFile();
             if (currentActiveFile && currentActiveFile.extension === 'md') {
                 const currentPath = currentActiveFile.path;
@@ -270,6 +255,12 @@ export class EditorLifecycleManager {
                 // Only process if the focused file actually changed
                 if (currentPath !== this.lastFocusedFile) {
                     this.lastFocusedFile = currentPath;
+
+                    // Skip if file was recently renamed by FLIT (prevents infinite rename loop)
+                    if (this.isRecentlyRenamed(currentPath)) {
+                        verboseLog(this.plugin, `Skipping rename-on-focus - file recently renamed by FLIT: ${currentPath}`);
+                        return;
+                    }
 
                     verboseLog(this.plugin, `File focused: ${currentPath}`);
 
@@ -291,20 +282,28 @@ export class EditorLifecycleManager {
 
         // Skip files in creation delay
         if (this.isFileInCreationDelay(filePath)) {
-            verboseLog(this.plugin, `File in creation delay, skipping throttle: ${filePath}`);
+            if (this.settings.core.verboseLogging) {
+                console.debug(`File in creation delay, skipping throttle: ${filePath}`);
+            }
             return;
         }
 
         // Check if timer already running for this file
         if (this.throttleTimers.has(filePath)) {
-            verboseLog(this.plugin, `Throttle timer already running for: ${filePath}, not starting new one`);
+            if (this.settings.core.verboseLogging) {
+                console.debug(`Throttle timer already running for: ${filePath}, not starting new one`);
+            }
             return;
         }
 
         // Start new throttle timer
-        verboseLog(this.plugin, `Starting throttle timer (${this.settings.checkInterval}ms) for: ${filePath}`);
+        if (this.settings.core.verboseLogging) {
+            console.debug(`Starting throttle timer (${this.settings.core.checkInterval}ms) for: ${filePath}`);
+        }
         const timer = setTimeout(async () => {
-            verboseLog(this.plugin, `Throttle timer expired, processing: ${filePath}`);
+            if (this.settings.core.verboseLogging) {
+                console.debug(`Throttle timer expired, processing: ${filePath}`);
+            }
 
             // Remove timer from tracking
             this.throttleTimers.delete(filePath);
@@ -315,7 +314,7 @@ export class EditorLifecycleManager {
             } catch (error) {
                 console.error(`Error processing throttled change for ${filePath}:`, error);
             }
-        }, this.settings.checkInterval);
+        }, this.settings.core.checkInterval);
 
         this.throttleTimers.set(filePath, timer);
     }
@@ -334,24 +333,18 @@ export class EditorLifecycleManager {
 
     /**
      * Clear all checking systems and state
-     * Note: Does NOT clear creation delay timers or view readiness timers
-     * as those need to persist across initialization
+     * Note: Creation delay and view readiness timers are self-cleaning (100ms-3s TTL)
+     * but we clear them explicitly for consistency on unload
      */
     clearCheckingSystems(): void {
-        // Clear old interval system (kept for backward compatibility)
-        if (this.checkTimer) {
-            clearTimeout(this.checkTimer);
-            this.checkTimer = null;
-        }
-
         // Clear throttle timers
         for (const timer of this.throttleTimers.values()) {
             clearTimeout(timer);
         }
         this.throttleTimers.clear();
 
-        // DO NOT clear creation delay timers - they must persist across initialization
-        // DO NOT clear view readiness timers - they must persist across initialization
+        // Note: Creation delay and view readiness timers are now managed by FileStateManager
+        // and will be cleaned up in its dispose() method
 
         this.activeEditorFiles.clear();
         this.pendingChecks.clear();
@@ -431,15 +424,6 @@ export class EditorLifecycleManager {
     }
 
     /**
-     * Process pending editor changes (kept for backward compatibility)
-     */
-    processPendingEditorChanges(): void {
-        // No longer needed since we process immediately on editor-change
-        // This method is kept for backward compatibility with event handlers
-        verboseLog(this.plugin, `processPendingEditorChanges called - no action needed with immediate processing`);
-    }
-
-    /**
      * Get open editor files map (for external access)
      */
     getOpenEditorFiles(): Map<string, number> {
@@ -451,5 +435,27 @@ export class EditorLifecycleManager {
      */
     getActiveEditorFiles(): Map<string, { file: TFile, editor: any, leafId: string }> {
         return this.activeEditorFiles;
+    }
+
+    /**
+     * Mark a file as recently renamed by FLIT (prevents rename-on-focus loop)
+     */
+    markFileAsRecentlyRenamed(filePath: string): void {
+        this.plugin.fileStateManager.markRecentlyRenamed(filePath);
+    }
+
+    /**
+     * Check if a file was recently renamed by FLIT (within last 150ms)
+     */
+    isRecentlyRenamed(filePath: string): boolean {
+        return this.plugin.fileStateManager.wasRecentlyRenamed(filePath);
+    }
+
+    /**
+     * Remove a file from creation delay tracking (for file deletion cleanup)
+     */
+    removeFileFromDelay(filePath: string): void {
+        this.clearCreationDelayTimer(filePath);
+        this.clearViewReadinessTimer(filePath);
     }
 }
