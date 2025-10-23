@@ -1,3 +1,5 @@
+English • [Русский](https://github.com/greetclammy/first-line-is-title/blob/main/README_RU.md)
+
 # First Line is Title
 
 Automatically set the first line as note title, just like in Apple Notes! Forget about manual filename entry or nondescript timestamps.
@@ -10,15 +12,16 @@ Automatically set the first line as note title, just like in Apple Notes! Forget
 ## ⚡ Features
 
 - Rename notes automatically or manually.
-- Move the cursor to the first line on note creation.
+- Move cursor to first line on note creation.
 - Put any first line content in title or headings only.
 - Replace characters forbidden in filenames with safe alternatives, or omit them entirely.
 - Strip markdown syntax from filenames.
 - Add custom replacement rules.
-- Automatically populate a first line alias property — make forbidden characters searchable in the Quick switcher or [Omnisearch](https://obsidian.md/plugins?id=omnisearch), or set as note title in [Notebook Navigator](https://obsidian.md/plugins?id=notebook-navigator) or [Front Matter Title](https://obsidian.md/plugins?id=obsidian-front-matter-title-plugin).
-- Commands to batch rename all notes in a folder, all notes with a tag, all search results, or the entire vault.
+- Automatically populate first line alias property — make forbidden characters searchable in Quick switcher or [Omnisearch](https://obsidian.md/plugins?id=omnisearch), or set as note title in [Notebook Navigator](https://obsidian.md/plugins?id=notebook-navigator) or [Front Matter Title](https://obsidian.md/plugins?id=obsidian-front-matter-title-plugin).
+- Commands to batch rename all notes in folder, all notes with tag, all search results, or entire vault.
+- Insert filename in first line on note creation.
 - Exclude select notes, folders, tags, properties or filenames from renaming, or only enable renaming in some.
-- Convert a selection containing characters forbidden in filenames into a valid internal link. Preserve the original text in link caption.
+- Convert selection containing characters forbidden in filenames into valid internal link. Preserve original text in link caption.
 
 ## 🔏 File integrity
 
@@ -78,11 +81,6 @@ Show custom titles in place of filenames:
 
 - [Front Matter Title](https://obsidian.md/plugins?id=obsidian-front-matter-title-plugin)
 - [Title As Link Text](https://obsidian.md/plugins?id=title-as-link-text)
-
-## 🙏 Thanks
-
-- This plugin builds on [Auto Filename](https://github.com/rcsaquino/obsidian-auto-filename) and employs some of its code.
-- Tag context menu functionality implements patterns from [Tag Wrangler](https://github.com/pjeby/tag-wrangler).
 
 ## 👨‍💻 My plugins
 
