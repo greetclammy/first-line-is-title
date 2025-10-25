@@ -394,8 +394,9 @@ export class EventHandlerManager {
                     verboseLog(this.plugin, `Pending alias update detected on modify: ${file.path}`);
                     this.plugin.fileStateManager.clearPendingAliasRecheck(file.path);
 
-                    // Trigger alias update without editor reference (file closed in popover)
-                    await this.plugin.aliasManager.updateAliasIfNeeded(file);
+                    // Trigger alias update - pass isManualCommand=true to bypass "file not open" check
+                    // This is an intentional, explicit update we want to force after popover close
+                    await this.plugin.aliasManager.updateAliasIfNeeded(file, undefined, undefined, true);
                     return; // Skip normal modify processing since we just updated
                 }
 
@@ -495,8 +496,9 @@ export class EventHandlerManager {
                     verboseLog(this.plugin, `Pending alias update detected on metadata-change: ${file.path}`);
                     this.plugin.fileStateManager.clearPendingAliasRecheck(file.path);
 
-                    // Trigger alias update without editor reference (file closed in popover)
-                    await this.plugin.aliasManager.updateAliasIfNeeded(file);
+                    // Trigger alias update - pass isManualCommand=true to bypass "file not open" check
+                    // This is an intentional, explicit update we want to force after popover close
+                    await this.plugin.aliasManager.updateAliasIfNeeded(file, undefined, undefined, true);
                     return; // Skip normal metadata processing since we just updated
                 }
 
@@ -605,8 +607,9 @@ export class EventHandlerManager {
                 verboseLog(this.plugin, `Popover closed, updating alias: ${filePath}`);
                 this.plugin.fileStateManager.clearPendingAliasRecheck(filePath);
 
-                // Trigger alias update
-                await this.plugin.aliasManager.updateAliasIfNeeded(file, undefined, undefined, false, false);
+                // Trigger alias update - pass isManualCommand=true to bypass "file not open" check
+                // This is an intentional, explicit update we want to force after popover close
+                await this.plugin.aliasManager.updateAliasIfNeeded(file, undefined, undefined, true);
             }
         }
         } finally {
