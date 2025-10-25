@@ -310,10 +310,39 @@ export class AliasManager {
                 this.plugin.pendingMetadataUpdates.add(currentFileForFrontmatter.path);
                 verboseLog(this.plugin, `Created frontmatter and added alias \`${aliasToAdd}\` to ${currentFileForFrontmatter.path}`);
 
-                // Read file once after processFrontMatter completes to get updated content
-                const contentAfterWrite = await this.app.vault.read(currentFileForFrontmatter);
+                // Don't read from disk - processFrontMatter's write may not be complete yet
+                // Instead, sync editor directly with frontmatter we know we just wrote
+                if (editor) {
+                    try {
+                        // Construct frontmatter YAML with alias we just wrote
+                        let frontmatterYaml = '';
+                        for (const aliasPropertyKey of aliasPropertyKeys) {
+                            if (aliasPropertyKey === 'aliases') {
+                                frontmatterYaml += `${aliasPropertyKey}:\n  - ${markedAlias}\n`;
+                            } else {
+                                frontmatterYaml += `${aliasPropertyKey}: ${markedAlias}\n`;
+                            }
+                        }
 
-                await this.syncPopoverEditorBuffer(currentFileForFrontmatter, contentAfterWrite, editor);
+                        const currentEditorContent = editor.getValue();
+                        const oldFrontmatterLines = this.countFrontmatterLines(currentEditorContent);
+                        const newFrontmatterWithDelimiters = `---\n${frontmatterYaml}---\n`;
+
+                        this.plugin.fileStateManager.markEditorSyncing(currentFileForFrontmatter.path);
+                        try {
+                            editor.replaceRange(
+                                newFrontmatterWithDelimiters,
+                                { line: 0, ch: 0 },
+                                { line: oldFrontmatterLines, ch: 0 }
+                            );
+                            verboseLog(this.plugin, `[EDITOR-SYNC] Created frontmatter via replaceRange (${oldFrontmatterLines} → ${this.countFrontmatterLines(editor.getValue())} lines)`);
+                        } finally {
+                            this.plugin.fileStateManager.clearEditorSyncing(currentFileForFrontmatter.path);
+                        }
+                    } catch (error) {
+                        verboseLog(this.plugin, `[EDITOR-SYNC] Failed to sync after frontmatter creation: ${error}`);
+                    }
+                }
                 return;
             }
 
@@ -424,6 +453,11 @@ export class AliasManager {
             this.plugin.pendingMetadataUpdates.add(currentFileForUpdate.path);
             verboseLog(this.plugin, `Updated alias \`${aliasToAdd}\` in ${currentFileForUpdate.path}`);
 
+            // Wait for processFrontMatter's async write to complete before reading
+            // processFrontMatter's promise resolves before disk write finishes
+            // 10ms delay allows write to complete, preventing stale reads during rapid typing
+            await new Promise(resolve => setTimeout(resolve, 10));
+
             // Read file once after processFrontMatter completes to get updated content
             const contentAfterWrite = await this.app.vault.read(currentFileForUpdate);
 
@@ -526,6 +560,11 @@ export class AliasManager {
             // Mark file as having pending metadata cache update
             this.plugin.pendingMetadataUpdates.add(currentFileForRemoval.path);
             verboseLog(this.plugin, `Removed plugin aliases from ${currentFileForRemoval.path}`);
+
+            // Wait for processFrontMatter's async write to complete before reading
+            // processFrontMatter's promise resolves before disk write finishes
+            // 10ms delay allows write to complete, preventing stale reads during rapid typing
+            await new Promise(resolve => setTimeout(resolve, 10));
 
             // Read file once after processFrontMatter completes to get updated content
             const contentAfterWrite = await this.app.vault.read(currentFileForRemoval);
