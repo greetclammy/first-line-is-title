@@ -392,6 +392,19 @@ export class FileStateManager {
     }
 
     /**
+     * Get all file paths with pending alias recheck
+     */
+    getFilesWithPendingAliasRecheck(): string[] {
+        const files: string[] = [];
+        for (const [path, state] of this.fileStates.entries()) {
+            if (state.pendingAliasRecheck) {
+                files.push(path);
+            }
+        }
+        return files;
+    }
+
+    /**
      * Mark file as currently syncing background editors
      * Used to prevent editor-change events from our own setValue() operations
      * from triggering spurious rechecks
