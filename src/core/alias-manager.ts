@@ -260,24 +260,31 @@ export class AliasManager {
             const markedAlias = '\u200B' + aliasToAdd + '\u200B';
 
             // Save any unsaved changes before modifying frontmatter
-            // Use provided editor if available (from editor-change event)
-            if (editor) {
-                // Editor provided - find the view containing this editor and save
-                // Note: No separate lock needed - already running within processFile()'s lock
-                const leaves = this.app.workspace.getLeavesOfType("markdown");
-                for (const leaf of leaves) {
-                    const view = leaf.view as MarkdownView;
-                    if (view?.file?.path === file.path && view.editor === editor) {
-                        await view.save();
-                        break;
+            // EXCEPT when editing in popover - don't save to prevent overwriting frontmatter
+            // When in popover, processFrontMatter will merge unsaved editor content with frontmatter
+            const inPopover = editor ? this.isEditorInPopover(editor, file) : false;
+            if (!inPopover) {
+                // Use provided editor if available (from editor-change event)
+                if (editor) {
+                    // Editor provided - find the view containing this editor and save
+                    // Note: No separate lock needed - already running within processFile()'s lock
+                    const leaves = this.app.workspace.getLeavesOfType("markdown");
+                    for (const leaf of leaves) {
+                        const view = leaf.view as MarkdownView;
+                        if (view?.file?.path === file.path && view.editor === editor) {
+                            await view.save();
+                            break;
+                        }
+                    }
+                } else {
+                    // Fallback: try active view save
+                    const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
+                    if (activeView && activeView.file?.path === file.path) {
+                        await activeView.save();
                     }
                 }
             } else {
-                // Fallback: try active view save
-                const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
-                if (activeView && activeView.file?.path === file.path) {
-                    await activeView.save();
-                }
+                verboseLog(this.plugin, `[EDITOR-SYNC] Skipping view.save() before frontmatter update - editing in popover`);
             }
 
             // Parse content directly to avoid race conditions with metadata cache
@@ -498,23 +505,30 @@ export class AliasManager {
             file = currentFile;
 
             // Save any unsaved changes before modifying frontmatter
-            // Use provided editor if available (from editor-change event)
-            if (editor) {
-                // Editor provided - find the view containing this editor and save
-                const leaves = this.app.workspace.getLeavesOfType("markdown");
-                for (const leaf of leaves) {
-                    const view = leaf.view as MarkdownView;
-                    if (view?.file?.path === file.path && view.editor === editor) {
-                        await view.save();
-                        break;
+            // EXCEPT when editing in popover - don't save to prevent overwriting frontmatter
+            // When in popover, processFrontMatter will merge unsaved editor content with frontmatter
+            const inPopover = editor ? this.isEditorInPopover(editor, file) : false;
+            if (!inPopover) {
+                // Use provided editor if available (from editor-change event)
+                if (editor) {
+                    // Editor provided - find the view containing this editor and save
+                    const leaves = this.app.workspace.getLeavesOfType("markdown");
+                    for (const leaf of leaves) {
+                        const view = leaf.view as MarkdownView;
+                        if (view?.file?.path === file.path && view.editor === editor) {
+                            await view.save();
+                            break;
+                        }
+                    }
+                } else {
+                    // Fallback: try active view save
+                    const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
+                    if (activeView && activeView.file?.path === file.path) {
+                        await activeView.save();
                     }
                 }
             } else {
-                // Fallback: try active view save
-                const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
-                if (activeView && activeView.file?.path === file.path) {
-                    await activeView.save();
-                }
+                verboseLog(this.plugin, `[EDITOR-SYNC] Skipping view.save() before frontmatter removal - editing in popover`);
             }
 
             // Get current file reference again right before processFrontMatter
