@@ -47,6 +47,9 @@ export interface FileState {
 
     // Rename tracking - prevents processing stale content after rename
     lastRenamedTime?: number; // Timestamp when file was renamed by plugin
+
+    // Cache staleness tracking - when editor sync skipped in popover
+    needsFreshRead?: boolean; // True when cache is stale, must read from disk not cache
 }
 
 /**
@@ -412,6 +415,32 @@ export class FileStateManager {
         const state = this.fileStates.get(path);
         if (state) {
             state.isSyncingEditors = false;
+        }
+    }
+
+    /**
+     * Mark file as needing fresh read from disk (not cache)
+     * Used when editor sync skipped in popover - cache is stale, must read from disk
+     */
+    markNeedsFreshRead(path: string): void {
+        const state = this.getOrCreateState(path);
+        state.needsFreshRead = true;
+    }
+
+    /**
+     * Check if file needs fresh read from disk (cache is stale)
+     */
+    needsFreshRead(path: string): boolean {
+        return this.fileStates.get(path)?.needsFreshRead ?? false;
+    }
+
+    /**
+     * Clear needs fresh read flag
+     */
+    clearNeedsFreshRead(path: string): void {
+        const state = this.fileStates.get(path);
+        if (state) {
+            state.needsFreshRead = false;
         }
     }
 

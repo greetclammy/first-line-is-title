@@ -316,6 +316,8 @@ export class AliasManager {
                     const inPopover = this.isEditorInPopover(editor, currentFileForFrontmatter);
                     if (inPopover) {
                         verboseLog(this.plugin, `[EDITOR-SYNC] Skipping frontmatter sync - editing in popover (prevents cursor jump)`);
+                        // Mark file as needing fresh read - cache is stale without frontmatter
+                        this.plugin.fileStateManager.markNeedsFreshRead(currentFileForFrontmatter.path);
                     } else {
                         // Don't read from disk - processFrontMatter's write may not be complete yet
                         // Instead, sync editor directly with frontmatter we know we just wrote
@@ -712,8 +714,13 @@ export class AliasManager {
                     const inPopover = this.isEditorInPopover(editor, file);
                     if (inPopover) {
                         verboseLog(this.plugin, `[EDITOR-SYNC] Skipping sync - editing in popover (prevents cursor jump)`);
+                        // Mark file as needing fresh read - cache is stale without frontmatter
+                        this.plugin.fileStateManager.markNeedsFreshRead(file.path);
                         return;
                     }
+
+                    // Clear fresh read flag - we're syncing editor, so cache will be current
+                    this.plugin.fileStateManager.clearNeedsFreshRead(file.path);
 
                     // Get current editor content (may have newer keystrokes)
                     const currentEditorContent = editor.getValue();

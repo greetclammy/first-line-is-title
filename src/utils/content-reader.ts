@@ -71,10 +71,18 @@ export async function readFileContent(
 
         // Strategy 4: Use fileReadMethod setting
         if (settings.core.fileReadMethod === 'Editor') {
-            // Editor method with no editor available - fallback to cache
-            content = await app.vault.cachedRead(file);
-            if (settings.core.verboseLogging) {
-                console.debug(`Editor method fallback to cached read for ${file.path} (${content.length} chars)`);
+            // Editor method with no editor available - fallback based on preferFresh or file state
+            const needsFresh = preferFresh || plugin.fileStateManager?.needsFreshRead(file.path);
+            if (needsFresh) {
+                content = await app.vault.read(file);
+                if (settings.core.verboseLogging) {
+                    console.debug(`Editor method using fresh read for ${file.path} (${content.length} chars)`);
+                }
+            } else {
+                content = await app.vault.cachedRead(file);
+                if (settings.core.verboseLogging) {
+                    console.debug(`Editor method fallback to cached read for ${file.path} (${content.length} chars)`);
+                }
             }
         } else if (settings.core.fileReadMethod === 'Cache') {
             content = await app.vault.cachedRead(file);
