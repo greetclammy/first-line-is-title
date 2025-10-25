@@ -388,6 +388,17 @@ export class EventHandlerManager {
                     return;
                 }
 
+                // Check for pending alias update (e.g., popover closed, auto-save triggered this event)
+                // This is the most reliable trigger for popover-close alias updates
+                if (this.plugin.fileStateManager.hasPendingAliasRecheck(file.path)) {
+                    verboseLog(this.plugin, `Pending alias update detected on modify: ${file.path}`);
+                    this.plugin.fileStateManager.clearPendingAliasRecheck(file.path);
+
+                    // Trigger alias update without editor reference (file closed in popover)
+                    await this.plugin.aliasManager.updateAliasIfNeeded(file);
+                    return; // Skip normal modify processing since we just updated
+                }
+
                 // Process rename for Cache/File modes (catches cache updates after save)
                 if (this.plugin.settings.core.fileReadMethod === 'Cache' ||
                     this.plugin.settings.core.fileReadMethod === 'File') {
@@ -476,6 +487,17 @@ export class EventHandlerManager {
                         console.debug(`Skipping metadata-alias: file in creation delay: ${file.path}`);
                     }
                     return;
+                }
+
+                // Check for pending alias update FIRST (highest priority)
+                // Metadata-change fires when popover closes and Obsidian auto-saves
+                if (this.plugin.fileStateManager.hasPendingAliasRecheck(file.path)) {
+                    verboseLog(this.plugin, `Pending alias update detected on metadata-change: ${file.path}`);
+                    this.plugin.fileStateManager.clearPendingAliasRecheck(file.path);
+
+                    // Trigger alias update without editor reference (file closed in popover)
+                    await this.plugin.aliasManager.updateAliasIfNeeded(file);
+                    return; // Skip normal metadata processing since we just updated
                 }
 
                 // Central gate: check policy requirements and always-on safeguards
