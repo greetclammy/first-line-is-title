@@ -8,6 +8,14 @@ export interface FirstLineIsTitlePlugin {
     settings: PluginSettings;
     saveSettings(): Promise<void>;
     debugLog(settingName: string, value: any): void;
+    editorLifecycle?: any;
+    renameEngine?: any;
+    propertyManager?: any;
+    updatePropertyVisibility?: () => void;
+    getCurrentTimestamp?: () => string;
+    outputAllSettings?: () => void;
+    getTodayDateString?: () => string;
+    parsePropertyValue?: (value: string) => string | number | boolean;
 }
 
 export abstract class SettingsTabBase {
@@ -30,9 +38,6 @@ export abstract class SettingsTabBase {
         if (enabled) {
             container.classList.remove('flit-master-disabled');
             container.removeAttribute('inert');
-
-            // Re-enable all interactive elements (including links and dropdowns)
-            // Note: input selector includes checkboxes, which is what we want
             const interactiveElements = container.querySelectorAll('input, button, a, select, .dropdown, textarea');
             interactiveElements.forEach((el: HTMLElement) => {
                 // Only restore tabindex if it wasn't explicitly set to -1 originally
@@ -46,21 +51,15 @@ export abstract class SettingsTabBase {
                     el.removeAttribute('data-original-tabindex');
                 }
                 el.removeAttribute('aria-disabled');
-                el.style.pointerEvents = '';
+                el.classList.remove('flit-pointer-none');
             });
 
-            // Also update disabled rows within the container
             this.updateDisabledRowsAccessibility(container);
         } else {
             container.classList.add('flit-master-disabled');
-            // Use inert attribute to remove entire container from tab order and interaction
             container.setAttribute('inert', '');
-
-            // Also explicitly disable all interactive elements as fallback
-            // Note: input selector includes checkboxes, which is what we want
             const interactiveElements = container.querySelectorAll('input, button, a, select, .dropdown, textarea');
             interactiveElements.forEach((el: HTMLElement) => {
-                // Store original tabindex to restore later
                 if (el.hasAttribute('tabindex')) {
                     el.setAttribute('data-original-tabindex', el.getAttribute('tabindex') || '0');
                 } else {
@@ -68,7 +67,7 @@ export abstract class SettingsTabBase {
                 }
                 el.tabIndex = -1;
                 el.setAttribute('aria-disabled', 'true');
-                el.style.pointerEvents = 'none';
+                el.classList.add('flit-pointer-none');
             });
         }
     }
@@ -97,7 +96,6 @@ export abstract class SettingsTabBase {
             const inputEl = e.target as HTMLInputElement;
             let value = inputEl.value;
 
-            // Define forbidden characters
             const universalForbidden = UNIVERSAL_FORBIDDEN_CHARS;
             const windowsAndroidForbidden = WINDOWS_ANDROID_CHARS;
 
@@ -113,32 +111,24 @@ export abstract class SettingsTabBase {
                 }
             }
 
-            // Filter out forbidden characters
             let filteredValue = '';
             for (let i = 0; i < value.length; i++) {
                 const char = value[i];
 
                 // Special case for dot: forbidden only at start
                 if (char === '.' && i === 0) {
-                    continue; // Skip dot at start
+                    continue;
                 }
-
-                // Skip other forbidden characters
                 if (forbiddenChars.includes(char)) {
                     continue;
                 }
 
                 filteredValue += char;
             }
-
-            // Update input if value changed
             if (filteredValue !== value) {
                 inputEl.value = filteredValue;
-                // Restore cursor position
                 const cursorPos = Math.min(inputEl.selectionStart || 0, filteredValue.length);
                 inputEl.setSelectionRange(cursorPos, cursorPos);
-
-                // Trigger input event to ensure the value is saved
                 inputEl.dispatchEvent(new Event('input', { bubbles: true }));
             }
         });

@@ -15,7 +15,7 @@ export class PropertyVisibility {
      * @returns Array of property keys, defaults to ['aliases'] if empty
      */
     private getAliasPropertyKeys(): string[] {
-        const aliasPropertyKey = this.settings.aliasPropertyKey || 'aliases';
+        const aliasPropertyKey = this.settings.aliases.aliasPropertyKey || 'aliases';
         return aliasPropertyKey
             .split(',')
             .map(key => key.trim())
@@ -26,20 +26,16 @@ export class PropertyVisibility {
      * Sets up property hiding for specified property keys using DOM observation
      */
     private setupPropertyHiding(propertyKeys: string[]): void {
-        // Clean up existing observer
         this.cleanupPropertyObserver();
 
-        // Create new observer to watch for property changes
         this.propertyObserver = new MutationObserver((mutations) => {
             mutations.forEach(() => {
-                // Hide all specified properties
                 propertyKeys.forEach(propertyKey => {
                     this.hideProperties(propertyKey);
                 });
             });
         });
 
-        // Start observing
         this.propertyObserver.observe(document.body, {
             childList: true,
             subtree: true,
@@ -47,7 +43,6 @@ export class PropertyVisibility {
             attributeFilter: ['data-property-key']
         });
 
-        // Initial hide for all properties
         propertyKeys.forEach(propertyKey => {
             this.hideProperties(propertyKey);
         });
@@ -57,7 +52,6 @@ export class PropertyVisibility {
      * Hides properties based on current settings and context
      */
     private hideProperties(propertyKey: string): void {
-        // Find all property elements with the target key
         const properties = document.querySelectorAll(`[data-property-key="${propertyKey}"]`);
 
         properties.forEach((property) => {
@@ -78,16 +72,16 @@ export class PropertyVisibility {
             // Determine if this property should be hidden based on the mode and context
             let shouldHide = false;
 
-            if (this.settings.hideAliasProperty === 'always') {
+            if (this.settings.aliases.hideAliasProperty === 'always') {
                 // Always hide, regardless of emptiness, but consider sidebar setting
-                if (isInSidebar && !this.settings.hideAliasInSidebar) {
+                if (isInSidebar && !this.settings.aliases.hideAliasInSidebar) {
                     // In sidebar but sidebar hiding is disabled - don't hide
                     shouldHide = false;
                 } else {
                     // Either not in sidebar, or sidebar hiding is enabled - hide it
                     shouldHide = true;
                 }
-            } else if (this.settings.hideAliasProperty === 'when_empty') {
+            } else if (this.settings.aliases.hideAliasProperty === 'when_empty') {
                 // Only hide if property is empty, and consider sidebar setting
                 const valueContainer = property.querySelector('.metadata-property-value');
                 const isEmpty = !valueContainer ||
@@ -95,7 +89,7 @@ export class PropertyVisibility {
                                valueContainer.children.length === 0;
 
                 if (isEmpty) {
-                    if (isInSidebar && !this.settings.hideAliasInSidebar) {
+                    if (isInSidebar && !this.settings.aliases.hideAliasInSidebar) {
                         // In sidebar but sidebar hiding is disabled - don't hide even if empty
                         shouldHide = false;
                     } else {
@@ -177,14 +171,12 @@ export class PropertyVisibility {
             this.propertyObserver = undefined;
         }
 
-        // Remove any hiding classes applied by the observer
         const hiddenProperties = document.querySelectorAll('.flit-property-hidden');
         hiddenProperties.forEach((property) => {
             property.removeClass('flit-property-hidden');
             property.addClass('flit-property-visible');
         });
 
-        // Also restore any hidden properties sections
         const hiddenContainers = document.querySelectorAll('.flit-container-hidden');
         hiddenContainers.forEach((container) => {
             container.removeClass('flit-container-hidden');
@@ -196,19 +188,17 @@ export class PropertyVisibility {
      * Updates property visibility based on current settings
      */
     updatePropertyVisibility(): void {
-        // Remove any existing property hiding styles
         document.head.querySelector('#flit-hide-property-style')?.remove();
 
-        // Clean up any existing observer
         this.cleanupPropertyObserver();
 
-        if (this.settings.hideAliasProperty === 'never') {
+        if (this.settings.aliases.hideAliasProperty === 'never') {
             return; // No hiding needed
         }
 
         const propertyKeys = this.getAliasPropertyKeys();
 
-        if (this.settings.hideAliasProperty === 'always' || this.settings.hideAliasProperty === 'when_empty') {
+        if (this.settings.aliases.hideAliasProperty === 'always' || this.settings.aliases.hideAliasProperty === 'when_empty') {
             // Use DOM observation for both modes to handle container hiding properly
             this.setupPropertyHiding(propertyKeys);
         }

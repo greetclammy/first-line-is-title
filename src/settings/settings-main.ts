@@ -1,5 +1,8 @@
 import { PluginSettingTab, App } from "obsidian";
 import { FirstLineIsTitlePlugin } from './settings-base';
+import { t, getCurrentLocale } from '../i18n';
+import { TIMING } from '../constants/timing';
+import { deduplicateExclusions } from '../utils';
 
 // Import all tab classes
 import { GeneralTab } from './tab-general';
@@ -10,53 +13,71 @@ import { StripMarkupTab } from './tab-strip-markup';
 import { CustomReplacementsTab } from './tab-custom-rules';
 import { SafewordsTab } from './tab-safewords';
 import { CommandsTab } from './tab-commands';
-import { MiscellaneousTab } from './tab-miscellaneous';
+import { OtherTab } from './tab-other';
 
 export class FirstLineIsTitleSettings extends PluginSettingTab {
     plugin: FirstLineIsTitlePlugin;
     private settingsPage: HTMLDivElement | null = null;
+    private previousTabId: string | null = null;
 
-    private readonly TABS = {
-        GENERAL: { id: 'general', name: 'General', class: GeneralTab },
-        INCLUDE_EXCLUDE: { id: 'include-exclude', name: 'Exclusions', class: IncludeExcludeTab },
-        FORBIDDEN_CHARS: { id: 'forbidden-chars', name: 'Replace characters', class: ForbiddenCharsTab },
-        CUSTOM_REPLACEMENTS: { id: 'custom-replacements', name: 'Custom rules', class: CustomReplacementsTab },
-        SAFEWORDS: { id: 'safewords', name: 'Safewords', class: SafewordsTab },
-        STRIP_MARKUP: { id: 'strip-markup', name: 'Strip markup', class: StripMarkupTab },
-        PROPERTIES: { id: 'properties', name: 'Alias', class: PropertiesTab },
-        COMMANDS: { id: 'commands', name: 'Commands', class: CommandsTab },
-        MISCELLANEOUS: { id: 'miscellaneous', name: 'Miscellaneous', class: MiscellaneousTab }
-    };
+    private get TABS() {
+        return {
+            GENERAL: { id: 'general', name: t('settings.tabs.general'), class: GeneralTab },
+            INCLUDE_EXCLUDE: { id: 'include-exclude', name: t('settings.tabs.exclusions'), class: IncludeExcludeTab },
+            FORBIDDEN_CHARS: { id: 'forbidden-chars', name: t('settings.tabs.replaceCharacters'), class: ForbiddenCharsTab },
+            CUSTOM_REPLACEMENTS: { id: 'custom-replacements', name: t('settings.tabs.customRules'), class: CustomReplacementsTab },
+            SAFEWORDS: { id: 'safewords', name: t('settings.tabs.safewords'), class: SafewordsTab },
+            STRIP_MARKUP: { id: 'strip-markup', name: t('settings.tabs.stripMarkup'), class: StripMarkupTab },
+            PROPERTIES: { id: 'properties', name: t('settings.tabs.alias'), class: PropertiesTab },
+            COMMANDS: { id: 'commands', name: t('settings.tabs.commands'), class: CommandsTab },
+            OTHER: { id: 'other', name: t('settings.tabs.other'), class: OtherTab }
+        };
+    }
 
     constructor(app: App, plugin: FirstLineIsTitlePlugin) {
-        super(app, plugin);
+        // PluginSettingTab expects Plugin, but we use minimal interface for flexibility
+        super(app, plugin as any);
         this.plugin = plugin;
     }
 
     display(): void {
         this.containerEl.empty();
 
-        // Create tab bar
+        // Initialize previousTabId to current tab
+        this.previousTabId = this.plugin.settings.core.currentSettingsTab;
+
         const tabBar = this.containerEl.createEl('nav', { cls: 'flit-settings-tab-bar' });
         tabBar.setAttribute('role', 'tablist');
 
+        // Set tab min-width CSS variable based on locale (must be after tabBar creation)
+        const locale = getCurrentLocale();
+        const tabMinWidth = locale === 'ru' ? '152px' : '140px';
+        tabBar.style.setProperty('--flit-tab-min-width', tabMinWidth);
+
         const tabElements: HTMLElement[] = [];
 
-        const activateTab = (tabEl: HTMLElement, tabInfo: typeof this.TABS[keyof typeof this.TABS]) => {
+        const activateTab = async (tabEl: HTMLElement, tabInfo: typeof this.TABS[keyof typeof this.TABS]) => {
+            // If leaving the Exclusions tab, deduplicate
+            if (this.previousTabId === 'include-exclude') {
+                const hasChanges = deduplicateExclusions(this.plugin.settings);
+                if (hasChanges) {
+                    await this.plugin.saveSettings();
+                }
+            }
+
             // Remove active class from all tabs
-            for (const child of tabBar.children) {
+            for (const child of Array.from(tabBar.children)) {
                 child.removeClass('flit-settings-tab-active');
                 child.setAttribute('aria-selected', 'false');
                 child.setAttribute('tabindex', '-1');
             }
 
-            // Add active class to selected tab
             tabEl.addClass('flit-settings-tab-active');
             tabEl.setAttribute('aria-selected', 'true');
             tabEl.setAttribute('tabindex', '0');
 
-            // Update settings and render
-            this.plugin.settings.currentSettingsTab = tabInfo.id;
+            this.previousTabId = tabInfo.id;
+            this.plugin.settings.core.currentSettingsTab = tabInfo.id;
             this.plugin.saveSettings();
             this.renderTab(tabInfo.id);
         };
@@ -66,7 +87,7 @@ export class FirstLineIsTitleSettings extends PluginSettingTab {
             tabEl.setAttribute('data-tab-id', tabInfo.id);
             tabEl.setAttribute('role', 'tab');
 
-            const isActive = this.plugin.settings.currentSettingsTab === tabInfo.id;
+            const isActive = this.plugin.settings.core.currentSettingsTab === tabInfo.id;
             tabEl.setAttribute('tabindex', isActive ? '0' : '-1');
             tabEl.setAttribute('aria-selected', isActive ? 'true' : 'false');
 
@@ -186,18 +207,16 @@ export class FirstLineIsTitleSettings extends PluginSettingTab {
             tabElements.push(tabEl);
         }
 
-        // Create settings page container
         this.settingsPage = this.containerEl.createDiv({ cls: 'flit-settings-page' });
 
-        // Render initial tab
-        this.renderTab(this.plugin.settings.currentSettingsTab);
+        this.renderTab(this.plugin.settings.core.currentSettingsTab);
 
         // Remove focus from active tab to prevent outline on initial display
         setTimeout(() => {
             if (document.activeElement instanceof HTMLElement) {
                 document.activeElement.blur();
             }
-        }, 0);
+        }, TIMING.NEXT_TICK_MS);
 
         // Handle first Tab press to focus active tab
         let hasHandledFirstTab = false;
@@ -224,17 +243,26 @@ export class FirstLineIsTitleSettings extends PluginSettingTab {
 
         this.settingsPage.empty();
 
-        // Find the tab configuration
         const tabConfig = Object.values(this.TABS).find(tab => tab.id === tabId);
 
         if (tabConfig) {
-            // Create and render the tab
             const tabInstance = new tabConfig.class(this.plugin, this.settingsPage);
             await tabInstance.render();
         } else {
-            // Default to general tab
             const generalTab = new GeneralTab(this.plugin, this.settingsPage);
             await generalTab.render();
         }
+    }
+
+    hide(): void {
+        // If closing settings while on Exclusions tab, deduplicate
+        if (this.previousTabId === 'include-exclude') {
+            const hasChanges = deduplicateExclusions(this.plugin.settings);
+            if (hasChanges) {
+                // Save settings synchronously (hide is not async)
+                this.plugin.saveSettings();
+            }
+        }
+        super.hide();
     }
 }
