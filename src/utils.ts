@@ -1,9 +1,19 @@
-import { TFile, App, Platform } from "obsidian";
+import { TFile, App, Platform, normalizePath } from "obsidian";
 import { PluginSettings, OSPreset } from './types';
 import { UNIVERSAL_FORBIDDEN_CHARS, WINDOWS_ANDROID_CHARS } from './constants';
+import { t } from './i18n';
+import { PropertyManager } from './core/property-manager';
+
+// Re-export from modular utilities
+export { filterNonEmpty, generateSafeLinkTarget, reverseSafeLinkTarget, processForbiddenChars } from './utils/string-processing';
+export { normalizeTag, parseTagsFromYAML, stripFrontmatter, fileHasTargetTags } from './utils/tag-utils';
+export { isFileInConfiguredFolders, fileHasExcludedProperties, shouldProcessFile, isFileExcluded } from './utils/file-exclusions';
+
+// Re-export from PropertyManager
+export const normalizePropertyValue = PropertyManager.normalizePropertyValue;
 
 export function verboseLog(plugin: { settings: PluginSettings }, message: string, data?: any) {
-    if (plugin.settings.verboseLogging) {
+    if (plugin.settings.core.verboseLogging) {
         if (data) {
             console.debug(message, data);
         } else {
@@ -14,17 +24,6 @@ export function verboseLog(plugin: { settings: PluginSettings }, message: string
 
 export function isValidHeading(line: string): boolean {
     return /^#{1,6}\s+.*/.test(line);
-}
-
-export function normalizePropertyValue(value: any): any {
-    if (typeof value !== 'string') return value;
-    if (value === 'true') return true;
-    if (value === 'false') return false;
-    if (value === 'null') return null;
-    if (value !== '' && !isNaN(Number(value))) {
-        return Number(value);
-    }
-    return value;
 }
 
 export function detectOS(): OSPreset {
@@ -38,476 +37,87 @@ export function detectOS(): OSPreset {
     return 'Linux';
 }
 
-export function inExcludedFolder(file: TFile, settings: PluginSettings): boolean {
-    // Filter out empty strings
-    const nonEmptyFolders = settings.excludedFolders.filter(folder => folder.trim() !== "");
-    if (nonEmptyFolders.length === 0) return false;
-
-    const filePath = file.parent?.path as string;
-    if (nonEmptyFolders.includes(filePath)) {
-        return true;
-    }
-
-    // Check subfolders if enabled
-    if (settings.excludeSubfolders) {
-        for (const excludedFolder of nonEmptyFolders) {
-            if (filePath && filePath.startsWith(excludedFolder + "/")) {
-                return true;
-            }
-        }
-    }
-
-    return false;
-}
-
-export function isFileInTargetFolders(file: TFile, settings: PluginSettings): boolean {
-    const nonEmptyFolders = settings.excludedFolders.filter(folder => folder.trim() !== "");
-    if (nonEmptyFolders.length === 0) return false;
-
-    const filePath = file.parent?.path as string;
-    if (nonEmptyFolders.includes(filePath)) {
-        return true;
-    }
-
-    if (settings.excludeSubfolders) {
-        for (const targetFolder of nonEmptyFolders) {
-            if (filePath && filePath.startsWith(targetFolder + "/")) {
-                return true;
-            }
-        }
-    }
-
-    return false;
-}
-
-export function fileHasExcludedProperties(file: TFile, settings: PluginSettings, app: App): boolean {
-    const nonEmptyProperties = settings.excludedProperties.filter(
-        prop => prop.key.trim() !== ""
-    );
-    if (nonEmptyProperties.length === 0) return false;
-
-    const fileCache = app.metadataCache.getFileCache(file);
-    if (!fileCache || !fileCache.frontmatter) return false;
-
-    const frontmatter = fileCache.frontmatter;
-
-    for (const excludedProp of nonEmptyProperties) {
-        const propKey = excludedProp.key.trim();
-        const propValue = excludedProp.value.trim();
-
-        if (propKey in frontmatter) {
-            if (propValue === "") {
-                return true;
-            }
-
-            const frontmatterValue = frontmatter[propKey];
-
-            if (typeof frontmatterValue === 'string') {
-                if (frontmatterValue === propValue) {
-                    return true;
-                }
-            } else if (Array.isArray(frontmatterValue)) {
-                if (frontmatterValue.some(val => String(val) === propValue)) {
-                    return true;
-                }
-            } else if (frontmatterValue != null) {
-                if (String(frontmatterValue) === propValue) {
-                    return true;
-                }
-            }
-        }
-    }
-
-    return false;
-}
-
 /**
- * Strategy-aware function to check if a file has any of the target tags
- * @param file The file to check
- * @param settings Plugin settings containing tag list and strategy
- * @param app The Obsidian app instance
- * @param content Optional file content for real-time checking
- * @returns true if file has any of the target tags
+ * Central gate for file modification eligibility.
+ * Checks policy requirements and always-on safeguards.
+ *
+ * @param isManualCommand - true for manual commands, false for automatic operations
+ * @returns {canModify: boolean, reason?: string}
  */
-export function fileHasTargetTags(file: TFile, settings: PluginSettings, app: App, content?: string): boolean {
-    const nonEmptyTags = settings.excludedTags.filter(tag => tag.trim() !== "");
-    if (nonEmptyTags.length === 0) return false;
-
-    const fileCache = app.metadataCache.getFileCache(file);
-
-    // Check YAML frontmatter tags (unless mode is 'In note body only')
-    if (settings.tagMatchingMode !== 'In note body only') {
-        let fileTags: string[] = [];
-
-        // Parse tags from content if provided, otherwise use cache
-        if (content) {
-            fileTags = parseTagsFromYAML(content);
-        } else if (fileCache && fileCache.frontmatter && fileCache.frontmatter.tags) {
-            const frontmatterTags = fileCache.frontmatter.tags;
-            fileTags = Array.isArray(frontmatterTags) ? frontmatterTags.map(String) : [String(frontmatterTags)];
-        }
-
-        for (const targetTag of nonEmptyTags) {
-            // Normalize both sides: remove # prefix for comparison
-            const normalizedTargetTag = targetTag.startsWith('#') ? targetTag.slice(1) : targetTag;
-
-            for (const fileTag of fileTags) {
-                const normalizedFileTag = fileTag.toString();
-
-                // Exact match
-                if (normalizedFileTag === normalizedTargetTag) {
-                    return true;
-                }
-
-                // Check child tags if enabled (default true)
-                if (settings.excludeChildTags) {
-                    // If file has child tag and target tag is parent
-                    if (normalizedFileTag.startsWith(normalizedTargetTag + '/')) {
-                        return true;
-                    }
-                }
-            }
-        }
-    }
-
-    // Check tags based on matching mode
-    if (settings.tagMatchingMode !== 'In Properties only') {
-        let inlineTagsInContent: string[] = [];
-
-        if (content && settings.tagMatchingMode === 'In Properties and note body') {
-            // Use provided content (real-time) - check both frontmatter and body
-            inlineTagsInContent = parseInlineTagsFromText(content);
-        } else if (content && settings.tagMatchingMode === 'In note body only') {
-            // Only check content after frontmatter
-            const bodyContent = stripFrontmatter(content);
-            inlineTagsInContent = parseInlineTagsFromText(bodyContent);
-        } else if (!content) {
-            // Fall back to cached metadata if no content provided
-            if (fileCache && fileCache.tags) {
-                inlineTagsInContent = fileCache.tags.map(tag =>
-                    tag.tag.startsWith('#') ? tag.tag.slice(1) : tag.tag
-                );
-            }
-        }
-
-        for (const targetTag of nonEmptyTags) {
-            // Normalize target tag: remove # prefix for comparison
-            const normalizedTargetTag = targetTag.startsWith('#') ? targetTag.slice(1) : targetTag;
-
-            for (const inlineTag of inlineTagsInContent) {
-                // Exact match
-                if (inlineTag === normalizedTargetTag) {
-                    return true;
-                }
-
-                // Check child tags if enabled (default true)
-                if (settings.excludeChildTags) {
-                    // If file has child tag and target tag is parent
-                    if (inlineTag.startsWith(normalizedTargetTag + '/')) {
-                        return true;
-                    }
-                }
-            }
-        }
-    }
-
-    return false;
-}
-
-/**
- * Determines whether a file should be processed based on the include/exclude strategy
- *
- * Logic summary:
- * - "Only exclude...": Process all files EXCEPT those in target folders/tags/properties
- *   - If no targets specified: Process ALL files (default enabled)
- *   - If targets specified: Process files NOT in targets (traditional exclude)
- *
- * - "Exclude all except...": Process ONLY files in target folders/tags/properties
- *   - If no targets specified: Process NO files (default disabled)
- *   - If targets specified: Process ONLY files in targets (include-only mode)
- *
- * @param file The file to check
- * @param settings Plugin settings containing strategy, folders, tags, and properties
- * @param app The Obsidian app instance
- * @param content Optional file content (string) for real-time checking
- * @param exclusionOverrides Optional overrides to skip folder/tag/property checks
- * @returns true if the file should be processed, false otherwise
- */
-export function shouldProcessFile(
+export async function canModifyFile(
     file: TFile,
-    settings: PluginSettings,
     app: App,
-    content?: string,
-    exclusionOverrides?: { ignoreFolder?: boolean; ignoreTag?: boolean; ignoreProperty?: boolean }
-): boolean {
-    const isInTargetFolders = isFileInTargetFolders(file, settings);
-    const hasTargetTags = fileHasTargetTags(file, settings, app, content);
-    const hasTargetProperties = fileHasExcludedProperties(file, settings, app);
+    disableKey: string,
+    disableValue: string,
+    isManualCommand: boolean,
+    hasActiveEditor?: boolean
+): Promise<{ canModify: boolean; reason?: string }> {
+    // Check 1: Disable property (ALWAYS-ON SAFEGUARD #4)
+    // Fastest check, absolute blocker for all operations
+    if (await hasDisablePropertyInFile(file, app, disableKey, disableValue)) {
+        return { canModify: false, reason: 'disable property present' };
+    }
 
-    // Helper function to apply strategy logic for a single exclusion type
-    // Returns TRUE if file should be EXCLUDED (don't process)
-    const applyStrategy = (
-        isTargeted: boolean,
-        hasTargets: boolean,
-        strategy: string
-    ): boolean => {
-        if (strategy === 'Only exclude...') {
-            // Only exclude: exclude files matching the targets
-            // If no targets specified, don't exclude anything (process all)
-            return hasTargets ? isTargeted : false;
+    // Check 2: File open in editor (ALWAYS-ON SAFEGUARD #5 for automatic operations)
+    // Prevents processing external/programmatic edits
+    // Manual commands bypass this check
+    if (!isManualCommand) {
+        // If hasActiveEditor provided (from editor-change event), trust it
+        // This includes both leaf editors and popover/hover editors
+        if (hasActiveEditor !== undefined) {
+            if (!hasActiveEditor) {
+                return { canModify: false, reason: 'file not open in editor' };
+            }
         } else {
-            // 'Exclude all except...'
-            // Exclude all except: exclude files NOT matching the targets
-            // If no targets specified, exclude everything (process none)
-            return hasTargets ? !isTargeted : true;
-        }
-    };
+            // Fallback: check for leaf editors and popovers
+            const leaves = app.workspace.getLeavesOfType("markdown");
+            let hasOpenEditor = false;
 
-    // Apply strategy for each exclusion type independently, respecting overrides
-    const shouldExcludeFromFolders = exclusionOverrides?.ignoreFolder ? false : applyStrategy(
-        isInTargetFolders,
-        settings.excludedFolders.some(folder => folder.trim() !== ""),
-        settings.folderScopeStrategy
-    );
+            // Check leaves
+            for (const leaf of leaves) {
+                // Accessing non-public editor API - no official types available
+                const view = leaf.view as any;
+                if (view?.file?.path === file.path) {
+                    hasOpenEditor = true;
+                    break;
+                }
+            }
 
-    const shouldExcludeFromTags = exclusionOverrides?.ignoreTag ? false : applyStrategy(
-        hasTargetTags,
-        settings.excludedTags.some(tag => tag.trim() !== ""),
-        settings.tagScopeStrategy
-    );
-
-    const shouldExcludeFromProperties = exclusionOverrides?.ignoreProperty ? false : applyStrategy(
-        hasTargetProperties,
-        settings.excludedProperties.some(prop => prop.key.trim() !== ""),
-        settings.propertyScopeStrategy
-    );
-
-    // A file should be processed if it doesn't meet the exclusion criteria for ANY exclusion type
-    // OR logic: if ANY exclusion type says "exclude" (returns true), then we exclude
-    return !(shouldExcludeFromFolders || shouldExcludeFromTags || shouldExcludeFromProperties);
-}
-
-export function isFileExcluded(file: TFile, settings: PluginSettings, app: App, content?: string): boolean {
-    // Check property exclusions
-    if (fileHasExcludedProperties(file, settings, app)) {
-        return true;
-    }
-
-    // Check folder exclusions
-    if (inExcludedFolder(file, settings)) {
-        return true;
-    }
-
-    // Check tag exclusions
-    const nonEmptyTags = settings.excludedTags.filter(tag => tag.trim() !== "");
-    if (nonEmptyTags.length > 0) {
-        const fileCache = app.metadataCache.getFileCache(file);
-
-        // Check YAML frontmatter tags (unless mode is 'In note body only')
-        if (settings.tagMatchingMode !== 'In note body only' &&
-            fileCache && fileCache.frontmatter && fileCache.frontmatter.tags) {
-            const frontmatterTags = fileCache.frontmatter.tags;
-            // Handle both string arrays and single strings
-            const fileTags = Array.isArray(frontmatterTags) ? frontmatterTags : [frontmatterTags];
-            for (const excludedTag of nonEmptyTags) {
-                // Normalize both sides: remove # prefix for comparison
-                const normalizedExcludedTag = excludedTag.startsWith('#') ? excludedTag.slice(1) : excludedTag;
-
-                for (const fileTag of fileTags) {
-                    const normalizedFileTag = fileTag.toString();
-
-                    // Exact match
-                    if (normalizedFileTag === normalizedExcludedTag) {
-                        return true;
-                    }
-
-                    // Check child tags if enabled (default true)
-                    if (settings.excludeChildTags) {
-                        // If file has child tag and excluded tag is parent
-                        if (normalizedFileTag.startsWith(normalizedExcludedTag + '/')) {
-                            return true;
+            // Check popovers if not found in leaves
+            if (!hasOpenEditor) {
+                for (const leaf of leaves) {
+                    // Accessing non-public editor API - no official types available
+                    const view = leaf.view as any;
+                    if (view?.hoverPopover?.targetEl) {
+                        // Popover might have editor for this file
+                        const popoverEditor = view.hoverPopover.editor;
+                        if (popoverEditor && view.hoverPopover.file?.path === file.path) {
+                            hasOpenEditor = true;
+                            break;
                         }
                     }
                 }
             }
-        }
 
-        // Check tags based on matching mode
-        if (settings.tagMatchingMode !== 'In Properties only') {
-            let inlineTagsInContent: string[] = [];
-
-            if (content && settings.tagMatchingMode === 'In Properties and note body') {
-                // Use provided content (real-time) - check both frontmatter and body
-                inlineTagsInContent = parseInlineTagsFromText(content);
-            } else if (content && settings.tagMatchingMode === 'In note body only') {
-                // Only check content after frontmatter
-                const bodyContent = stripFrontmatter(content);
-                inlineTagsInContent = parseInlineTagsFromText(bodyContent);
-            } else if (!content) {
-                // Fall back to cached metadata if no content provided
-                if (fileCache && fileCache.tags) {
-                    inlineTagsInContent = fileCache.tags.map(tag =>
-                        tag.tag.startsWith('#') ? tag.tag.slice(1) : tag.tag
-                    );
-                }
-            }
-
-            for (const excludedTag of nonEmptyTags) {
-                // Normalize excluded tag: remove # prefix for comparison
-                const normalizedExcludedTag = excludedTag.startsWith('#') ? excludedTag.slice(1) : excludedTag;
-
-                for (const inlineTag of inlineTagsInContent) {
-                    // Exact match
-                    if (inlineTag === normalizedExcludedTag) {
-                        return true;
-                    }
-
-                    // Check child tags if enabled (default true)
-                    if (settings.excludeChildTags) {
-                        // If file has child tag and excluded tag is parent
-                        if (inlineTag.startsWith(normalizedExcludedTag + '/')) {
-                            return true;
-                        }
-                    }
-                }
+            if (!hasOpenEditor) {
+                return { canModify: false, reason: 'file not open in editor' };
             }
         }
     }
 
-    return false;
+    return { canModify: true };
 }
 
-function parseInlineTagsFromText(content: string): string[] {
-    // Extract inline tags using regex
-    // This regex matches tags in the format #tag or #tag/subtag
-    const tagRegex = /#([a-zA-Z][\w\-_/]*)/g;
-    const tags: string[] = [];
-    let match;
-
-    while ((match = tagRegex.exec(content)) !== null) {
-        const tag = match[1]; // Extract the tag without the # prefix
-        if (!tags.includes(tag)) {
-            tags.push(tag);
-        }
-    }
-
-    return tags;
-}
-
-function stripFrontmatter(content: string): string {
-    // Remove YAML frontmatter from content
-    if (!content.startsWith('---')) {
-        return content;
-    }
-
-    const lines = content.split('\n');
-    let endIndex = -1;
-
-    // Find the closing ---
-    for (let i = 1; i < lines.length; i++) {
-        if (lines[i].trim() === '---') {
-            endIndex = i;
-            break;
-        }
-    }
-
-    if (endIndex === -1) {
-        return content; // No closing ---, return original
-    }
-
-    // Return content after frontmatter
-    return lines.slice(endIndex + 1).join('\n');
-}
-
-function parseTagsFromYAML(content: string): string[] {
-    const tags: string[] = [];
-
-    if (!content.startsWith('---')) {
-        return tags;
-    }
-
-    const lines = content.split('\n');
-    let yamlEndLine = -1;
-
-    // Find closing ---
-    for (let i = 1; i < lines.length; i++) {
-        if (lines[i] === '---') {
-            yamlEndLine = i;
-            break;
-        }
-    }
-
-    if (yamlEndLine === -1) return tags;
-
-    const yamlLines = lines.slice(1, yamlEndLine);
-    let currentKey = '';
-    let inArray = false;
-
-    for (const line of yamlLines) {
-        const trimmed = line.trim();
-
-        // Skip empty lines and comments
-        if (trimmed === '' || trimmed.startsWith('#')) continue;
-
-        // Check if line starts array items (- item)
-        if (trimmed.startsWith('- ')) {
-            if (inArray && currentKey === 'tags') {
-                let tagValue = trimmed.substring(2).trim();
-
-                // Remove quotes if present
-                if ((tagValue.startsWith('"') && tagValue.endsWith('"')) ||
-                    (tagValue.startsWith("'") && tagValue.endsWith("'"))) {
-                    tagValue = tagValue.substring(1, tagValue.length - 1);
-                }
-
-                // Remove # prefix if present
-                if (tagValue.startsWith('#')) {
-                    tagValue = tagValue.substring(1);
-                }
-
-                tags.push(tagValue);
-            }
-            continue;
-        }
-
-        // Check for key: value pattern
-        if (trimmed.includes(':')) {
-            const colonIndex = trimmed.indexOf(':');
-            const key = trimmed.substring(0, colonIndex).trim();
-            const value = trimmed.substring(colonIndex + 1).trim();
-
-            currentKey = key;
-
-            // Check if value is empty (array follows)
-            if (value === '' || value === '[') {
-                inArray = true;
-                continue;
-            } else {
-                inArray = false;
-            }
-
-            // Handle single tag value
-            if (key === 'tags' && value) {
-                let tagValue = value;
-
-                // Remove quotes if present
-                if ((tagValue.startsWith('"') && tagValue.endsWith('"')) ||
-                    (tagValue.startsWith("'") && tagValue.endsWith("'"))) {
-                    tagValue = tagValue.substring(1, tagValue.length - 1);
-                }
-
-                // Remove # prefix if present
-                if (tagValue.startsWith('#')) {
-                    tagValue = tagValue.substring(1);
-                }
-
-                tags.push(tagValue);
-            }
-        }
-    }
-
-    return tags;
-}
+// Functions moved to modular utils (re-exported above):
+// - filterNonEmpty → utils/string-processing.ts
+// - generateSafeLinkTarget → utils/string-processing.ts
+// - normalizeTag → utils/tag-utils.ts
+// - parseTagsFromYAML, stripFrontmatter → utils/tag-utils.ts
+// - fileHasTargetTags → utils/tag-utils.ts
+// - isFileInConfiguredFolders → utils/file-exclusions.ts
+// - fileHasExcludedProperties → utils/file-exclusions.ts
+// - shouldProcessFile → utils/file-exclusions.ts
+// - isFileExcluded → utils/file-exclusions.ts
 
 export async function hasDisablePropertyInFile(file: TFile, app: App, disableKey: string, disableValue: string): Promise<boolean> {
     try {
@@ -522,39 +132,41 @@ export async function hasDisablePropertyInFile(file: TFile, app: App, disableKey
 
         if (propertyValue === undefined || propertyValue === null) return false;
 
-        // Normalize disableValue for comparison
+        // Normalize BOTH values for comparison
+        const normalizedPropertyValue = normalizePropertyValue(propertyValue);
         const normalizedDisableValue = normalizePropertyValue(disableValue);
 
         // Handle array/list values
-        if (Array.isArray(propertyValue)) {
+        if (Array.isArray(normalizedPropertyValue)) {
             // Check if any item in the array matches (case-insensitive for strings)
-            return propertyValue.some(item => {
-                if (typeof item === 'string' && typeof normalizedDisableValue === 'string') {
-                    return item.toLowerCase() === normalizedDisableValue.toLowerCase();
+            return normalizedPropertyValue.some(item => {
+                const normalizedItem = normalizePropertyValue(item);
+                if (typeof normalizedItem === 'string' && typeof normalizedDisableValue === 'string') {
+                    return normalizedItem.toLowerCase() === normalizedDisableValue.toLowerCase();
                 }
-                return item === normalizedDisableValue;
+                return normalizedItem === normalizedDisableValue;
             });
         }
 
         // Handle single values (case-insensitive comparison for strings)
-        if (typeof propertyValue === 'string' && typeof normalizedDisableValue === 'string') {
-            return propertyValue.toLowerCase() === normalizedDisableValue.toLowerCase();
+        if (typeof normalizedPropertyValue === 'string' && typeof normalizedDisableValue === 'string') {
+            return normalizedPropertyValue.toLowerCase() === normalizedDisableValue.toLowerCase();
         }
 
         // Direct comparison for non-string types
-        return propertyValue === normalizedDisableValue;
+        return normalizedPropertyValue === normalizedDisableValue;
     } catch (error) {
         return false;
     }
 }
 
 export function containsSafeword(filename: string, settings: PluginSettings): boolean {
-    if (!settings.enableSafewords) return false;
+    if (!settings.safewords.enableSafewords) return false;
 
     // Get filename without extension for comparison
     const filenameWithoutExt = filename.replace(/\.md$/, '');
 
-    for (const safeword of settings.safewords) {
+    for (const safeword of settings.safewords.safewords) {
         if (!safeword.enabled || !safeword.text) continue;
 
         // Check against both full filename and filename without extension
@@ -584,13 +196,24 @@ export function containsSafeword(filename: string, settings: PluginSettings): bo
 
 export function extractTitle(line: string, settings: PluginSettings): string {
     const originalLine = line;
+
+    // Check if line is only a list marker (before trim removes trailing space)
+    if (settings.markupStripping.enableStripMarkup) {
+        if (settings.markupStripping.stripMarkupSettings.unorderedLists && /^[-+*] $/.test(line)) {
+            return t('untitled');
+        }
+        if (settings.markupStripping.stripMarkupSettings.orderedLists && /^\d+\. $/.test(line)) {
+            return t('untitled');
+        }
+    }
+
     line = line.trim();
 
     // Remove template placeholder if enabled
-    if (settings.stripTemplaterSyntax) {
+    if (settings.markupStripping.stripTemplaterSyntax) {
         line = line.replace(/<%\s*tp\.file\.cursor\(\)\s*%>/, '').trim();
         if (line === "<%*") {
-            return "Untitled";
+            return t('untitled');
         }
     }
 
@@ -601,14 +224,14 @@ export function extractTitle(line: string, settings: PluginSettings): string {
     // Empty heading must: start at line beginning (no preceding chars), have 1-6 hashes, end with optional spaces
     const isEmptyHeading = /^#{1,6}\s*$/.test(originalLine);
     if (isEmptyHeading) {
-        return "Untitled";
+        return t('untitled');
     }
 
     // Handle escaped characters based on backslash replacement setting
     const escapeMap = new Map<string, string>();
     let escapeCounter = 0;
 
-    const backslashReplacementEnabled = settings.enableForbiddenCharReplacements && settings.charReplacementEnabled.backslash;
+    const backslashReplacementEnabled = settings.replaceCharacters.enableForbiddenCharReplacements && settings.replaceCharacters.charReplacements.backslash.enabled;
 
     if (!backslashReplacementEnabled) {
         // Backslash disabled: use as escape character, omit from output
@@ -618,10 +241,8 @@ export function extractTitle(line: string, settings: PluginSettings): string {
             return placeholder;
         });
     }
-    // If backslash replacement enabled: treat \ as regular character, no escaping
 
-    // Strip markup based on settings (legacy fallback + new granular controls)
-    if (settings.enableStripMarkup || settings.omitComments || settings.omitHtmlTags) {
+    if (settings.markupStripping.enableStripMarkup || settings.markupStripping.stripCommentsEntirely || settings.markupStripping.omitHtmlTags) {
 
         // Helper function to check if text is escaped
         const checkEscaped = (match: string, offset: number): boolean => {
@@ -636,54 +257,60 @@ export function extractTitle(line: string, settings: PluginSettings): string {
             return false;
         };
 
-        // Strip comments (legacy settings + new granular control)
-        if ((settings.enableStripMarkup && settings.stripMarkupSettings.comments) || settings.omitComments) {
-            // Remove markdown comments %% %% (only matching pairs)
+        if (settings.markupStripping.stripCommentsEntirely) {
+            // Strip comments entirely: remove everything
             line = line.replace(/%%.*?%%/g, '');
-            // Remove HTML comments <!-- --> (only matching pairs)
             line = line.replace(/<!--.*?-->/g, '');
+        } else if (settings.markupStripping.enableStripMarkup && settings.markupStripping.stripMarkupSettings.comments) {
+            // Strip markup but keep content: remove markers only
+            line = line.replace(/%%(.+?)%%/g, (match, content, offset) => {
+                return checkEscaped(match, offset) ? match : content;
+            });
+            line = line.replace(/<!--(.+?)-->/g, (match, content, offset) => {
+                return checkEscaped(match, offset) ? match : content;
+            });
         }
 
         // Strip bold markup
-        if (settings.enableStripMarkup && settings.stripMarkupSettings.bold) {
-            line = line.replace(/\*\*(.+?)\*\*/g, (match, content, offset) => {
+        if (settings.markupStripping.enableStripMarkup && settings.markupStripping.stripMarkupSettings.bold) {
+            line = line.replace(/\*\*(.*?)\*\*/g, (match, content, offset) => {
                 return checkEscaped(match, offset) ? match : content;
             });
-            line = line.replace(/__(.+?)__/g, (match, content, offset) => {
+            line = line.replace(/__(.*?)__/g, (match, content, offset) => {
                 return checkEscaped(match, offset) ? match : content;
             });
         }
 
         // Strip italic markup
-        if (settings.enableStripMarkup && settings.stripMarkupSettings.italic) {
-            line = line.replace(/(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)/g, (match, content, offset) => {
+        if (settings.markupStripping.enableStripMarkup && settings.markupStripping.stripMarkupSettings.italic) {
+            line = line.replace(/\*([^*]*?)\*/g, (match, content, offset) => {
                 return checkEscaped(match, offset) ? match : content;
             });
-            line = line.replace(/(?<!_)_(?!_)(.+?)(?<!_)_(?!_)/g, (match, content, offset) => {
+            line = line.replace(/_([^_]*?)_/g, (match, content, offset) => {
                 return checkEscaped(match, offset) ? match : content;
             });
         }
 
         // Strip strikethrough markup
-        if (settings.enableStripMarkup && settings.stripMarkupSettings.strikethrough) {
-            line = line.replace(/~~(.+?)~~/g, (match, content, offset) => {
+        if (settings.markupStripping.enableStripMarkup && settings.markupStripping.stripMarkupSettings.strikethrough) {
+            line = line.replace(/~~(.*?)~~/g, (match, content, offset) => {
                 return checkEscaped(match, offset) ? match : content;
             });
         }
 
         // Strip highlight markup
-        if (settings.enableStripMarkup && settings.stripMarkupSettings.highlight) {
-            line = line.replace(/==(.+?)==/g, (match, content, offset) => {
+        if (settings.markupStripping.enableStripMarkup && settings.markupStripping.stripMarkupSettings.highlight) {
+            line = line.replace(/==(.*?)==/g, (match, content, offset) => {
                 return checkEscaped(match, offset) ? match : content;
             });
         }
 
         // Strip code block markup (must run before code markup stripping)
-        if (settings.enableStripMarkup && settings.stripMarkupSettings.codeBlocks) {
+        if (settings.markupStripping.enableStripMarkup && settings.markupStripping.stripMarkupSettings.codeBlocks) {
             // Check if only ``` (empty code block) - return Untitled
             // Don't use multiline flag - we want to match entire string, not just first line
             if (/^\s*```\s*$/.test(line)) {
-                return "Untitled";
+                return t('untitled');
             }
 
             // Match lines with optional leading whitespace followed by ```
@@ -704,45 +331,52 @@ export function extractTitle(line: string, settings: PluginSettings): string {
                 }
                 // If only found ``` inside (both first and second line are ```), return Untitled
                 if (!foundLine) {
-                    return "Untitled";
+                    return t('untitled');
                 }
             }
         }
 
         // Strip code markup
-        if (settings.enableStripMarkup && settings.stripMarkupSettings.code) {
-            line = line.replace(/`(.+?)`/g, (match, content, offset) => {
+        if (settings.markupStripping.enableStripMarkup && settings.markupStripping.stripMarkupSettings.code) {
+            line = line.replace(/`(.*?)`/g, (match, content, offset) => {
+                return checkEscaped(match, offset) ? match : content;
+            });
+        }
+
+        // Strip inline math markup
+        if (settings.markupStripping.stripInlineMathMarkup) {
+            // Only match if no whitespace after opening $ and before closing $
+            line = line.replace(/\$((?:\S(?:.*?\S)?)?)\$/g, (match, content, offset) => {
                 return checkEscaped(match, offset) ? match : content;
             });
         }
 
         // Strip callout markup (check before quote to avoid conflicts)
-        if (settings.enableStripMarkup && settings.stripMarkupSettings.callouts) {
+        if (settings.markupStripping.enableStripMarkup && settings.markupStripping.stripMarkupSettings.callouts) {
             line = line.replace(/^>\s*\[![^\]]+\]\s*(.*)$/gm, '$1');
         }
 
         // Strip quote markup
-        if (settings.enableStripMarkup && settings.stripMarkupSettings.quote) {
+        if (settings.markupStripping.enableStripMarkup && settings.markupStripping.stripMarkupSettings.quote) {
             line = line.replace(/^>\s*(.*)$/gm, '$1');
         }
 
         // Strip task list markup BEFORE list markup
-        if (settings.enableStripMarkup && settings.stripMarkupSettings.taskLists) {
+        if (settings.markupStripping.enableStripMarkup && settings.markupStripping.stripMarkupSettings.taskLists) {
             line = line.replace(/^(?:[-+*]|\d+\.) \[.\] /gm, '');
         }
 
         // Strip unordered list markup
-        if (settings.enableStripMarkup && settings.stripMarkupSettings.unorderedLists) {
+        if (settings.markupStripping.enableStripMarkup && settings.markupStripping.stripMarkupSettings.unorderedLists) {
             line = line.replace(/^[-+*] /gm, '');
         }
 
         // Strip ordered list markup
-        if (settings.enableStripMarkup && settings.stripMarkupSettings.orderedLists) {
+        if (settings.markupStripping.enableStripMarkup && settings.markupStripping.stripMarkupSettings.orderedLists) {
             line = line.replace(/^\d+\. /gm, '');
         }
 
-        // Strip HTML tags (legacy settings + new granular control)
-        if ((settings.enableStripMarkup && settings.stripMarkupSettings.htmlTags) || settings.omitHtmlTags) {
+        if ((settings.markupStripping.enableStripMarkup && settings.markupStripping.stripMarkupSettings.htmlTags) || settings.markupStripping.omitHtmlTags) {
             let previousLine = '';
             while (line !== previousLine) {
                 previousLine = line;
@@ -751,7 +385,7 @@ export function extractTitle(line: string, settings: PluginSettings): string {
         }
 
         // Strip footnote markup
-        if (settings.enableStripMarkup && settings.stripMarkupSettings.footnotes) {
+        if (settings.markupStripping.enableStripMarkup && settings.markupStripping.stripMarkupSettings.footnotes) {
             // Strip [^1] style footnotes (but not if followed by colon)
             line = line.replace(/\[\^[^\]]+\](?!:)/g, '');
             // Strip ^[note] style footnotes (but not if followed by colon)
@@ -768,7 +402,7 @@ export function extractTitle(line: string, settings: PluginSettings): string {
     line = line.replace(regularEmbedRegex, (match, caption) => caption);
 
     // Handle headers - only if the original line was a valid heading and strip heading markup is enabled
-    if (isHeading && (!settings.enableStripMarkup || settings.stripMarkupSettings.headings)) {
+    if (isHeading && (!settings.markupStripping.enableStripMarkup || settings.markupStripping.stripMarkupSettings.headings)) {
         const headerArr: string[] = [
             "# ", "## ", "### ", "#### ", "##### ", "###### ",
         ];
@@ -781,7 +415,7 @@ export function extractTitle(line: string, settings: PluginSettings): string {
     }
 
     // Handle wikilinks (only if strip wikilink markup is enabled)
-    if (!settings.enableStripMarkup || settings.stripMarkupSettings.wikilinks) {
+    if (!settings.markupStripping.enableStripMarkup || settings.markupStripping.stripMarkupSettings.wikilinks) {
         while (line.includes("[[") && line.includes("]]")) {
             const openBracket = line.indexOf("[[");
             const closeBracket = line.indexOf("]]", openBracket);
@@ -804,11 +438,11 @@ export function extractTitle(line: string, settings: PluginSettings): string {
     // If entire line is just empty links (regular or image), return "Untitled"
     const onlyEmptyLinksRegex = /^(\s*!?\[\]\([^)]*\)\s*)+$/;
     if (onlyEmptyLinksRegex.test(line)) {
-        return "Untitled";
+        return t('untitled');
     }
 
     // Handle regular Markdown links (only if strip markdown link markup is enabled)
-    if (!settings.enableStripMarkup || settings.stripMarkupSettings.markdownLinks) {
+    if (!settings.markupStripping.enableStripMarkup || settings.markupStripping.stripMarkupSettings.markdownLinks) {
         const markdownLinkRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
         line = line.replace(markdownLinkRegex, (_, title) => title);
 
@@ -824,140 +458,477 @@ export function extractTitle(line: string, settings: PluginSettings): string {
         }
     }
 
+    // Final check: if line is empty or only whitespace after all processing
+    if (line.trim() === '') {
+        return t('untitled');
+    }
+
     return line;
 }
 
 /**
- * Generates a safe internal link target by applying the plugin's character replacement rules
- * This function mimics the logic from main.ts for processing forbidden characters
+ * Finds the title source line from the first non-empty line
+ * Handles special cases like card links, code blocks, and markdown tables
+ *
+ * @param firstNonEmptyLine The first non-empty line (after frontmatter)
+ * @param contentLines Array of content lines (without frontmatter)
+ * @param settings Plugin settings
+ * @param plugin Optional plugin instance for verbose logging
+ * @returns The title source line to use for filename
  */
-export function generateSafeLinkTarget(text: string, settings: PluginSettings): string {
-    function detectOS(): OSPreset {
-        const platform = window.navigator.platform.toLowerCase();
-        if (platform.indexOf('win') !== -1) return 'Windows';
-        if (platform.indexOf('mac') !== -1) return 'macOS';
-        return 'Linux';
-    }
+export function findTitleSourceLine(
+    firstNonEmptyLine: string,
+    contentLines: string[],
+    settings: PluginSettings,
+    plugin?: { settings: PluginSettings }
+): string {
+    let titleSourceLine = firstNonEmptyLine;
 
-    const charMap: { [key: string]: string } = {
-        '/': settings.charReplacements.slash,
-        ':': settings.charReplacements.colon,
-        '|': settings.charReplacements.pipe,
-        '#': settings.charReplacements.hash,
-        '[': settings.charReplacements.leftBracket,
-        ']': settings.charReplacements.rightBracket,
-        '^': settings.charReplacements.caret,
-        '*': settings.charReplacements.asterisk,
-        '?': settings.charReplacements.question,
-        '<': settings.charReplacements.lessThan,
-        '>': settings.charReplacements.greaterThan,
-        '"': settings.charReplacements.quote,
-        [String.fromCharCode(92)]: settings.charReplacements.backslash,
-        '.': settings.charReplacements.dot
-    };
+    // Check for markdown table rows - use "Table" as title if stripTableMarkup is enabled
+    if (settings.markupStripping.stripTableMarkup) {
+        // Valid markdown table requires:
+        // Line 1: Contains | (header row)
+        // Line 2: Separator row (-- | --, min 2 hyphens per column, no escapes)
 
-    // Get forbidden chars - universal chars are always forbidden
-    const universalForbiddenChars = UNIVERSAL_FORBIDDEN_CHARS;
-    const windowsAndroidChars = WINDOWS_ANDROID_CHARS;
-    const allForbiddenChars = [...universalForbiddenChars];
+        const hasFirstLinePipe = titleSourceLine.includes('|');
 
-    // Add Windows/Android chars if current OS requires them OR user has enabled compatibility
-    const currentOS = detectOS();
-    if (currentOS === 'Windows' || settings.windowsAndroidEnabled) {
-        allForbiddenChars.push(...windowsAndroidChars);
-    }
-    const forbiddenChars = [...new Set(allForbiddenChars)].join('');
-
-    let result = "";
-
-    for (let i = 0; i < text.length; i++) {
-        let char = text[i];
-
-        if (char === '.') {
-            // Special handling for dots - only forbidden at filename start
-            if (result === '') {
-                // Dot at start of filename
-                if (settings.enableForbiddenCharReplacements && settings.charReplacementEnabled.dot) {
-                    const replacement = charMap['.'] || '';
-                    if (replacement !== '') {
-                        // Check for whitespace trimming
-                        if (settings.charReplacementTrimRight.dot) {
-                            // Skip upcoming whitespace characters
-                            while (i + 1 < text.length && /\s/.test(text[i + 1])) {
-                                i++;
-                            }
-                        }
-                        result += replacement;
-                    }
-                    // If replacement is empty, omit the dot (don't add anything)
+        if (hasFirstLinePipe) {
+            // Find index of firstNonEmptyLine in contentLines
+            let firstNonEmptyIndex = -1;
+            for (let i = 0; i < contentLines.length; i++) {
+                if (contentLines[i].trim() !== '') {
+                    firstNonEmptyIndex = i;
+                    break;
                 }
-                // If dot replacement is disabled, omit the dot (don't add anything)
-            } else {
-                // Dot not at start - always keep it
-                result += '.';
             }
-        } else if (forbiddenChars.includes(char)) {
-            let shouldReplace = false;
-            let replacement = '';
 
-            // Check if master toggle is on AND individual toggle is on
-            if (settings.enableForbiddenCharReplacements) {
-                // Map character to setting key
-                let settingKey: keyof typeof settings.charReplacementEnabled | null = null;
-                switch (char) {
-                    case '/': settingKey = 'slash'; break;
-                    case String.fromCharCode(92): settingKey = 'backslash'; break;
-                    case ':': settingKey = 'colon'; break;
-                    case '|': settingKey = 'pipe'; break;
-                    case '#': settingKey = 'hash'; break;
-                    case '[': settingKey = 'leftBracket'; break;
-                    case ']': settingKey = 'rightBracket'; break;
-                    case '^': settingKey = 'caret'; break;
-                    case '*': settingKey = 'asterisk'; break;
-                    case '?': settingKey = 'question'; break;
-                    case '<': settingKey = 'lessThan'; break;
-                    case '>': settingKey = 'greaterThan'; break;
-                    case '"': settingKey = 'quote'; break;
-                }
+            // Check next line exists
+            if (firstNonEmptyIndex >= 0 && firstNonEmptyIndex + 1 < contentLines.length) {
+                const secondLine = contentLines[firstNonEmptyIndex + 1];
 
-                // For Windows/Android chars, also check if that toggle is enabled
-                const isWindowsAndroidChar = WINDOWS_ANDROID_CHARS.includes(char);
-                const canReplace = isWindowsAndroidChar ?
-                    (settings.windowsAndroidEnabled && settingKey && settings.charReplacementEnabled[settingKey]) :
-                    (settingKey && settings.charReplacementEnabled[settingKey]);
+                // Reject if separator contains escaped pipes or hyphens (breaks table structure)
+                if (secondLine.includes('\\|') || secondLine.includes('\\-')) {
+                    // Not a valid table - escaped characters break separator row
+                } else {
+                    // Check if second line is valid separator
+                    // Pattern: optional spaces + optional : + min 2 hyphens + optional : + optional spaces
+                    const separatorPattern = /^\s*:?-{2,}:?\s*$/;
 
-                if (canReplace && settingKey) {
-                    shouldReplace = true;
-                    replacement = charMap[char] || '';
+                    // Remove leading/trailing pipes, split by |
+                    const trimmedSeparator = secondLine.trim().replace(/^\|/, '').replace(/\|$/, '');
+                    const cells = trimmedSeparator.split('|');
 
-                    // Check for whitespace trimming
-                    if (replacement !== '') {
-                        // Trim whitespace to the left
-                        if (settings.charReplacementTrimLeft[settingKey]) {
-                            // Remove trailing whitespace from result
-                            result = result.trimEnd();
-                        }
+                    // Each cell must match separator pattern
+                    const isValidSeparator = cells.length >= 1 && cells.every(cell => separatorPattern.test(cell));
 
-                        // Check if we should trim whitespace to the right
-                        if (settings.charReplacementTrimRight[settingKey]) {
-                            // Skip upcoming whitespace characters
-                            while (i + 1 < text.length && /\s/.test(text[i + 1])) {
-                                i++;
-                            }
+                    if (isValidSeparator) {
+                        titleSourceLine = t('table');
+                        if (plugin) {
+                            verboseLog(plugin, `Table detected, using "${t('table')}" as title`);
                         }
                     }
                 }
             }
-
-            if (shouldReplace && replacement !== '') {
-                result += replacement;
-            }
-            // If not replacing or replacement is empty, omit the character (don't add anything)
-        } else {
-            // Normal character - keep it
-            result += char;
         }
     }
 
-    return result.trim();
+    // Check for math block markup - use "Math block" as title if stripMathBlockMarkup is enabled
+    if (settings.markupStripping.stripMathBlockMarkup) {
+        // Math block starts with $$ (ignoring leading whitespace)
+        if (titleSourceLine.trim().startsWith('$$')) {
+            // Find index of firstNonEmptyLine in contentLines
+            let firstNonEmptyIndex = -1;
+            for (let i = 0; i < contentLines.length; i++) {
+                if (contentLines[i].trim() !== '') {
+                    firstNonEmptyIndex = i;
+                    break;
+                }
+            }
+
+            // Look for closing $$ in subsequent lines
+            if (firstNonEmptyIndex >= 0) {
+                for (let i = firstNonEmptyIndex + 1; i < contentLines.length; i++) {
+                    if (contentLines[i].trim().startsWith('$$')) {
+                        titleSourceLine = t('mathBlock');
+                        if (plugin) {
+                            verboseLog(plugin, `Math block detected, using "${t('mathBlock')}" as title`);
+                        }
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
+    // Check for card links if enabled - extract title from card link
+    if (settings.markupStripping.grabTitleFromCardLink) {
+        const cardLinkMatch = titleSourceLine.trim().match(/^```(embed|cardlink)$/);
+        if (cardLinkMatch) {
+            // Found embed or cardlink, parse lines until we find title: or closing ```
+            let foundTitle = false;
+            const maxLinesToCheck = 20;
+            let nonEmptyCount = 0;
+
+            for (let i = 0; i < Math.min(contentLines.length, maxLinesToCheck); i++) {
+                const line = contentLines[i].trim();
+                if (line === '') continue;
+
+                nonEmptyCount++;
+                // Skip first non-empty line (the opening ```embed/```cardlink)
+                if (nonEmptyCount === 1) continue;
+
+                if (nonEmptyCount > 10) break;
+
+                // Look for title: field
+                if (line.toLowerCase().startsWith('title:')) {
+                    let title = line.substring(line.indexOf(':') + 1).trim();
+                    // Remove surrounding quotes if present
+                    if ((title.startsWith('"') && title.endsWith('"')) || (title.startsWith("'") && title.endsWith("'"))) {
+                        title = title.substring(1, title.length - 1);
+                    }
+                    titleSourceLine = title;
+                    foundTitle = true;
+                    if (plugin) {
+                        verboseLog(plugin, `Found ${cardLinkMatch[1]} card link`, { title: titleSourceLine });
+                    }
+                    break;
+                }
+                // Check for closing ``` before finding title
+                if (line.startsWith('```')) {
+                    titleSourceLine = t('untitled');
+                    if (plugin) {
+                        verboseLog(plugin, `Card link has no title, using ${t('untitled')}`);
+                    }
+                    break;
+                }
+            }
+            if (!foundTitle && titleSourceLine !== t('untitled')) {
+                // Reached limit without finding title or closing
+                titleSourceLine = t('untitled');
+            }
+        }
+    }
+
+    // Check for Mermaid diagrams - use "Diagram" as title if detectDiagrams is enabled
+    const trimmedTitleSourceLine = titleSourceLine.trim();
+    if (settings.markupStripping.detectDiagrams && trimmedTitleSourceLine === '```mermaid') {
+        titleSourceLine = t('diagram');
+        if (plugin) {
+            verboseLog(plugin, `Mermaid diagram detected, using "${t('diagram')}" as title`);
+        }
+        return titleSourceLine;
+    }
+
+    // Check for code blocks - use second line if first line is a code fence
+    if (trimmedTitleSourceLine.startsWith('```') && !trimmedTitleSourceLine.match(/^```(embed|cardlink)$/)) {
+        // First line is a code fence (not card link), extract second non-empty line
+        let nonEmptyCount = 0;
+        for (const line of contentLines) {
+            if (line.trim() !== '') {
+                nonEmptyCount++;
+                // Skip first non-empty line (the code fence)
+                if (nonEmptyCount === 2) {
+                    titleSourceLine = line;
+                    if (plugin) {
+                        verboseLog(plugin, `Code block detected, using second line as title source: ${titleSourceLine}`);
+                    }
+                    break;
+                }
+            }
+        }
+    }
+
+    return titleSourceLine;
+}
+
+/**
+ * Deep merge two objects recursively
+ * Arrays and primitives from source override defaults
+ * Nested objects are merged recursively
+ * @param defaults The default object (will not be mutated)
+ * @param source The source object with overrides (will not be mutated)
+ * @returns A new object with merged values
+ */
+export function deepMerge<T>(defaults: T, source: Partial<T>): T {
+    // Handle null/undefined cases
+    if (!defaults || typeof defaults !== 'object') return defaults;
+    if (!source || typeof source !== 'object') return defaults;
+
+    // Create a deep copy of defaults to avoid mutation
+    const result = JSON.parse(JSON.stringify(defaults)) as T;
+    // Use Record for dynamic key access to avoid 'as any'
+    const resultRecord = result as Record<string, any>;
+    const sourceRecord = source as Record<string, any>;
+
+    // Merge properties from source
+    for (const key in source) {
+        if (!source.hasOwnProperty(key)) continue;
+
+        const sourceValue = sourceRecord[key];
+        const defaultValue = resultRecord[key];
+
+        // If source value is null/undefined, skip it (keep default)
+        if (sourceValue === null || sourceValue === undefined) continue;
+
+        // If default value doesn't exist, use source value
+        if (defaultValue === null || defaultValue === undefined) {
+            resultRecord[key] = sourceValue;
+            continue;
+        }
+
+        // Handle arrays: replace entirely (don't merge items)
+        if (Array.isArray(sourceValue)) {
+            resultRecord[key] = JSON.parse(JSON.stringify(sourceValue));
+            continue;
+        }
+
+        // Handle objects: merge recursively
+        if (typeof sourceValue === 'object' && typeof defaultValue === 'object' && !Array.isArray(defaultValue)) {
+            resultRecord[key] = deepMerge(defaultValue, sourceValue);
+            continue;
+        }
+
+        // Handle primitives: override with source value
+        resultRecord[key] = sourceValue;
+    }
+
+    return result;
+}
+
+/**
+ * Reverse forbidden character replacements in a string
+ * @param text - The text to process
+ * @param settings - Plugin settings containing character replacement configuration
+ * @param plugin - Optional plugin instance for verbose logging
+ * @returns The text with replacements reversed to original characters
+ */
+export function reverseCharacterReplacements(text: string, settings: PluginSettings, plugin?: { settings: PluginSettings }): string {
+    if (!settings.core.convertReplacementCharactersInTitle) {
+        return text;
+    }
+
+    let result = text;
+
+    // Character mapping
+    const charMap: Record<string, string> = {
+        '/': 'slash',
+        ':': 'colon',
+        '*': 'asterisk',
+        '?': 'question',
+        '<': 'lessThan',
+        '>': 'greaterThan',
+        '"': 'quote',
+        '|': 'pipe',
+        '#': 'hash',
+        '[': 'leftBracket',
+        ']': 'rightBracket',
+        '^': 'caret',
+        '\\': 'backslash',
+        '.': 'dot'
+    };
+
+    // Find duplicate replacement strings (ambiguous - can't reverse)
+    const replacementCounts = new Map<string, number>();
+    const enabledReplacements: string[] = [];
+    for (const settingKey of Object.values(charMap)) {
+        const replacement = settings.replaceCharacters.charReplacements[settingKey as keyof typeof settings.replaceCharacters.charReplacements];
+        if (replacement.enabled && replacement.replacement) {
+            replacementCounts.set(replacement.replacement, (replacementCounts.get(replacement.replacement) || 0) + 1);
+            enabledReplacements.push(`${settingKey}="${replacement.replacement}"`);
+        }
+    }
+
+    if (plugin) {
+        verboseLog(plugin, `[CHAR-REVERSAL] "${text}" with replacements: [${enabledReplacements.join(', ')}]`);
+    }
+
+    // Reverse each enabled replacement using actual user settings
+    for (const [originalChar, settingKey] of Object.entries(charMap)) {
+        const replacement = settings.replaceCharacters.charReplacements[settingKey as keyof typeof settings.replaceCharacters.charReplacements];
+        if (replacement.enabled && replacement.replacement) {
+            // Skip if this replacement string is used by multiple enabled characters (ambiguous)
+            const count = replacementCounts.get(replacement.replacement) || 0;
+            if (count > 1) {
+                if (plugin) {
+                    verboseLog(plugin, `[CHAR-REVERSAL] Skipping "${replacement.replacement}" → "${originalChar}" (duplicate, count=${count})`);
+                }
+                continue;
+            }
+            result = result.replaceAll(replacement.replacement, originalChar);
+        }
+    }
+
+    if (plugin && result !== text) {
+        verboseLog(plugin, `[CHAR-REVERSAL] Result: "${text}" → "${result}"`);
+    }
+
+    return result;
+}
+
+/**
+ * Normalizes a folder path for duplicate comparison
+ * - Trims whitespace
+ * - Removes leading and trailing slashes
+ * - Converts to lowercase for case-insensitive comparison
+ */
+function normalizeFolderPath(path: string): string {
+    return path.trim().replace(/^\/+|\/+$/g, '').toLowerCase();
+}
+
+/**
+ * Cleans a folder path for storage (preserves case)
+ * - Trims whitespace
+ * - Removes leading and trailing slashes
+ */
+function cleanFolderPath(path: string): string {
+    return path.trim().replace(/^\/+|\/+$/g, '');
+}
+
+/**
+ * Normalizes a tag for duplicate comparison
+ * - Trims whitespace
+ * - Converts to lowercase for case-insensitive comparison
+ */
+function normalizeTagName(tag: string): string {
+    return tag.trim().toLowerCase();
+}
+
+/**
+ * Cleans a tag for storage (preserves case)
+ * - Trims whitespace
+ */
+function cleanTag(tag: string): string {
+    return tag.trim();
+}
+
+/**
+ * Normalizes a property key or value for duplicate comparison
+ * - Trims whitespace
+ * - Converts to lowercase for case-insensitive comparison
+ */
+function normalizePropertyText(text: string): string {
+    return text.trim().toLowerCase();
+}
+
+/**
+ * Cleans a property key or value for storage (preserves case)
+ * - Trims whitespace
+ */
+function cleanPropertyText(text: string): string {
+    return text.trim();
+}
+
+/**
+ * Deduplicates exclusion arrays in plugin settings
+ * Keeps the last occurrence of each duplicate (removes earlier ones)
+ * Normalization rules:
+ * - Folders: case-insensitive, leading/trailing slashes removed
+ * - Tags: case-insensitive
+ * - Properties: both key and value must match (case-insensitive)
+ *
+ * @param settings - Plugin settings object to deduplicate
+ * @returns true if any duplicates were removed, false otherwise
+ */
+export function deduplicateExclusions(settings: PluginSettings): boolean {
+    let hasChanges = false;
+
+    // Deduplicate folders
+    const originalFolderCount = settings.exclusions.excludedFolders.length;
+    const folderMap = new Map<string, number>(); // normalized -> last index
+
+    settings.exclusions.excludedFolders.forEach((folder, index) => {
+        const normalized = normalizeFolderPath(folder);
+        if (normalized !== '') {
+            folderMap.set(normalized, index);
+        }
+    });
+
+    const keepFolderIndices = new Set(folderMap.values());
+    settings.exclusions.excludedFolders = settings.exclusions.excludedFolders.filter((_, index) => {
+        const normalized = normalizeFolderPath(settings.exclusions.excludedFolders[index]);
+        // Keep if normalized is empty OR it's the last occurrence
+        return normalized === '' || keepFolderIndices.has(index);
+    });
+
+    if (settings.exclusions.excludedFolders.length !== originalFolderCount) {
+        hasChanges = true;
+    }
+
+    // Clean folder paths (strip leading/trailing slashes, preserve case)
+    settings.exclusions.excludedFolders = settings.exclusions.excludedFolders.map((folder) => {
+        const cleaned = cleanFolderPath(folder);
+        if (cleaned !== folder) {
+            hasChanges = true;
+        }
+        return cleaned;
+    });
+
+    // Deduplicate tags
+    const originalTagCount = settings.exclusions.excludedTags.length;
+    const tagMap = new Map<string, number>(); // normalized -> last index
+
+    settings.exclusions.excludedTags.forEach((tag, index) => {
+        const normalized = normalizeTagName(tag);
+        if (normalized !== '') {
+            tagMap.set(normalized, index);
+        }
+    });
+
+    const keepTagIndices = new Set(tagMap.values());
+    settings.exclusions.excludedTags = settings.exclusions.excludedTags.filter((_, index) => {
+        const normalized = normalizeTagName(settings.exclusions.excludedTags[index]);
+        // Keep if normalized is empty OR it's the last occurrence
+        return normalized === '' || keepTagIndices.has(index);
+    });
+
+    if (settings.exclusions.excludedTags.length !== originalTagCount) {
+        hasChanges = true;
+    }
+
+    // Clean tags (trim whitespace, preserve case)
+    settings.exclusions.excludedTags = settings.exclusions.excludedTags.map((tag) => {
+        const cleaned = cleanTag(tag);
+        if (cleaned !== tag) {
+            hasChanges = true;
+        }
+        return cleaned;
+    });
+
+    // Deduplicate properties (both key AND value must match)
+    const originalPropertyCount = settings.exclusions.excludedProperties.length;
+    const propertyMap = new Map<string, number>(); // "key:value" -> last index
+
+    settings.exclusions.excludedProperties.forEach((prop, index) => {
+        const normalizedKey = normalizePropertyText(prop.key);
+        const normalizedValue = normalizePropertyText(prop.value);
+        if (normalizedKey !== '' || normalizedValue !== '') {
+            const composite = `${normalizedKey}:${normalizedValue}`;
+            propertyMap.set(composite, index);
+        }
+    });
+
+    const keepPropertyIndices = new Set(propertyMap.values());
+    settings.exclusions.excludedProperties = settings.exclusions.excludedProperties.filter((_, index) => {
+        const prop = settings.exclusions.excludedProperties[index];
+        const normalizedKey = normalizePropertyText(prop.key);
+        const normalizedValue = normalizePropertyText(prop.value);
+        // Keep if both are empty OR it's the last occurrence
+        return (normalizedKey === '' && normalizedValue === '') || keepPropertyIndices.has(index);
+    });
+
+    if (settings.exclusions.excludedProperties.length !== originalPropertyCount) {
+        hasChanges = true;
+    }
+
+    // Clean property keys and values (trim whitespace, preserve case)
+    settings.exclusions.excludedProperties = settings.exclusions.excludedProperties.map((prop) => {
+        const cleanedKey = cleanPropertyText(prop.key);
+        const cleanedValue = cleanPropertyText(prop.value);
+        if (cleanedKey !== prop.key || cleanedValue !== prop.value) {
+            hasChanges = true;
+        }
+        return { key: cleanedKey, value: cleanedValue };
+    });
+
+    return hasChanges;
 }

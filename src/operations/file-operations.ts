@@ -1,7 +1,10 @@
-import { TFile, TFolder, MarkdownView, Notice } from "obsidian";
+import { TFile, TFolder, MarkdownView, Notice, getFrontMatterInfo, parseYaml } from "obsidian";
 import { PluginSettings } from '../types';
 import { verboseLog, shouldProcessFile, hasDisablePropertyInFile } from '../utils';
+import { t } from '../i18n';
 import { TITLE_CHAR_REVERSAL_MAP } from '../constants';
+import { readFileContent } from '../utils/content-reader';
+import { TIMING, LIMITS } from '../constants/timing';
 import FirstLineIsTitle from '../../main';
 
 export class FileOperations {
@@ -18,13 +21,6 @@ export class FileOperations {
         return this.plugin.settings;
     }
 
-    /**
-     * Cleans up stale entries from caches (deprecated - now handled by cache manager)
-     */
-    cleanupStaleCache(): void {
-        // Cache cleanup now handled by CacheManager
-        verboseLog(this.plugin, 'Cache cleanup delegated to CacheManager');
-    }
 
     /**
      * Inserts the filename as the first line of a newly created file
@@ -34,68 +30,74 @@ export class FileOperations {
      */
     async insertTitleOnCreation(file: TFile, initialContent?: string, templateContent?: string): Promise<boolean> {
         try {
-            // Check if filename is "Untitled" or "Untitled n" (where n is a positive integer)
-            const untitledPattern = /^Untitled(\s[1-9]\d*)?$/;
+            const untitledWord = t('untitled').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const untitledPattern = new RegExp(`^${untitledWord}(\\s[1-9]\\d*)?$`);
             if (untitledPattern.test(file.basename)) {
                 verboseLog(this.plugin, `Skipping title insertion for untitled file: ${file.path}`);
                 return false;
             }
 
-            // Get clean title by reversing forbidden character replacements
             let cleanTitle = file.basename;
+            if (this.settings.core.convertReplacementCharactersInTitle) {
+                const charMap: Record<string, string> = {
+                    '/': 'slash',
+                    ':': 'colon',
+                    '*': 'asterisk',
+                    '?': 'question',
+                    '<': 'lessThan',
+                    '>': 'greaterThan',
+                    '"': 'quote',
+                    '|': 'pipe',
+                    '#': 'hash',
+                    '[': 'leftBracket',
+                    ']': 'rightBracket',
+                    '^': 'caret',
+                    '\\': 'backslash',
+                    '.': 'dot'
+                };
 
-            // Create mapping from replacement char to setting key for trim settings lookup
-            const replacementCharToKey: Record<string, keyof typeof this.settings.charReplacements> = {
-                '∕': 'slash',
-                '։': 'colon',
-                '∗': 'asterisk',
-                '﹖': 'question',
-                '‹': 'lessThan',
-                '›': 'greaterThan',
-                '＂': 'quote',
-                '❘': 'pipe',
-                '＃': 'hash',
-                '［': 'leftBracket',
-                '］': 'rightBracket',
-                'ˆ': 'caret',
-                '⧵': 'backslash',
-                '․': 'dot'
-            };
+                // Punctuation characters that should not have space added before them
+                const punctuation = ',.?;:!"\'""\'\'»«¡¿‽';
+                const replacementCounts = new Map<string, number>();
+                const enabledReplacements: string[] = [];
+                for (const settingKey of Object.values(charMap)) {
+                    const replacement = this.settings.replaceCharacters.charReplacements[settingKey as keyof typeof this.settings.replaceCharacters.charReplacements];
+                    if (replacement.enabled && replacement.replacement) {
+                        replacementCounts.set(replacement.replacement, (replacementCounts.get(replacement.replacement) || 0) + 1);
+                        enabledReplacements.push(`${settingKey}="${replacement.replacement}"`);
+                    }
+                }
 
-            // Punctuation characters that should not have space added before them
-            const punctuation = ',.?;:!"\'""\'\'»«¡¿‽';
+                verboseLog(this.plugin, `[TITLE-REVERSAL] "${cleanTitle}" with replacements: [${enabledReplacements.join(', ')}]`);
 
-            // Apply character reversal mapping with whitespace restoration
-            for (const [replacementChar, originalChar] of Object.entries(TITLE_CHAR_REVERSAL_MAP)) {
-                // Check if this replacement char exists in the filename
+                for (const [originalChar, settingKey] of Object.entries(charMap)) {
+                const charConfig = this.settings.replaceCharacters.charReplacements[settingKey as keyof typeof this.settings.replaceCharacters.charReplacements];
+
+                // Skip if not enabled or no replacement defined
+                if (!charConfig.enabled || !charConfig.replacement) continue;
+
+                const replacementChar = charConfig.replacement;
+
                 if (!cleanTitle.includes(replacementChar)) continue;
 
-                const settingKey = replacementCharToKey[replacementChar];
-                if (!settingKey) continue;
-
-                // Check if this replacement is enabled and has trim settings
-                const replacementEnabled = this.settings.charReplacementEnabled[settingKey];
-                const trimLeft = this.settings.charReplacementTrimLeft[settingKey];
-                const trimRight = this.settings.charReplacementTrimRight[settingKey];
-
-                if (!replacementEnabled) {
-                    cleanTitle = cleanTitle.replaceAll(replacementChar, originalChar);
+                // Skip if this replacement string is used by multiple enabled characters (ambiguous)
+                const count = replacementCounts.get(replacementChar) || 0;
+                if (count > 1) {
+                    verboseLog(this.plugin, `[TITLE-REVERSAL] Skipping "${replacementChar}" → "${originalChar}" (duplicate, count=${count})`);
                     continue;
                 }
 
-                // Process each occurrence individually to check context
+                const trimLeft = charConfig.trimLeft;
+                const trimRight = charConfig.trimRight;
+
                 let result = '';
                 let remaining = cleanTitle;
                 while (remaining.includes(replacementChar)) {
                     const index = remaining.indexOf(replacementChar);
 
-                    // Add everything before this replacement char
                     result += remaining.substring(0, index);
-
-                    // Build replacement with context-aware spacing
                     let replacement = originalChar;
 
-                    // Add left space if trimLeft enabled
                     if (trimLeft) {
                         replacement = ' ' + replacement;
                     }
@@ -112,105 +114,50 @@ export class FileOperations {
                     remaining = remaining.substring(index + 1);
                 }
 
-                // Add any remaining content
-                result += remaining;
-                cleanTitle = result;
+                    result += remaining;
+                    cleanTitle = result;
+                }
+
+                if (cleanTitle !== file.basename) {
+                    verboseLog(this.plugin, `[TITLE-REVERSAL] Result: "${file.basename}" → "${cleanTitle}"`);
+                }
             }
 
-            // Add heading if setting enabled
-            if (this.settings.addHeadingToTitle) {
-                cleanTitle = '# ' + cleanTitle;
-            }
+            // Note: addHeadingToTitle setting will be applied conditionally below
+            // (skipped if heading pattern already exists in template)
 
             verboseLog(this.plugin, `Inserting title "${cleanTitle}" in new file: ${file.path}`);
 
-            // Determine content to use for title insertion
             let currentContent: string;
 
             if (templateContent !== undefined) {
                 // Template content provided by caller (already waited for template)
                 currentContent = templateContent;
                 verboseLog(this.plugin, `[TITLE-INSERT] Using provided template content. Length: ${currentContent.length} chars`);
-            } else if (this.settings.waitForTemplate) {
-                // Wait for template plugins to apply templates if enabled
-                // Both newNoteDelay and waitForTemplate delays start from file creation
-                // Cache/File modes: Total wait = max(newNoteDelay, 2500ms if waitForTemplate is ON)
-                //   - 2500ms = Templater insertion (300ms) + Obsidian modify debounce (2000ms) + buffer (200ms)
-                // Editor mode: Total wait = max(newNoteDelay, 600ms if waitForTemplate is ON)
-                verboseLog(this.plugin, `[TITLE-INSERT] Template wait enabled, checking delays`);
-
-                const templateWaitTime = (this.settings.fileReadMethod === 'Cache' || this.settings.fileReadMethod === 'File') ? 2500 : 600;
-                const remainingWait = templateWaitTime - this.settings.newNoteDelay;
-                verboseLog(this.plugin, `[TITLE-INSERT] Template wait calculation: templateWaitTime=${templateWaitTime}ms, newNoteDelay=${this.settings.newNoteDelay}ms, remainingWait=${remainingWait}ms`);
-
-                if (remainingWait > 0) {
-                    // For Cache/File read methods, wait the full duration (no event-based detection)
-                    if (this.settings.fileReadMethod === 'Cache' || this.settings.fileReadMethod === 'File') {
-                        verboseLog(this.plugin, `[TITLE-INSERT] Waiting full ${remainingWait}ms for template (${this.settings.fileReadMethod} read method, total: ${templateWaitTime}ms)`);
-                        await new Promise(resolve => setTimeout(resolve, remainingWait));
-                    } else {
-                        // For Editor read method, use event-based YAML detection
-                        verboseLog(this.plugin, `[TITLE-INSERT] Starting YAML wait for ${remainingWait}ms (Editor mode)`);
-                        await this.waitForYamlOrTimeout(file, remainingWait);
-                        verboseLog(this.plugin, `[TITLE-INSERT] YAML wait completed`);
-                    }
-                } else {
-                    verboseLog(this.plugin, `Skipping template wait - newNoteDelay (${this.settings.newNoteDelay}ms) already >= ${templateWaitTime}ms`);
-                }
-
-                // After waiting for template, re-read content from editor to get latest state
-                verboseLog(this.plugin, `[TITLE-INSERT] Re-reading content after template wait`);
-                const leaves = this.app.workspace.getLeavesOfType("markdown");
-                let foundEditor = false;
-                for (const leaf of leaves) {
-                    const view = leaf.view as MarkdownView;
-                    if (view && view.file?.path === file.path && view.editor) {
-                        currentContent = view.editor.getValue();
-                        verboseLog(this.plugin, `[TITLE-INSERT] Read fresh content from editor after template wait. Length: ${currentContent.length} chars`);
-                        foundEditor = true;
-                        break;
-                    }
-                }
-                if (!foundEditor) {
-                    // Fallback to vault
-                    currentContent = await this.app.vault.read(file);
-                    verboseLog(this.plugin, `[TITLE-INSERT] Read fresh content from vault after template wait. Length: ${currentContent.length} chars`);
-                }
-            } else if (initialContent !== undefined) {
-                // No template wait, use captured initial content
+            } /* Template wait removed - will be re-implemented automatically later
+            else if (this.settings.core.insertAfterTemplate) {
+                verboseLog(this.plugin, `[TITLE-INSERT] Template wait enabled`);
+                currentContent = await this.waitForTemplate(file, this.settings.core.newNoteDelay);
+            } */ else if (initialContent !== undefined) {
                 currentContent = initialContent;
                 verboseLog(this.plugin, `[TITLE-INSERT] No template wait, using initial content. Length: ${currentContent.length} chars`);
             } else {
-                // No template wait and no initial content - read immediately from editor
                 verboseLog(this.plugin, `[TITLE-INSERT] No template wait, reading immediately from editor`);
-                const leaves = this.app.workspace.getLeavesOfType("markdown");
-                let foundEditor = false;
-                for (const leaf of leaves) {
-                    const view = leaf.view as MarkdownView;
-                    if (view && view.file?.path === file.path && view.editor) {
-                        currentContent = view.editor.getValue();
-                        verboseLog(this.plugin, `[TITLE-INSERT] Read content immediately from editor. Length: ${currentContent.length} chars`);
-                        foundEditor = true;
-                        break;
-                    }
-                }
-                if (!foundEditor) {
-                    try {
-                        currentContent = await this.app.vault.read(file);
-                        verboseLog(this.plugin, `[TITLE-INSERT] Read content immediately from vault. Length: ${currentContent.length} chars`);
-                    } catch (error) {
-                        console.error(`Failed to read file ${file.path} for title insertion:`, error);
-                        return false;
-                    }
+                try {
+                    currentContent = await readFileContent(this.plugin, file, {
+                        searchWorkspace: this.settings.core.fileReadMethod === 'Editor',
+                        preferFresh: true
+                    });
+                } catch (error) {
+                    console.error(`Failed to read file ${file.path} for title insertion:`, error);
+                    return false;
                 }
             }
 
             const lines = currentContent.split('\n');
 
-            // Detect YAML frontmatter directly from content
             let yamlEndLine = -1;
             if (lines[0] === '---') {
-                // Find closing ---
                 for (let i = 1; i < lines.length; i++) {
                     if (lines[i] === '---') {
                         yamlEndLine = i;
@@ -219,53 +166,159 @@ export class FileOperations {
                 }
             }
 
-            // Get content after YAML (if present) or all content (if no YAML)
             const contentAfterYaml = yamlEndLine !== -1
                 ? lines.slice(yamlEndLine + 1).join('\n').trim()
                 : currentContent.trim();
 
-            // Only insert title if file is empty (excluding YAML)
             if (contentAfterYaml !== '') {
-                verboseLog(this.plugin, `File has content (excluding YAML), skipping title insertion for ${file.path}`);
-                return false;
+                verboseLog(this.plugin, `File has content (excluding YAML)`);
+                const startLineIndex = yamlEndLine !== -1 ? yamlEndLine + 1 : 0;
+                let firstNonEmptyLine: string | null = null;
+                let firstNonEmptyLineIndex = -1;
+
+                for (let i = startLineIndex; i < lines.length; i++) {
+                    const line = lines[i].trim();
+                    if (line !== '') {
+                        firstNonEmptyLine = line;
+                        firstNonEmptyLineIndex = i;
+                        break;
+                    }
+                }
+
+                const headingMatch = firstNonEmptyLine?.match(/^(#{1,6})(\s*)$/);
+
+                if (headingMatch) {
+                    const hashMarks = headingMatch[1];
+                    const titleWithHeading = `${hashMarks} ${cleanTitle}`;
+
+                    verboseLog(this.plugin, `[TITLE-INSERT] Found heading pattern "${firstNonEmptyLine}" at line ${firstNonEmptyLineIndex}, inserting title`);
+
+                    const leaves = this.app.workspace.getLeavesOfType("markdown");
+                    let insertedViaEditor = false;
+
+                    for (const leaf of leaves) {
+                        const view = leaf.view as MarkdownView;
+                        if (view && view.file?.path === file.path && view.editor) {
+                            view.editor.setLine(firstNonEmptyLineIndex, titleWithHeading);
+                            verboseLog(this.plugin, `[TITLE-INSERT] Replaced heading at line ${firstNonEmptyLineIndex} via editor`);
+
+                            // Position cursor at end of title if both settings enabled
+                            this.positionCursorAfterTitleInsertion(view, firstNonEmptyLineIndex, titleWithHeading.length);
+
+                            insertedViaEditor = true;
+                            break;
+                        }
+                    }
+
+                    if (!insertedViaEditor) {
+                        verboseLog(this.plugin, `[TITLE-INSERT] Replacing heading via vault.process`);
+                        await this.app.vault.process(file, (content) => {
+                            const lines = content.split('\n');
+                            lines[firstNonEmptyLineIndex] = titleWithHeading;
+                            return lines.join('\n');
+                        });
+                    }
+
+                    verboseLog(this.plugin, `Successfully inserted title in heading for ${file.path}`);
+                    return true;
+                } else {
+                    verboseLog(this.plugin, `File has content without heading pattern, skipping title insertion for ${file.path}`);
+
+                    // If both settings are ON, position cursor at line end even though we're not inserting
+                    if (this.settings.core.moveCursorToFirstLine && this.settings.core.placeCursorAtLineEnd) {
+                        // Always check exclusions (cursor never moved in excluded notes)
+                        const isExcluded = await this.isFileExcludedForCursorPositioning(file, currentContent);
+
+                        if (!isExcluded) {
+                            const leaves = this.app.workspace.getLeavesOfType("markdown");
+                            for (const leaf of leaves) {
+                                const view = leaf.view as MarkdownView;
+                                if (view && view.file?.path === file.path && view.editor) {
+                                    const contentLine = yamlEndLine !== -1 ? yamlEndLine + 1 : 0;
+                                    const lineContent = view.editor.getLine(contentLine);
+                                    const lineLength = lineContent.length;
+
+                                    // Use setTimeout to ensure cursor positioning happens after any pending editor updates
+                                    setTimeout(() => {
+                                        if (view.editor) {
+                                            view.editor.focus();
+                                            verboseLog(this.plugin, `[CURSOR-FLIT] file-operations.ts:245 - BEFORE setCursor() | target: line ${contentLine} ch ${lineLength}`);
+                                            view.editor.setCursor({ line: contentLine, ch: lineLength });
+                                            verboseLog(this.plugin, `[TITLE-INSERT] File has content, positioned cursor at end of line ${contentLine} (${lineLength} chars)`);
+                                        }
+                                    }, 0);
+                                    break;
+                                }
+                            }
+                        }
+                    }
+
+                    return false;
+                }
             }
 
-            // File is empty (excluding YAML), insert title
-            // Use editor API for immediate insertion to avoid disk write delay
-            const leaves = this.app.workspace.getLeavesOfType("markdown");
+            // Apply addHeadingToTitle setting since no heading pattern was found
+            const finalTitle = this.settings.markupStripping.addHeadingToTitle
+                ? '# ' + cleanTitle
+                : cleanTitle;
+
+            // Check if canvas active - canvas files have no editor, use vault.process() immediately
+            const canvasIsActive = this.app.workspace.getMostRecentLeaf()?.view?.getViewType?.() === 'canvas';
             let insertedViaEditor = false;
 
-            for (const leaf of leaves) {
-                const view = leaf.view as MarkdownView;
-                if (view && view.file?.path === file.path && view.editor) {
-                    if (yamlEndLine !== -1) {
-                        // Insert after YAML using editor
-                        const insertLine = yamlEndLine + 1;
-                        view.editor.replaceRange(cleanTitle + '\n', { line: insertLine, ch: 0 });
-                        verboseLog(this.plugin, `[TITLE-INSERT] Inserted title after frontmatter at line ${insertLine} via editor`);
-                    } else {
-                        // Insert at beginning using editor
-                        view.editor.replaceRange(cleanTitle + '\n', { line: 0, ch: 0 });
-                        verboseLog(this.plugin, `[TITLE-INSERT] Inserted title at beginning via editor`);
+            if (!canvasIsActive) {
+                // Use live build's simple loop structure (proven to work)
+                const leaves = this.app.workspace.getLeavesOfType("markdown");
+
+                for (const leaf of leaves) {
+                    const view = leaf.view as MarkdownView;
+                    if (view && view.file?.path === file.path && view.editor) {
+                        let titleLine = yamlEndLine !== -1 ? yamlEndLine + 1 : 0;
+                        const insertPos = { line: titleLine, ch: 0 };
+
+                        // Verify insertion with retry (max 10 attempts = 1000ms)
+                        for (let attempt = 0; attempt < 10; attempt++) {
+                            view.editor.replaceRange(finalTitle + '\n', insertPos);
+
+                            // Let editor process the change before verification
+                            await new Promise(resolve => setTimeout(resolve, 10));
+
+                            // Now verify
+                            const content = view.editor.getValue();
+                            const lines = content.split('\n');
+                            if (lines[titleLine]?.trim() === finalTitle.trim()) {
+                                // Success - position cursor
+                                verboseLog(this.plugin, `[TITLE-INSERT] Verified insertion at line ${titleLine} (attempt ${attempt + 1})`);
+                                this.positionCursorAfterTitleInsertion(view, titleLine, finalTitle.length);
+                                insertedViaEditor = true;
+                                break;
+                            }
+
+                            // Failed - wait before retry
+                            if (attempt < 9) {
+                                verboseLog(this.plugin, `[TITLE-INSERT] Verification failed, retry in ${TIMING.VIEW_READINESS_RETRY_DELAY_MS}ms (attempt ${attempt + 1})`);
+                                await new Promise(resolve => setTimeout(resolve, TIMING.VIEW_READINESS_RETRY_DELAY_MS));
+                            } else {
+                                verboseLog(this.plugin, `[TITLE-INSERT] Verification failed after 10 attempts, fallback to vault.process`);
+                            }
+                        }
+                        break;  // Exit leaf loop
                     }
-                    insertedViaEditor = true;
-                    break;
                 }
             }
 
-            // Fallback to vault.modify if no editor found
             if (!insertedViaEditor) {
-                if (yamlEndLine !== -1) {
-                    const lines = currentContent.split('\n');
-                    const insertLine = yamlEndLine + 1;
-                    lines.splice(insertLine, 0, cleanTitle);
-                    const newContent = lines.join('\n');
-                    verboseLog(this.plugin, `[TITLE-INSERT] Inserting title after frontmatter at line ${insertLine} via vault`);
-                    await this.app.vault.modify(file, newContent);
-                } else {
-                    verboseLog(this.plugin, `[TITLE-INSERT] Inserting title at beginning via vault`);
-                    await this.app.vault.modify(file, cleanTitle + "\n");
-                }
+                verboseLog(this.plugin, `[TITLE-INSERT] Inserting title via vault.process`);
+                await this.app.vault.process(file, (content) => {
+                    if (yamlEndLine !== -1) {
+                        const lines = content.split('\n');
+                        const insertLine = yamlEndLine + 1;
+                        lines.splice(insertLine, 0, finalTitle);
+                        return lines.join('\n');
+                    } else {
+                        return finalTitle + "\n";
+                    }
+                });
             }
 
             verboseLog(this.plugin, `Successfully inserted title in ${file.path}`);
@@ -278,14 +331,58 @@ export class FileOperations {
     }
 
     /**
+     * Wait for template to be applied based on settings
+     * Shared utility for both title insertion and cursor positioning
+     * @param file - The file to wait for
+     * @param alreadyWaited - Time already waited (e.g., newNoteDelay), default 0
+     * @returns Content after template is applied (or initial content if no wait needed)
+     */
+    async waitForTemplate(file: TFile, alreadyWaited: number = 0): Promise<string> {
+        const initialContent = await readFileContent(this.plugin, file, {
+            searchWorkspace: this.settings.core.fileReadMethod === 'Editor',
+            preferFresh: true
+        });
+
+        if (initialContent.trim() !== '') {
+            verboseLog(this.plugin, `[TEMPLATE-WAIT] File already has content, skipping template wait for ${file.path}`);
+            return initialContent;
+        }
+
+        const templateWaitTime = (this.settings.core.fileReadMethod === 'Cache' || this.settings.core.fileReadMethod === 'File') ? 2500 : 600;
+        const remainingWait = templateWaitTime - alreadyWaited;
+
+        verboseLog(this.plugin, `[TEMPLATE-WAIT] Wait calculation: templateWaitTime=${templateWaitTime}ms, alreadyWaited=${alreadyWaited}ms, remainingWait=${remainingWait}ms`);
+
+        if (remainingWait > 0) {
+            // For Cache/File read methods, wait the full duration (no event-based detection)
+            if (this.settings.core.fileReadMethod === 'Cache' || this.settings.core.fileReadMethod === 'File') {
+                verboseLog(this.plugin, `[TEMPLATE-WAIT] Waiting full ${remainingWait}ms for template (${this.settings.core.fileReadMethod} read method)`);
+                await new Promise(resolve => setTimeout(resolve, remainingWait));
+            } else {
+                // For Editor read method, use event-based YAML detection
+                verboseLog(this.plugin, `[TEMPLATE-WAIT] Starting YAML wait for ${remainingWait}ms (Editor mode)`);
+                await this.waitForYamlOrTimeout(file, remainingWait);
+                verboseLog(this.plugin, `[TEMPLATE-WAIT] YAML wait completed`);
+            }
+        } else {
+            verboseLog(this.plugin, `[TEMPLATE-WAIT] Skipping template wait - already waited ${alreadyWaited}ms >= ${templateWaitTime}ms`);
+        }
+
+        verboseLog(this.plugin, `[TEMPLATE-WAIT] Re-reading content after template wait`);
+        return await readFileContent(this.plugin, file, {
+            searchWorkspace: this.settings.core.fileReadMethod === 'Editor',
+            preferFresh: true
+        });
+    }
+
+    /**
      * Wait for YAML to appear or timeout
-     * Public method for use by workspace-integration
+     * Internal method used by waitForTemplate
      */
     async waitForYamlOrTimeout(file: TFile, timeoutMs: number): Promise<void> {
         return new Promise((resolve) => {
             const startTime = Date.now();
 
-            // Timeout fallback
             const timeoutTimer = setTimeout(() => {
                 const waiter = this.yamlWaiters.get(file.path);
                 if (waiter) {
@@ -295,7 +392,6 @@ export class FileOperations {
                 }
             }, timeoutMs);
 
-            // Register this file as waiting for YAML
             this.yamlWaiters.set(file.path, { resolve, startTime, timeoutTimer });
         });
     }
@@ -308,33 +404,29 @@ export class FileOperations {
         const waiter = this.yamlWaiters.get(file.path);
         if (!waiter) return;
 
-        // Check for YAML - must start at beginning of file (no whitespace allowed before)
-        if (content.startsWith('---')) {
-            const lines = content.split('\n');
-            for (let i = 1; i < lines.length; i++) {
-                if (lines[i] === '---') {
-                    // YAML detected - clear timeout and resolve
-                    const elapsed = Date.now() - waiter.startTime;
-                    verboseLog(this.plugin, `YAML detected after ${elapsed}ms for ${file.path}`);
-                    clearTimeout(waiter.timeoutTimer);
-                    this.yamlWaiters.delete(file.path);
-                    waiter.resolve();
-                    return;
-                }
-            }
+        const frontmatterInfo = getFrontMatterInfo(content);
+        if (frontmatterInfo.exists) {
+            const elapsed = Date.now() - waiter.startTime;
+            verboseLog(this.plugin, `YAML detected after ${elapsed}ms for ${file.path}`);
+            clearTimeout(waiter.timeoutTimer);
+            this.yamlWaiters.delete(file.path);
+            waiter.resolve();
         }
     }
 
     /**
-     * Handles cursor positioning after title insertion
+     * Handles cursor positioning for new file creation (Step 1)
      * @param file - The file to position cursor in
-     * @param usePlaceCursorAtLineEndSetting - Whether to respect placeCursorAtLineEnd setting (true when title insertion is OFF)
+     * @param usePlaceCursorAtLineEndSetting - Controls cursor placement:
+     *   - true: Use placeCursorAtLineEnd setting (when title insertion will be skipped)
+     *   - false: Always position at line start (when title will be inserted in Step 2)
+     * Rationale: If title will be inserted, cursor positioned at start now, then Step 2
+     * repositions at end after insertion. If title skipped, position at end now.
      */
     async handleCursorPositioning(file: TFile, usePlaceCursorAtLineEndSetting: boolean = true): Promise<void> {
         try {
             verboseLog(this.plugin, `handleCursorPositioning called for ${file.path}, usePlaceCursorAtLineEndSetting: ${usePlaceCursorAtLineEndSetting}`);
 
-            // Find the specific view for this file (not just active view)
             let targetView: MarkdownView | null = null;
             const leaves = this.app.workspace.getLeavesOfType("markdown");
             for (const leaf of leaves) {
@@ -348,7 +440,6 @@ export class FileOperations {
             verboseLog(this.plugin, `Target view found: ${!!targetView}, file matches: ${targetView?.file?.path === file.path}`);
 
             if (targetView && targetView.file?.path === file.path) {
-                // Set to source mode
                 await targetView.leaf.setViewState({
                     type: "markdown",
                     state: {
@@ -357,18 +448,13 @@ export class FileOperations {
                     }
                 });
 
-                // Focus the editor
                 await targetView.editor?.focus();
 
-                // Position cursor - find actual title line by parsing content
                 let titleLineNumber = 0;
                 let titleLineLength = 0;
-
-                // Parse content directly to detect frontmatter
                 const content = targetView.editor?.getValue() || '';
                 const lines = content.split('\n');
 
-                // Detect YAML frontmatter
                 let yamlEndLine = -1;
                 if (lines[0] === '---') {
                     for (let i = 1; i < lines.length; i++) {
@@ -380,29 +466,40 @@ export class FileOperations {
                 }
 
                 if (yamlEndLine !== -1) {
-                    // Title is on the line after frontmatter
                     titleLineNumber = yamlEndLine + 1;
                     verboseLog(this.plugin, `Found frontmatter ending at line ${yamlEndLine}, title on line ${titleLineNumber}`);
                 } else {
-                    // No frontmatter, title is on first line
                     titleLineNumber = 0;
                     verboseLog(this.plugin, `No frontmatter found, title on line ${titleLineNumber}`);
                 }
 
                 titleLineLength = targetView.editor?.getLine(titleLineNumber)?.length || 0;
 
-                // Determine cursor position based on settings
-                const shouldPlaceAtEnd = usePlaceCursorAtLineEndSetting && this.settings.moveCursorToFirstLine && this.settings.placeCursorAtLineEnd;
+                // Determine target position
+                let targetPosition: {line: number, ch: number};
 
-                if (shouldPlaceAtEnd) {
-                    // Move to end of title line
-                    targetView.editor?.setCursor({ line: titleLineNumber, ch: titleLineLength });
-                    verboseLog(this.plugin, `Moved cursor to end of title line ${titleLineNumber} (${titleLineLength} chars) via handleCursorPositioning for ${file.path}`);
+                if (!usePlaceCursorAtLineEndSetting) {
+                    // Title will be inserted in Step 2 - position at start of title line
+                    targetPosition = { line: titleLineNumber, ch: 0 };
                 } else {
-                    // Move to start of title line
-                    targetView.editor?.setCursor({ line: titleLineNumber, ch: 0 });
-                    verboseLog(this.plugin, `Moved cursor to start of title line ${titleLineNumber} via handleCursorPositioning for ${file.path}`);
+                    // Title insertion skipped - use placeCursorAtLineEnd setting
+                    if (this.settings.core.moveCursorToFirstLine) {
+                        if (this.settings.core.placeCursorAtLineEnd) {
+                            // Place at end of title line
+                            targetPosition = { line: titleLineNumber, ch: titleLineLength };
+                        } else {
+                            // Place at start of title line
+                            targetPosition = { line: titleLineNumber, ch: 0 };
+                        }
+                    } else {
+                        // Don't move cursor
+                        return;
+                    }
                 }
+
+                verboseLog(this.plugin, `[CURSOR-FLIT] file-operations.ts:500 - BEFORE setCursor() | target: line ${targetPosition.line} ch ${targetPosition.ch}`);
+                targetView.editor?.setCursor(targetPosition);
+                verboseLog(this.plugin, `[CURSOR-POS] Set cursor to line ${targetPosition.line}, ch ${targetPosition.ch} for ${file.path}`);
             } else {
                 verboseLog(this.plugin, `Skipping cursor positioning - no matching active view for ${file.path}`);
             }
@@ -427,22 +524,21 @@ export class FileOperations {
     /**
      * Check if file is excluded from processing (folder/tag/property exclusions + disable property)
      * Uses real-time content checking for tags if content provided
+     * @param skipFolderCheck - If true, ignore folder exclusions (only check tags/properties)
      */
-    async isFileExcludedForCursorPositioning(file: TFile, content?: string): Promise<boolean> {
-        // Check folder/tag/property exclusions
-        if (!shouldProcessFile(file, this.settings, this.app, content)) {
+    async isFileExcludedForCursorPositioning(file: TFile, content?: string, skipFolderCheck: boolean = false): Promise<boolean> {
+        const exclusionOverrides = skipFolderCheck ? { ignoreFolder: true } : undefined;
+        if (!shouldProcessFile(file, this.settings, this.app, content, exclusionOverrides, this.plugin)) {
             return true;
         }
 
-        // Check disable property by parsing content directly
         if (content) {
             const hasDisableProperty = this.checkDisablePropertyInContent(content);
             if (hasDisableProperty) {
                 return true;
             }
         } else {
-            // Fallback to cache-based check if no content provided
-            if (await hasDisablePropertyInFile(file, this.app, this.settings.disableRenamingKey, this.settings.disableRenamingValue)) {
+            if (await hasDisablePropertyInFile(file, this.app, this.settings.exclusions.disableRenamingKey, this.settings.exclusions.disableRenamingValue)) {
                 return true;
             }
         }
@@ -454,127 +550,110 @@ export class FileOperations {
      * Check for disable property and excluded properties by parsing YAML directly from content
      */
     private checkDisablePropertyInContent(content: string): boolean {
-        const lines = content.split('\n');
+        const frontmatterInfo = getFrontMatterInfo(content);
+        if (!frontmatterInfo.exists) return false;
 
-        // Check for YAML frontmatter
-        if (lines[0] !== '---') return false;
-
-        let yamlEndLine = -1;
-        for (let i = 1; i < lines.length; i++) {
-            if (lines[i] === '---') {
-                yamlEndLine = i;
-                break;
-            }
+        let frontmatter: Record<string, any>;
+        try {
+            frontmatter = parseYaml(frontmatterInfo.frontmatter);
+        } catch (error) {
+            verboseLog(this.plugin, `Failed to parse YAML: ${error}`);
+            return false;
         }
 
-        if (yamlEndLine === -1) return false;
+        if (!frontmatter || typeof frontmatter !== 'object') return false;
 
-        // Parse YAML for both disable property and excluded properties
-        const yamlLines = lines.slice(1, yamlEndLine);
+        const disableKey = this.settings.exclusions.disableRenamingKey;
+        const disableValue = this.settings.exclusions.disableRenamingValue.toLowerCase();
 
-        // Check disable property
-        const disableKey = this.settings.disableRenamingKey;
-        const disableValue = this.settings.disableRenamingValue.toLowerCase();
-
-        // Check excluded properties from settings
-        const nonEmptyExcludedProps = this.settings.excludedProperties.filter(
+        const nonEmptyExcludedProps = this.settings.exclusions.excludedProperties.filter(
             prop => prop.key.trim() !== ""
         );
 
-        // Simple YAML parser - handles key: value and key: [array, items]
-        let currentKey = '';
-        let inArray = false;
+        // Helper to normalize tag values (remove # prefix)
+        const normalizeTag = (val: string): string => {
+            return val.startsWith('#') ? val.substring(1) : val;
+        };
 
-        for (const line of yamlLines) {
-            const trimmed = line.trim();
+        const checkValue = (key: string, value: any): boolean => {
+            const valueStr = String(value);
 
-            // Skip empty lines and comments
-            if (trimmed === '' || trimmed.startsWith('#')) continue;
-
-            // Check if line starts array items (- item)
-            if (trimmed.startsWith('- ')) {
-                if (inArray && currentKey) {
-                    let arrayValue = trimmed.substring(2).trim();
-
-                    // Remove quotes if present
-                    if ((arrayValue.startsWith('"') && arrayValue.endsWith('"')) ||
-                        (arrayValue.startsWith("'") && arrayValue.endsWith("'"))) {
-                        arrayValue = arrayValue.substring(1, arrayValue.length - 1);
-                    }
-
-                    // Normalize tag values - remove # prefix for comparison
-                    const normalizedArrayValue = arrayValue.startsWith('#') ? arrayValue.substring(1) : arrayValue;
-
-                    // Check against disable property
-                    if (currentKey === disableKey && arrayValue.toLowerCase() === disableValue) {
-                        verboseLog(this.plugin, `Found disable property in array: ${currentKey}: [${arrayValue}]`);
-                        return true;
-                    }
-
-                    // Check against excluded properties
-                    for (const excludedProp of nonEmptyExcludedProps) {
-                        const propKey = excludedProp.key.trim();
-                        const propValue = excludedProp.value.trim();
-
-                        if (currentKey === propKey) {
-                            // For tags property, normalize both sides (remove #)
-                            if (propKey === 'tags') {
-                                const normalizedPropValue = propValue.startsWith('#') ? propValue.substring(1) : propValue;
-                                if (propValue === '' || normalizedArrayValue === normalizedPropValue) {
-                                    verboseLog(this.plugin, `Found excluded tag in array: ${propKey}: [${arrayValue}]`);
-                                    return true;
-                                }
-                            } else {
-                                // For other properties, exact match
-                                if (propValue === '' || arrayValue === propValue) {
-                                    verboseLog(this.plugin, `Found excluded property in array: ${propKey}: [${arrayValue}]`);
-                                    return true;
-                                }
-                            }
-                        }
-                    }
-                }
-                continue;
+            if (key === disableKey && valueStr.toLowerCase() === disableValue) {
+                verboseLog(this.plugin, `Found disable property: ${key}: ${valueStr}`);
+                return true;
             }
 
-            // Check for key: value pattern
-            if (trimmed.includes(':')) {
-                const colonIndex = trimmed.indexOf(':');
-                const key = trimmed.substring(0, colonIndex).trim();
-                const value = trimmed.substring(colonIndex + 1).trim();
+            for (const excludedProp of nonEmptyExcludedProps) {
+                const propKey = excludedProp.key.trim();
+                const propValue = excludedProp.value.trim();
 
-                currentKey = key;
-
-                // Check if value is empty (array follows)
-                if (value === '' || value === '[') {
-                    inArray = true;
-                    continue;
-                } else {
-                    inArray = false;
-                }
-
-                // Check against disable property
-                if (key === disableKey && value.toLowerCase() === disableValue) {
-                    verboseLog(this.plugin, `Found disable property: ${key}: ${value}`);
-                    return true;
-                }
-
-                // Check against excluded properties
-                for (const excludedProp of nonEmptyExcludedProps) {
-                    const propKey = excludedProp.key.trim();
-                    const propValue = excludedProp.value.trim();
-
-                    if (key === propKey) {
-                        // Match if value is empty (any value) or exact match
-                        if (propValue === '' || value === propValue) {
-                            verboseLog(this.plugin, `Found excluded property: ${propKey}: ${value}`);
+                if (key === propKey) {
+                    // For tags property, normalize both sides (remove #)
+                    if (propKey === 'tags') {
+                        const normalizedPropValue = normalizeTag(propValue);
+                        const normalizedValue = normalizeTag(valueStr);
+                        if (propValue === '' || normalizedValue === normalizedPropValue) {
+                            verboseLog(this.plugin, `Found excluded tag: ${propKey}: ${valueStr}`);
+                            return true;
+                        }
+                    } else {
+                        // For other properties, exact match or empty value (any value)
+                        if (propValue === '' || valueStr === propValue) {
+                            verboseLog(this.plugin, `Found excluded property: ${propKey}: ${valueStr}`);
                             return true;
                         }
                     }
                 }
             }
+
+            return false;
+        };
+
+        for (const [key, value] of Object.entries(frontmatter)) {
+            if (Array.isArray(value)) {
+                for (const item of value) {
+                    if (checkValue(key, item)) {
+                        return true;
+                    }
+                }
+            } else if (value !== null && value !== undefined) {
+                if (checkValue(key, value)) {
+                    return true;
+                }
+            }
         }
 
         return false;
+    }
+
+    /**
+     * Position cursor at end of title line after insertion (if settings allow)
+     * Helper to consolidate cursor positioning logic in insertTitleOnCreation
+     * @param view The markdown view where title was inserted
+     * @param titleLine Line number where title was inserted
+     * @param titleLength Length of the inserted title
+     */
+    private positionCursorAfterTitleInsertion(view: MarkdownView, titleLine: number, titleLength: number): void {
+        if (this.settings.core.moveCursorToFirstLine && this.settings.core.placeCursorAtLineEnd) {
+            setTimeout(() => {
+                if (view.editor) {
+                    view.editor.focus();
+                    verboseLog(this.plugin, `[CURSOR-FLIT] file-operations.ts:641 - BEFORE setCursor() | target: line ${titleLine} ch ${titleLength}`);
+                    view.editor.setCursor({ line: titleLine, ch: titleLength });
+                    verboseLog(this.plugin, `[TITLE-INSERT] Positioned cursor at end of title line ${titleLine} (${titleLength} chars)`);
+                }
+            }, 0);
+        }
+    }
+
+    /**
+     * Clean up all YAML waiters (clear timeouts and promises)
+     */
+    cleanup(): void {
+        for (const waiter of this.yamlWaiters.values()) {
+            clearTimeout(waiter.timeoutTimer);
+        }
+        this.yamlWaiters.clear();
+        verboseLog(this.plugin, 'Cleaned up all YAML waiters');
     }
 }

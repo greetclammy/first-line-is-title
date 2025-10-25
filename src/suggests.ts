@@ -3,16 +3,19 @@ import { AbstractInputSuggest, TFolder, App } from "obsidian";
 export class FolderSuggest extends AbstractInputSuggest<TFolder> {
     private inputEl: HTMLInputElement;
     private onSelectCallback: (value: string) => void;
+    private excludedPaths: Set<string>;
 
-    constructor(app: App, inputEl: HTMLInputElement, onSelectCallback: (value: string) => void) {
+    constructor(app: App, inputEl: HTMLInputElement, onSelectCallback: (value: string) => void, currentExclusions: string[] = []) {
         super(app, inputEl);
         this.inputEl = inputEl;
         this.onSelectCallback = onSelectCallback;
+        this.excludedPaths = new Set(currentExclusions.map(path => path.trim()).filter(path => path !== ''));
     }
 
     getSuggestions(query: string): TFolder[] {
         const folders = this.app.vault.getAllLoadedFiles()
-            .filter((file): file is TFolder => file instanceof TFolder);
+            .filter((file): file is TFolder => file instanceof TFolder)
+            .filter(folder => !this.excludedPaths.has(folder.path));
 
         if (!query) {
             return folders.slice(0, 10);
@@ -46,16 +49,19 @@ export class FolderSuggest extends AbstractInputSuggest<TFolder> {
 export class TagSuggest extends AbstractInputSuggest<string> {
     private inputEl: HTMLInputElement;
     private onSelectCallback: (value: string) => void;
+    private excludedTags: Set<string>;
 
-    constructor(app: App, inputEl: HTMLInputElement, onSelectCallback: (value: string) => void) {
+    constructor(app: App, inputEl: HTMLInputElement, onSelectCallback: (value: string) => void, currentExclusions: string[] = []) {
         super(app, inputEl);
         this.inputEl = inputEl;
         this.onSelectCallback = onSelectCallback;
+        this.excludedTags = new Set(currentExclusions.map(tag => tag.trim()).filter(tag => tag !== ''));
     }
 
     getSuggestions(query: string): string[] {
         // Get all tags from the vault
-        const allTags = Object.keys(this.app.metadataCache.getTags());
+        const allTags = Object.keys(this.app.metadataCache.getTags())
+            .filter(tag => !this.excludedTags.has(tag));
 
         if (!query) {
             return allTags.slice(0, 10);

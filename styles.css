@@ -6,6 +6,13 @@
     text-align: left;
 }
 
+.modal-title {
+    text-align: center;
+    margin-top: 10px;
+    font-size: 1.5em;
+    font-weight: 600;
+}
+
 .flit-link-input-full {
     width: 100%;
     box-sizing: border-box;
@@ -590,6 +597,7 @@ br + .flit-table-container {
    ========================================================================== */
 
 .flit-settings-tab-bar {
+    --flit-tab-min-width: 140px;
     display: grid;
     gap: 4px;
     padding: 4px;
@@ -599,7 +607,7 @@ br + .flit-table-container {
     box-sizing: border-box;
     justify-content: stretch;
     /* Start with 5 columns, CSS will adjust based on container width */
-    grid-template-columns: repeat(5, minmax(140px, 1fr));
+    grid-template-columns: repeat(5, minmax(var(--flit-tab-min-width), 1fr));
     /* Allow horizontal scrolling when tabs need more space than container provides */
     overflow-x: auto;
     overflow-y: hidden;
@@ -619,7 +627,7 @@ br + .flit-table-container {
     border-radius: var(--radius-s);
     transition: all 0.15s ease;
     width: 100%;
-    min-width: 140px;
+    min-width: var(--flit-tab-min-width);
     box-sizing: border-box;
 }
 
@@ -637,37 +645,37 @@ br + .flit-table-container {
         container-type: inline-size;
     }
 
-    /* 5-4 layout: container width >= 720px (5 * 140px + gaps) */
+    /* 5-4 layout: container width >= 720px (5 * min-width + gaps) */
     @container (min-width: 720px) {
         .flit-settings-tab-bar {
-            grid-template-columns: repeat(5, minmax(140px, 1fr));
+            grid-template-columns: repeat(5, minmax(var(--flit-tab-min-width), 1fr));
             justify-content: stretch;
         }
     }
 
-    /* 3-3-3 layout: container width 420px-719px (3 * 140px + gaps) */
+    /* 3-3-3 layout: container width 420px-719px (3 * min-width + gaps) */
     @container (min-width: 420px) and (max-width: 719px) {
         .flit-settings-tab-bar {
-            grid-template-columns: repeat(3, minmax(140px, 1fr));
+            grid-template-columns: repeat(3, minmax(var(--flit-tab-min-width), 1fr));
             justify-content: stretch;
         }
     }
 
-    /* 2-2-2-2-1 layout: container width 280px-419px (2 * 140px + gaps) */
+    /* 2-2-2-2-1 layout: container width 280px-419px (2 * min-width + gaps) */
     @container (min-width: 280px) and (max-width: 419px) {
         .flit-settings-tab-bar {
-            grid-template-columns: repeat(2, minmax(140px, 1fr));
+            grid-template-columns: repeat(2, minmax(var(--flit-tab-min-width), 1fr));
             justify-content: stretch;
         }
     }
 
-    /* 9 rows: container width < 280px - still enforce 140px minimum */
+    /* 9 rows: container width < 280px - still enforce minimum */
     @container (max-width: 279px) {
         .flit-settings-tab-bar {
-            grid-template-columns: minmax(140px, 1fr);
+            grid-template-columns: minmax(var(--flit-tab-min-width), 1fr);
             justify-content: stretch;
-            /* Grid will be 140px wide minimum, allowing horizontal scroll if needed */
-            min-width: 140px;
+            /* Grid will be min-width wide minimum, allowing horizontal scroll if needed */
+            min-width: var(--flit-tab-min-width);
         }
     }
 }
@@ -677,7 +685,7 @@ br + .flit-table-container {
     /* Use reasonable viewport-based breakpoints as fallback */
     @media screen and (min-width: 720px) {
         .flit-settings-tab-bar {
-            grid-template-columns: repeat(5, minmax(140px, 1fr));
+            grid-template-columns: repeat(5, minmax(var(--flit-tab-min-width), 1fr));
             max-width: 720px;
             margin: 0 auto;
         }
@@ -685,20 +693,20 @@ br + .flit-table-container {
 
     @media screen and (max-width: 719px) and (min-width: 420px) {
         .flit-settings-tab-bar {
-            grid-template-columns: repeat(3, minmax(140px, 1fr));
+            grid-template-columns: repeat(3, minmax(var(--flit-tab-min-width), 1fr));
         }
     }
 
     @media screen and (max-width: 419px) and (min-width: 280px) {
         .flit-settings-tab-bar {
-            grid-template-columns: repeat(2, minmax(140px, 1fr));
+            grid-template-columns: repeat(2, minmax(var(--flit-tab-min-width), 1fr));
         }
     }
 
     @media screen and (max-width: 279px) {
         .flit-settings-tab-bar {
-            grid-template-columns: minmax(140px, 1fr);
-            min-width: 140px;
+            grid-template-columns: minmax(var(--flit-tab-min-width), 1fr);
+            min-width: var(--flit-tab-min-width);
         }
     }
 }
@@ -1018,7 +1026,8 @@ hr.flit-divider {
 .flit-master-disabled .flit-safeword-header,
 .flit-master-disabled .flit-custom-replacement-setting,
 .flit-master-disabled .flit-safeword-setting,
-.flit-master-disabled br {
+.flit-master-disabled br,
+.flit-master-disabled p.setting-item-description {
     opacity: 0.5;
 }
 
@@ -1400,6 +1409,7 @@ hr.flit-divider {
 .flit-display-empty { display: ''; }
 
 /* Gap utilities */
+.flit-gap-8 { gap: 8px; }
 .flit-gap-10 { gap: 10px; }
 
 /* Opacity utilities */
@@ -1413,10 +1423,67 @@ hr.flit-divider {
 .flit-pointer-empty { pointer-events: ''; }
 
 /* Width utilities */
+.flit-width-100 { width: 100%; }
 .flit-width-120 { width: 120px; }
 
 /* Margin utilities */
 .flit-margin-0 { margin: 0; }
+.flit-margin-top-5 { margin-top: 5px; }
+.flit-margin-top-6 { margin-top: 6px; }
+.flit-margin-top-10 { margin-top: 10px; }
+.flit-margin-top-12 { margin-top: 12px; }
+.flit-margin-top-15 { margin-top: 15px; }
+.flit-margin-bottom-0 { margin-bottom: 0; }
+.flit-margin-bottom-10 { margin-bottom: 10px; }
+.flit-margin-bottom-15 { margin-bottom: 15px; }
+.flit-margin-bottom-20 { margin-bottom: 20px; }
+
+/* Padding utilities */
+.flit-padding-left-20 { padding-left: 20px; }
 
 /* Alignment utilities */
 .flit-align-center { display: flex; align-items: center; gap: 8px; }
+.flit-align-items-center { align-items: center; }
+
+/* Justify content utilities */
+.flit-justify-center { justify-content: center; }
+
+/* Feedback button container - replaces cssText */
+.flit-feedback-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    margin: 20px 0;
+    padding: 4px 0;
+    overflow: visible;
+}
+
+/* Feedback button styling - replaces inline styles */
+.flit-feedback-button {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* Border utilities */
+.flit-border-top-none { border-top: none; }
+
+/* State management utilities - for enable/disable interactions */
+.flit-state-disabled {
+    opacity: 0.5;
+    pointer-events: none;
+}
+
+.flit-state-enabled {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+/* Property container - used in exclusions tab */
+.flit-property-control-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+}

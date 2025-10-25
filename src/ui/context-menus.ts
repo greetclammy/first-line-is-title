@@ -1,17 +1,26 @@
-import { Menu, TFile, TFolder, setIcon } from "obsidian";
+import { Menu, TFile, TFolder, setIcon, Notice } from "obsidian";
 import { verboseLog } from '../utils';
-import { ProcessTagModal } from '../modals';
+import { ProcessTagModal, RenameMultipleFoldersModal } from '../modals';
 import FirstLineIsTitlePlugin from '../../main';
+import { t, tp } from '../i18n';
+import { MenuRenderer } from './menu-config';
+import { MenuDefinitions } from './menu-definitions';
+import { TIMING } from '../constants/timing';
 
 /**
  * Manages all context menu operations for the First Line is Title plugin.
  * Handles folder/tag menu creation, bulk operations, and menu text generation.
+ * Uses declarative menu configuration for clean, maintainable menu definitions.
  */
 export class ContextMenuManager {
     private plugin: FirstLineIsTitlePlugin;
+    private menuRenderer: MenuRenderer;
+    private menuDefinitions: MenuDefinitions;
 
     constructor(plugin: FirstLineIsTitlePlugin) {
         this.plugin = plugin;
+        this.menuRenderer = new MenuRenderer(plugin);
+        this.menuDefinitions = new MenuDefinitions(plugin);
     }
 
     /**
@@ -19,11 +28,10 @@ export class ContextMenuManager {
      * Uses Tag Wrangler's menuForEvent pattern.
      */
     menuForEvent(evt: MouseEvent): Menu {
-        // Use Tag Wrangler's menuForEvent pattern
         let menu = evt.obsidian_contextmenu;
         if (!menu) {
             menu = evt.obsidian_contextmenu = new Menu();
-            setTimeout(() => menu.showAtPosition({x: evt.pageX, y: evt.pageY}), 0);
+            setTimeout(() => menu!.showAtPosition({x: evt.pageX, y: evt.pageY}), TIMING.NEXT_TICK_MS);
         }
         return menu;
     }
@@ -32,10 +40,10 @@ export class ContextMenuManager {
      * Determines whether to show disable menu option for a folder based on scope strategy.
      */
     shouldShowDisableMenuForFolder(folderPath: string): boolean {
-        const isInList = this.plugin.settings.excludedFolders.includes(folderPath);
+        const isInList = this.plugin.settings.exclusions.excludedFolders.includes(folderPath);
 
         let result: boolean;
-        if (this.plugin.settings.folderScopeStrategy === 'Only exclude...') {
+        if (this.plugin.settings.exclusions.folderScopeStrategy === 'Only exclude...') {
             // Only exclude strategy: list contains DISABLED folders
             // folder in list (disabled) → show "enable" → return false
             // folder not in list (enabled) → show "disable" → return true
@@ -48,7 +56,7 @@ export class ContextMenuManager {
         }
 
         verboseLog(this.plugin, `shouldShowDisableMenuForFolder(${folderPath})`, {
-            folderScopeStrategy: this.plugin.settings.folderScopeStrategy,
+            folderScopeStrategy: this.plugin.settings.exclusions.folderScopeStrategy,
             isInList,
             result,
             willShow: result ? 'DISABLE menu' : 'ENABLE menu'
@@ -62,10 +70,10 @@ export class ContextMenuManager {
      */
     shouldShowDisableMenuForTag(tagName: string): boolean {
         const tagToFind = tagName.startsWith('#') ? tagName : `#${tagName}`;
-        const isInList = this.plugin.settings.excludedTags.includes(tagToFind);
+        const isInList = this.plugin.settings.exclusions.excludedTags.includes(tagToFind);
 
         let result: boolean;
-        if (this.plugin.settings.tagScopeStrategy === 'Only exclude...') {
+        if (this.plugin.settings.exclusions.tagScopeStrategy === 'Only exclude...') {
             // Only exclude strategy: list contains DISABLED tags
             // tag in list (disabled) → show "enable" → return false
             // tag not in list (enabled) → show "disable" → return true
@@ -78,7 +86,7 @@ export class ContextMenuManager {
         }
 
         verboseLog(this.plugin, `shouldShowDisableMenuForTag(${tagName})`, {
-            folderScopeStrategy: this.plugin.settings.folderScopeStrategy,
+            folderScopeStrategy: this.plugin.settings.exclusions.folderScopeStrategy,
             tagToFind,
             isInList,
             result,
@@ -92,17 +100,17 @@ export class ContextMenuManager {
      * Gets the appropriate menu text for folder operations based on scope strategy.
      */
     getFolderMenuText(folderPath: string): { disable: string, enable: string } {
-        if (this.plugin.settings.folderScopeStrategy === 'Only exclude...') {
+        if (this.plugin.settings.exclusions.folderScopeStrategy === 'Only exclude...') {
             // Only exclude strategy: list contains DISABLED folders
             return {
-                disable: "Disable renaming in folder",
-                enable: "Enable renaming in folder"
+                disable: t('commands.disableRenamingInFolder'),
+                enable: t('commands.enableRenamingInFolder')
             };
         } else {
             // Exclude all except strategy: list contains ENABLED folders
             return {
-                disable: "Disable renaming in folder",
-                enable: "Enable renaming in folder"
+                disable: t('commands.disableRenamingInFolder'),
+                enable: t('commands.enableRenamingInFolder')
             };
         }
     }
@@ -111,74 +119,49 @@ export class ContextMenuManager {
      * Gets the appropriate menu text for tag operations based on scope strategy.
      */
     getTagMenuText(tagName: string): { disable: string, enable: string } {
-        if (this.plugin.settings.tagScopeStrategy === 'Only exclude...') {
+        if (this.plugin.settings.exclusions.tagScopeStrategy === 'Only exclude...') {
             // Only exclude strategy: list contains DISABLED tags
             return {
-                disable: "Disable renaming for tag",
-                enable: "Enable renaming for tag"
+                disable: t('commands.disableRenamingForTag'),
+                enable: t('commands.enableRenamingForTag')
             };
         } else {
             // Exclude all except strategy: list contains ENABLED tags
             return {
-                disable: "Disable renaming for tag",
-                enable: "Enable renaming for tag"
+                disable: t('commands.disableRenamingForTag'),
+                enable: t('commands.enableRenamingForTag')
             };
         }
     }
 
     /**
      * Adds tag-related menu items to a context menu.
+     * Uses declarative menu configuration for clean, maintainable code.
      */
     addTagMenuItems(menu: Menu, tagName: string): void {
-        const tagToFind = tagName.startsWith('#') ? tagName : `#${tagName}`;
-        const shouldShowDisable = this.shouldShowDisableMenuForTag(tagName);
-        const menuText = this.getTagMenuText(tagName);
+        const config = this.menuDefinitions.getTagMenuConfig();
+        const context = { tagName };
+        this.menuRenderer.render(menu, config, context);
+    }
 
-        // Count visible items to determine if we need a separator
-        let visibleItemCount = 0;
-        if (this.plugin.settings.commandVisibility.tagPutFirstLineInTitle) visibleItemCount++;
-        if (shouldShowDisable && this.plugin.settings.commandVisibility.tagExclude) visibleItemCount++;
-        if (!shouldShowDisable && this.plugin.settings.commandVisibility.tagStopExcluding) visibleItemCount++;
+    /**
+     * Adds folder-related menu items to a context menu.
+     * Uses declarative menu configuration for clean, maintainable code.
+     */
+    addFolderMenuItems(menu: Menu, folder: TFolder): void {
+        const config = this.menuDefinitions.getFolderMenuConfig();
+        const context = { folder };
+        this.menuRenderer.render(menu, config, context);
+    }
 
-        // Add separator if we have any items to show
-        if (visibleItemCount > 0) {
-            menu.addSeparator();
-        }
-
-        // Add "Put first line in title" command for tag
-        if (this.plugin.settings.commandVisibility.tagPutFirstLineInTitle) {
-            menu.addItem((item) => {
-                item
-                    .setTitle("Put first line in title")
-                    .setIcon("file-pen")
-                    .onClick(() => {
-                        new ProcessTagModal(this.plugin.app, this.plugin, tagName).open();
-                    });
-            });
-        }
-
-        // Add tag exclusion commands with dynamic text
-        if (shouldShowDisable && this.plugin.settings.commandVisibility.tagExclude) {
-            menu.addItem((item) => {
-                item
-                    .setTitle(menuText.disable)
-                    .setIcon("square-x")
-                    .onClick(async () => {
-                        await this.plugin.toggleTagExclusion(tagName);
-                    });
-            });
-        }
-
-        if (!shouldShowDisable && this.plugin.settings.commandVisibility.tagStopExcluding) {
-            menu.addItem((item) => {
-                item
-                    .setTitle(menuText.enable)
-                    .setIcon("square-check")
-                    .onClick(async () => {
-                        await this.plugin.toggleTagExclusion(tagName);
-                    });
-            });
-        }
+    /**
+     * Adds file-related menu items to a context menu.
+     * Uses declarative menu configuration for clean, maintainable code.
+     */
+    addFileMenuItems(menu: Menu, file: TFile): void {
+        const config = this.menuDefinitions.getFileMenuConfig();
+        const context = { file };
+        this.menuRenderer.render(menu, config, context);
     }
 
     /**
@@ -186,16 +169,17 @@ export class ContextMenuManager {
      * Used for custom menu implementations.
      */
     addTagMenuItemsToDOM(menuEl: HTMLElement, tagName: string): void {
+        if (!this.plugin.settings.core.enableTagCommands) return;
+
         const tagToFind = tagName.startsWith('#') ? tagName : `#${tagName}`;
         const shouldShowDisable = this.shouldShowDisableMenuForTag(tagName);
         const menuText = this.getTagMenuText(tagName);
 
-        // Add "Put first line in title" command for tag
-        if (this.plugin.settings.commandVisibility.tagPutFirstLineInTitle) {
+        if (this.plugin.settings.core.commandVisibility.tagPutFirstLineInTitle) {
             const menuItem = menuEl.createEl('div', { cls: 'menu-item' });
             const iconEl = menuItem.createEl('div', { cls: 'menu-item-icon' });
             setIcon(iconEl, 'file-pen');
-            menuItem.createEl('div', { cls: 'menu-item-title', text: 'Put first line in title' });
+            menuItem.createEl('div', { cls: 'menu-item-title', text: t('commands.putFirstLineInTitle') });
 
             menuItem.addEventListener('click', () => {
                 new ProcessTagModal(this.plugin.app, this.plugin, tagName).open();
@@ -203,8 +187,7 @@ export class ContextMenuManager {
             });
         }
 
-        // Add tag exclusion commands with dynamic text
-        if (shouldShowDisable && this.plugin.settings.commandVisibility.tagExclude) {
+        if (shouldShowDisable && this.plugin.settings.core.commandVisibility.tagExclude) {
             const menuItem = menuEl.createEl('div', { cls: 'menu-item' });
             const iconEl = menuItem.createEl('div', { cls: 'menu-item-icon' });
             setIcon(iconEl, 'square-x');
@@ -216,7 +199,7 @@ export class ContextMenuManager {
             });
         }
 
-        if (!shouldShowDisable && this.plugin.settings.commandVisibility.tagStopExcluding) {
+        if (!shouldShowDisable && this.plugin.settings.core.commandVisibility.tagStopExcluding) {
             const menuItem = menuEl.createEl('div', { cls: 'menu-item' });
             const iconEl = menuItem.createEl('div', { cls: 'menu-item-icon' });
             setIcon(iconEl, 'square-check');
@@ -233,35 +216,37 @@ export class ContextMenuManager {
      * Adds menu items for bulk operations on multiple folders.
      */
     addMultiFolderMenuItems(menu: Menu, folders: TFolder[]): void {
-        // Count total markdown files across all folders
+        if (!this.plugin.settings.core.enableFolderCommands) return;
+
         let totalFiles = 0;
         folders.forEach(folder => {
             const files = this.plugin.getAllMarkdownFilesInFolder(folder);
             totalFiles += files.length;
         });
 
-        if (totalFiles === 0) return;
+        const hasRenameCommand = this.plugin.settings.core.commandVisibility.folderPutFirstLineInTitle && totalFiles > 0;
+        const hasDisableCommand = this.plugin.settings.core.commandVisibility.folderExclude;
+        const hasEnableCommand = this.plugin.settings.core.commandVisibility.folderStopExcluding;
 
-        // Add separator before our items
+        if (!hasRenameCommand && !hasDisableCommand && !hasEnableCommand) return;
+
         menu.addSeparator();
 
-        // Add "Put first line in title" command for multiple folders
-        if (this.plugin.settings.commandVisibility.folderPutFirstLineInTitle) {
+        if (hasRenameCommand) {
             menu.addItem((item) => {
                 item
-                    .setTitle(`Put first line in title (${folders.length} folders)`)
+                    .setTitle(tp('commands.putFirstLineInTitleNFolders', folders.length))
                     .setIcon("folder-pen")
-                    .onClick(async () => {
-                        await this.plugin.processMultipleFolders(folders, 'rename');
+                    .onClick(() => {
+                        new RenameMultipleFoldersModal(this.plugin.app, this.plugin, folders).open();
                     });
             });
         }
 
-        // Add "Disable renaming" command for multiple folders
-        if (this.plugin.settings.commandVisibility.folderExclude) {
+        if (hasDisableCommand) {
             menu.addItem((item) => {
                 item
-                    .setTitle(`Disable renaming (${folders.length} folders)`)
+                    .setTitle(tp('commands.disableRenamingNFolders', folders.length))
                     .setIcon("square-x")
                     .onClick(async () => {
                         await this.plugin.processMultipleFolders(folders, 'disable');
@@ -269,11 +254,10 @@ export class ContextMenuManager {
             });
         }
 
-        // Add "Enable renaming" command for multiple folders
-        if (this.plugin.settings.commandVisibility.folderStopExcluding) {
+        if (hasEnableCommand) {
             menu.addItem((item) => {
                 item
-                    .setTitle(`Enable renaming (${folders.length} folders)`)
+                    .setTitle(tp('commands.enableRenamingNFolders', folders.length))
                     .setIcon("square-check")
                     .onClick(async () => {
                         await this.plugin.processMultipleFolders(folders, 'enable');

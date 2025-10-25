@@ -59,10 +59,10 @@ export class PropertyManager {
                                 };
 
                                 // Suppress if all conditions are met AND the setting is enabled
-                                if (this.settings.suppressMergeNotifications &&
+                                if (this.settings.core.suppressMergeNotifications &&
                                     conditions.hasExternal && conditions.hasMd && conditions.noUpdated &&
                                     conditions.startsQuote && conditions.shortEnough) {
-                                    notice.style.display = 'none';
+                                    notice.classList.add('flit-display-none');
                                     verboseLog(this.plugin, `Suppressed external modification notice: ${noticeText.substring(0, 50)}...`);
                                 }
                             }
@@ -105,6 +105,9 @@ export class PropertyManager {
 
     /**
      * Read types.json file
+     *
+     * NOTE: Uses Adapter API as necessary exception - types.json is in .obsidian/ config directory
+     * and is not a TFile tracked by vault. Vault API only works with indexed vault files.
      */
     private async readTypesJson(): Promise<TypesJson> {
         const path = this.getTypesJsonPath();
@@ -120,6 +123,9 @@ export class PropertyManager {
 
     /**
      * Write types.json file
+     *
+     * NOTE: Uses Adapter API as necessary exception - types.json is in .obsidian/ config directory
+     * and is not a TFile tracked by vault. Vault API only works with indexed vault files.
      */
     private async writeTypesJson(data: TypesJson): Promise<void> {
         const path = this.getTypesJsonPath();
@@ -130,6 +136,21 @@ export class PropertyManager {
         } catch (error) {
             console.error('Failed to write types.json:', error);
         }
+    }
+
+    /**
+     * Normalize property values to their actual types
+     * Converts string representations to boolean, null, or number as appropriate
+     */
+    static normalizePropertyValue(value: any): any {
+        if (typeof value !== 'string') return value;
+        if (value === 'true') return true;
+        if (value === 'false') return false;
+        if (value === 'null') return null;
+        if (value !== '' && !isNaN(Number(value))) {
+            return Number(value);
+        }
+        return value;
     }
 
     /**
@@ -157,8 +178,8 @@ export class PropertyManager {
      * regardless of what type it was before or if it existed at all.
      */
     async ensurePropertyTypeIsCheckbox(): Promise<void> {
-        const propertyKey = this.settings.disableRenamingKey;
-        const propertyValue = this.settings.disableRenamingValue;
+        const propertyKey = this.settings.exclusions.disableRenamingKey;
+        const propertyValue = this.settings.exclusions.disableRenamingValue;
 
         if (!propertyKey) return;
 

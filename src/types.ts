@@ -1,3 +1,5 @@
+import { CharReplacements } from './types/char-replacement';
+
 export interface CustomReplacement {
     searchText: string;
     replaceText: string;
@@ -19,6 +21,12 @@ export interface ExcludedProperty {
     value: string;
 }
 
+export interface TitleRegionCache {
+    firstNonEmptyLine: string;
+    titleSourceLine: string;
+    lastUpdated: number;
+}
+
 export type OSPreset = 'macOS' | 'Windows' | 'Linux';
 export type NotificationMode = 'Always' | 'On title change' | 'Never';
 export type ExclusionStrategy = 'Only exclude...' | 'Exclude all except...';
@@ -34,136 +42,36 @@ export interface ExclusionOverrides {
     ignoreProperty?: boolean;
 }
 
-export interface PluginSettings {
-    folderScopeStrategy: ExclusionStrategy;
-    tagScopeStrategy: TagPropertyExclusionStrategy;
-    propertyScopeStrategy: TagPropertyExclusionStrategy;
-    excludedFolders: string[];
-    excludedTags: string[];
-    excludedProperties: ExcludedProperty[];
-    charCount: number;
-    checkInterval: number;
-    osPreset: OSPreset;
-    charReplacements: {
-        slash: string;
-        colon: string;
-        asterisk: string;
-        question: string;
-        lessThan: string;
-        greaterThan: string;
-        quote: string;
-        pipe: string;
-        hash: string;
-        leftBracket: string;
-        rightBracket: string;
-        caret: string;
-        backslash: string;
-        dot: string;
-    };
-    charReplacementEnabled: {
-        slash: boolean;
-        colon: boolean;
-        asterisk: boolean;
-        question: boolean;
-        lessThan: boolean;
-        greaterThan: boolean;
-        quote: boolean;
-        pipe: boolean;
-        hash: boolean;
-        leftBracket: boolean;
-        rightBracket: boolean;
-        caret: boolean;
-        backslash: boolean;
-        dot: boolean;
-    };
-    charReplacementTrimLeft: {
-        slash: boolean;
-        colon: boolean;
-        asterisk: boolean;
-        question: boolean;
-        lessThan: boolean;
-        greaterThan: boolean;
-        quote: boolean;
-        pipe: boolean;
-        hash: boolean;
-        leftBracket: boolean;
-        rightBracket: boolean;
-        caret: boolean;
-        backslash: boolean;
-        dot: boolean;
-    };
-    charReplacementTrimRight: {
-        slash: boolean;
-        colon: boolean;
-        asterisk: boolean;
-        question: boolean;
-        lessThan: boolean;
-        greaterThan: boolean;
-        quote: boolean;
-        pipe: boolean;
-        hash: boolean;
-        leftBracket: boolean;
-        rightBracket: boolean;
-        caret: boolean;
-        backslash: boolean;
-        dot: boolean;
-    };
-    customReplacements: CustomReplacement[];
-    safewords: Safeword[];
-    omitComments: boolean;
-    omitHtmlTags: boolean;
-    stripTemplaterSyntax: boolean;
-    enableStripMarkup: boolean;
-    stripMarkupSettings: {
-        headings: boolean;
-        bold: boolean;
-        italic: boolean;
-        strikethrough: boolean;
-        highlight: boolean;
-        wikilinks: boolean;
-        markdownLinks: boolean;
-        quote: boolean;
-        callouts: boolean;
-        unorderedLists: boolean;
-        orderedLists: boolean;
-        taskLists: boolean;
-        code: boolean;
-        codeBlocks: boolean;
-        footnotes: boolean;
-        comments: boolean;
-        htmlTags: boolean;
-    };
-    stripMarkupInAlias: boolean;
-    stripCommentsEntirely: boolean;
-    applyCustomRulesInAlias: boolean;
-    enableForbiddenCharReplacements: boolean;
-    enableCustomReplacements: boolean;
-    applyCustomRulesAfterForbiddenChars: boolean;
-    applyCustomRulesAfterMarkupStripping: boolean;
-    enableSafewords: boolean;
+/**
+ * Core plugin behavior settings
+ */
+/**
+ * Core plugin settings (General + Other tabs)
+ */
+export interface CoreSettings {
+    // Rename behavior
+    renameNotes: "automatically" | "manually";
     renameOnFocus: boolean;
     renameOnSave: boolean;
-    renameNotes: "automatically" | "manually";
+    onlyRenameIfHeading: boolean;
     manualNotificationMode: NotificationMode;
-    windowsAndroidEnabled: boolean;
-    hasEnabledForbiddenChars: boolean;
-    hasEnabledWindowsAndroid: boolean;
-    hasEnabledCustomReplacements: boolean;
-    hasEnabledSafewords: boolean;
-    hasEnabledAliases: boolean;
-    grabTitleFromCardLink: boolean;
-    excludeSubfolders: boolean;
-    tagMatchingMode: TagMatchingMode;
-    excludeChildTags: boolean;
-    fileReadMethod: FileReadMethod; // Method for reading file content
-    verboseLogging: boolean; // Added verbose logging setting
-    debugOutputFullContent: boolean; // Output full file content in console when files change
-    debugEnabledTimestamp: string; // Timestamp when Debug was last enabled (YYYY-MM-DD HH:mm format)
-    hasShownFirstTimeNotice: boolean; // Track if first-time setup notice has been shown
-    hasSetupExclusions: boolean; // Track if exclusions tab has been opened for first-time setup
-    hasSetPropertyType: boolean; // Track if property type has been set in types.json on first load
-    lastUsageDate: string; // Last date the plugin was used (YYYY-MM-DD format)
-    currentSettingsTab: string; // Track current settings tab
+    preserveModificationDate: boolean;
+    charCount: number;
+    checkInterval: number;
+    fileReadMethod: FileReadMethod;
+
+    // New file handling
+    insertTitleOnCreation: boolean;
+    convertReplacementCharactersInTitle: boolean;
+    moveCursorToFirstLine: boolean;
+    placeCursorAtLineEnd: boolean;
+    newNoteDelay: number;
+
+    // UI visibility
+    enableContextMenus: boolean;
+    enableVaultSearchContextMenu: boolean;
+    enableCommandPalette: boolean;
+    enableRibbon: boolean;
     commandVisibility: {
         folderPutFirstLineInTitle: boolean;
         folderExclude: boolean;
@@ -177,14 +85,11 @@ export interface PluginSettings {
         addSafeInternalLink: boolean;
         addSafeInternalLinkWithCaption: boolean;
     };
-    enableContextMenus: boolean;
-    enableVaultSearchContextMenu: boolean;
     vaultSearchContextMenuVisibility: {
         putFirstLineInTitle: boolean;
         disable: boolean;
         enable: boolean;
     };
-    enableCommandPalette: boolean;
     commandPaletteVisibility: {
         renameCurrentFileUnlessExcluded: boolean;
         renameCurrentFile: boolean;
@@ -192,34 +97,34 @@ export interface PluginSettings {
         disableRenaming: boolean;
         enableRenaming: boolean;
         toggleAutomaticRenaming: boolean;
+        insertFilename: boolean;
     };
-    enableRibbon: boolean;
     ribbonVisibility: {
         renameCurrentFile: boolean;
         renameAllNotes: boolean;
         toggleAutomaticRenaming: boolean;
     };
-    enableAliases: boolean;
-    truncateAlias: boolean;
-    addAliasOnlyIfFirstLineDiffers: boolean;
-    aliasPropertyKey: string;
-    hideAliasProperty: PropertyHidingOption;
-    hideAliasInSidebar: boolean;
-    keepEmptyAliasProperty: boolean;
-    whatToPutInTitle: "any_first_line_content" | "headings_only";
-    includeSubfolders: boolean;
-    includeBodyTags: boolean;
-    includeNestedTags: boolean;
-    moveCursorToFirstLine: boolean;
-    insertTitleOnCreation: boolean;
-    placeCursorAtLineEnd: boolean;
-    waitForCursorTemplate: boolean;
+
+    // Context menu command groups
+    enableFileCommands: boolean;
+    enableFolderCommands: boolean;
+    enableTagCommands: boolean;
+
+    // Internal state and debugging
+    verboseLogging: boolean;
+    debugOutputFullContent: boolean;
+    debugEnabledTimestamp: string;
+    hasShownFirstTimeNotice: boolean;
+    hasSetupExclusions: boolean;
+    hasSetPropertyType: boolean;
+    lastUsageDate: string;
+    currentSettingsTab: string;
     suppressMergeNotifications: boolean;
-    newNoteDelay: number;
-    waitForTemplate: boolean;
-    addHeadingToTitle: boolean;
-    disableRenamingKey: string;
-    disableRenamingValue: string;
+    hasEnabledForbiddenChars: boolean;
+    hasEnabledWindowsAndroid: boolean;
+    hasEnabledCustomReplacements: boolean;
+    hasEnabledSafewords: boolean;
+    hasEnabledAliases: boolean;
     modalCheckboxStates: {
         folderRename: {
             includeSubfolders: boolean;
@@ -245,4 +150,116 @@ export interface PluginSettings {
             includeChildTags: boolean;
         };
     };
+}
+
+/**
+ * Exclusion and scoping settings
+ */
+export interface ExclusionSettings {
+    folderScopeStrategy: ExclusionStrategy;
+    tagScopeStrategy: TagPropertyExclusionStrategy;
+    propertyScopeStrategy: TagPropertyExclusionStrategy;
+    excludedFolders: string[];
+    excludedTags: string[];
+    excludedProperties: ExcludedProperty[];
+    excludeSubfolders: boolean;
+    includeSubfolders: boolean;
+    includeBodyTags: boolean;
+    includeNestedTags: boolean;
+    tagMatchingMode: TagMatchingMode;
+    excludeChildTags: boolean;
+    disableRenamingKey: string;
+    disableRenamingValue: string;
+}
+
+/**
+ * Replace characters settings (forbidden chars)
+ */
+export interface ReplaceCharactersSettings {
+    enableForbiddenCharReplacements: boolean;
+    windowsAndroidEnabled: boolean;
+    osPreset: OSPreset;
+    charReplacements: CharReplacements;
+}
+
+/**
+ * Custom rules settings
+ */
+export interface CustomRulesSettings {
+    enableCustomReplacements: boolean;
+    customReplacements: CustomReplacement[];
+    applyCustomRulesAfterForbiddenChars: boolean;
+}
+
+/**
+ * Safewords settings
+ */
+export interface SafewordsSettings {
+    enableSafewords: boolean;
+    safewords: Safeword[];
+}
+
+/**
+ * Markup stripping and content processing settings
+ */
+export interface MarkupStrippingSettings {
+    enableStripMarkup: boolean;
+    stripMarkupSettings: {
+        headings: boolean;
+        bold: boolean;
+        italic: boolean;
+        strikethrough: boolean;
+        highlight: boolean;
+        wikilinks: boolean;
+        markdownLinks: boolean;
+        quote: boolean;
+        callouts: boolean;
+        unorderedLists: boolean;
+        orderedLists: boolean;
+        taskLists: boolean;
+        code: boolean;
+        codeBlocks: boolean;
+        footnotes: boolean;
+        comments: boolean;
+        htmlTags: boolean;
+    };
+    stripMarkupInAlias: boolean;
+    omitComments: boolean;
+    omitHtmlTags: boolean;
+    stripCommentsEntirely: boolean;
+    stripTemplaterSyntax: boolean;
+    stripTableMarkup: boolean;
+    stripInlineMathMarkup: boolean;
+    stripMathBlockMarkup: boolean;
+    detectDiagrams: boolean;
+    grabTitleFromCardLink: boolean;
+    applyCustomRulesInAlias: boolean;
+    applyCustomRulesAfterMarkupStripping: boolean;
+    addHeadingToTitle: boolean;
+}
+
+/**
+ * Alias management settings
+ */
+export interface AliasSettings {
+    enableAliases: boolean;
+    truncateAlias: boolean;
+    addAliasOnlyIfFirstLineDiffers: boolean;
+    aliasPropertyKey: string;
+    hideAliasProperty: PropertyHidingOption;
+    hideAliasInSidebar: boolean;
+    keepEmptyAliasProperty: boolean;
+}
+
+/**
+ * Structured plugin settings organized by feature
+ */
+export interface PluginSettings {
+    core: CoreSettings;
+    exclusions: ExclusionSettings;
+    replaceCharacters: ReplaceCharactersSettings;
+    customRules: CustomRulesSettings;
+    safewords: SafewordsSettings;
+    markupStripping: MarkupStrippingSettings;
+    aliases: AliasSettings;
 }

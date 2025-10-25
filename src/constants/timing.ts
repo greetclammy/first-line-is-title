@@ -1,0 +1,59 @@
+/**
+ * Timing constants for delays, debounces, and timeouts.
+ * Centralized to make delays clear and easy to adjust.
+ */
+
+export const TIMING = {
+    /** Next tick delay (push to end of event loop) */
+    NEXT_TICK_MS: 0,
+
+    /** Delay before processing a newly created file (allows templates/other plugins to finish) */
+    NEW_FILE_PROCESSING_DELAY_MS: 300,
+
+    /** Debounce delay for editor changes to avoid processing every keystroke */
+    EDITOR_CHANGE_DEBOUNCE_MS: 0,
+
+    /** Delay to ensure UI is ready before showing modals */
+    UI_READY_DELAY_MS: 100,
+
+    /** Delay before processing file after creation (user setting, this is default) */
+    DEFAULT_NEW_NOTE_DELAY_MS: 0,
+
+    /** Maximum time to wait for YAML frontmatter insertion */
+    YAML_INSERTION_TIMEOUT_MS: 5000,
+
+    /** Delay for retry attempts in title insertion */
+    TITLE_INSERTION_RETRY_DELAY_MS: 500,
+
+    /** Delay for UI settling before rechecking file state */
+    UI_SETTLE_DELAY_MS: 50,
+
+    /** Delay to ensure file save is complete before processing */
+    SAVE_COMPLETE_DELAY_MS: 100,
+
+    /** Delay for clearing recently processed events tracker */
+    EVENT_TRACKER_CLEAR_DELAY_MS: 100,
+
+    /** Delay for view readiness check retry */
+    VIEW_READINESS_RETRY_DELAY_MS: 100,
+
+    /** Delay for cleanup of renamed files tracking */
+    RENAME_TRACKING_CLEANUP_DELAY_MS: 150,
+
+    /** Delay for cursor positioning after requestAnimationFrame */
+    RAF_CURSOR_POSITIONING_DELAY_MS: 200,
+
+    /** Delay for focusing input elements after DOM updates */
+    INPUT_FOCUS_DELAY_MS: 50,
+
+    /** Rate limit for self-reference notices (prevents notice spam) */
+    SELF_REF_NOTICE_TTL_MS: 2000,
+} as const;
+
+export const LIMITS = {
+    /** Maximum characters in a filename title (from user settings default) */
+    DEFAULT_MAX_TITLE_LENGTH: 100,
+
+    /** Maximum retry attempts for title insertion */
+    MAX_TITLE_INSERTION_RETRIES: 3,
+} as const;
