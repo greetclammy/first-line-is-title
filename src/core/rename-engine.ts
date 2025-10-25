@@ -764,6 +764,14 @@ export class RenameEngine {
             const processingTime = Date.now() - startTime;
             verboseLog(this.plugin, `Successfully renamed ${oldPath} to ${newPath} (${processingTime}ms)`);
 
+            // Transfer pending alias flag synchronously (don't wait for vault 'rename' event)
+            // This ensures modify/metadata events can find the flag on the new path
+            if (this.plugin.fileStateManager.hasPendingAliasRecheck(oldPath)) {
+                this.plugin.fileStateManager.clearPendingAliasRecheck(oldPath);
+                this.plugin.fileStateManager.markPendingAliasRecheck(newPath);
+                verboseLog(this.plugin, `Transferred pending alias flag: ${oldPath} → ${newPath}`);
+            }
+
             // Track rename to prevent stale CREATE events from processing this file
             this.plugin.recentlyRenamedPaths.add(oldPath);
             this.plugin.recentlyRenamedPaths.add(newPath);
