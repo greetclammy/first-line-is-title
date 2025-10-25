@@ -313,10 +313,7 @@ export class AliasManager {
                 // Read file once after processFrontMatter completes to get updated content
                 const contentAfterWrite = await this.app.vault.read(currentFileForFrontmatter);
 
-                // DIAGNOSTIC TEST: Sync disabled to isolate cursor jumping cause
-                // If cursor jumping stops → sync is the problem (need deferred/batched approach)
-                // If cursor jumping continues → problem is elsewhere (rename operation or CodeMirror)
-                // await this.syncPopoverEditorBuffer(currentFileForFrontmatter, contentAfterWrite, editor);
+                await this.syncPopoverEditorBuffer(currentFileForFrontmatter, contentAfterWrite, editor);
                 return;
             }
 
@@ -430,10 +427,7 @@ export class AliasManager {
             // Read file once after processFrontMatter completes to get updated content
             const contentAfterWrite = await this.app.vault.read(currentFileForUpdate);
 
-            // DIAGNOSTIC TEST: Sync disabled to isolate cursor jumping cause
-            // If cursor jumping stops → sync is the problem (need deferred/batched approach)
-            // If cursor jumping continues → problem is elsewhere (rename operation or CodeMirror)
-            // await this.syncPopoverEditorBuffer(currentFileForUpdate, contentAfterWrite, editor);
+            await this.syncPopoverEditorBuffer(currentFileForUpdate, contentAfterWrite, editor);
 
         } catch (error) {
             // Check if this is an ENOENT error (file was renamed during async operation)
@@ -536,10 +530,7 @@ export class AliasManager {
             // Read file once after processFrontMatter completes to get updated content
             const contentAfterWrite = await this.app.vault.read(currentFileForRemoval);
 
-            // DIAGNOSTIC TEST: Sync disabled to isolate cursor jumping cause
-            // If cursor jumping stops → sync is the problem (need deferred/batched approach)
-            // If cursor jumping continues → problem is elsewhere (rename operation or CodeMirror)
-            // await this.syncPopoverEditorBuffer(currentFileForRemoval, contentAfterWrite, editor);
+            await this.syncPopoverEditorBuffer(currentFileForRemoval, contentAfterWrite, editor);
         } catch (error) {
             // Check if this is an ENOENT error (file was renamed during async operation)
             if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
