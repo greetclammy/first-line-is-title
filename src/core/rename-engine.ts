@@ -306,23 +306,33 @@ export class RenameEngine {
             if (this.plugin.cacheManager?.hasPendingAliasRecheck(originalPath) ||
                 this.plugin.cacheManager?.hasPendingAliasRecheck(newPath)) {
 
-                this.plugin.cacheManager?.clearPendingAliasRecheck(originalPath);
-                if (newPath !== originalPath) {
-                    this.plugin.cacheManager?.clearPendingAliasRecheck(newPath);
-                }
+                verboseLog(this.plugin, `Content changed during processing with pending alias: ${originalPath}`);
 
-                verboseLog(this.plugin, `Content changed during processing, scheduling recheck: ${originalPath}`);
+                // Check if file is in active view (main editor)
+                const activeView = this.plugin.app.workspace.getActiveViewOfType(MarkdownView);
+                const isInActiveView = activeView && activeView.file?.path === newPath && activeView.editor;
 
-                // Schedule recheck after short delay to let UI settle
-                setTimeout(async () => {
-                    const recheckFile = this.plugin.app.vault.getAbstractFileByPath(newPath);
-                    if (recheckFile && recheckFile instanceof TFile) {
-                        const activeView = this.plugin.app.workspace.getActiveViewOfType(MarkdownView);
-                        if (activeView && activeView.file?.path === recheckFile.path && activeView.editor) {
-                            await this.processEditorChangeOptimal(activeView.editor, recheckFile);
-                        }
+                if (isInActiveView) {
+                    // File in main editor - clear flag and schedule immediate recheck
+                    this.plugin.cacheManager?.clearPendingAliasRecheck(originalPath);
+                    if (newPath !== originalPath) {
+                        this.plugin.cacheManager?.clearPendingAliasRecheck(newPath);
                     }
-                }, TIMING.UI_SETTLE_DELAY_MS);
+
+                    // Schedule recheck after short delay to let UI settle
+                    setTimeout(async () => {
+                        const recheckFile = this.plugin.app.vault.getAbstractFileByPath(newPath);
+                        if (recheckFile && recheckFile instanceof TFile) {
+                            const view = this.plugin.app.workspace.getActiveViewOfType(MarkdownView);
+                            if (view && view.file?.path === recheckFile.path && view.editor) {
+                                await this.processEditorChangeOptimal(view.editor, recheckFile);
+                            }
+                        }
+                    }, TIMING.UI_SETTLE_DELAY_MS);
+                } else {
+                    // File in popover or not in view - preserve flag for modify/metadata handlers
+                    verboseLog(this.plugin, `Preserving pending alias flag for popover-close detection: ${newPath}`);
+                }
             }
         }
     }
