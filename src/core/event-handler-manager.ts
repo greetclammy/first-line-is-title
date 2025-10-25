@@ -31,6 +31,7 @@ export class EventHandlerManager {
         this.registerSearchResultsMenuHandler();
         this.registerEditorChangeHandler();
         this.registerFileSystemHandlers();
+        this.registerActiveLeafChangeHandler();
         this.setupCursorDebugInterceptor();
     }
 
@@ -516,6 +517,81 @@ export class EventHandlerManager {
                 await this.plugin.aliasManager.updateAliasIfNeeded(file, currentContent);
             })
         );
+    }
+
+    /**
+     * Active leaf change handler - checks for pending alias updates when popover closes
+     */
+    private registerActiveLeafChangeHandler(): void {
+        this.registerEvent(
+            this.plugin.app.workspace.on('active-leaf-change', async () => {
+                if (!this.plugin.settings.aliases.enableAliases) return;
+                if (this.plugin.settings.core.renameNotes !== 'automatically') return;
+
+                // Check all files with pending alias recheck
+                await this.checkPendingAliasUpdates();
+            })
+        );
+    }
+
+    /**
+     * Check files with pending alias updates and update if no longer in popover
+     */
+    private async checkPendingAliasUpdates(): Promise<void> {
+        // Get files with pending alias recheck
+        const filesWithPendingRecheck = this.plugin.fileStateManager.getFilesWithPendingAliasRecheck();
+
+        if (filesWithPendingRecheck.length === 0) return;
+
+        verboseLog(this.plugin, `Checking ${filesWithPendingRecheck.length} files with pending alias updates`);
+
+        for (const filePath of filesWithPendingRecheck) {
+            const file = this.plugin.app.vault.getAbstractFileByPath(filePath);
+            if (!(file instanceof TFile)) {
+                // File was deleted, clear the flag
+                this.plugin.fileStateManager.clearPendingAliasRecheck(filePath);
+                continue;
+            }
+
+            // Check if file is still in a popover
+            const isStillInPopover = this.isFileInPopover(file);
+
+            if (!isStillInPopover) {
+                // Popover closed - update alias immediately
+                verboseLog(this.plugin, `Popover closed, updating alias: ${filePath}`);
+                this.plugin.fileStateManager.clearPendingAliasRecheck(filePath);
+
+                // Trigger alias update
+                await this.plugin.aliasManager.updateAliasIfNeeded(file, undefined, undefined, false, false);
+            }
+        }
+    }
+
+    /**
+     * Check if file is currently open in a popover (not main workspace)
+     */
+    private isFileInPopover(file: TFile): boolean {
+        const leaves = this.plugin.app.workspace.getLeavesOfType('markdown');
+        const activeView = this.plugin.app.workspace.getActiveViewOfType(MarkdownView);
+
+        for (const leaf of leaves) {
+            const view = leaf.view as MarkdownView;
+            if (view?.file?.path === file.path) {
+                // File is open - check if this leaf is the active view
+                if (activeView && view === activeView && view.file?.path === file.path) {
+                    // This is the active view in main workspace
+                    return false;
+                }
+                // File is in a non-active leaf (could be popover)
+                // If there's an active view for a different file, this is likely a popover
+                if (activeView && activeView.file?.path !== file.path) {
+                    return true;
+                }
+            }
+        }
+
+        // File not found in any editor
+        return false;
     }
 
     /**

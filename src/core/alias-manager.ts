@@ -118,6 +118,15 @@ export class AliasManager {
                 await this.removePluginAliasesFromFile(file, false, editor);
                 return;
             }
+
+            // Skip alias update when editing in popover to prevent cursor jumping and race conditions
+            // Alias will update automatically when popover closes via active-leaf-change handler
+            if (editor && this.isEditorInPopover(editor, file)) {
+                verboseLog(this.plugin, `Skipping alias update in popover: ${file.path}`);
+                this.plugin.fileStateManager.markPendingAliasRecheck(file.path);
+                return;
+            }
+
             const aliasPropertyKeys = this.getAliasPropertyKeys();
             const zwspMarker = '\u200B'; // Zero-width space marker
             const expectedAlias = this.settings.markupStripping.stripMarkupInAlias ?
@@ -260,31 +269,23 @@ export class AliasManager {
             const markedAlias = '\u200B' + aliasToAdd + '\u200B';
 
             // Save any unsaved changes before modifying frontmatter
-            // EXCEPT when editing in popover - don't save to prevent overwriting frontmatter
-            // When in popover, processFrontMatter will merge unsaved editor content with frontmatter
-            const inPopover = editor ? this.isEditorInPopover(editor, file) : false;
-            if (!inPopover) {
-                // Use provided editor if available (from editor-change event)
-                if (editor) {
-                    // Editor provided - find the view containing this editor and save
-                    // Note: No separate lock needed - already running within processFile()'s lock
-                    const leaves = this.app.workspace.getLeavesOfType("markdown");
-                    for (const leaf of leaves) {
-                        const view = leaf.view as MarkdownView;
-                        if (view?.file?.path === file.path && view.editor === editor) {
-                            await view.save();
-                            break;
-                        }
-                    }
-                } else {
-                    // Fallback: try active view save
-                    const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
-                    if (activeView && activeView.file?.path === file.path) {
-                        await activeView.save();
+            if (editor) {
+                // Editor provided - find the view containing this editor and save
+                // Note: No separate lock needed - already running within processFile()'s lock
+                const leaves = this.app.workspace.getLeavesOfType("markdown");
+                for (const leaf of leaves) {
+                    const view = leaf.view as MarkdownView;
+                    if (view?.file?.path === file.path && view.editor === editor) {
+                        await view.save();
+                        break;
                     }
                 }
             } else {
-                verboseLog(this.plugin, `[EDITOR-SYNC] Skipping view.save() before frontmatter update - editing in popover`);
+                // Fallback: try active view save
+                const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
+                if (activeView && activeView.file?.path === file.path) {
+                    await activeView.save();
+                }
             }
 
             // Parse content directly to avoid race conditions with metadata cache
@@ -317,46 +318,38 @@ export class AliasManager {
                 this.plugin.pendingMetadataUpdates.add(currentFileForFrontmatter.path);
                 verboseLog(this.plugin, `Created frontmatter and added alias \`${aliasToAdd}\` to ${currentFileForFrontmatter.path}`);
 
-                // Skip sync if editing in popover to prevent cursor jumping during rapid typing
-                // Alias still written to disk, just not synced to editor buffer
+                // Sync editor with new frontmatter if editor available
                 if (editor) {
-                    const inPopover = this.isEditorInPopover(editor, currentFileForFrontmatter);
-                    if (inPopover) {
-                        verboseLog(this.plugin, `[EDITOR-SYNC] Skipping frontmatter sync - editing in popover (prevents cursor jump)`);
-                        // Mark file as needing fresh read - cache is stale without frontmatter
-                        this.plugin.fileStateManager.markNeedsFreshRead(currentFileForFrontmatter.path);
-                    } else {
-                        // Don't read from disk - processFrontMatter's write may not be complete yet
-                        // Instead, sync editor directly with frontmatter we know we just wrote
-                        try {
-                            // Construct frontmatter YAML with alias we just wrote
-                            let frontmatterYaml = '';
-                            for (const aliasPropertyKey of aliasPropertyKeys) {
-                                if (aliasPropertyKey === 'aliases') {
-                                    frontmatterYaml += `${aliasPropertyKey}:\n  - ${markedAlias}\n`;
-                                } else {
-                                    frontmatterYaml += `${aliasPropertyKey}: ${markedAlias}\n`;
-                                }
+                    // Don't read from disk - processFrontMatter's write may not be complete yet
+                    // Instead, sync editor directly with frontmatter we know we just wrote
+                    try {
+                        // Construct frontmatter YAML with alias we just wrote
+                        let frontmatterYaml = '';
+                        for (const aliasPropertyKey of aliasPropertyKeys) {
+                            if (aliasPropertyKey === 'aliases') {
+                                frontmatterYaml += `${aliasPropertyKey}:\n  - ${markedAlias}\n`;
+                            } else {
+                                frontmatterYaml += `${aliasPropertyKey}: ${markedAlias}\n`;
                             }
-
-                            const currentEditorContent = editor.getValue();
-                            const oldFrontmatterLines = this.countFrontmatterLines(currentEditorContent);
-                            const newFrontmatterWithDelimiters = `---\n${frontmatterYaml}---\n`;
-
-                            this.plugin.fileStateManager.markEditorSyncing(currentFileForFrontmatter.path);
-                            try {
-                                editor.replaceRange(
-                                    newFrontmatterWithDelimiters,
-                                    { line: 0, ch: 0 },
-                                    { line: oldFrontmatterLines, ch: 0 }
-                                );
-                                verboseLog(this.plugin, `[EDITOR-SYNC] Created frontmatter via replaceRange (${oldFrontmatterLines} → ${this.countFrontmatterLines(editor.getValue())} lines)`);
-                            } finally {
-                                this.plugin.fileStateManager.clearEditorSyncing(currentFileForFrontmatter.path);
-                            }
-                        } catch (error) {
-                            verboseLog(this.plugin, `[EDITOR-SYNC] Failed to sync after frontmatter creation: ${error}`);
                         }
+
+                        const currentEditorContent = editor.getValue();
+                        const oldFrontmatterLines = this.countFrontmatterLines(currentEditorContent);
+                        const newFrontmatterWithDelimiters = `---\n${frontmatterYaml}---\n`;
+
+                        this.plugin.fileStateManager.markEditorSyncing(currentFileForFrontmatter.path);
+                        try {
+                            editor.replaceRange(
+                                newFrontmatterWithDelimiters,
+                                { line: 0, ch: 0 },
+                                { line: oldFrontmatterLines, ch: 0 }
+                            );
+                            verboseLog(this.plugin, `[EDITOR-SYNC] Created frontmatter via replaceRange (${oldFrontmatterLines} → ${this.countFrontmatterLines(editor.getValue())} lines)`);
+                        } finally {
+                            this.plugin.fileStateManager.clearEditorSyncing(currentFileForFrontmatter.path);
+                        }
+                    } catch (error) {
+                        verboseLog(this.plugin, `[EDITOR-SYNC] Failed to sync after frontmatter creation: ${error}`);
                     }
                 }
                 return;
@@ -505,30 +498,22 @@ export class AliasManager {
             file = currentFile;
 
             // Save any unsaved changes before modifying frontmatter
-            // EXCEPT when editing in popover - don't save to prevent overwriting frontmatter
-            // When in popover, processFrontMatter will merge unsaved editor content with frontmatter
-            const inPopover = editor ? this.isEditorInPopover(editor, file) : false;
-            if (!inPopover) {
-                // Use provided editor if available (from editor-change event)
-                if (editor) {
-                    // Editor provided - find the view containing this editor and save
-                    const leaves = this.app.workspace.getLeavesOfType("markdown");
-                    for (const leaf of leaves) {
-                        const view = leaf.view as MarkdownView;
-                        if (view?.file?.path === file.path && view.editor === editor) {
-                            await view.save();
-                            break;
-                        }
-                    }
-                } else {
-                    // Fallback: try active view save
-                    const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
-                    if (activeView && activeView.file?.path === file.path) {
-                        await activeView.save();
+            if (editor) {
+                // Editor provided - find the view containing this editor and save
+                const leaves = this.app.workspace.getLeavesOfType("markdown");
+                for (const leaf of leaves) {
+                    const view = leaf.view as MarkdownView;
+                    if (view?.file?.path === file.path && view.editor === editor) {
+                        await view.save();
+                        break;
                     }
                 }
             } else {
-                verboseLog(this.plugin, `[EDITOR-SYNC] Skipping view.save() before frontmatter removal - editing in popover`);
+                // Fallback: try active view save
+                const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
+                if (activeView && activeView.file?.path === file.path) {
+                    await activeView.save();
+                }
             }
 
             // Get current file reference again right before processFrontMatter
@@ -722,19 +707,6 @@ export class AliasManager {
                 verboseLog(this.plugin, `[EDITOR-SYNC] Using editor from event for ${file.path}`);
 
                 try {
-                    // Skip sync if editing in popover to prevent cursor jumping during rapid typing
-                    // Alias still written to disk, just not synced to editor buffer
-                    // Editor will show updated alias when file is reopened or auto-refreshed
-                    const inPopover = this.isEditorInPopover(editor, file);
-                    if (inPopover) {
-                        verboseLog(this.plugin, `[EDITOR-SYNC] Skipping sync - editing in popover (prevents cursor jump)`);
-                        // Mark file as needing fresh read - cache is stale without frontmatter
-                        this.plugin.fileStateManager.markNeedsFreshRead(file.path);
-                        return;
-                    }
-
-                    // Clear fresh read flag - we're syncing editor, so cache will be current
-                    this.plugin.fileStateManager.clearNeedsFreshRead(file.path);
 
                     // Get current editor content (may have newer keystrokes)
                     const currentEditorContent = editor.getValue();
