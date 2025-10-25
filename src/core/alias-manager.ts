@@ -310,37 +310,44 @@ export class AliasManager {
                 this.plugin.pendingMetadataUpdates.add(currentFileForFrontmatter.path);
                 verboseLog(this.plugin, `Created frontmatter and added alias \`${aliasToAdd}\` to ${currentFileForFrontmatter.path}`);
 
-                // Don't read from disk - processFrontMatter's write may not be complete yet
-                // Instead, sync editor directly with frontmatter we know we just wrote
+                // Skip sync if editing in popover to prevent cursor jumping during rapid typing
+                // Alias still written to disk, just not synced to editor buffer
                 if (editor) {
-                    try {
-                        // Construct frontmatter YAML with alias we just wrote
-                        let frontmatterYaml = '';
-                        for (const aliasPropertyKey of aliasPropertyKeys) {
-                            if (aliasPropertyKey === 'aliases') {
-                                frontmatterYaml += `${aliasPropertyKey}:\n  - ${markedAlias}\n`;
-                            } else {
-                                frontmatterYaml += `${aliasPropertyKey}: ${markedAlias}\n`;
-                            }
-                        }
-
-                        const currentEditorContent = editor.getValue();
-                        const oldFrontmatterLines = this.countFrontmatterLines(currentEditorContent);
-                        const newFrontmatterWithDelimiters = `---\n${frontmatterYaml}---\n`;
-
-                        this.plugin.fileStateManager.markEditorSyncing(currentFileForFrontmatter.path);
+                    const inPopover = this.isEditorInPopover(editor, currentFileForFrontmatter);
+                    if (inPopover) {
+                        verboseLog(this.plugin, `[EDITOR-SYNC] Skipping frontmatter sync - editing in popover (prevents cursor jump)`);
+                    } else {
+                        // Don't read from disk - processFrontMatter's write may not be complete yet
+                        // Instead, sync editor directly with frontmatter we know we just wrote
                         try {
-                            editor.replaceRange(
-                                newFrontmatterWithDelimiters,
-                                { line: 0, ch: 0 },
-                                { line: oldFrontmatterLines, ch: 0 }
-                            );
-                            verboseLog(this.plugin, `[EDITOR-SYNC] Created frontmatter via replaceRange (${oldFrontmatterLines} → ${this.countFrontmatterLines(editor.getValue())} lines)`);
-                        } finally {
-                            this.plugin.fileStateManager.clearEditorSyncing(currentFileForFrontmatter.path);
+                            // Construct frontmatter YAML with alias we just wrote
+                            let frontmatterYaml = '';
+                            for (const aliasPropertyKey of aliasPropertyKeys) {
+                                if (aliasPropertyKey === 'aliases') {
+                                    frontmatterYaml += `${aliasPropertyKey}:\n  - ${markedAlias}\n`;
+                                } else {
+                                    frontmatterYaml += `${aliasPropertyKey}: ${markedAlias}\n`;
+                                }
+                            }
+
+                            const currentEditorContent = editor.getValue();
+                            const oldFrontmatterLines = this.countFrontmatterLines(currentEditorContent);
+                            const newFrontmatterWithDelimiters = `---\n${frontmatterYaml}---\n`;
+
+                            this.plugin.fileStateManager.markEditorSyncing(currentFileForFrontmatter.path);
+                            try {
+                                editor.replaceRange(
+                                    newFrontmatterWithDelimiters,
+                                    { line: 0, ch: 0 },
+                                    { line: oldFrontmatterLines, ch: 0 }
+                                );
+                                verboseLog(this.plugin, `[EDITOR-SYNC] Created frontmatter via replaceRange (${oldFrontmatterLines} → ${this.countFrontmatterLines(editor.getValue())} lines)`);
+                            } finally {
+                                this.plugin.fileStateManager.clearEditorSyncing(currentFileForFrontmatter.path);
+                            }
+                        } catch (error) {
+                            verboseLog(this.plugin, `[EDITOR-SYNC] Failed to sync after frontmatter creation: ${error}`);
                         }
-                    } catch (error) {
-                        verboseLog(this.plugin, `[EDITOR-SYNC] Failed to sync after frontmatter creation: ${error}`);
                     }
                 }
                 return;
@@ -699,6 +706,15 @@ export class AliasManager {
                 verboseLog(this.plugin, `[EDITOR-SYNC] Using editor from event for ${file.path}`);
 
                 try {
+                    // Skip sync if editing in popover to prevent cursor jumping during rapid typing
+                    // Alias still written to disk, just not synced to editor buffer
+                    // Editor will show updated alias when file is reopened or auto-refreshed
+                    const inPopover = this.isEditorInPopover(editor, file);
+                    if (inPopover) {
+                        verboseLog(this.plugin, `[EDITOR-SYNC] Skipping sync - editing in popover (prevents cursor jump)`);
+                        return;
+                    }
+
                     // Get current editor content (may have newer keystrokes)
                     const currentEditorContent = editor.getValue();
 
@@ -707,16 +723,11 @@ export class AliasManager {
                     // or worse, a newer write might have completed, giving us "future" content
                     verboseLog(this.plugin, `[EDITOR-SYNC] Using provided content: ${diskContent.length} chars, editor has ${currentEditorContent.length} chars`);
 
-                    // Skip sync if file contains footnotes AND editing in main editor
+                    // Skip sync if file contains footnotes in main editor
                     // Prevents cursor jumping in main editor (setValue() loses cursor position)
-                    // But ALLOW sync in popovers to prevent alias desync
                     if (diskContent.match(/\n\[\^[^\]]+\]:\s/)) {
-                        const inPopover = this.isEditorInPopover(editor, file);
-                        if (!inPopover) {
-                            verboseLog(this.plugin, `[EDITOR-SYNC] Skipping sync - footnotes in main editor (prevents cursor jump)`);
-                            return;
-                        }
-                        verboseLog(this.plugin, `[EDITOR-SYNC] Allowing sync despite footnotes - editor in popover`);
+                        verboseLog(this.plugin, `[EDITOR-SYNC] Skipping sync - footnotes in main editor (prevents cursor jump)`);
+                        return;
                     }
 
                     // Clean nested frontmatter from disk content
