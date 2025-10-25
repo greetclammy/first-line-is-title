@@ -14,6 +14,7 @@ export class EventHandlerManager {
     private plugin: FirstLineIsTitlePlugin;
     private registeredEvents: EventRef[] = [];
     private cursorDebugUninstaller?: () => void;
+    private isCheckingPendingUpdates: boolean = false;
 
     constructor(plugin: FirstLineIsTitlePlugin) {
         this.plugin = plugin;
@@ -521,10 +522,24 @@ export class EventHandlerManager {
 
     /**
      * Active leaf change handler - checks for pending alias updates when popover closes
+     * Registers both active-leaf-change and layout-change for comprehensive detection
      */
     private registerActiveLeafChangeHandler(): void {
+        // Active leaf change - catches when user switches between files/leaves
         this.registerEvent(
             this.plugin.app.workspace.on('active-leaf-change', async () => {
+                if (!this.plugin.settings.aliases.enableAliases) return;
+                if (this.plugin.settings.core.renameNotes !== 'automatically') return;
+
+                // Check all files with pending alias recheck
+                await this.checkPendingAliasUpdates();
+            })
+        );
+
+        // Layout change - catches when popover closes even when active leaf doesn't change
+        // Fires on any layout change (resize, split, popover close, etc.)
+        this.registerEvent(
+            this.plugin.app.workspace.on('layout-change', async () => {
                 if (!this.plugin.settings.aliases.enableAliases) return;
                 if (this.plugin.settings.core.renameNotes !== 'automatically') return;
 
@@ -538,12 +553,19 @@ export class EventHandlerManager {
      * Check files with pending alias updates and update if no longer in popover
      */
     private async checkPendingAliasUpdates(): Promise<void> {
+        // Prevent re-entry during rapid layout changes
+        if (this.isCheckingPendingUpdates) {
+            return;
+        }
+
         // Get files with pending alias recheck
         const filesWithPendingRecheck = this.plugin.fileStateManager.getFilesWithPendingAliasRecheck();
 
         if (filesWithPendingRecheck.length === 0) return;
 
-        verboseLog(this.plugin, `Checking ${filesWithPendingRecheck.length} files with pending alias updates`);
+        this.isCheckingPendingUpdates = true;
+        try {
+            verboseLog(this.plugin, `Checking ${filesWithPendingRecheck.length} files with pending alias updates`);
 
         for (const filePath of filesWithPendingRecheck) {
             const file = this.plugin.app.vault.getAbstractFileByPath(filePath);
@@ -564,6 +586,9 @@ export class EventHandlerManager {
                 // Trigger alias update
                 await this.plugin.aliasManager.updateAliasIfNeeded(file, undefined, undefined, false, false);
             }
+        }
+        } finally {
+            this.isCheckingPendingUpdates = false;
         }
     }
 
