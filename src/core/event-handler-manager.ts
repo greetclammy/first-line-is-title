@@ -7,6 +7,65 @@ import { around } from 'monkey-around';
 import { detectTagFromDOM, detectTagFromEditor } from '../utils/tag-detection';
 
 /**
+ * Helper to read content for alias updates with deduplication check
+ * Returns null if content should not be processed
+ */
+async function getContentForAliasUpdate(
+    plugin: FirstLineIsTitlePlugin,
+    file: TFile,
+    source: 'modify' | 'metadata'
+): Promise<string | null> {
+    // Skip if file operation in progress (rename, etc.)
+    if (plugin.cacheManager?.isLocked(file.path)) return null;
+
+    // Skip if file is in creation delay period
+    if (plugin.editorLifecycle.isFileInCreationDelay(file.path)) {
+        if (plugin.settings.core.verboseLogging) {
+            console.debug(`Skipping ${source} alias update: file in creation delay: ${file.path}`);
+        }
+        return null;
+    }
+
+    // Central gate: check policy requirements and always-on safeguards
+    const {canModify, reason} = await canModifyFile(
+        file,
+        plugin.app,
+        plugin.settings.exclusions.disableRenamingKey,
+        plugin.settings.exclusions.disableRenamingValue,
+        false // automatic operation
+    );
+
+    if (!canModify) {
+        verboseLog(plugin, `Skipping ${source} alias update: ${reason}: ${file.path}`);
+        return null;
+    }
+
+    // Read content respecting fileReadMethod setting
+    const currentContent = plugin.settings.core.fileReadMethod === 'Cache'
+        ? await plugin.app.vault.cachedRead(file)
+        : await plugin.app.vault.read(file);
+    const previousContent = plugin.fileStateManager.getLastEditorContent(file.path);
+
+    if (previousContent) {
+        const currentFrontmatterInfo = getFrontMatterInfo(currentContent);
+        const previousFrontmatterInfo = getFrontMatterInfo(previousContent);
+
+        const currentContentAfterFrontmatter = currentContent.substring(currentFrontmatterInfo.contentStart);
+        const previousContentAfterFrontmatter = previousContent.substring(previousFrontmatterInfo.contentStart);
+
+        if (currentContentAfterFrontmatter === previousContentAfterFrontmatter) {
+            if (plugin.settings.core.verboseLogging) {
+                console.debug(`Skipping ${source} alias update - only frontmatter edited: ${file.path}`);
+            }
+            // Don't update lastEditorContent here - let the editor handler do it
+            return null;
+        }
+    }
+
+    return currentContent;
+}
+
+/**
  * Manages all event handler registration for the First Line is Title plugin.
  * Centralizes event handler logic previously scattered in main.ts.
  */
@@ -414,41 +473,9 @@ export class EventHandlerManager {
                     // Respect renameNotes setting for automatic operations
                     if (this.plugin.settings.core.renameNotes !== 'automatically') return;
 
-                    // Central gate: check policy requirements and always-on safeguards
-                    const {canModify, reason} = await canModifyFile(
-                        file,
-                        this.plugin.app,
-                        this.plugin.settings.exclusions.disableRenamingKey,
-                        this.plugin.settings.exclusions.disableRenamingValue,
-                        false // automatic operation
-                    );
-
-                    if (!canModify) {
-                        verboseLog(this.plugin, `Skipping modify alias update: ${reason}: ${file.path}`);
-                        return;
-                    }
-
-                    // Read content respecting fileReadMethod setting
-                    const currentContent = this.plugin.settings.core.fileReadMethod === 'Cache'
-                        ? await this.plugin.app.vault.cachedRead(file)
-                        : await this.plugin.app.vault.read(file);
-                    const previousContent = this.plugin.fileStateManager.getLastEditorContent(file.path);
-
-                    if (previousContent) {
-                        const currentFrontmatterInfo = getFrontMatterInfo(currentContent);
-                        const previousFrontmatterInfo = getFrontMatterInfo(previousContent);
-
-                        const currentContentAfterFrontmatter = currentContent.substring(currentFrontmatterInfo.contentStart);
-                        const previousContentAfterFrontmatter = previousContent.substring(previousFrontmatterInfo.contentStart);
-
-                        if (currentContentAfterFrontmatter === previousContentAfterFrontmatter) {
-                            if (this.plugin.settings.core.verboseLogging) {
-                                console.debug(`Skipping alias update - only frontmatter edited: ${file.path}`);
-                            }
-                            // Don't update lastEditorContent here - let the editor handler do it
-                            return;
-                        }
-                    }
+                    // Use consolidated helper to read content with deduplication
+                    const currentContent = await getContentForAliasUpdate(this.plugin, file, 'modify');
+                    if (currentContent === null) return;
 
                     // Pass content to avoid second read and race condition
                     await this.plugin.aliasManager.updateAliasIfNeeded(file, currentContent);
@@ -465,52 +492,9 @@ export class EventHandlerManager {
                 // Respect renameNotes setting for automatic operations
                 if (this.plugin.settings.core.renameNotes !== 'automatically') return;
 
-                // Skip if file operation in progress (rename, etc.)
-                if (this.plugin.cacheManager?.isLocked(file.path)) return;
-
-                // Skip if file is in creation delay period
-                if (this.plugin.editorLifecycle.isFileInCreationDelay(file.path)) {
-                    if (this.plugin.settings.core.verboseLogging) {
-                        console.debug(`Skipping metadata-alias: file in creation delay: ${file.path}`);
-                    }
-                    return;
-                }
-
-                // Central gate: check policy requirements and always-on safeguards
-                const {canModify, reason} = await canModifyFile(
-                    file,
-                    this.plugin.app,
-                    this.plugin.settings.exclusions.disableRenamingKey,
-                    this.plugin.settings.exclusions.disableRenamingValue,
-                    false // automatic operation
-                );
-
-                if (!canModify) {
-                    verboseLog(this.plugin, `Skipping metadata alias update: ${reason}: ${file.path}`);
-                    return;
-                }
-
-                // Read content respecting fileReadMethod setting
-                const currentContent = this.plugin.settings.core.fileReadMethod === 'Cache'
-                    ? await this.plugin.app.vault.cachedRead(file)
-                    : await this.plugin.app.vault.read(file);
-                const previousContent = this.plugin.fileStateManager.getLastEditorContent(file.path);
-
-                if (previousContent) {
-                    const currentFrontmatterInfo = getFrontMatterInfo(currentContent);
-                    const previousFrontmatterInfo = getFrontMatterInfo(previousContent);
-
-                    const currentContentAfterFrontmatter = currentContent.substring(currentFrontmatterInfo.contentStart);
-                    const previousContentAfterFrontmatter = previousContent.substring(previousFrontmatterInfo.contentStart);
-
-                    if (currentContentAfterFrontmatter === previousContentAfterFrontmatter) {
-                        if (this.plugin.settings.core.verboseLogging) {
-                            console.debug(`Skipping metadata-alias update - only frontmatter edited: ${file.path}`);
-                        }
-                        // Don't update lastEditorContent here - let the editor handler do it
-                        return;
-                    }
-                }
+                // Use consolidated helper to read content with deduplication
+                const currentContent = await getContentForAliasUpdate(this.plugin, file, 'metadata');
+                if (currentContent === null) return;
 
                 // Pass content to avoid second read and race condition
                 await this.plugin.aliasManager.updateAliasIfNeeded(file, currentContent);

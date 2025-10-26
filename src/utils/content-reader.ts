@@ -75,6 +75,10 @@ export async function readFileContent(
             const needsFresh = preferFresh || plugin.fileStateManager?.needsFreshRead(file.path);
             if (needsFresh) {
                 content = await app.vault.read(file);
+                // Clear needsFreshRead flag after using it
+                if (plugin.fileStateManager?.needsFreshRead(file.path)) {
+                    plugin.fileStateManager.clearNeedsFreshRead(file.path);
+                }
                 if (settings.core.verboseLogging) {
                     console.debug(`Editor method using fresh read for ${file.path} (${content.length} chars)`);
                 }

@@ -4,6 +4,7 @@ import { PluginSettings } from '../types';
 import { verboseLog, shouldProcessFile, extractTitle, canModifyFile, findTitleSourceLine } from '../utils';
 import { t } from '../i18n';
 import { readFileContent } from '../utils/content-reader';
+import { TIMING } from '../constants/timing';
 import FirstLineIsTitle from '../../main';
 
 export class AliasManager {
@@ -59,7 +60,11 @@ export class AliasManager {
             if (!shouldProcessFile(file, this.settings, this.app, undefined, undefined, this.plugin)) {
                 return;
             }
+            // Prioritize live editor content over stale providedContent to prevent missing last character during rapid typing
+            // Editor has most recent content; providedContent is fallback when no editor available
             const content = await readFileContent(this.plugin, file, {
+                providedEditor: editor,
+                searchWorkspace: true,
                 providedContent
             });
 
@@ -463,8 +468,8 @@ export class AliasManager {
 
             // Wait for processFrontMatter's async write to complete before reading
             // processFrontMatter's promise resolves before disk write finishes
-            // 10ms delay allows write to complete, preventing stale reads during rapid typing
-            await new Promise(resolve => setTimeout(resolve, 10));
+            // Small delay allows write to complete, preventing stale reads during rapid typing
+            await new Promise(resolve => setTimeout(resolve, TIMING.FRONTMATTER_WRITE_DELAY_MS));
 
             // Read file once after processFrontMatter completes to get updated content
             const contentAfterWrite = await this.app.vault.read(currentFileForUpdate);
@@ -570,8 +575,8 @@ export class AliasManager {
 
             // Wait for processFrontMatter's async write to complete before reading
             // processFrontMatter's promise resolves before disk write finishes
-            // 10ms delay allows write to complete, preventing stale reads during rapid typing
-            await new Promise(resolve => setTimeout(resolve, 10));
+            // Small delay allows write to complete, preventing stale reads during rapid typing
+            await new Promise(resolve => setTimeout(resolve, TIMING.FRONTMATTER_WRITE_DELAY_MS));
 
             // Read file once after processFrontMatter completes to get updated content
             const contentAfterWrite = await this.app.vault.read(currentFileForRemoval);
