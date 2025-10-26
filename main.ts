@@ -655,32 +655,8 @@ export default class FirstLineIsTitle extends Plugin {
     async loadSettings(): Promise<void> {
         const loadedData = await this.loadData() || {};
 
-        // TEMPORARY: Quick fix for settings structure change
-        // Remove after 2026-01-17 (90 days from 2025-10-19)
-        // If old format detected, backup and reset to defaults
-        if (loadedData && Object.keys(loadedData).length > 0 && !loadedData.core && !loadedData.internal) {
-            // Backup old settings
-            const adapter = this.app.vault.adapter;
-            const configDir = this.manifest.dir || '';
-            const dataPath = `${configDir}/data.json`;
-            const backupPath = `${configDir}/data_old.json`;
-
-            try {
-                // Read current data.json
-                const currentData = await adapter.read(dataPath);
-                // Write to data_old.json
-                await adapter.write(backupPath, currentData);
-            } catch (error) {
-                // Silently fail - user can reconfigure settings
-            }
-
-            // Reset to defaults
-            this.settings = JSON.parse(JSON.stringify(DEFAULT_SETTINGS));
-            await this.saveSettings();
-        } else {
-            // New format or empty - use deep merge to preserve nested properties
-            this.settings = deepMerge(DEFAULT_SETTINGS, loadedData);
-        }
+        // Use deep merge to preserve nested properties
+        this.settings = deepMerge(DEFAULT_SETTINGS, loadedData);
 
         if (this.settings.exclusions.excludedFolders.length === 0) {
             this.settings.exclusions.excludedFolders.push("");
