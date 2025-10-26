@@ -122,18 +122,34 @@ export async function readFileContent(
 
 /**
  * Search workspace for an editor matching the given file
+ * Checks both main workspace leaves and hover popovers
  * @param app - Obsidian App instance
  * @param file - File to find editor for
  * @returns Editor content if found, null otherwise
  */
 function findEditorContent(app: App, file: TFile): string | null {
     const leaves = app.workspace.getLeavesOfType("markdown");
+
+    // Check main workspace leaves first
     for (const leaf of leaves) {
         const view = leaf.view as MarkdownView;
         if (view && view.file?.path === file.path && view.editor) {
             return view.editor.getValue();
         }
     }
+
+    // Check hover popovers if not found in leaves
+    for (const leaf of leaves) {
+        // Accessing non-public API - hoverPopover not in official types
+        const view = leaf.view as any;
+        if (view?.hoverPopover?.targetEl) {
+            const popoverEditor = view.hoverPopover.editor;
+            if (popoverEditor && view.hoverPopover.file?.path === file.path) {
+                return popoverEditor.getValue();
+            }
+        }
+    }
+
     return null;
 }
 
