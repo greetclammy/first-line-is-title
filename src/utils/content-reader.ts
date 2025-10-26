@@ -138,7 +138,13 @@ function findEditorContent(app: App, file: TFile): string | null {
         if (view?.hoverPopover?.targetEl) {
             const popoverEditor = view.hoverPopover.editor;
             if (popoverEditor && view.hoverPopover.file?.path === file.path) {
-                return popoverEditor.getValue();
+                const content = popoverEditor.getValue();
+                // Don't trust empty content - likely transient state after file operations
+                // Return null instead to try other methods
+                if (content) {
+                    return content;
+                }
+                // Empty content, continue searching other editors
             }
         }
     }
@@ -148,7 +154,12 @@ function findEditorContent(app: App, file: TFile): string | null {
     for (const leaf of leaves) {
         const view = leaf.view as MarkdownView;
         if (view && view.file?.path === file.path && view.editor) {
-            return view.editor.getValue();
+            const content = view.editor.getValue();
+            // Don't trust empty content - could be transient/stale state
+            if (content) {
+                return content;
+            }
+            // Empty content, continue searching
         }
     }
 
