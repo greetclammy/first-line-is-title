@@ -3,16 +3,9 @@
  * These extend the official API with unofficial/undocumented properties
  */
 
-import { App, Command, Menu, WorkspaceLeaf, MetadataCache } from 'obsidian';
+import { App, Command, WorkspaceLeaf, MetadataCache } from 'obsidian';
 
 declare module 'obsidian' {
-	interface Menu {
-		/**
-		 * Static method to create a Menu for an event (undocumented)
-		 */
-		forEvent?(evt: Event): Menu;
-	}
-
 	interface MetadataCache {
 		/**
 		 * Get all tags in the vault (undocumented)
@@ -24,7 +17,6 @@ declare module 'obsidian' {
 		commands: {
 			commands: Record<string, Command>;
 			executeCommandById(id: string): boolean;
-			removeCommand(id: string): void;
 		};
 		plugins: {
 			enabledPlugins: Set<string>;

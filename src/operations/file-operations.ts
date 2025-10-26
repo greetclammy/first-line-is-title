@@ -552,9 +552,9 @@ export class FileOperations {
     }
 
     /**
-     * Clean up resources (placeholder for future cleanup needs)
+     * Clean up resources
      */
     cleanup(): void {
-        // Currently no cleanup needed - template wait functionality removed
+        // No cleanup needed
     }
 }

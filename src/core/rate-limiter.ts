@@ -2,7 +2,6 @@
  * RateLimiter
  *
  * Unified rate limiting system supporting both per-key and global rate limits.
- * Consolidates duplicate rate limiting patterns from RenameEngine.
  */
 
 export interface RateLimitConfig {
