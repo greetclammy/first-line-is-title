@@ -8,9 +8,6 @@ import { TIMING, LIMITS } from '../constants/timing';
 import FirstLineIsTitle from '../../main';
 
 export class FileOperations {
-    // Track files waiting for YAML with their resolve callbacks and timeout timers
-    private yamlWaiters = new Map<string, { resolve: () => void; startTime: number; timeoutTimer: NodeJS.Timeout }>();
-
     constructor(private plugin: FirstLineIsTitle) {}
 
     get app() {
@@ -25,10 +22,9 @@ export class FileOperations {
     /**
      * Inserts the filename as the first line of a newly created file
      * @param initialContent - Optional initial content captured at file creation time
-     * @param templateContent - Optional template content captured after template wait (skips internal wait)
      * @returns true if title was inserted, false if skipped
      */
-    async insertTitleOnCreation(file: TFile, initialContent?: string, templateContent?: string): Promise<boolean> {
+    async insertTitleOnCreation(file: TFile, initialContent?: string): Promise<boolean> {
         try {
             const untitledWord = t('untitled').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
             const untitledPattern = new RegExp(`^${untitledWord}(\\s[1-9]\\d*)?$`);
@@ -130,19 +126,11 @@ export class FileOperations {
 
             let currentContent: string;
 
-            if (templateContent !== undefined) {
-                // Template content provided by caller (already waited for template)
-                currentContent = templateContent;
-                verboseLog(this.plugin, `[TITLE-INSERT] Using provided template content. Length: ${currentContent.length} chars`);
-            } /* Template wait removed - will be re-implemented automatically later
-            else if (this.settings.core.insertAfterTemplate) {
-                verboseLog(this.plugin, `[TITLE-INSERT] Template wait enabled`);
-                currentContent = await this.waitForTemplate(file, this.settings.core.newNoteDelay);
-            } */ else if (initialContent !== undefined) {
+            if (initialContent !== undefined) {
                 currentContent = initialContent;
-                verboseLog(this.plugin, `[TITLE-INSERT] No template wait, using initial content. Length: ${currentContent.length} chars`);
+                verboseLog(this.plugin, `[TITLE-INSERT] Using initial content. Length: ${currentContent.length} chars`);
             } else {
-                verboseLog(this.plugin, `[TITLE-INSERT] No template wait, reading immediately from editor`);
+                verboseLog(this.plugin, `[TITLE-INSERT] Reading immediately from editor`);
                 try {
                     currentContent = await readFileContent(this.plugin, file, {
                         searchWorkspace: this.settings.core.fileReadMethod === 'Editor',
@@ -330,89 +318,6 @@ export class FileOperations {
         }
     }
 
-    /**
-     * Wait for template to be applied based on settings
-     * Shared utility for both title insertion and cursor positioning
-     * @param file - The file to wait for
-     * @param alreadyWaited - Time already waited (e.g., newNoteDelay), default 0
-     * @returns Content after template is applied (or initial content if no wait needed)
-     */
-    async waitForTemplate(file: TFile, alreadyWaited: number = 0): Promise<string> {
-        const initialContent = await readFileContent(this.plugin, file, {
-            searchWorkspace: this.settings.core.fileReadMethod === 'Editor',
-            preferFresh: true
-        });
-
-        if (initialContent.trim() !== '') {
-            verboseLog(this.plugin, `[TEMPLATE-WAIT] File already has content, skipping template wait for ${file.path}`);
-            return initialContent;
-        }
-
-        const templateWaitTime = (this.settings.core.fileReadMethod === 'Cache' || this.settings.core.fileReadMethod === 'File') ? 2500 : 600;
-        const remainingWait = templateWaitTime - alreadyWaited;
-
-        verboseLog(this.plugin, `[TEMPLATE-WAIT] Wait calculation: templateWaitTime=${templateWaitTime}ms, alreadyWaited=${alreadyWaited}ms, remainingWait=${remainingWait}ms`);
-
-        if (remainingWait > 0) {
-            // For Cache/File read methods, wait the full duration (no event-based detection)
-            if (this.settings.core.fileReadMethod === 'Cache' || this.settings.core.fileReadMethod === 'File') {
-                verboseLog(this.plugin, `[TEMPLATE-WAIT] Waiting full ${remainingWait}ms for template (${this.settings.core.fileReadMethod} read method)`);
-                await new Promise(resolve => setTimeout(resolve, remainingWait));
-            } else {
-                // For Editor read method, use event-based YAML detection
-                verboseLog(this.plugin, `[TEMPLATE-WAIT] Starting YAML wait for ${remainingWait}ms (Editor mode)`);
-                await this.waitForYamlOrTimeout(file, remainingWait);
-                verboseLog(this.plugin, `[TEMPLATE-WAIT] YAML wait completed`);
-            }
-        } else {
-            verboseLog(this.plugin, `[TEMPLATE-WAIT] Skipping template wait - already waited ${alreadyWaited}ms >= ${templateWaitTime}ms`);
-        }
-
-        verboseLog(this.plugin, `[TEMPLATE-WAIT] Re-reading content after template wait`);
-        return await readFileContent(this.plugin, file, {
-            searchWorkspace: this.settings.core.fileReadMethod === 'Editor',
-            preferFresh: true
-        });
-    }
-
-    /**
-     * Wait for YAML to appear or timeout
-     * Internal method used by waitForTemplate
-     */
-    async waitForYamlOrTimeout(file: TFile, timeoutMs: number): Promise<void> {
-        return new Promise((resolve) => {
-            const startTime = Date.now();
-
-            const timeoutTimer = setTimeout(() => {
-                const waiter = this.yamlWaiters.get(file.path);
-                if (waiter) {
-                    this.yamlWaiters.delete(file.path);
-                    verboseLog(this.plugin, `Template wait timeout (${timeoutMs}ms) reached for ${file.path}`);
-                    resolve();
-                }
-            }, timeoutMs);
-
-            this.yamlWaiters.set(file.path, { resolve, startTime, timeoutTimer });
-        });
-    }
-
-    /**
-     * Check if file has YAML and resolve waiting promise if found
-     * Called from editor-change event
-     */
-    checkYamlAndResolve(file: TFile, content: string): void {
-        const waiter = this.yamlWaiters.get(file.path);
-        if (!waiter) return;
-
-        const frontmatterInfo = getFrontMatterInfo(content);
-        if (frontmatterInfo.exists) {
-            const elapsed = Date.now() - waiter.startTime;
-            verboseLog(this.plugin, `YAML detected after ${elapsed}ms for ${file.path}`);
-            clearTimeout(waiter.timeoutTimer);
-            this.yamlWaiters.delete(file.path);
-            waiter.resolve();
-        }
-    }
 
     /**
      * Handles cursor positioning for new file creation (Step 1)
@@ -647,13 +552,9 @@ export class FileOperations {
     }
 
     /**
-     * Clean up all YAML waiters (clear timeouts and promises)
+     * Clean up resources (placeholder for future cleanup needs)
      */
     cleanup(): void {
-        for (const waiter of this.yamlWaiters.values()) {
-            clearTimeout(waiter.timeoutTimer);
-        }
-        this.yamlWaiters.clear();
-        verboseLog(this.plugin, 'Cleaned up all YAML waiters');
+        // Currently no cleanup needed - template wait functionality removed
     }
 }

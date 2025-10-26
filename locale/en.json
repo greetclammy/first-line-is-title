@@ -211,18 +211,6 @@
         "name": "Disable in excluded notes",
         "desc": "Don't move the cursor when creating notes in excluded folders, or from a template with excluded tags or properties."
       },
-      "waitForTemplate": {
-        "name": "Wait for template",
-        "desc": {
-          "part1": "Let ",
-          "templater": "Templater",
-          "part2": " automatically insert a new-note template before moving the cursor. Allows to match tags and properties that are set in ",
-          "exclusions": "Exclusions",
-          "part3": ", or to position the cursor at the end of the inserted line if ",
-          "placeCursorAtLineEnd": "Place cursor at line end",
-          "part4": " is enabled."
-        }
-      },
       "insertTitleOnCreation": {
         "name": "Insert title in first line on note creation",
         "desc": {
@@ -237,14 +225,6 @@
           "part1": "Convert forbidden character replacements back to their original forms, as set in ",
           "replaceCharacters": "Replace characters",
           "part2": "."
-        }
-      },
-      "insertAfterTemplate": {
-        "name": "Insert after template",
-        "desc": {
-          "part1": "Let ",
-          "templater": "Templater",
-          "part2": " automatically insert a new-note template before inserting the filename. The filename will not be inserted if the template adds content below Properties."
         }
       },
       "formatAsHeading": {
