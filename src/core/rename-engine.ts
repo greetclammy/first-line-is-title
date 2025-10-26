@@ -249,6 +249,8 @@ export class RenameEngine {
         this.plugin.trackUsage();
         verboseLog(this.plugin, `Processing file: ${file.path}`, { noDelay });
 
+        // Race condition check: File could be deleted between event trigger and processing
+        // This check catches that edge case and exits early with appropriate reason
         const currentFile = this.plugin.app.vault.getAbstractFileByPath(file.path);
         if (!currentFile || !(currentFile instanceof TFile)) {
             verboseLog(this.plugin, `Skipping processing - file no longer exists or is not a TFile: ${file.path}`);
@@ -524,6 +526,7 @@ export class RenameEngine {
         // Need to check both basename and full path (some users link with path)
         const wikiLinkRegex = new RegExp(`\\[\\[(${escapedName}|${escapedPath})(#[^\\]|]*?)?(\\|.*?)?\\]\\]`);
         // Match markdown links including empty link text: [text](url) or [](url)
+        // Regex is ReDoS-safe: uses negated character classes [^\]] and [^)] which don't backtrack
         const markdownLinkRegex = /\[([^\]]*)\]\(([^)]+)\)/g;
 
         let isSelfReferencing = false;
@@ -824,7 +827,7 @@ export class RenameEngine {
     }
 
     checkFileExistsCaseInsensitive(path: string, logConflict: boolean = true): boolean {
-        // First check exact match (faster)
+        // Performance: Fast path for exact match (O(1) hash lookup)
         const exactMatch = this.plugin.app.vault.getAbstractFileByPath(path);
         if (exactMatch !== null) {
             if (logConflict) {
@@ -833,7 +836,9 @@ export class RenameEngine {
             return true;
         }
 
-        // Then check case-insensitive match by comparing lowercase paths
+        // Performance: Fallback for case-insensitive match (O(n) iteration)
+        // Only triggered when exact match fails, which is the common case
+        // Early return on match minimizes iteration cost
         const lowerPath = path.toLowerCase();
         const allFiles = this.plugin.app.vault.getAllLoadedFiles();
 

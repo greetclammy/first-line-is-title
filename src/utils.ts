@@ -38,6 +38,39 @@ export function detectOS(): OSPreset {
 }
 
 /**
+ * Check if file is currently open in any editor (main workspace or popover)
+ * @param file - File to check
+ * @param app - Obsidian App instance
+ * @returns true if file is open in any editor
+ */
+function isFileOpenInAnyEditor(file: TFile, app: App): boolean {
+    const leaves = app.workspace.getLeavesOfType("markdown");
+
+    // Check main workspace leaves
+    for (const leaf of leaves) {
+        // Accessing non-public editor API - no official types available
+        const view = leaf.view as any;
+        if (view?.file?.path === file.path) {
+            return true;
+        }
+    }
+
+    // Check popovers
+    for (const leaf of leaves) {
+        // Accessing non-public editor API - no official types available
+        const view = leaf.view as any;
+        if (view?.hoverPopover?.targetEl) {
+            const popoverEditor = view.hoverPopover.editor;
+            if (popoverEditor && view.hoverPopover.file?.path === file.path) {
+                return true;
+            }
+        }
+    }
+
+    return false;
+}
+
+/**
  * Central gate for file modification eligibility.
  * Checks policy requirements and always-on safeguards.
  *
@@ -69,37 +102,8 @@ export async function canModifyFile(
                 return { canModify: false, reason: 'file not open in editor' };
             }
         } else {
-            // Fallback: check for leaf editors and popovers
-            const leaves = app.workspace.getLeavesOfType("markdown");
-            let hasOpenEditor = false;
-
-            // Check leaves
-            for (const leaf of leaves) {
-                // Accessing non-public editor API - no official types available
-                const view = leaf.view as any;
-                if (view?.file?.path === file.path) {
-                    hasOpenEditor = true;
-                    break;
-                }
-            }
-
-            // Check popovers if not found in leaves
-            if (!hasOpenEditor) {
-                for (const leaf of leaves) {
-                    // Accessing non-public editor API - no official types available
-                    const view = leaf.view as any;
-                    if (view?.hoverPopover?.targetEl) {
-                        // Popover might have editor for this file
-                        const popoverEditor = view.hoverPopover.editor;
-                        if (popoverEditor && view.hoverPopover.file?.path === file.path) {
-                            hasOpenEditor = true;
-                            break;
-                        }
-                    }
-                }
-            }
-
-            if (!hasOpenEditor) {
+            // Fallback: check for open editors using helper function
+            if (!isFileOpenInAnyEditor(file, app)) {
                 return { canModify: false, reason: 'file not open in editor' };
             }
         }

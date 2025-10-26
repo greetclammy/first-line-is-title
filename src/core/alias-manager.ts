@@ -269,7 +269,8 @@ export class AliasManager {
             const hasFrontmatter = lines.length > 0 && lines[0].trim() === '---';
 
             if (!hasFrontmatter) {
-                // Get current file reference again right before processFrontMatter
+                // Race condition mitigation: Get current file reference right before processFrontMatter
+                // File could be renamed/deleted between initial check and this point
                 const currentFileForFrontmatter = this.app.vault.getAbstractFileByPath(file.path);
                 if (!currentFileForFrontmatter || !(currentFileForFrontmatter instanceof TFile)) {
                     verboseLog(this.plugin, `Skipping frontmatter creation - file no longer exists: ${file.path}`);
@@ -295,7 +296,8 @@ export class AliasManager {
                 return;
             }
 
-            // Get current file reference again right before processFrontMatter
+            // Race condition mitigation: Get current file reference right before processFrontMatter
+            // File could be renamed/deleted between initial check and this point
             const currentFileForUpdate = this.app.vault.getAbstractFileByPath(file.path);
             if (!currentFileForUpdate || !(currentFileForUpdate instanceof TFile)) {
                 verboseLog(this.plugin, `Skipping frontmatter update - file no longer exists: ${file.path}`);
@@ -403,7 +405,8 @@ export class AliasManager {
 
         } catch (error) {
             // Check if this is an ENOENT error (file was renamed during async operation)
-            if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+            const errWithCode = error as NodeJS.ErrnoException;
+            if (errWithCode && typeof errWithCode === 'object' && 'code' in errWithCode && errWithCode.code === 'ENOENT') {
                 // File was renamed during operation - this is expected race condition, log as info
                 verboseLog(this.plugin, `Skipping alias addition - file was renamed during operation: ${file.path}`);
             } else {
@@ -432,7 +435,8 @@ export class AliasManager {
                 await activeView.save();
             }
 
-            // Get current file reference again right before processFrontMatter
+            // Race condition mitigation: Get current file reference right before processFrontMatter
+            // File could be renamed/deleted between initial check and this point
             const currentFileForRemoval = this.app.vault.getAbstractFileByPath(file.path);
             if (!currentFileForRemoval || !(currentFileForRemoval instanceof TFile)) {
                 verboseLog(this.plugin, `Skipping alias removal - file no longer exists: ${file.path}`);
@@ -485,7 +489,8 @@ export class AliasManager {
             verboseLog(this.plugin, `Removed plugin aliases from ${currentFileForRemoval.path}`);
         } catch (error) {
             // Check if this is an ENOENT error (file was renamed during async operation)
-            if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+            const errWithCode = error as NodeJS.ErrnoException;
+            if (errWithCode && typeof errWithCode === 'object' && 'code' in errWithCode && errWithCode.code === 'ENOENT') {
                 // File was renamed during operation - this is expected race condition, log as info
                 verboseLog(this.plugin, `Skipping alias removal - file was renamed during operation: ${file.path}`);
             } else {
