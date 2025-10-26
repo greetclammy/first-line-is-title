@@ -25,7 +25,7 @@ export class AliasManager {
             .filter(key => key.length > 0);
     }
 
-    async updateAliasIfNeeded(file: TFile, providedContent?: string, targetTitle?: string, editor?: any, isManualCommand = false): Promise<void> {
+    async updateAliasIfNeeded(file: TFile, providedContent?: string, targetTitle?: string, editor?: any): Promise<void> {
         // Track plugin usage
         this.plugin.trackUsage();
 
