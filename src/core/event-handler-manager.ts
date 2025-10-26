@@ -401,6 +401,12 @@ export class EventHandlerManager {
                         }
                     }
 
+                    // Skip if file has pending metadata update from processFrontMatter
+                    if (this.plugin.pendingMetadataUpdates.has(file.path)) {
+                        verboseLog(this.plugin, `Skipping alias update - pending metadata write: ${file.path}`);
+                        return;
+                    }
+
                     await this.plugin.aliasManager.updateAliasIfNeeded(file, currentContent);
                 }
             })
@@ -442,6 +448,14 @@ export class EventHandlerManager {
                         // Don't update lastEditorContent here - let the editor handler do it
                         return;
                     }
+                }
+
+                // Skip if file has pending metadata update from processFrontMatter
+                // Clear from Set since metadata cache has now processed the update
+                if (this.plugin.pendingMetadataUpdates.has(file.path)) {
+                    this.plugin.pendingMetadataUpdates.delete(file.path);
+                    verboseLog(this.plugin, `Skipping alias update - cleared pending metadata write: ${file.path}`);
+                    return;
                 }
 
                 await this.plugin.aliasManager.updateAliasIfNeeded(file, currentContent);
