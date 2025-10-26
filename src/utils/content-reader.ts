@@ -130,23 +130,37 @@ export async function readFileContent(
 function findEditorContent(app: App, file: TFile): string | null {
     const leaves = app.workspace.getLeavesOfType("markdown");
 
+    // Track popover editors for single-popover fallback logic
+    let singlePopoverContent: string | null = null;
+    let popoverCount = 0;
+
     // Check hover popovers FIRST - most likely to have fresh content during active editing
     // Popovers are ephemeral and only exist when actively being used
     for (const leaf of leaves) {
         // Accessing non-public API - hoverPopover not in official types
         const view = leaf.view as any;
-        if (view?.hoverPopover?.targetEl) {
-            const popoverEditor = view.hoverPopover.editor;
-            if (popoverEditor && view.hoverPopover.file?.path === file.path) {
-                const content = popoverEditor.getValue();
-                // Don't trust empty content - likely transient state after file operations
-                // Return null instead to try other methods
-                if (content) {
+        if (view?.hoverPopover?.targetEl && view.hoverPopover.editor) {
+            const content = view.hoverPopover.editor.getValue();
+            // Don't trust empty content - likely transient state after file operations
+            if (content) {
+                popoverCount++;
+                singlePopoverContent = content;
+
+                // Try exact path match first (normal case)
+                if (view.hoverPopover.file?.path === file.path) {
                     return content;
                 }
-                // Empty content, continue searching other editors
+                // Path might not match immediately after rename due to async update
+                // Continue to check other popovers and fall back to single-popover logic
             }
         }
+    }
+
+    // If exactly one active popover exists with content, use it
+    // This handles post-rename case where popover's file.path hasn't updated yet
+    // Assumption: single active popover = user's working context when manual command triggered
+    if (popoverCount === 1 && singlePopoverContent) {
+        return singlePopoverContent;
     }
 
     // Check main workspace leaves as fallback
