@@ -130,9 +130,6 @@ export async function readFileContent(
 function findEditorContent(app: App, file: TFile): string | null {
     const leaves = app.workspace.getLeavesOfType("markdown");
 
-    // DEBUG: Log search start
-    console.debug(`[findEditorContent] Searching for ${file.path}, found ${leaves.length} markdown leaves`);
-
     // Track popover editors for single-popover fallback logic
     let singlePopoverContent: string | null = null;
     let popoverCount = 0;
@@ -143,19 +140,8 @@ function findEditorContent(app: App, file: TFile): string | null {
         // Accessing non-public API - hoverPopover not in official types
         const view = leaf.view as any;
 
-        // DEBUG: Log popover detection
-        const hasPopover = !!view?.hoverPopover?.targetEl;
-        const hasEditor = !!view?.hoverPopover?.editor;
-        if (hasPopover || hasEditor) {
-            console.debug(`[findEditorContent] Leaf has popover: targetEl=${hasPopover}, editor=${hasEditor}`);
-        }
-
         if (view?.hoverPopover?.targetEl && view.hoverPopover.editor) {
             const content = view.hoverPopover.editor.getValue();
-            const popoverPath = view.hoverPopover.file?.path;
-
-            // DEBUG: Log popover content
-            console.debug(`[findEditorContent] Popover found: path=${popoverPath}, contentLength=${content?.length || 0}`);
 
             // Don't trust empty content - likely transient state after file operations
             if (content) {
@@ -164,7 +150,6 @@ function findEditorContent(app: App, file: TFile): string | null {
 
                 // Try exact path match first (normal case)
                 if (view.hoverPopover.file?.path === file.path) {
-                    console.debug(`[findEditorContent] Exact path match, returning content`);
                     return content;
                 }
                 // Path might not match immediately after rename due to async update
@@ -173,14 +158,10 @@ function findEditorContent(app: App, file: TFile): string | null {
         }
     }
 
-    // DEBUG: Log fallback decision
-    console.debug(`[findEditorContent] After popover search: popoverCount=${popoverCount}, willUseFallback=${popoverCount === 1}`);
-
     // If exactly one active popover exists with content, use it
     // This handles post-rename case where popover's file.path hasn't updated yet
     // Assumption: single active popover = user's working context when manual command triggered
     if (popoverCount === 1 && singlePopoverContent) {
-        console.debug(`[findEditorContent] Using single-popover fallback`);
         return singlePopoverContent;
     }
 
@@ -191,7 +172,6 @@ function findEditorContent(app: App, file: TFile): string | null {
     if (activeView?.editor) {
         const content = activeView.editor.getValue();
         if (content) {
-            console.debug(`[findEditorContent] Found content in active view editor (${content.length} chars)`);
             return content;
         }
     }
@@ -210,7 +190,6 @@ function findEditorContent(app: App, file: TFile): string | null {
         }
     }
 
-    console.debug(`[findEditorContent] No editor content found, returning null`);
     return null;
 }
 
