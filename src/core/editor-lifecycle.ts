@@ -262,13 +262,6 @@ export class EditorLifecycleManager {
                 if (currentPath !== this.lastFocusedFile) {
                     this.lastFocusedFile = currentPath;
 
-                    // TESTING: Commented out to verify if this is actually needed
-                    // Skip if file was recently renamed by FLIT (prevents infinite rename loop)
-                    // if (this.isRecentlyRenamed(currentPath)) {
-                    //     verboseLog(this.plugin, `Skipping rename-on-focus - file recently renamed by FLIT: ${currentPath}`);
-                    //     return;
-                    // }
-
                     verboseLog(this.plugin, `File focused: ${currentPath}`);
 
                     // Process file with rename-on-focus (async but don't await to avoid blocking)
@@ -347,15 +340,6 @@ export class EditorLifecycleManager {
         }, this.settings.core.checkInterval);
 
         this.plugin.fileStateManager.setThrottleTimer(filePath, timer);
-    }
-
-    /**
-     * Clear throttle timer for a specific file
-     * @deprecated Use plugin.fileStateManager.clearThrottleTimer() instead
-     */
-    clearThrottleTimer(filePath: string): void {
-        this.plugin.fileStateManager.clearThrottleTimer(filePath);
-        verboseLog(this.plugin, `Cleared throttle timer for: ${filePath}`);
     }
 
     /**
@@ -473,15 +457,6 @@ export class EditorLifecycleManager {
     }
 
     /**
-     * Process pending editor changes (kept for backward compatibility)
-     */
-    processPendingEditorChanges(): void {
-        // No longer needed since we process immediately on editor-change
-        // This method is kept for backward compatibility with event handlers
-        verboseLog(this.plugin, `processPendingEditorChanges called - no action needed with immediate processing`);
-    }
-
-    /**
      * Get open editor files map (for external access)
      */
     getOpenEditorFiles(): Map<string, number> {
@@ -494,20 +469,4 @@ export class EditorLifecycleManager {
     getActiveEditorFiles(): Map<string, { file: TFile, editor: any, lastFirstLine: string | undefined, leafId: string }> {
         return this.activeEditorFiles;
     }
-
-    /**
-     * TESTING: Commented out to verify if this is actually needed
-     * Mark a file as recently renamed by FLIT (prevents rename-on-focus loop)
-     */
-    // markFileAsRecentlyRenamed(filePath: string): void {
-    //     this.plugin.fileStateManager.markRecentlyRenamed(filePath);
-    // }
-
-    /**
-     * TESTING: Commented out to verify if this is actually needed
-     * Check if a file was recently renamed by FLIT (within last 150ms)
-     */
-    // isRecentlyRenamed(filePath: string): boolean {
-    //     return this.plugin.fileStateManager.wasRecentlyRenamed(filePath);
-    // }
 }

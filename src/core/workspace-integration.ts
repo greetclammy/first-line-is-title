@@ -338,9 +338,6 @@ export class WorkspaceIntegration {
                                 verboseLog(plugin, `CREATE: Canvas active, using initial content as template content (skip wait)`);
                             }
 
-                            // Template handling removed - will be re-implemented automatically later
-                            // TODO: Re-add template exclusion check when automatic template detection is implemented
-
                             titleWasInserted = await plugin.fileOperations.insertTitleOnCreation(file, initialContent, templateContent);
                             verboseLog(plugin, `CREATE: insertTitleOnCreation returned ${titleWasInserted}`);
                         }
