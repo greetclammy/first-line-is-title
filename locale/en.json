@@ -412,8 +412,8 @@
       "limitations": {
         "title": "Limitations",
         "desc": {
-          "part1": "First line alias will not update automatically when editing in page preview. Run a manual rename command after modifying first line, or use ",
-          "part2": "."
+          "part1": "First line alias will not update automatically when editing in page preview. Using ",
+          "part2": " is recommended."
         }
       }
     },
