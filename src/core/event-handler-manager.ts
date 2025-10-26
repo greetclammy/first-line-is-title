@@ -533,34 +533,39 @@ export class EventHandlerManager {
         this.cursorDebugUninstaller = around(Editor.prototype, {
             setCursor(old) {
                 return function (pos: any, ...args: any[]) {
-                    // Get current cursor position before change
-                    const oldCursor = this.getCursor();
+                    try {
+                        // Get current cursor position before change
+                        const oldCursor = this.getCursor();
 
-                    // Get current file path
-                    let filePath = 'unknown';
-                    const activeView = plugin.app.workspace.getActiveViewOfType(MarkdownView);
-                    if (activeView?.file) {
-                        filePath = activeView.file.path;
+                        // Get current file path
+                        let filePath = 'unknown';
+                        const activeView = plugin.app.workspace.getActiveViewOfType(MarkdownView);
+                        if (activeView?.file) {
+                            filePath = activeView.file.path;
+                        }
+
+                        // Parse new position (could be {line, ch} or just a number)
+                        let newLine: string | number = 'unknown';
+                        let newCh: string | number = 'unknown';
+                        if (typeof pos === 'object' && pos !== null) {
+                            newLine = pos.line ?? 'unknown';
+                            newCh = pos.ch ?? 'unknown';
+                        } else if (typeof pos === 'number') {
+                            newLine = pos;
+                        }
+
+                        // Log the cursor movement
+                        console.debug(
+                            `[CURSOR-GLOBAL] File: ${filePath} | ` +
+                            `From: line ${oldCursor.line} ch ${oldCursor.ch} → ` +
+                            `To: line ${newLine} ch ${newCh}`
+                        );
+                    } catch (error) {
+                        // Silently fail debug logging to avoid breaking cursor positioning
+                        console.error('[CURSOR-DEBUG] Error in cursor interceptor:', error);
                     }
 
-                    // Parse new position (could be {line, ch} or just a number)
-                    let newLine: string | number = 'unknown';
-                    let newCh: string | number = 'unknown';
-                    if (typeof pos === 'object' && pos !== null) {
-                        newLine = pos.line ?? 'unknown';
-                        newCh = pos.ch ?? 'unknown';
-                    } else if (typeof pos === 'number') {
-                        newLine = pos;
-                    }
-
-                    // Log the cursor movement
-                    console.debug(
-                        `[CURSOR-GLOBAL] File: ${filePath} | ` +
-                        `From: line ${oldCursor.line} ch ${oldCursor.ch} → ` +
-                        `To: line ${newLine} ch ${newCh}`
-                    );
-
-                    // Call original setCursor
+                    // Call original setCursor (outside try-catch to ensure it always runs)
                     return old.call(this, pos, ...args);
                 };
             }
