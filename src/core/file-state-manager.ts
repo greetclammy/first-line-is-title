@@ -51,6 +51,7 @@ export interface FileState {
 
     // Cache staleness tracking - when editor sync skipped in popover
     needsFreshRead?: boolean; // True when cache is stale, must read from disk not cache
+    needsFreshReadTimestamp?: number; // When flag was set, for cleanup in maintenance
 }
 
 /**
@@ -425,6 +426,7 @@ export class FileStateManager {
     markNeedsFreshRead(path: string): void {
         const state = this.getOrCreateState(path);
         state.needsFreshRead = true;
+        state.needsFreshReadTimestamp = Date.now();
     }
 
     /**
@@ -441,6 +443,7 @@ export class FileStateManager {
         const state = this.fileStates.get(path);
         if (state) {
             state.needsFreshRead = false;
+            delete state.needsFreshReadTimestamp;
         }
     }
 
@@ -496,13 +499,14 @@ export class FileStateManager {
 
     /**
      * Maintenance: cleanup stale entries
-     * Called periodically to remove old operation data
+     * Called periodically to remove old operation data, flags, and timestamps
      */
     runMaintenance(): void {
         const now = Date.now();
-        const staleThreshold = 10 * 60 * 1000;
+        const staleThreshold = 10 * 60 * 1000; // 10 minutes
 
         for (const [path, state] of this.fileStates.entries()) {
+            // Clean up stale operation data
             if (state.operationData) {
                 const age = now - state.operationData.lastUpdate;
                 if (age > staleThreshold) {
@@ -510,7 +514,26 @@ export class FileStateManager {
                 }
             }
 
-            if (Object.keys(state).length === 1 && state.path === path) {
+            // Clean up stale needsFreshRead flags (5 minutes)
+            if (state.needsFreshReadTimestamp) {
+                const age = now - state.needsFreshReadTimestamp;
+                if (age > 5 * 60 * 1000) {
+                    delete state.needsFreshRead;
+                    delete state.needsFreshReadTimestamp;
+                }
+            }
+
+            // Clean up stale lastRenamedTime (prevents memory leak)
+            if (state.lastRenamedTime) {
+                const age = now - state.lastRenamedTime;
+                if (age > 10 * 1000) { // 10 seconds is more than enough
+                    delete state.lastRenamedTime;
+                }
+            }
+
+            // Remove completely empty state entries (only has path field)
+            const stateKeys = Object.keys(state).filter(k => k !== 'path' && state[k as keyof FileState] !== undefined);
+            if (stateKeys.length === 0) {
                 this.fileStates.delete(path);
             }
         }

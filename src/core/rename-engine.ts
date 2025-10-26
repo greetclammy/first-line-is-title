@@ -1,6 +1,6 @@
 import { TFile, Editor, Notice, getFrontMatterInfo, parseYaml, MarkdownView } from "obsidian";
 import { PluginSettings, TitleRegionCache } from '../types';
-import { TIMING } from '../constants/timing';
+import { TIMING, LIMITS } from '../constants/timing';
 import {
     verboseLog,
     detectOS,
@@ -99,6 +99,7 @@ export class RenameEngine {
                         hasPluginManagedFrontmatter = aliasKeys.some(key => frontmatter && frontmatter[key] !== undefined);
                     } catch (e) {
                         // Malformed YAML - treat as not having plugin frontmatter
+                        verboseLog(this.plugin, `Malformed YAML in ${file.path}, treating as new file: ${(e as Error).message}`);
                     }
                 }
 
@@ -215,11 +216,8 @@ export class RenameEngine {
             return;
         }
 
-        if (!shouldProcessFile(file, this.plugin.settings, this.plugin.app, content, undefined, this.plugin)) {
-            // Output file content if enabled, even when excluded
-            this.plugin.outputDebugFileContent(file, 'EXCLUDED', content || '');
-            return;
-        }
+        // Note: shouldProcessFile is checked inside processFile where exclusionOverrides can be applied
+        // No need to check here - processFile handles all exclusion logic
 
         verboseLog(this.plugin, `PROCESS: Starting immediate processFile for ${file.path}`);
 
@@ -292,13 +290,22 @@ export class RenameEngine {
             return { success: false, reason: 'already-processing' };
         }
 
+        // Track all paths that may need unlocking (prevents orphaned locks on external renames)
+        const pathsToUnlock = new Set<string>([originalPath]);
+
         try {
-            return await this.processFileInternal(file, noDelay, showNotices, providedContent, isBatchOperation, exclusionOverrides, hasActiveEditor, editor);
-        } finally {
-            // Release lock on both original and current path (state may have been migrated during rename)
-            this.plugin.cacheManager?.releaseLock(originalPath);
+            const result = await this.processFileInternal(file, noDelay, showNotices, providedContent, isBatchOperation, exclusionOverrides, hasActiveEditor, editor);
+
+            // If file path changed during processing, track new path for cleanup
             if (file.path !== originalPath) {
-                this.plugin.cacheManager?.releaseLock(file.path);
+                pathsToUnlock.add(file.path);
+            }
+
+            return result;
+        } finally {
+            // Release all tracked locks (handles both successful renames and external renames during processing)
+            for (const path of pathsToUnlock) {
+                this.plugin.cacheManager?.releaseLock(path);
             }
 
             // Check if content changed during processing (rapid edits during rename/alias operations)
@@ -392,14 +399,15 @@ export class RenameEngine {
         // Skip processing when editing in footnote popover
         // When user types in footnote definition, providedContent contains only the footnote text
         // (e.g., "1", "123") while disk has the full file with frontmatter and main content.
-        // Size ratio < 50% indicates popover context. We must skip to avoid ping-pong renaming
+        // Size ratio < threshold indicates popover context. We must skip to avoid ping-pong renaming
         // between footnote content and main content on alternating keystrokes.
+        // Threshold of 0.3 provides safety margin (was 0.5 but that's too aggressive).
         // This check allows normal processing when editing main content even if footnotes exist.
         try {
             const diskContent = await this.plugin.app.vault.read(file);
             if (diskContent.match(/\n\[\^[^\]]+\]:\s/)) {
                 const ratio = diskContent.length > 0 ? contentForRateLimit.length / diskContent.length : 1;
-                if (ratio < 0.5) {
+                if (ratio < LIMITS.FOOTNOTE_SIZE_THRESHOLD) {
                     verboseLog(this.plugin, `Skipping - editing in footnote popover (editor/disk ratio ${(ratio * 100).toFixed(1)}%): ${file.path}`);
                     return { success: false, reason: 'footnote-popover-edit' };
                 }

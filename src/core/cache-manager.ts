@@ -1,3 +1,5 @@
+import type FirstLineIsTitlePlugin from '../../main';
+
 export interface CacheConfig {
     maxContentEntries: number;
     maxOperationEntries: number;
@@ -11,27 +13,51 @@ export const DEFAULT_CACHE_CONFIG: CacheConfig = {
 class LRUCache<K, V> {
     private maxSize: number;
     private cache: Map<K, V>;
+    private accessOrder: Map<K, number>; // Track access order with counter
+    private accessCounter: number = 0;
 
     constructor(maxSize: number) {
         this.maxSize = maxSize;
         this.cache = new Map();
+        this.accessOrder = new Map();
     }
 
     set(key: K, value: V): void {
         if (this.cache.has(key)) {
+            // Update existing entry
             this.cache.delete(key);
-        } else if (this.cache.size >= this.maxSize) {
-            const firstKey = this.cache.keys().next().value;
-            this.cache.delete(firstKey);
+            this.cache.set(key, value);
+            this.accessOrder.set(key, ++this.accessCounter);
+        } else {
+            // Add new entry, evict LRU if at capacity
+            if (this.cache.size >= this.maxSize) {
+                // Find key with minimum access counter (least recently used)
+                let lruKey: K | undefined;
+                let minAccess = Infinity;
+
+                for (const [k, accessTime] of this.accessOrder) {
+                    if (accessTime < minAccess) {
+                        minAccess = accessTime;
+                        lruKey = k;
+                    }
+                }
+
+                if (lruKey !== undefined) {
+                    this.cache.delete(lruKey);
+                    this.accessOrder.delete(lruKey);
+                }
+            }
+
+            this.cache.set(key, value);
+            this.accessOrder.set(key, ++this.accessCounter);
         }
-        this.cache.set(key, value);
     }
 
     get(key: K): V | undefined {
         const value = this.cache.get(key);
         if (value !== undefined) {
-            this.cache.delete(key);
-            this.cache.set(key, value);
+            // Update access order
+            this.accessOrder.set(key, ++this.accessCounter);
         }
         return value;
     }
@@ -41,11 +67,14 @@ class LRUCache<K, V> {
     }
 
     delete(key: K): boolean {
+        this.accessOrder.delete(key);
         return this.cache.delete(key);
     }
 
     clear(): void {
         this.cache.clear();
+        this.accessOrder.clear();
+        this.accessCounter = 0;
     }
 
     size(): number {
@@ -61,9 +90,9 @@ class FileExistenceCache {
     private pathCache: Set<string> = new Set();
     private lastUpdate: number = 0;
     private readonly cacheTTL: number = 5000;
-    private plugin: any;
+    private plugin: FirstLineIsTitlePlugin;
 
-    constructor(plugin: any) {
+    constructor(plugin: FirstLineIsTitlePlugin) {
         this.plugin = plugin;
     }
 
@@ -107,7 +136,7 @@ interface OperationData {
 }
 
 export class CacheManager {
-    private plugin: any;
+    private plugin: FirstLineIsTitlePlugin;
     private config: CacheConfig;
 
     // Optimized data structures
@@ -117,7 +146,7 @@ export class CacheManager {
 
     private isDisposed: boolean = false;
 
-    constructor(plugin: any, config: CacheConfig = DEFAULT_CACHE_CONFIG) {
+    constructor(plugin: FirstLineIsTitlePlugin, config: CacheConfig = DEFAULT_CACHE_CONFIG) {
         this.plugin = plugin;
         this.config = config;
 

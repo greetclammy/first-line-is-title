@@ -48,6 +48,21 @@ export const TIMING = {
 
     /** Rate limit for self-reference notices (prevents notice spam) */
     SELF_REF_NOTICE_TTL_MS: 2000,
+
+    /** Delay after processFrontMatter before reading file (allows async disk write to complete) */
+    FRONTMATTER_WRITE_DELAY_MS: 10,
+
+    /** Window for detecting recently renamed files (prevents stale content processing) */
+    RENAME_RECENTLY_WINDOW_MS: 100,
+
+    /** TTL for file existence cache to reduce filesystem queries */
+    CACHE_TTL_MS: 5000,
+
+    /** Threshold for stale file locks (cleaned up during maintenance) */
+    FILE_LOCK_STALE_THRESHOLD_MS: 60000,
+
+    /** Threshold for stale needsFreshRead flags (cleaned up during maintenance) */
+    NEEDS_FRESH_READ_STALE_THRESHOLD_MS: 300000,
 } as const;
 
 export const LIMITS = {
@@ -56,4 +71,10 @@ export const LIMITS = {
 
     /** Maximum retry attempts for title insertion */
     MAX_TITLE_INSERTION_RETRIES: 3,
+
+    /** Maximum conflict resolution iterations (prevents infinite loops) */
+    MAX_CONFLICT_ITERATIONS: 10000,
+
+    /** Footnote popover detection threshold (editor/disk content size ratio) */
+    FOOTNOTE_SIZE_THRESHOLD: 0.3,
 } as const;
