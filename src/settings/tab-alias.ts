@@ -1,4 +1,4 @@
-import { Setting, setIcon, ToggleComponent } from "obsidian";
+import { Setting, setIcon, ToggleComponent, Platform } from "obsidian";
 import { SettingsTabBase, FirstLineIsTitlePlugin } from './settings-base';
 import { DEFAULT_SETTINGS } from '../constants';
 import { t, getCurrentLocale } from '../i18n';
@@ -357,6 +357,23 @@ export class PropertiesTab extends SettingsTabBase {
                         await this.plugin.saveSettings();
                     });
             });
+
+        if (!Platform.isMobile) {
+            const limitationsSetting = new Setting(aliasContainer)
+                .setName(t('settings.alias.limitations.title'))
+                .setDesc("");
+
+            limitationsSetting.settingEl.addClass('flit-section-header');
+
+            const limitationsContainer = aliasContainer.createDiv();
+            const limitationsDesc = limitationsContainer.createEl("p", { cls: "setting-item-description flit-margin-top-12" });
+            limitationsDesc.appendText(t('settings.alias.limitations.desc.part1'));
+            limitationsDesc.createEl("a", {
+                text: "Hover Editor",
+                href: "obsidian://show-plugin?id=obsidian-hover-editor"
+            });
+            limitationsDesc.appendText(t('settings.alias.limitations.desc.part2'));
+        }
 
         renderAliasSettings();
 
