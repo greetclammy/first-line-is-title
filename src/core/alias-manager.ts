@@ -133,7 +133,7 @@ export class AliasManager {
             // Alias will update automatically when popover closes via active-leaf-change/layout-change handler
             if (editor && this.isEditorInPopover(editor, file)) {
                 verboseLog(this.plugin, `Skipping alias update in popover: ${file.path}`);
-                this.plugin.fileStateManager.markPendingAliasRecheck(file.path);
+                this.plugin.fileStateManager.markPendingAliasRecheck(file.path, editor);
                 return;
             }
 
@@ -683,7 +683,7 @@ export class AliasManager {
      * @param file - File being edited
      * @returns true if editor is in a popover, false if in main workspace
      */
-    private isEditorInPopover(editor: any, file: TFile): boolean {
+    public isEditorInPopover(editor: any, file: TFile): boolean {
         // Get the active markdown view
         const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
 
