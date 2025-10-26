@@ -62,7 +62,7 @@ export class AliasManager {
             }
 
             const content = await readFileContent(this.plugin, file, {
-                providedContent,
+                providedContent: shouldReadFromEditor ? providedContent : undefined,
                 providedEditor: shouldReadFromEditor ? editor : undefined
             });
 
