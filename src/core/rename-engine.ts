@@ -378,7 +378,8 @@ export class RenameEngine {
         try {
             contentForRateLimit = await readFileContent(this.plugin, file, {
                 providedContent,
-                preferFresh: true
+                preferFresh: true,
+                searchWorkspace: showNotices // Manual commands search for popover editors
             });
 
             // Output debug file content if enabled
@@ -437,7 +438,8 @@ export class RenameEngine {
         const previousFileContent = cacheManager?.getContent(file.path);
 
         let content = await readFileContent(this.plugin, file, {
-            providedContent
+            providedContent,
+            searchWorkspace: showNotices // Manual commands search for popover editors
         });
 
         // Check if filename contains any safewords and skip if enabled (always respect safewords)
