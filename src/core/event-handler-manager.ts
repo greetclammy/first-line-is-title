@@ -473,12 +473,28 @@ export class EventHandlerManager {
                     // Respect renameNotes setting for automatic operations
                     if (this.plugin.settings.core.renameNotes !== 'automatically') return;
 
-                    // Use consolidated helper to read content with deduplication
-                    const currentContent = await getContentForAliasUpdate(this.plugin, file, 'modify');
-                    if (currentContent === null) return;
+                    // Skip if file operation already in progress (prevents concurrent alias updates)
+                    if (this.plugin.cacheManager?.isLocked(file.path)) {
+                        verboseLog(this.plugin, `Skipping modify alias update - operation in progress: ${file.path}`);
+                        return;
+                    }
 
-                    // Pass content to avoid second read and race condition
-                    await this.plugin.aliasManager.updateAliasIfNeeded(file, currentContent);
+                    // Acquire lock to prevent concurrent alias updates
+                    if (!this.plugin.cacheManager?.acquireLock(file.path)) {
+                        verboseLog(this.plugin, `Skipping modify alias update - failed to acquire lock: ${file.path}`);
+                        return;
+                    }
+
+                    try {
+                        // Use consolidated helper to read content with deduplication
+                        const currentContent = await getContentForAliasUpdate(this.plugin, file, 'modify');
+                        if (currentContent === null) return;
+
+                        // Pass content to avoid second read and race condition
+                        await this.plugin.aliasManager.updateAliasIfNeeded(file, currentContent);
+                    } finally {
+                        this.plugin.cacheManager?.releaseLock(file.path);
+                    }
                 }
             })
         );
@@ -492,12 +508,28 @@ export class EventHandlerManager {
                 // Respect renameNotes setting for automatic operations
                 if (this.plugin.settings.core.renameNotes !== 'automatically') return;
 
-                // Use consolidated helper to read content with deduplication
-                const currentContent = await getContentForAliasUpdate(this.plugin, file, 'metadata');
-                if (currentContent === null) return;
+                // Skip if file operation already in progress (prevents concurrent alias updates)
+                if (this.plugin.cacheManager?.isLocked(file.path)) {
+                    verboseLog(this.plugin, `Skipping metadata alias update - operation in progress: ${file.path}`);
+                    return;
+                }
 
-                // Pass content to avoid second read and race condition
-                await this.plugin.aliasManager.updateAliasIfNeeded(file, currentContent);
+                // Acquire lock to prevent concurrent alias updates
+                if (!this.plugin.cacheManager?.acquireLock(file.path)) {
+                    verboseLog(this.plugin, `Skipping metadata alias update - failed to acquire lock: ${file.path}`);
+                    return;
+                }
+
+                try {
+                    // Use consolidated helper to read content with deduplication
+                    const currentContent = await getContentForAliasUpdate(this.plugin, file, 'metadata');
+                    if (currentContent === null) return;
+
+                    // Pass content to avoid second read and race condition
+                    await this.plugin.aliasManager.updateAliasIfNeeded(file, currentContent);
+                } finally {
+                    this.plugin.cacheManager?.releaseLock(file.path);
+                }
             })
         );
     }
