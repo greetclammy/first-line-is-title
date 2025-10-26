@@ -1,10 +1,9 @@
 import { TFile, MarkdownView, getFrontMatterInfo, parseYaml } from "obsidian";
 import { NodeError } from '../obsidian-ex';
 import { PluginSettings } from '../types';
-import { verboseLog, shouldProcessFile, extractTitle, canModifyFile, findTitleSourceLine } from '../utils';
+import { verboseLog, shouldProcessFile, extractTitle, hasDisablePropertyInFile, findTitleSourceLine } from '../utils';
 import { t } from '../i18n';
 import { readFileContent } from '../utils/content-reader';
-import { TIMING } from '../constants/timing';
 import FirstLineIsTitle from '../../main';
 
 export class AliasManager {
@@ -26,7 +25,7 @@ export class AliasManager {
             .filter(key => key.length > 0);
     }
 
-    async updateAliasIfNeeded(file: TFile, providedContent?: string, targetTitle?: string, isManualCommand = false, hasActiveEditor?: boolean, editor?: any): Promise<void> {
+    async updateAliasIfNeeded(file: TFile, providedContent?: string, targetTitle?: string, editor?: any): Promise<void> {
         // Track plugin usage
         this.plugin.trackUsage();
 
@@ -42,30 +41,17 @@ export class AliasManager {
             // Note: No lock check here - alias manager is called from within processFile's lock
             // The lock is already acquired by the time we reach this point
 
-            // Central gate: check policy requirements and always-on safeguards
-            const {canModify, reason} = await canModifyFile(
-                file,
-                this.app,
-                this.settings.exclusions.disableRenamingKey,
-                this.settings.exclusions.disableRenamingValue,
-                isManualCommand,
-                hasActiveEditor
-            );
-
-            if (!canModify) {
-                verboseLog(this.plugin, `Skipping alias update: ${reason}: ${file.path}`);
+            // Check disable property FIRST - this cannot be overridden by any command
+            if (await hasDisablePropertyInFile(file, this.app, this.settings.exclusions.disableRenamingKey, this.settings.exclusions.disableRenamingValue)) {
+                verboseLog(this.plugin, `Skipping alias update - file has disable property: ${file.path}`);
                 return;
             }
 
             if (!shouldProcessFile(file, this.settings, this.app, undefined, undefined, this.plugin)) {
                 return;
             }
-            // NEVER use providedContent for alias updates - it's a snapshot from when event fired
-            // Always read fresh from editor or workspace to capture characters typed during processing
             const content = await readFileContent(this.plugin, file, {
-                providedEditor: editor,
-                searchWorkspace: true
-                // providedContent intentionally omitted - causes missing last char during rapid typing
+                providedContent
             });
 
             if (!content || content.trim() === '') {
@@ -86,7 +72,7 @@ export class AliasManager {
 
             if (!firstNonEmptyLine || firstNonEmptyLine.trim() === '') {
                 if (this.settings.aliases.enableAliases) {
-                    await this.removePluginAliasesFromFile(file, false, editor);
+                    await this.removePluginAliasesFromFile(file);
                 }
                 return;
             }
@@ -120,7 +106,7 @@ export class AliasManager {
             const shouldHaveAlias = !this.settings.aliases.addAliasOnlyIfFirstLineDiffers || !processedLineMatchesFilename;
 
             if (!shouldHaveAlias) {
-                await this.removePluginAliasesFromFile(file, false, editor);
+                await this.removePluginAliasesFromFile(file);
                 return;
             }
 
@@ -168,7 +154,7 @@ export class AliasManager {
 
             try {
                 verboseLog(this.plugin, `Adding alias to ${file.path} - no correct alias found`);
-                await this.addAliasToFile(file, editor);
+                await this.addAliasToFile(file, titleSourceLine, titleToCompare, content);
             } catch (error) {
                 console.error('Error updating alias:', error);
             }
@@ -178,7 +164,7 @@ export class AliasManager {
         }
     }
 
-    async addAliasToFile(file: TFile, editor?: any): Promise<void> {
+    async addAliasToFile(file: TFile, originalFirstNonEmptyLine: string, newTitle: string, content: string): Promise<void> {
         try {
             // Check if file still exists before processing
             const currentFile = this.app.vault.getAbstractFileByPath(file.path);
@@ -189,59 +175,8 @@ export class AliasManager {
 
             file = currentFile;
 
-            // Save any unsaved changes before reading content
-            if (editor) {
-                // Editor provided - find the view containing this editor and save
-                // Note: No separate lock needed - already running within processFile()'s lock
-                const leaves = this.app.workspace.getLeavesOfType("markdown");
-                for (const leaf of leaves) {
-                    const view = leaf.view as MarkdownView;
-                    if (view?.file?.path === file.path && view.editor === editor) {
-                        await view.save();
-                        break;
-                    }
-                }
-            } else {
-                // Fallback: try active view save
-                const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
-                if (activeView && activeView.file?.path === file.path) {
-                    await activeView.save();
-                }
-            }
-
-            // Read FRESH content from editor AFTER saving to capture all characters typed during processing
-            // This eliminates race condition where alias is calculated from stale snapshot
-            const freshContent = await readFileContent(this.plugin, file, {
-                providedEditor: editor,
-                searchWorkspace: true
-            });
-
-            if (!freshContent || freshContent.trim() === '') {
-                verboseLog(this.plugin, `Skipping alias addition - empty content: ${file.path}`);
-                return;
-            }
-
-            // Extract first non-empty line from fresh content
-            const contentWithoutFrontmatter = this.plugin.renameEngine.stripFrontmatterFromContent(freshContent, file);
-            const lines = contentWithoutFrontmatter.split('\n');
-
-            let firstNonEmptyLine = '';
-            for (const line of lines) {
-                if (line.trim() !== '') {
-                    firstNonEmptyLine = line;
-                    break;
-                }
-            }
-
-            if (!firstNonEmptyLine || firstNonEmptyLine.trim() === '') {
-                verboseLog(this.plugin, `Removing plugin alias - no non-empty content found`);
-                await this.removePluginAliasesFromFile(file, false, editor);
-                return;
-            }
-
-            // Determine titleSourceLine using shared utility function
-            const titleSourceLine = findTitleSourceLine(firstNonEmptyLine, lines, this.settings, this.plugin);
-            let aliasProcessedLine = titleSourceLine;
+            const firstNonEmptyLine = originalFirstNonEmptyLine;
+            let aliasProcessedLine = firstNonEmptyLine;
 
             // Apply custom replacements to alias if enabled
             if (this.settings.customRules.enableCustomReplacements && this.settings.markupStripping.applyCustomRulesInAlias) {
@@ -277,14 +212,13 @@ export class AliasManager {
 
             this.settings.replaceCharacters.enableForbiddenCharReplacements = originalCharReplacementSetting;
             this.settings.markupStripping.enableStripMarkup = originalStripMarkupSetting;
-
-            const targetTitle = file.basename.trim();
+            const targetTitle = newTitle.trim();
             const aliasMatchesFilename = (aliasToAdd.trim() === targetTitle);
             const shouldAddAlias = !this.settings.aliases.addAliasOnlyIfFirstLineDiffers || !aliasMatchesFilename;
 
             if (!shouldAddAlias) {
                 verboseLog(this.plugin, `Removing plugin aliases and skipping add - alias matches filename: \`${aliasToAdd}\` = \`${targetTitle}\``);
-                await this.removePluginAliasesFromFile(file, false, editor);
+                await this.removePluginAliasesFromFile(file);
                 return;
             }
 
@@ -298,7 +232,7 @@ export class AliasManager {
             // If the alias is empty or only whitespace, remove the plugin alias instead
             if (!aliasToAdd || aliasToAdd.trim() === '') {
                 verboseLog(this.plugin, `Removing plugin alias - no non-empty content found`);
-                await this.removePluginAliasesFromFile(file, false, editor);
+                await this.removePluginAliasesFromFile(file);
                 return;
             }
 
@@ -323,10 +257,14 @@ export class AliasManager {
 
             // Mark alias with ZWSP for identification
             const markedAlias = '\u200B' + aliasToAdd + '\u200B';
+            const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
+            if (activeView && activeView.file === file) {
+                await activeView.save();
+            }
 
             // Parse content directly to avoid race conditions with metadata cache
-            const contentLines = freshContent.split('\n');
-            const hasFrontmatter = contentLines.length > 0 && contentLines[0].trim() === '---';
+            const lines = content.split('\n');
+            const hasFrontmatter = lines.length > 0 && lines[0].trim() === '---';
 
             if (!hasFrontmatter) {
                 // Get current file reference again right before processFrontMatter
@@ -338,7 +276,6 @@ export class AliasManager {
 
                 // No frontmatter exists - use processFrontMatter to create it properly
                 const aliasPropertyKeys = this.getAliasPropertyKeys();
-                const originalMtime = this.settings.core.preserveModificationDate ? currentFileForFrontmatter.stat.mtime : undefined;
                 await this.app.fileManager.processFrontMatter(currentFileForFrontmatter, (frontmatter) => {
                     // Insert alias into all specified properties
                     for (const aliasPropertyKey of aliasPropertyKeys) {
@@ -349,45 +286,10 @@ export class AliasManager {
                             frontmatter[aliasPropertyKey] = markedAlias;
                         }
                     }
-                }, originalMtime !== undefined ? { mtime: originalMtime } : undefined);
+                });
                 // Mark file as having pending metadata cache update
                 this.plugin.pendingMetadataUpdates.add(currentFileForFrontmatter.path);
                 verboseLog(this.plugin, `Created frontmatter and added alias \`${aliasToAdd}\` to ${currentFileForFrontmatter.path}`);
-
-                // Sync editor with new frontmatter if editor available
-                if (editor) {
-                    // Don't read from disk - processFrontMatter's write may not be complete yet
-                    // Instead, sync editor directly with frontmatter we know we just wrote
-                    try {
-                        // Construct frontmatter YAML with alias we just wrote
-                        let frontmatterYaml = '';
-                        for (const aliasPropertyKey of aliasPropertyKeys) {
-                            if (aliasPropertyKey === 'aliases') {
-                                frontmatterYaml += `${aliasPropertyKey}:\n  - ${markedAlias}\n`;
-                            } else {
-                                frontmatterYaml += `${aliasPropertyKey}: ${markedAlias}\n`;
-                            }
-                        }
-
-                        const currentEditorContent = editor.getValue();
-                        const oldFrontmatterLines = this.countFrontmatterLines(currentEditorContent);
-                        const newFrontmatterWithDelimiters = `---\n${frontmatterYaml}---\n`;
-
-                        this.plugin.fileStateManager.markEditorSyncing(currentFileForFrontmatter.path);
-                        try {
-                            editor.replaceRange(
-                                newFrontmatterWithDelimiters,
-                                { line: 0, ch: 0 },
-                                { line: oldFrontmatterLines, ch: 0 }
-                            );
-                            verboseLog(this.plugin, `[EDITOR-SYNC] Created frontmatter via replaceRange (${oldFrontmatterLines} → ${this.countFrontmatterLines(editor.getValue())} lines)`);
-                        } finally {
-                            this.plugin.fileStateManager.clearEditorSyncing(currentFileForFrontmatter.path);
-                        }
-                    } catch (error) {
-                        verboseLog(this.plugin, `[EDITOR-SYNC] Failed to sync after frontmatter creation: ${error}`);
-                    }
-                }
                 return;
             }
 
@@ -400,7 +302,6 @@ export class AliasManager {
 
             // File has frontmatter, use processFrontMatter to update aliases
             const aliasPropertyKeys = this.getAliasPropertyKeys();
-            const originalMtime = this.settings.core.preserveModificationDate ? currentFileForUpdate.stat.mtime : undefined;
             await this.app.fileManager.processFrontMatter(currentFileForUpdate, (frontmatter) => {
                 // Insert alias into all specified properties
                 for (const aliasPropertyKey of aliasPropertyKeys) {
@@ -492,46 +393,11 @@ export class AliasManager {
                         }
                     }
                 }
-            }, originalMtime !== undefined ? { mtime: originalMtime } : undefined);
+            });
 
             // Mark file as having pending metadata cache update
             this.plugin.pendingMetadataUpdates.add(currentFileForUpdate.path);
             verboseLog(this.plugin, `Updated alias \`${aliasToAdd}\` in ${currentFileForUpdate.path}`);
-
-            // Sync editor with updated frontmatter if editor available
-            // No delay or disk read needed - we know exactly what we wrote
-            if (editor) {
-                try {
-                    const currentEditorContent = editor.getValue();
-                    const frontmatterInfo = getFrontMatterInfo(currentEditorContent);
-
-                    if (frontmatterInfo.exists) {
-                        // Read fresh frontmatter from disk to get exact formatting after processFrontMatter
-                        const diskContent = await this.app.vault.read(currentFileForUpdate);
-                        const diskFrontmatterInfo = getFrontMatterInfo(diskContent);
-
-                        if (diskFrontmatterInfo.exists) {
-                            const diskFrontmatter = diskContent.substring(4, diskContent.indexOf('\n---\n', 4));
-                            const newFrontmatterWithDelimiters = `---\n${diskFrontmatter}\n---\n`;
-                            const oldFrontmatterLines = this.countFrontmatterLines(currentEditorContent);
-
-                            this.plugin.fileStateManager.markEditorSyncing(currentFileForUpdate.path);
-                            try {
-                                editor.replaceRange(
-                                    newFrontmatterWithDelimiters,
-                                    { line: 0, ch: 0 },
-                                    { line: oldFrontmatterLines, ch: 0 }
-                                );
-                                verboseLog(this.plugin, `[EDITOR-SYNC] Updated frontmatter via replaceRange (${oldFrontmatterLines} → ${this.countFrontmatterLines(editor.getValue())} lines)`);
-                            } finally {
-                                this.plugin.fileStateManager.clearEditorSyncing(currentFileForUpdate.path);
-                            }
-                        }
-                    }
-                } catch (error) {
-                    verboseLog(this.plugin, `[EDITOR-SYNC] Failed to sync after frontmatter update: ${error}`);
-                }
-            }
 
         } catch (error) {
             // Check if this is an ENOENT error (file was renamed during async operation)
@@ -546,7 +412,7 @@ export class AliasManager {
         }
     }
 
-    async removePluginAliasesFromFile(file: TFile, forceCompleteRemoval: boolean = false, editor?: any): Promise<void> {
+    async removePluginAliasesFromFile(file: TFile, forceCompleteRemoval: boolean = false): Promise<void> {
         try {
             // Check if file still exists before processing
             const currentFile = this.app.vault.getAbstractFileByPath(file.path);
@@ -559,22 +425,9 @@ export class AliasManager {
             file = currentFile;
 
             // Save any unsaved changes before modifying frontmatter
-            if (editor) {
-                // Editor provided - find the view containing this editor and save
-                const leaves = this.app.workspace.getLeavesOfType("markdown");
-                for (const leaf of leaves) {
-                    const view = leaf.view as MarkdownView;
-                    if (view?.file?.path === file.path && view.editor === editor) {
-                        await view.save();
-                        break;
-                    }
-                }
-            } else {
-                // Fallback: try active view save
-                const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
-                if (activeView && activeView.file?.path === file.path) {
-                    await activeView.save();
-                }
+            const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
+            if (activeView && activeView.file === file) {
+                await activeView.save();
             }
 
             // Get current file reference again right before processFrontMatter
@@ -584,7 +437,6 @@ export class AliasManager {
                 return;
             }
 
-            const originalMtime = this.settings.core.preserveModificationDate ? currentFileForRemoval.stat.mtime : undefined;
             await this.app.fileManager.processFrontMatter(currentFileForRemoval, (frontmatter) => {
                 const aliasPropertyKeys = this.getAliasPropertyKeys();
 
@@ -624,62 +476,11 @@ export class AliasManager {
                         }
                     }
                 }
-            }, originalMtime !== undefined ? { mtime: originalMtime } : undefined);
+            });
 
             // Mark file as having pending metadata cache update
             this.plugin.pendingMetadataUpdates.add(currentFileForRemoval.path);
             verboseLog(this.plugin, `Removed plugin aliases from ${currentFileForRemoval.path}`);
-
-            // Sync editor with updated frontmatter if editor available
-            // No delay or disk read needed - we know exactly what we wrote
-            if (editor) {
-                try {
-                    const currentEditorContent = editor.getValue();
-                    const frontmatterInfo = getFrontMatterInfo(currentEditorContent);
-
-                    if (frontmatterInfo.exists) {
-                        // Read fresh frontmatter from disk to get exact formatting after processFrontMatter
-                        const diskContent = await this.app.vault.read(currentFileForRemoval);
-                        const diskFrontmatterInfo = getFrontMatterInfo(diskContent);
-
-                        if (diskFrontmatterInfo.exists) {
-                            const diskFrontmatter = diskContent.substring(4, diskContent.indexOf('\n---\n', 4));
-                            const newFrontmatterWithDelimiters = `---\n${diskFrontmatter}\n---\n`;
-                            const oldFrontmatterLines = this.countFrontmatterLines(currentEditorContent);
-
-                            this.plugin.fileStateManager.markEditorSyncing(currentFileForRemoval.path);
-                            try {
-                                editor.replaceRange(
-                                    newFrontmatterWithDelimiters,
-                                    { line: 0, ch: 0 },
-                                    { line: oldFrontmatterLines, ch: 0 }
-                                );
-                                verboseLog(this.plugin, `[EDITOR-SYNC] Removed frontmatter via replaceRange (${oldFrontmatterLines} lines)`);
-                            } finally {
-                                this.plugin.fileStateManager.clearEditorSyncing(currentFileForRemoval.path);
-                            }
-                        } else {
-                            // Frontmatter was completely removed
-                            const oldFrontmatterLines = this.countFrontmatterLines(currentEditorContent);
-                            if (oldFrontmatterLines > 0) {
-                                this.plugin.fileStateManager.markEditorSyncing(currentFileForRemoval.path);
-                                try {
-                                    editor.replaceRange(
-                                        '',
-                                        { line: 0, ch: 0 },
-                                        { line: oldFrontmatterLines, ch: 0 }
-                                    );
-                                    verboseLog(this.plugin, `[EDITOR-SYNC] Removed frontmatter via replaceRange (${oldFrontmatterLines} lines)`);
-                                } finally {
-                                    this.plugin.fileStateManager.clearEditorSyncing(currentFileForRemoval.path);
-                                }
-                            }
-                        }
-                    }
-                } catch (error) {
-                    verboseLog(this.plugin, `[EDITOR-SYNC] Failed to sync after alias removal: ${error}`);
-                }
-            }
         } catch (error) {
             // Check if this is an ENOENT error (file was renamed during async operation)
             if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
@@ -706,7 +507,6 @@ export class AliasManager {
                 await activeView.save();
             }
 
-            const originalMtime = this.settings.core.preserveModificationDate ? file.stat.mtime : undefined;
             await this.app.fileManager.processFrontMatter(file, (frontmatter) => {
                 const aliasPropertyKeys = this.getAliasPropertyKeys();
 
@@ -739,7 +539,7 @@ export class AliasManager {
                         }
                     }
                 }
-            }, originalMtime !== undefined ? { mtime: originalMtime } : undefined);
+            });
 
             verboseLog(this.plugin, `Removed alias "${trimmedAlias}" from ${file.path}`);
         } catch (error) {
@@ -748,29 +548,7 @@ export class AliasManager {
     }
 
     /**
-     * Count how many editors currently have this file open
-     * Used to detect dual-editor scenarios (main + popover) that cause conflicts
-     *
-     * @param file - The file to check
-     * @returns Number of editor instances showing this file
-     */
-    private countEditorsForFile(file: TFile): number {
-        let count = 0;
-        this.app.workspace.iterateAllLeaves((leaf) => {
-            if (leaf.view.getViewType() === 'markdown') {
-                // Accessing non-public editor API - no official types available
-                const mdView = leaf.view as any;
-                if (mdView.file?.path === file.path) {
-                    count++;
-                }
-            }
-        });
-        return count;
-    }
-
-    /**
-     * Check if the given editor is in a popover/hover preview vs main workspace
-     *
+     * Check if editor is in a popover (hover preview) or main workspace
      * @param editor - Editor instance to check
      * @param file - File being edited
      * @returns true if editor is in a popover, false if in main workspace
@@ -792,211 +570,5 @@ export class AliasManager {
 
         // Editor matches active view = main workspace editor
         return false;
-    }
-
-    /**
-     * Sync editor buffer with disk after frontmatter modification
-     * Prevents auto-save from overwriting the frontmatter changes
-     *
-     * @param file - The file to sync
-     * @param diskContent - Content from disk (already read by caller to avoid race conditions)
-     * @param editor - Editor reference from editor-change event
-     */
-    private async syncPopoverEditorBuffer(file: TFile, diskContent: string, editor?: any): Promise<void> {
-        try {
-            // If we have an editor reference (from editor-change event), use it directly
-            if (editor) {
-                verboseLog(this.plugin, `[EDITOR-SYNC] Using editor from event for ${file.path}`);
-
-                try {
-
-                    // Get current editor content (may have newer keystrokes)
-                    const currentEditorContent = editor.getValue();
-
-                    // Use provided disk content (already read by caller) to avoid race condition
-                    // Reading from disk here causes race: previous write may not be complete,
-                    // or worse, a newer write might have completed, giving us "future" content
-                    verboseLog(this.plugin, `[EDITOR-SYNC] Using provided content: ${diskContent.length} chars, editor has ${currentEditorContent.length} chars`);
-
-                    // Skip sync if file contains footnotes in main editor
-                    // Prevents cursor jumping in main editor (setValue() loses cursor position)
-                    if (diskContent.match(/\n\[\^[^\]]+\]:\s/)) {
-                        verboseLog(this.plugin, `[EDITOR-SYNC] Skipping sync - footnotes in main editor (prevents cursor jump)`);
-                        return;
-                    }
-
-                    // Clean nested frontmatter from disk content
-                    const cleanedDiskContent = this.removeNestedFrontmatterFromFootnotes(diskContent);
-
-                    // Extract frontmatter from disk (has updated alias)
-                    const diskFrontmatter = this.extractFrontmatter(cleanedDiskContent);
-
-                    // Count existing frontmatter lines to know what to replace
-                    const oldFrontmatterLines = this.countFrontmatterLines(currentEditorContent);
-
-                    // Mark as syncing to prevent editor-change events from replaceRange() triggering processFile
-                    // Without this flag, replaceRange() triggers editor-change → processFile runs on stale content
-                    // → extracts old first-line → renames to stale value → infinite rename loop
-                    this.plugin.fileStateManager.markEditorSyncing(file.path);
-                    try {
-                        // Use replaceRange() to surgically update ONLY frontmatter lines
-                        // This preserves body content and cursor position automatically
-                        // No need for complex cursor restoration logic - CodeMirror handles it
-                        if (diskFrontmatter) {
-                            // Update or insert frontmatter
-                            const newFrontmatterWithDelimiters = `---\n${diskFrontmatter}\n---\n`;
-                            editor.replaceRange(
-                                newFrontmatterWithDelimiters,
-                                { line: 0, ch: 0 },
-                                { line: oldFrontmatterLines, ch: 0 }
-                            );
-                            verboseLog(this.plugin, `[EDITOR-SYNC] Updated frontmatter via replaceRange (${oldFrontmatterLines} → ${this.countFrontmatterLines(editor.getValue())} lines)`);
-                        } else if (oldFrontmatterLines > 0) {
-                            // Remove existing frontmatter if disk has none
-                            editor.replaceRange(
-                                '',
-                                { line: 0, ch: 0 },
-                                { line: oldFrontmatterLines, ch: 0 }
-                            );
-                            verboseLog(this.plugin, `[EDITOR-SYNC] Removed frontmatter via replaceRange (${oldFrontmatterLines} lines)`);
-                        }
-
-                        verboseLog(this.plugin, `[EDITOR-SYNC] Successfully synced editor buffer for ${file.path}`);
-                    } finally {
-                        // Always clear syncing flag, even if replaceRange() throws
-                        this.plugin.fileStateManager.clearEditorSyncing(file.path);
-                    }
-
-                    // NOTE: Background editor sync removed to prevent cursor interference
-                    // During rapid typing, syncing background editors triggered events affecting popover cursor
-                    // Obsidian's file watcher will naturally update background editors when safe
-
-                    return;
-                } catch (error) {
-                    verboseLog(this.plugin, `[EDITOR-SYNC] Failed to sync editor buffer: ${error}`);
-                }
-            } else {
-                verboseLog(this.plugin, `[EDITOR-SYNC] No editor reference available for ${file.path} - skipping buffer sync`);
-            }
-        } catch (error) {
-            verboseLog(this.plugin, `[EDITOR-SYNC] ERROR: Failed to sync editor buffer for ${file.path}: ${error}`);
-        }
-    }
-
-    /**
-     * Merge frontmatter from disk content with body from editor content
-     * Preserves user's rapid keystrokes while updating alias in frontmatter
-     *
-     * @param diskContent - Content from disk (has updated frontmatter)
-     * @param editorContent - Current editor content (may have newer body content)
-     * @returns Merged content with frontmatter from disk and body from editor
-     */
-    private mergeFrontmatterWithBody(diskContent: string, editorContent: string): string {
-        // Clean nested frontmatter from disk content FIRST
-        // When Obsidian inserts footnotes, it copies current file content (including frontmatter)
-        // into the footnote definition on disk, creating nested YAML blocks
-        // Must clean disk content before extracting frontmatter
-        const cleanedDiskContent = this.removeNestedFrontmatterFromFootnotes(diskContent);
-
-        // Extract frontmatter from cleaned disk content
-        const diskFrontmatter = this.extractFrontmatter(cleanedDiskContent);
-
-        // Extract body from editor content (skip frontmatter)
-        const editorBody = this.extractBody(editorContent);
-
-        // If disk has frontmatter, use it; otherwise use empty frontmatter
-        if (diskFrontmatter) {
-            return `---\n${diskFrontmatter}\n---\n${editorBody}`;
-        } else {
-            // No frontmatter in disk content - return editor body as-is
-            return editorBody;
-        }
-    }
-
-    /**
-     * Remove nested frontmatter blocks from footnote definitions
-     * Footnote definitions may contain YAML frontmatter when created via Command Palette
-     *
-     * @param content - File body content that may contain footnote definitions with nested frontmatter
-     * @returns Content with nested frontmatter removed from footnote definitions
-     */
-    private removeNestedFrontmatterFromFootnotes(content: string): string {
-        // Match footnote definitions that contain frontmatter blocks:
-        // [^id]: ---\n\talias...\n\t---\n\tactual content
-        // Note: Obsidian indents copied content with tabs when inserting into footnote definitions
-
-        // Pattern: [^footnote-id]: followed by optional whitespace, then ---\n...---\n
-        // [\s\S]*? matches content including newlines (non-greedy, consumes trailing \n)
-        // \s* before closing --- matches indentation (e.g., \t)
-        // \s* after closing ---\n removes trailing indentation before footnote content
-        return content.replace(
-            /(\[\^[^\]]+\]:\s*)---\n[\s\S]*?\s*---\n\s*/g,
-            (match, footnotePrefix) => {
-                // Keep the footnote prefix [^id]: but remove the frontmatter block and indentation
-                // Result: [^id]: <actual footnote content>
-                return footnotePrefix;
-            }
-        );
-    }
-
-    /**
-     * Extract frontmatter content (without delimiters) from a string
-     * @param content - File content that may contain frontmatter
-     * @returns Frontmatter content without delimiters, or null if no frontmatter
-     */
-    private extractFrontmatter(content: string): string | null {
-        if (!content.startsWith('---\n')) {
-            return null;
-        }
-
-        const endIndex = content.indexOf('\n---\n', 4);
-        if (endIndex === -1) {
-            return null;
-        }
-
-        return content.substring(4, endIndex);
-    }
-
-    /**
-     * Extract body content (after frontmatter) from a string
-     * @param content - File content that may contain frontmatter
-     * @returns Body content without frontmatter
-     */
-    private extractBody(content: string): string {
-        if (!content.startsWith('---\n')) {
-            return content;
-        }
-
-        const endIndex = content.indexOf('\n---\n', 4);
-        if (endIndex === -1) {
-            return content;
-        }
-
-        // Return content after frontmatter delimiter and newline
-        return content.substring(endIndex + 5);
-    }
-
-    /**
-     * Get the 0-indexed line number where content starts after frontmatter
-     * Used to calculate cursor position offset when frontmatter size changes
-     *
-     * @param content - File content
-     * @returns Line number (0-indexed) where content starts, or 0 if no frontmatter
-     */
-    private countFrontmatterLines(content: string): number {
-        if (!content.startsWith('---\n')) {
-            return 0;
-        }
-
-        const endIndex = content.indexOf('\n---\n', 4);
-        if (endIndex === -1) {
-            return 0;
-        }
-
-        // Count newlines from start to end delimiter + 1 for closing delimiter line
-        // frontmatterPortion includes: "---\n...content...\n---\n"
-        // Return line number (0-indexed) where content starts after frontmatter
-        const frontmatterPortion = content.substring(0, endIndex + 5);
-        return frontmatterPortion.split('\n').length - 1;
     }
 }
