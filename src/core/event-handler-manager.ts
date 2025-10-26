@@ -661,8 +661,8 @@ export class EventHandlerManager {
                 return true;
             }
 
-            // Check hover popover
-            if (view?.hoverPopover?.file?.path === file.path) {
+            // Check hover popover (only if actually open/rendered)
+            if (view?.hoverPopover?.targetEl && view.hoverPopover.file?.path === file.path) {
                 return true;
             }
         }
