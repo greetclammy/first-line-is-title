@@ -25,7 +25,7 @@ export class AliasManager {
             .filter(key => key.length > 0);
     }
 
-    async updateAliasIfNeeded(file: TFile, providedContent?: string, targetTitle?: string, editor?: any): Promise<void> {
+    async updateAliasIfNeeded(file: TFile, providedContent?: string, targetTitle?: string, editor?: any, isManualCommand = false): Promise<void> {
         // Track plugin usage
         this.plugin.trackUsage();
 
@@ -110,10 +110,10 @@ export class AliasManager {
                 return;
             }
 
-            // Skip alias update when editing in popover to prevent cursor jumping
-            // Alias will remain stale until file opened in main editor or manual command triggered
-            if (editor && this.isEditorInPopover(editor, file)) {
-                verboseLog(this.plugin, `Skipping alias update in popover: ${file.path}`);
+            // Skip alias update when editing in popover (auto-updates only) to prevent cursor jumping
+            // Manual commands can update aliases even in popovers (user explicitly requested)
+            if (!isManualCommand && editor && this.isEditorInPopover(editor, file)) {
+                verboseLog(this.plugin, `Skipping alias update in popover (auto): ${file.path}`);
                 return;
             }
 
