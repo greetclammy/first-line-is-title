@@ -326,10 +326,10 @@ export class EditorLifecycleManager {
         // Start new throttle timer
         verboseLog(this.plugin, `Starting throttle timer (${this.settings.core.checkInterval}ms) for: ${filePath}`);
         const timer = setTimeout(async () => {
-            verboseLog(this.plugin, `Throttle timer expired, processing: ${filePath}`);
+            verboseLog(this.plugin, `Throttle timer expired, processing: ${file.path}`);
 
-            // Remove timer from tracking
-            this.plugin.fileStateManager.clearThrottleTimer(filePath);
+            // Remove timer from tracking (use file.path for current location after potential renames)
+            this.plugin.fileStateManager.clearThrottleTimer(file.path);
 
             // Process file
             try {
