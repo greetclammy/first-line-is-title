@@ -63,7 +63,8 @@ export class AliasManager {
 
             const content = await readFileContent(this.plugin, file, {
                 providedContent: shouldReadFromEditor ? providedContent : undefined,
-                providedEditor: shouldReadFromEditor ? editor : undefined
+                providedEditor: shouldReadFromEditor ? editor : undefined,
+                preferFresh: !shouldReadFromEditor  // Force vault.read in manual popover mode
             });
 
             if (!content || content.trim() === '') {
