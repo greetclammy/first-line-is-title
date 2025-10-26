@@ -119,21 +119,10 @@ export class AliasManager {
                 return;
             }
 
-            // Catch-up: if this file has pending alias update and we're NOT in popover, clear flag
-            // This handles case where popover closed but no event fired, or event handler didn't run yet
-            if (this.plugin.fileStateManager.hasPendingAliasRecheck(file.path)) {
-                if (!editor || !this.isEditorInPopover(editor, file)) {
-                    verboseLog(this.plugin, `Catching up pending alias update: ${file.path}`);
-                    this.plugin.fileStateManager.clearPendingAliasRecheck(file.path);
-                    // Continue to update alias below (don't return)
-                }
-            }
-
-            // Skip alias update when editing in popover to prevent cursor jumping and race conditions
-            // Alias will update automatically when popover closes via active-leaf-change/layout-change handler
+            // Skip alias update when editing in popover to prevent cursor jumping
+            // Alias will remain stale until file opened in main editor or manual command triggered
             if (editor && this.isEditorInPopover(editor, file)) {
                 verboseLog(this.plugin, `Skipping alias update in popover: ${file.path}`);
-                this.plugin.fileStateManager.markPendingAliasRecheck(file.path, editor);
                 return;
             }
 
