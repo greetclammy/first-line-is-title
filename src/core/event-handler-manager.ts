@@ -652,12 +652,21 @@ export class EventHandlerManager {
      */
     private hasOpenEditor(file: TFile): boolean {
         const leaves = this.plugin.app.workspace.getLeavesOfType('markdown');
+
         for (const leaf of leaves) {
-            const view = leaf.view as MarkdownView;
+            const view = leaf.view as any;
+
+            // Check regular leaf editor
             if (view?.file?.path === file.path) {
                 return true;
             }
+
+            // Check hover popover
+            if (view?.hoverPopover?.file?.path === file.path) {
+                return true;
+            }
         }
+
         return false;
     }
 
