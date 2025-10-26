@@ -51,31 +51,17 @@ export class AliasManager {
                 return;
             }
 
-            // In manual commands in popovers, read from disk instead of editor
-            // Popover editors cache content and don't reflect processFrontMatter() writes
-            // Disk has current frontmatter, allowing proper alias existence detection
-            const isPopoverEditor = editor && this.isEditorInPopover(editor, file);
-            const shouldReadFromEditor = !(isManualCommand && isPopoverEditor);
-
-            if (isManualCommand && isPopoverEditor) {
-                verboseLog(this.plugin, `Reading from disk for popover manual command: ${file.path}`);
+            // Skip ALL alias operations in popovers due to Obsidian sync/cache issues
+            // Popovers have: delayed disk writes, stale editor cache, content mismatches
+            if (editor && this.isEditorInPopover(editor, file)) {
+                verboseLog(this.plugin, `Skipping alias update in popover: ${file.path}`);
+                return;
             }
 
-            let content = await readFileContent(this.plugin, file, {
-                providedContent: shouldReadFromEditor ? providedContent : undefined,
-                providedEditor: shouldReadFromEditor ? editor : undefined,
-                preferFresh: !shouldReadFromEditor  // Force vault.read in manual popover mode
+            const content = await readFileContent(this.plugin, file, {
+                providedContent,
+                providedEditor: editor
             });
-
-            // If disk read is empty in manual popover mode, fall back to editor content
-            // This handles delayed disk writes after rename in popovers
-            if (isManualCommand && isPopoverEditor && (!content || content.trim() === '')) {
-                const editorFallback = providedContent || (editor ? editor.getValue() : null);
-                if (editorFallback && editorFallback.trim()) {
-                    verboseLog(this.plugin, `Disk read empty, using editor fallback for: ${file.path}`);
-                    content = editorFallback;
-                }
-            }
 
             if (!content || content.trim() === '') {
                 return;
@@ -130,13 +116,6 @@ export class AliasManager {
 
             if (!shouldHaveAlias) {
                 await this.removePluginAliasesFromFile(file);
-                return;
-            }
-
-            // Skip alias update when editing in popover (auto-updates only) to prevent cursor jumping
-            // Manual commands can update aliases even in popovers (user explicitly requested)
-            if (!isManualCommand && editor && this.isEditorInPopover(editor, file)) {
-                verboseLog(this.plugin, `Skipping alias update in popover (auto): ${file.path}`);
                 return;
             }
 
