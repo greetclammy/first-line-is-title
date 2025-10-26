@@ -86,39 +86,29 @@ export class RenameEngine {
                     return;
                 }
             } else {
-                // First editor event for this file (no previousContent cached)
-                // Check if file already has plugin-managed frontmatter (indicates existing file being reopened)
-                const frontmatterInfo = getFrontMatterInfo(currentContent);
-                let hasPluginManagedFrontmatter = false;
+                // First editor event - compare editor vs disk content to detect YAML-only changes
+                const diskContent = await this.plugin.app.vault.read(file);
+                const currentFrontmatterInfo = getFrontMatterInfo(currentContent);
+                const diskFrontmatterInfo = getFrontMatterInfo(diskContent);
 
-                if (frontmatterInfo.exists) {
-                    try {
-                        const frontmatter = parseYaml(frontmatterInfo.frontmatter);
-                        // Check if any alias property keys exist (indicates we've processed this file before)
-                        const aliasKeys = this.plugin.settings.aliases.aliasPropertyKey.split(',').map(k => k.trim());
-                        hasPluginManagedFrontmatter = aliasKeys.some(key => frontmatter && frontmatter[key] !== undefined);
-                    } catch (e) {
-                        // Malformed YAML - treat as not having plugin frontmatter
-                        verboseLog(this.plugin, `Malformed YAML in ${file.path}, treating as new file: ${(e as Error).message}`);
+                const currentContentAfterFrontmatter = currentContent.substring(currentFrontmatterInfo.contentStart);
+                const diskContentAfterFrontmatter = diskContent.substring(diskFrontmatterInfo.contentStart);
+
+                if (currentContentAfterFrontmatter === diskContentAfterFrontmatter) {
+                    // YAML-only change (or no change) - skip processing
+                    if (this.plugin.settings.core.verboseLogging) {
+                        console.debug(`Skipping - only frontmatter edited on first open: ${file.path}`);
                     }
-                }
-
-                if (hasPluginManagedFrontmatter) {
-                    // Existing file being reopened - initialize tracking without processing
-                    // This prevents frontmatter edits from triggering unwanted processing
+                    // Initialize tracking for next edit
                     const currentTitleRegion = this.extractTitleRegion(editor, file, currentContent);
                     this.plugin.fileStateManager.setLastEditorContent(file.path, currentContent);
                     this.plugin.fileStateManager.setTitleRegionCache(file.path, currentTitleRegion);
-
-                    if (this.plugin.settings.core.verboseLogging) {
-                        console.debug(`Initializing tracking for existing file: ${file.path}`);
-                    }
                     return;
                 }
 
-                // New file or file without plugin-managed frontmatter - proceed with processing
+                // Content after YAML differs - real edit, proceed with processing
                 if (this.plugin.settings.core.verboseLogging) {
-                    console.debug(`First edit on new file, will process: ${file.path}`);
+                    console.debug(`First edit on new file or modified body, will process: ${file.path}`);
                 }
             }
 
