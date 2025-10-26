@@ -311,6 +311,13 @@ export class EditorLifecycleManager {
         // If first line hasn't changed, skip throttle
         if (lastFirstLine !== undefined && lastFirstLine === currentFirstLine) {
             verboseLog(this.plugin, `First line unchanged for ${filePath}, skipping throttle`);
+
+            // Update lastEditorContent to ensure metadata-change handler has current content
+            // This prevents "YAML edits ignored" safeguard from being bypassed when
+            // properties are added/removed via Obsidian UI
+            const currentContent = editor.getValue();
+            this.plugin.fileStateManager.setLastEditorContent(filePath, currentContent);
+
             return;
         }
 
