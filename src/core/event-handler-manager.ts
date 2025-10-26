@@ -391,8 +391,8 @@ export class EventHandlerManager {
                 // Check for pending alias update (e.g., popover closed, auto-save triggered this event)
                 // This is the most reliable trigger for popover-close alias updates
                 if (this.plugin.fileStateManager.hasPendingAliasRecheck(file.path)) {
-                    // Verify file actually closed (not just auto-save while still editing)
-                    if (!this.hasOpenEditor(file)) {
+                    // Verify hover popover actually closed (not just auto-save while still in popover)
+                    if (!this.isFileInHoverPopover(file)) {
                         verboseLog(this.plugin, `Pending alias update detected on modify: ${file.path}`);
                         this.plugin.fileStateManager.clearPendingAliasRecheck(file.path);
 
@@ -401,8 +401,8 @@ export class EventHandlerManager {
                         await this.plugin.aliasManager.updateAliasIfNeeded(file, undefined, undefined, true);
                         return; // Skip normal modify processing since we just updated
                     }
-                    // File still open - keep pending flag, skip update to prevent cursor jump
-                    verboseLog(this.plugin, `Pending alias update deferred - file still has open editor: ${file.path}`);
+                    // Hover popover still open - keep pending flag, skip update to prevent cursor jump
+                    verboseLog(this.plugin, `Pending alias update deferred - file still in hover popover: ${file.path}`);
                     return;
                 }
 
@@ -499,8 +499,8 @@ export class EventHandlerManager {
                 // Check for pending alias update FIRST (highest priority)
                 // Metadata-change fires when popover closes and Obsidian auto-saves
                 if (this.plugin.fileStateManager.hasPendingAliasRecheck(file.path)) {
-                    // Verify file actually closed (not just auto-save while still editing)
-                    if (!this.hasOpenEditor(file)) {
+                    // Verify hover popover actually closed (not just auto-save while still in popover)
+                    if (!this.isFileInHoverPopover(file)) {
                         verboseLog(this.plugin, `Pending alias update detected on metadata-change: ${file.path}`);
                         this.plugin.fileStateManager.clearPendingAliasRecheck(file.path);
 
@@ -509,8 +509,8 @@ export class EventHandlerManager {
                         await this.plugin.aliasManager.updateAliasIfNeeded(file, undefined, undefined, true);
                         return; // Skip normal metadata processing since we just updated
                     }
-                    // File still open - keep pending flag, skip update to prevent cursor jump
-                    verboseLog(this.plugin, `Pending alias update deferred - file still has open editor: ${file.path}`);
+                    // Hover popover still open - keep pending flag, skip update to prevent cursor jump
+                    verboseLog(this.plugin, `Pending alias update deferred - file still in hover popover: ${file.path}`);
                     return;
                 }
 
@@ -611,16 +611,16 @@ export class EventHandlerManager {
                 continue;
             }
 
-            // Check if file still has an open editor
-            const isStillOpen = this.hasOpenEditor(file);
+            // Check if file still in hover popover
+            const stillInPopover = this.isFileInHoverPopover(file);
 
-            if (!isStillOpen) {
-                // File closed - update alias immediately
-                verboseLog(this.plugin, `File closed, updating alias: ${filePath}`);
+            if (!stillInPopover) {
+                // Hover popover closed - update alias immediately
+                verboseLog(this.plugin, `Hover popover closed, updating alias: ${filePath}`);
                 this.plugin.fileStateManager.clearPendingAliasRecheck(filePath);
 
                 // Trigger alias update - pass isManualCommand=true to bypass "file not open" check
-                // This is an intentional, explicit update we want to force after file close
+                // This is an intentional, explicit update we want to force after popover close
                 await this.plugin.aliasManager.updateAliasIfNeeded(file, undefined, undefined, true);
             }
         }
@@ -630,18 +630,21 @@ export class EventHandlerManager {
     }
 
     /**
-     * Check if file has any open editor (main workspace or popover)
-     * Used to determine if alias updates should be deferred while file is actively being edited
+     * Check if file is currently open in a hover popover
+     * Uses Obsidian's internal hoverPopover structure attached to views
      */
-    private hasOpenEditor(file: TFile): boolean {
+    private isFileInHoverPopover(file: TFile): boolean {
         const leaves = this.plugin.app.workspace.getLeavesOfType('markdown');
+
         for (const leaf of leaves) {
-            const view = leaf.view as MarkdownView;
-            if (view?.file?.path === file.path) {
-                return true; // File is open in some editor
+            const view = leaf.view as any;
+            // Check if this view has a hover popover for our file
+            if (view?.hoverPopover?.file?.path === file.path) {
+                return true;
             }
         }
-        return false; // File not open in any editor
+
+        return false;
     }
 
     /**
