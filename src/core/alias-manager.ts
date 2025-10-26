@@ -50,9 +50,20 @@ export class AliasManager {
             if (!shouldProcessFile(file, this.settings, this.app, undefined, undefined, this.plugin)) {
                 return;
             }
+
+            // In manual commands in popovers, read from disk instead of editor
+            // Popover editors cache content and don't reflect processFrontMatter() writes
+            // Disk has current frontmatter, allowing proper alias existence detection
+            const isPopoverEditor = editor && this.isEditorInPopover(editor, file);
+            const shouldReadFromEditor = !(isManualCommand && isPopoverEditor);
+
+            if (isManualCommand && isPopoverEditor) {
+                verboseLog(this.plugin, `Reading from disk for popover manual command: ${file.path}`);
+            }
+
             const content = await readFileContent(this.plugin, file, {
                 providedContent,
-                providedEditor: editor  // Use editor for fresh content
+                providedEditor: shouldReadFromEditor ? editor : undefined
             });
 
             if (!content || content.trim() === '') {
