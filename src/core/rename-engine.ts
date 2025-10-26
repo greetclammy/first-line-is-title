@@ -706,9 +706,10 @@ export class RenameEngine {
             return { success: true, reason: 'no-rename-needed' };
         }
 
-        // Skip rename if file was recently renamed (allow alias update above, but prevent rename thrashing)
-        if (this.plugin.fileStateManager.wasRecentlyRenamed(file.path, 100)) {
-            verboseLog(this.plugin, `Skipping rename - file was recently renamed, allowing editor to stabilize: ${file.path}`);
+        // Skip rename if file was recently renamed AND reading from disk (not fresh editor content)
+        // Fresh editor content is always safe; only disk reads may be stale after rename
+        if (!providedContent && this.plugin.fileStateManager.wasRecentlyRenamed(file.path, 100)) {
+            verboseLog(this.plugin, `Skipping rename - file was recently renamed, disk may be stale: ${file.path}`);
             return { success: false, reason: 'recently-renamed' };
         }
 
