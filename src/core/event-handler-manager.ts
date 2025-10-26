@@ -1,69 +1,10 @@
 import { Menu, TFile, TFolder, Editor, MarkdownView, EventRef, getFrontMatterInfo } from 'obsidian';
 import FirstLineIsTitlePlugin from '../../main';
-import { verboseLog, canModifyFile } from '../utils';
+import { verboseLog } from '../utils';
 import { t, tp } from '../i18n';
 import { RenameModal, DisableEnableModal } from '../modals';
 import { around } from 'monkey-around';
 import { detectTagFromDOM, detectTagFromEditor } from '../utils/tag-detection';
-
-/**
- * Helper to read content for alias updates with deduplication check
- * Returns null if content should not be processed
- */
-async function getContentForAliasUpdate(
-    plugin: FirstLineIsTitlePlugin,
-    file: TFile,
-    source: 'modify' | 'metadata'
-): Promise<string | null> {
-    // Skip if file operation in progress (rename, etc.)
-    if (plugin.cacheManager?.isLocked(file.path)) return null;
-
-    // Skip if file is in creation delay period
-    if (plugin.editorLifecycle.isFileInCreationDelay(file.path)) {
-        if (plugin.settings.core.verboseLogging) {
-            console.debug(`Skipping ${source} alias update: file in creation delay: ${file.path}`);
-        }
-        return null;
-    }
-
-    // Central gate: check policy requirements and always-on safeguards
-    const {canModify, reason} = await canModifyFile(
-        file,
-        plugin.app,
-        plugin.settings.exclusions.disableRenamingKey,
-        plugin.settings.exclusions.disableRenamingValue,
-        false // automatic operation
-    );
-
-    if (!canModify) {
-        verboseLog(plugin, `Skipping ${source} alias update: ${reason}: ${file.path}`);
-        return null;
-    }
-
-    // Read content respecting fileReadMethod setting
-    const currentContent = plugin.settings.core.fileReadMethod === 'Cache'
-        ? await plugin.app.vault.cachedRead(file)
-        : await plugin.app.vault.read(file);
-    const previousContent = plugin.fileStateManager.getLastEditorContent(file.path);
-
-    if (previousContent) {
-        const currentFrontmatterInfo = getFrontMatterInfo(currentContent);
-        const previousFrontmatterInfo = getFrontMatterInfo(previousContent);
-
-        const currentContentAfterFrontmatter = currentContent.substring(currentFrontmatterInfo.contentStart);
-        const previousContentAfterFrontmatter = previousContent.substring(previousFrontmatterInfo.contentStart);
-
-        if (currentContentAfterFrontmatter === previousContentAfterFrontmatter) {
-            if (plugin.settings.core.verboseLogging) {
-                console.debug(`Skipping ${source} alias update - only frontmatter edited: ${file.path}`);
-            }
-            // Don't update lastEditorContent here - let the editor handler do it
-            return null;
-        }
-    }
-
-    return currentContent;
-}
 
 /**
  * Manages all event handler registration for the First Line is Title plugin.
@@ -72,7 +13,6 @@ async function getContentForAliasUpdate(
 export class EventHandlerManager {
     private plugin: FirstLineIsTitlePlugin;
     private registeredEvents: EventRef[] = [];
-    private cursorDebugUninstaller?: () => void;
 
     constructor(plugin: FirstLineIsTitlePlugin) {
         this.plugin = plugin;
@@ -90,7 +30,6 @@ export class EventHandlerManager {
         this.registerSearchResultsMenuHandler();
         this.registerEditorChangeHandler();
         this.registerFileSystemHandlers();
-        this.setupCursorDebugInterceptor();
     }
 
     /**
@@ -100,12 +39,6 @@ export class EventHandlerManager {
     unregisterAllHandlers(): void {
         this.registeredEvents.forEach(ref => this.plugin.app.workspace.offref(ref));
         this.registeredEvents = [];
-
-        // Clean up cursor debug interceptor if installed
-        if (this.cursorDebugUninstaller) {
-            this.cursorDebugUninstaller();
-            this.cursorDebugUninstaller = undefined;
-        }
     }
 
     /**
@@ -267,7 +200,6 @@ export class EventHandlerManager {
      */
     private registerSearchResultsMenuHandler(): void {
         this.registerEvent(
-            // Undocumented workspace event type - not in official API
             this.plugin.app.workspace.on("search:results-menu" as any, (menu: Menu, leaf: any) => {
                 if (!this.plugin.settings.core.enableVaultSearchContextMenu) return;
 
@@ -385,14 +317,8 @@ export class EventHandlerManager {
                     return;
                 }
 
-                // Use appropriate handler based on checkInterval setting
-                if (this.plugin.settings.core.checkInterval === 0) {
-                    // Immediate processing - no throttle
-                    this.plugin.renameEngine.processEditorChangeOptimal(editor, info.file);
-                } else {
-                    // Throttled processing
-                    this.plugin.editorLifecycle.handleEditorChangeWithThrottle(editor, info.file);
-                }
+                // Use optimal editor change handler
+                this.plugin.editorLifecycle.handleEditorChangeWithThrottle(editor, info.file);
             })
         );
     }
@@ -408,9 +334,6 @@ export class EventHandlerManager {
                     // Update file state
                     this.plugin.fileStateManager?.notifyFileRenamed(oldPath, file.path);
 
-                    // Update editor tracking
-                    this.plugin.editorLifecycle?.notifyFileRenamed(oldPath, file.path);
-
                     // Update cache
                     if (this.plugin.cacheManager) {
                         this.plugin.cacheManager.notifyFileRenamed(oldPath, file.path);
@@ -425,6 +348,7 @@ export class EventHandlerManager {
             this.plugin.app.vault.on('delete', (file) => {
                 if (file instanceof TFile) {
                     this.plugin.cacheManager?.notifyFileDeleted(file.path);
+                    this.plugin.editorLifecycle.clearCreationDelayTimer(file.path);
                     this.plugin.fileStateManager?.notifyFileDeleted(file.path);
                 }
             })
@@ -449,20 +373,6 @@ export class EventHandlerManager {
                 if (this.plugin.settings.core.fileReadMethod === 'Cache' ||
                     this.plugin.settings.core.fileReadMethod === 'File') {
                     if (this.plugin.settings.core.renameNotes === 'automatically' && this.plugin.isFullyLoaded) {
-                        // Central gate: check policy requirements and always-on safeguards
-                        const {canModify, reason} = await canModifyFile(
-                            file,
-                            this.plugin.app,
-                            this.plugin.settings.exclusions.disableRenamingKey,
-                            this.plugin.settings.exclusions.disableRenamingValue,
-                            false // automatic operation
-                        );
-
-                        if (!canModify) {
-                            verboseLog(this.plugin, `Skipping modify rename: ${reason}: ${file.path}`);
-                            return;
-                        }
-
                         verboseLog(this.plugin, `Modify event: processing ${file.path} (fileReadMethod: ${this.plugin.settings.core.fileReadMethod})`);
                         await this.plugin.renameEngine.processFile(file, true);
                     }
@@ -470,31 +380,27 @@ export class EventHandlerManager {
 
                 // Update aliases if enabled
                 if (this.plugin.settings.aliases.enableAliases) {
-                    // Respect renameNotes setting for automatic operations
-                    if (this.plugin.settings.core.renameNotes !== 'automatically') return;
+                    // Check if only frontmatter changed - skip alias update to preserve YAML formatting
+                    const currentContent = await this.plugin.app.vault.read(file);
+                    const previousContent = this.plugin.fileStateManager.getLastEditorContent(file.path);
 
-                    // Skip if file operation already in progress (prevents concurrent alias updates)
-                    if (this.plugin.cacheManager?.isLocked(file.path)) {
-                        verboseLog(this.plugin, `Skipping modify alias update - operation in progress: ${file.path}`);
-                        return;
+                    if (previousContent) {
+                        const currentFrontmatterInfo = getFrontMatterInfo(currentContent);
+                        const previousFrontmatterInfo = getFrontMatterInfo(previousContent);
+
+                        const currentContentAfterFrontmatter = currentContent.substring(currentFrontmatterInfo.contentStart);
+                        const previousContentAfterFrontmatter = previousContent.substring(previousFrontmatterInfo.contentStart);
+
+                        if (currentContentAfterFrontmatter === previousContentAfterFrontmatter) {
+                            if (this.plugin.settings.core.verboseLogging) {
+                                console.debug(`Skipping alias update - only frontmatter edited: ${file.path}`);
+                            }
+                            // Don't update lastEditorContent here - let the editor handler do it
+                            return;
+                        }
                     }
 
-                    // Acquire lock to prevent concurrent alias updates
-                    if (!this.plugin.cacheManager?.acquireLock(file.path)) {
-                        verboseLog(this.plugin, `Skipping modify alias update - failed to acquire lock: ${file.path}`);
-                        return;
-                    }
-
-                    try {
-                        // Use consolidated helper to read content with deduplication
-                        const currentContent = await getContentForAliasUpdate(this.plugin, file, 'modify');
-                        if (currentContent === null) return;
-
-                        // Pass content to avoid second read and race condition
-                        await this.plugin.aliasManager.updateAliasIfNeeded(file, currentContent);
-                    } finally {
-                        this.plugin.cacheManager?.releaseLock(file.path);
-                    }
+                    await this.plugin.aliasManager.updateAliasIfNeeded(file);
                 }
             })
         );
@@ -505,88 +411,39 @@ export class EventHandlerManager {
                 if (!this.plugin.settings.aliases.enableAliases) return;
                 if (file.extension !== 'md') return;
 
-                // Respect renameNotes setting for automatic operations
-                if (this.plugin.settings.core.renameNotes !== 'automatically') return;
+                // Skip if file operation in progress (rename, etc.)
+                if (this.plugin.cacheManager?.isLocked(file.path)) return;
 
-                // Skip if file operation already in progress (prevents concurrent alias updates)
-                if (this.plugin.cacheManager?.isLocked(file.path)) {
-                    verboseLog(this.plugin, `Skipping metadata alias update - operation in progress: ${file.path}`);
+                // Skip if file is in creation delay period
+                if (this.plugin.editorLifecycle.isFileInCreationDelay(file.path)) {
+                    if (this.plugin.settings.core.verboseLogging) {
+                        console.debug(`Skipping metadata-alias: file in creation delay: ${file.path}`);
+                    }
                     return;
                 }
 
-                // Acquire lock to prevent concurrent alias updates
-                if (!this.plugin.cacheManager?.acquireLock(file.path)) {
-                    verboseLog(this.plugin, `Skipping metadata alias update - failed to acquire lock: ${file.path}`);
-                    return;
+                // Check if only frontmatter changed - skip alias update to preserve YAML formatting
+                const currentContent = await this.plugin.app.vault.read(file);
+                const previousContent = this.plugin.fileStateManager.getLastEditorContent(file.path);
+
+                if (previousContent) {
+                    const currentFrontmatterInfo = getFrontMatterInfo(currentContent);
+                    const previousFrontmatterInfo = getFrontMatterInfo(previousContent);
+
+                    const currentContentAfterFrontmatter = currentContent.substring(currentFrontmatterInfo.contentStart);
+                    const previousContentAfterFrontmatter = previousContent.substring(previousFrontmatterInfo.contentStart);
+
+                    if (currentContentAfterFrontmatter === previousContentAfterFrontmatter) {
+                        if (this.plugin.settings.core.verboseLogging) {
+                            console.debug(`Skipping metadata-alias update - only frontmatter edited: ${file.path}`);
+                        }
+                        // Don't update lastEditorContent here - let the editor handler do it
+                        return;
+                    }
                 }
 
-                try {
-                    // Use consolidated helper to read content with deduplication
-                    const currentContent = await getContentForAliasUpdate(this.plugin, file, 'metadata');
-                    if (currentContent === null) return;
-
-                    // Pass content to avoid second read and race condition
-                    await this.plugin.aliasManager.updateAliasIfNeeded(file, currentContent);
-                } finally {
-                    this.plugin.cacheManager?.releaseLock(file.path);
-                }
+                await this.plugin.aliasManager.updateAliasIfNeeded(file);
             })
         );
-    }
-
-    /**
-     * Setup global cursor debug interceptor (only when verbose logging enabled)
-     * Intercepts ALL setCursor calls from FLIT, Obsidian, and other plugins
-     */
-    private setupCursorDebugInterceptor(): void {
-        // Only install interceptor if verbose logging is enabled
-        if (!this.plugin.settings.core.verboseLogging) {
-            return;
-        }
-
-        const plugin = this.plugin;
-
-        this.cursorDebugUninstaller = around(Editor.prototype, {
-            setCursor(old) {
-                return function (pos: any, ...args: any[]) {
-                    try {
-                        // Get current cursor position before change
-                        const oldCursor = this.getCursor();
-
-                        // Get current file path
-                        let filePath = 'unknown';
-                        const activeView = plugin.app.workspace.getActiveViewOfType(MarkdownView);
-                        if (activeView?.file) {
-                            filePath = activeView.file.path;
-                        }
-
-                        // Parse new position (could be {line, ch} or just a number)
-                        let newLine: string | number = 'unknown';
-                        let newCh: string | number = 'unknown';
-                        if (typeof pos === 'object' && pos !== null) {
-                            newLine = pos.line ?? 'unknown';
-                            newCh = pos.ch ?? 'unknown';
-                        } else if (typeof pos === 'number') {
-                            newLine = pos;
-                        }
-
-                        // Log the cursor movement
-                        console.debug(
-                            `[CURSOR-GLOBAL] File: ${filePath} | ` +
-                            `From: line ${oldCursor.line} ch ${oldCursor.ch} → ` +
-                            `To: line ${newLine} ch ${newCh}`
-                        );
-                    } catch (error) {
-                        // Silently fail debug logging to avoid breaking cursor positioning
-                        console.error('[CURSOR-DEBUG] Error in cursor interceptor:', error);
-                    }
-
-                    // Call original setCursor (outside try-catch to ensure it always runs)
-                    return old.call(this, pos, ...args);
-                };
-            }
-        });
-
-        verboseLog(this.plugin, '[CURSOR-DEBUG] Global cursor interceptor installed');
     }
 }

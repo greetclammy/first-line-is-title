@@ -697,7 +697,7 @@ export class RenameEngine {
         if (file.path == newPath) {
             verboseLog(this.plugin, `No rename needed for ${file.path} - already has correct name`);
             if (this.plugin.settings.aliases.enableAliases) {
-                await this.plugin.aliasManager.updateAliasIfNeeded(file, originalContentWithFrontmatter, undefined, showNotices, hasActiveEditor, editor);
+                await this.plugin.aliasManager.updateAliasIfNeeded(file, originalContentWithFrontmatter, undefined, editor);
             }
             if (showNotices && !isBatchOperation) {
                 const finalFileName = newPath.replace(/\.md$/, '').split('/').pop() || newTitle;
@@ -731,7 +731,7 @@ export class RenameEngine {
                     }
                     verboseLog(this.plugin, `No rename needed for ${file.path} - already has correct name with counter`);
                     if (this.plugin.settings.aliases.enableAliases) {
-                        await this.plugin.aliasManager.updateAliasIfNeeded(file, originalContentWithFrontmatter, newTitle, showNotices, hasActiveEditor, editor);
+                        await this.plugin.aliasManager.updateAliasIfNeeded(file, originalContentWithFrontmatter, newTitle, editor);
                     }
                     if (showNotices && !isBatchOperation) {
                         // Extract actual final filename from newPath (includes counter)
@@ -781,7 +781,7 @@ export class RenameEngine {
             cacheManager?.reservePath(newPath);
         }
         if (this.plugin.settings.aliases.enableAliases) {
-            await this.plugin.aliasManager.updateAliasIfNeeded(file, originalContentWithFrontmatter, newTitle, showNotices, hasActiveEditor, editor);
+            await this.plugin.aliasManager.updateAliasIfNeeded(file, originalContentWithFrontmatter, newTitle, editor);
         }
 
         try {
