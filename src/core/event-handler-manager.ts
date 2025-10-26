@@ -391,13 +391,19 @@ export class EventHandlerManager {
                 // Check for pending alias update (e.g., popover closed, auto-save triggered this event)
                 // This is the most reliable trigger for popover-close alias updates
                 if (this.plugin.fileStateManager.hasPendingAliasRecheck(file.path)) {
-                    verboseLog(this.plugin, `Pending alias update detected on modify: ${file.path}`);
-                    this.plugin.fileStateManager.clearPendingAliasRecheck(file.path);
+                    // Verify popover actually closed (not just auto-save while still in popover)
+                    if (!this.isFileInPopover(file)) {
+                        verboseLog(this.plugin, `Pending alias update detected on modify: ${file.path}`);
+                        this.plugin.fileStateManager.clearPendingAliasRecheck(file.path);
 
-                    // Trigger alias update - pass isManualCommand=true to bypass "file not open" check
-                    // This is an intentional, explicit update we want to force after popover close
-                    await this.plugin.aliasManager.updateAliasIfNeeded(file, undefined, undefined, true);
-                    return; // Skip normal modify processing since we just updated
+                        // Trigger alias update - pass isManualCommand=true to bypass "file not open" check
+                        // This is an intentional, explicit update we want to force after popover close
+                        await this.plugin.aliasManager.updateAliasIfNeeded(file, undefined, undefined, true);
+                        return; // Skip normal modify processing since we just updated
+                    }
+                    // Popover still open - keep pending flag, skip update to prevent cursor jump
+                    verboseLog(this.plugin, `Pending alias update deferred - file still in popover: ${file.path}`);
+                    return;
                 }
 
                 // Process rename for Cache/File modes (catches cache updates after save)
@@ -493,13 +499,19 @@ export class EventHandlerManager {
                 // Check for pending alias update FIRST (highest priority)
                 // Metadata-change fires when popover closes and Obsidian auto-saves
                 if (this.plugin.fileStateManager.hasPendingAliasRecheck(file.path)) {
-                    verboseLog(this.plugin, `Pending alias update detected on metadata-change: ${file.path}`);
-                    this.plugin.fileStateManager.clearPendingAliasRecheck(file.path);
+                    // Verify popover actually closed (not just auto-save while still in popover)
+                    if (!this.isFileInPopover(file)) {
+                        verboseLog(this.plugin, `Pending alias update detected on metadata-change: ${file.path}`);
+                        this.plugin.fileStateManager.clearPendingAliasRecheck(file.path);
 
-                    // Trigger alias update - pass isManualCommand=true to bypass "file not open" check
-                    // This is an intentional, explicit update we want to force after popover close
-                    await this.plugin.aliasManager.updateAliasIfNeeded(file, undefined, undefined, true);
-                    return; // Skip normal metadata processing since we just updated
+                        // Trigger alias update - pass isManualCommand=true to bypass "file not open" check
+                        // This is an intentional, explicit update we want to force after popover close
+                        await this.plugin.aliasManager.updateAliasIfNeeded(file, undefined, undefined, true);
+                        return; // Skip normal metadata processing since we just updated
+                    }
+                    // Popover still open - keep pending flag, skip update to prevent cursor jump
+                    verboseLog(this.plugin, `Pending alias update deferred - file still in popover: ${file.path}`);
+                    return;
                 }
 
                 // Central gate: check policy requirements and always-on safeguards
