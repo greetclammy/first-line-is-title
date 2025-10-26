@@ -13,6 +13,10 @@ import FirstLineIsTitle from '../../main';
  * - Poll active editors for changes (interval-based)
  * - Immediate change detection (event-based)
  * - Manage editor lifecycle events
+ *
+ * Note: Editor objects are typed as `any` because we access Obsidian's non-public
+ * editor API properties (e.g., in workspace leaf traversal). This is intentional
+ * and necessary for the plugin's functionality.
  */
 export class EditorLifecycleManager {
     private plugin: FirstLineIsTitle;
@@ -218,7 +222,7 @@ export class EditorLifecycleManager {
                     this.recentlyProcessedCloses.add(filePath);
                     setTimeout(() => {
                         this.recentlyProcessedCloses.delete(filePath);
-                    }, 100); // Clear after 100ms (workspace events settle quickly)
+                    }, 250); // Clear after 250ms to handle slow workspace events
 
                     // Check if there's a pending throttle timer (first line was modified)
                     const hasThrottleTimer = this.plugin.fileStateManager.hasThrottleTimer(filePath);
@@ -309,7 +313,8 @@ export class EditorLifecycleManager {
         const lastFirstLine = tracked!.lastFirstLine;
 
         // If first line hasn't changed, skip throttle
-        if (lastFirstLine !== undefined && lastFirstLine === currentFirstLine) {
+        // Explicit check: if lastFirstLine is defined and matches current, no processing needed
+        if (lastFirstLine !== undefined && currentFirstLine === lastFirstLine) {
             verboseLog(this.plugin, `First line unchanged for ${filePath}, skipping throttle`);
 
             // Update lastEditorContent to ensure metadata-change handler has current content

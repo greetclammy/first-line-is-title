@@ -256,6 +256,8 @@ export default class FirstLineIsTitle extends Plugin {
 
         const exclusionOverrides = { ignoreFolder: true, ignoreTag: true, ignoreProperty: true };
 
+        // Process sequentially for safety (prevents race conditions with file operations)
+        // Batch operations bypass global rate limiting to avoid blocking legitimate bulk operations
         for (const file of files) {
             try {
                 if (action === 'rename') {

@@ -520,9 +520,10 @@ export class FileStateManager {
             }
 
             // Clean up stale lastRenamedTime (prevents memory leak)
+            // Cleanup after 1 second (wasRecentlyRenamed checks 100ms window)
             if (state.lastRenamedTime) {
                 const age = now - state.lastRenamedTime;
-                if (age > 10 * 1000) { // 10 seconds is more than enough
+                if (age > 1000) {
                     delete state.lastRenamedTime;
                 }
             }
