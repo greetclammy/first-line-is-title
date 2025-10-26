@@ -408,6 +408,13 @@
       "hideMergeNotifications": {
         "name": "Hide merge notifications",
         "desc": "Suppress notifications about files being modified externally and merged automatically."
+      },
+      "limitations": {
+        "title": "Limitations",
+        "desc": {
+          "part1": "First line alias can be unreliable if editing in a page preview. Using ",
+          "part2": " is recommended."
+        }
       }
     },
     "replaceCharacters": {
