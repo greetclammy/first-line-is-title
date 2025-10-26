@@ -1,6 +1,6 @@
 import { Notice, Plugin, TFile, TFolder, MarkdownView } from "obsidian";
 import { PluginSettings } from './src/types';
-import { DEFAULT_SETTINGS, UNIVERSAL_FORBIDDEN_CHARS, WINDOWS_ANDROID_CHARS } from './src/constants';
+import { DEFAULT_SETTINGS } from './src/constants';
 import { initI18n, t, tp, getCurrentLocale } from './src/i18n';
 import {
     verboseLog,

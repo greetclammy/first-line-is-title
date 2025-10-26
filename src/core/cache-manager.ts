@@ -154,8 +154,6 @@ export class CacheManager {
         this.contentCache = new LRUCache(config.maxContentEntries);
         this.tempPaths = new Set();
         this.fileExistence = new FileExistenceCache(plugin);
-        // Note: operationTracker, fileOperationLock, and pendingAliasRecheck
-        // are now managed by FileStateManager
     }
 
     // ==================== CONTENT CACHE ====================
@@ -251,7 +249,6 @@ export class CacheManager {
         this.fileExistence.removePath(path);
         this.contentCache.delete(path);
         this.releasePath(path);
-        // Note: Operation data cleanup is handled by FileStateManager.notifyFileDeleted()
     }
 
     /**
@@ -268,8 +265,6 @@ export class CacheManager {
         // Update file existence cache
         this.fileExistence.removePath(oldPath);
         this.fileExistence.addPath(newPath);
-
-        // Note: Operation tracking is now handled by FileStateManager.notifyFileRenamed()
 
         // Release old path, reserve new path temporarily
         this.releasePath(oldPath);
@@ -356,8 +351,6 @@ export class CacheManager {
         return {
             contentCacheSize: this.contentCache.size(),
             tempPathsCount: this.tempPaths.size
-            // Note: Operation tracking, locks, and pending alias rechecks
-            // are now tracked by FileStateManager
         };
     }
 
@@ -371,7 +364,5 @@ export class CacheManager {
         this.contentCache.clear();
         this.tempPaths.clear();
         this.fileExistence.clear();
-        // Note: Operation tracking, locks, and pending alias rechecks
-        // are now managed by FileStateManager and cleaned up in its dispose() method
     }
 }

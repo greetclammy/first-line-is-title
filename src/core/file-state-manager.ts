@@ -22,24 +22,21 @@ export interface OperationData {
 
 /**
  * Comprehensive per-file state tracking
- * Consolidates tracking from EditorLifecycleManager, RenameEngine, and CacheManager
  */
 export interface FileState {
     path: string;
 
-    // Lifecycle timers (from EditorLifecycleManager)
+    // Lifecycle timers
     creationDelayTimer?: NodeJS.Timeout;
-    // TESTING: Commented out to verify if this is actually needed
-    // recentlyRenamedTimestamp?: number; // 150ms TTL
     throttleTimer?: NodeJS.Timeout; // checkInterval > 0 delayed processing
 
-    // Content tracking (from RenameEngine)
+    // Content tracking
     lastEditorContent?: string;
     titleRegionCache?: TitleRegionCache;
     lastSelfRefNotice?: number; // timestamp
     lastSafewordNotice?: number; // timestamp
 
-    // Operation tracking (from CacheManager)
+    // Operation tracking
     operationData?: OperationData;
     isLocked?: boolean;
     pendingAliasRecheck?: boolean;
@@ -56,7 +53,6 @@ export interface FileState {
 
 /**
  * Centralized file state manager
- * Consolidates 9 per-file tracking systems from multiple managers
  */
 export class FileStateManager {
     private plugin: FirstLineIsTitlePlugin;
@@ -85,7 +81,7 @@ export class FileStateManager {
     }
 
     // ============================================================================
-    // LIFECYCLE TIMERS (from EditorLifecycleManager)
+    // LIFECYCLE TIMERS
     // ============================================================================
 
     /**
@@ -159,7 +155,7 @@ export class FileStateManager {
     }
 
     // ============================================================================
-    // CONTENT TRACKING (from RenameEngine)
+    // CONTENT TRACKING
     // ============================================================================
 
     /**
@@ -268,7 +264,7 @@ export class FileStateManager {
     }
 
     // ============================================================================
-    // OPERATION TRACKING (from CacheManager)
+    // OPERATION TRACKING
     // ============================================================================
 
     /**
