@@ -61,11 +61,21 @@ export class AliasManager {
                 verboseLog(this.plugin, `Reading from disk for popover manual command: ${file.path}`);
             }
 
-            const content = await readFileContent(this.plugin, file, {
+            let content = await readFileContent(this.plugin, file, {
                 providedContent: shouldReadFromEditor ? providedContent : undefined,
                 providedEditor: shouldReadFromEditor ? editor : undefined,
                 preferFresh: !shouldReadFromEditor  // Force vault.read in manual popover mode
             });
+
+            // If disk read is empty in manual popover mode, fall back to editor content
+            // This handles delayed disk writes after rename in popovers
+            if (isManualCommand && isPopoverEditor && (!content || content.trim() === '')) {
+                const editorFallback = providedContent || (editor ? editor.getValue() : null);
+                if (editorFallback && editorFallback.trim()) {
+                    verboseLog(this.plugin, `Disk read empty, using editor fallback for: ${file.path}`);
+                    content = editorFallback;
+                }
+            }
 
             if (!content || content.trim() === '') {
                 return;
