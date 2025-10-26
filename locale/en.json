@@ -350,7 +350,7 @@
       "aliasPropertyName": {
         "name": "Alias property name",
         "desc": "Set the property key in which to insert the alias.",
-        "quickSwitcher": "Use 'aliases' to make the alias searchable in the Quick switcher.",
+        "quickSwitcher": "Use 'aliases' to make the alias searchable in the Quick switcher and link suggester.",
         "multipleProperties": "To populate multiple properties, separate by comma (e.g., 'aliases, title').",
         "noteTitle": {
           "part1": "This property can be set as note title in ",
@@ -510,7 +510,7 @@
     },
     "stripMarkup": {
       "name": "Strip markup",
-      "desc": "Omit markup syntax in filenames.",
+      "desc": "Omit markup syntax in filename when renaming.",
       "headings": {
         "name": "Strip heading markup",
         "desc": {
