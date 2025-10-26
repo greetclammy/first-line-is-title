@@ -378,8 +378,9 @@ export class EventHandlerManager {
                     }
                 }
 
-                // Update aliases if enabled
-                if (this.plugin.settings.aliases.enableAliases) {
+                // Update aliases if enabled (respects manual/automatic mode)
+                if (this.plugin.settings.aliases.enableAliases &&
+                    this.plugin.settings.core.renameNotes === 'automatically') {
                     // Check if only frontmatter changed - skip alias update to preserve YAML formatting
                     const currentContent = await this.plugin.app.vault.read(file);
                     const previousContent = this.plugin.fileStateManager.getLastEditorContent(file.path);
@@ -409,6 +410,7 @@ export class EventHandlerManager {
         this.registerEvent(
             this.plugin.app.metadataCache.on('changed', async (file) => {
                 if (!this.plugin.settings.aliases.enableAliases) return;
+                if (this.plugin.settings.core.renameNotes !== 'automatically') return;
                 if (file.extension !== 'md') return;
 
                 // Skip if file operation in progress (rename, etc.)
