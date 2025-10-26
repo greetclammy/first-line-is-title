@@ -60,12 +60,12 @@ export class AliasManager {
             if (!shouldProcessFile(file, this.settings, this.app, undefined, undefined, this.plugin)) {
                 return;
             }
-            // Prioritize live editor content over stale providedContent to prevent missing last character during rapid typing
-            // Editor has most recent content; providedContent is fallback when no editor available
+            // NEVER use providedContent for alias updates - it's a snapshot from when event fired
+            // Always read fresh from editor or workspace to capture characters typed during processing
             const content = await readFileContent(this.plugin, file, {
                 providedEditor: editor,
-                searchWorkspace: true,
-                providedContent
+                searchWorkspace: true
+                // providedContent intentionally omitted - causes missing last char during rapid typing
             });
 
             if (!content || content.trim() === '') {
