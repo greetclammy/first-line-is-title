@@ -1,599 +1,180 @@
-# Popover Alias Auto-Update Debugging Postmortem
+# Popover Alias Operations - Technical Postmortem
 
-## Executive Summary
+## Problem
 
-**Problem**: Alias property not auto-updating when user closes popover editor after editing a note.
+Aliases do not update correctly in Obsidian popover editors due to fundamental sync/cache limitations in Obsidian's architecture.
 
-**Duration**: 5.5 hours (October 26, 2025, 00:36-05:58 GMT+3)
+**Auto-updates**: Alias property not updating when popover closes after editing
+**Manual commands**: Alias duplicates or fails to add when user explicitly triggers update
 
-**Attempts**: 27 commits representing 12+ distinct solution approaches
+**Constraints**:
+- File rename must work in popovers (core feature)
+- No cursor jumping during typing
+- Handle rapid typing (multiple keystrokes per 100ms)
 
-**Outcome**: All auto-update approaches failed. Final resolution was **acceptance of limitation** - aliases deliberately left stale in popovers, with user documentation added to settings explaining the constraint.
+## Root Causes (Obsidian API Limitations)
 
-**Root causes**: Multiple intersecting issues made reliable auto-update impossible:
-1. Obsidian provides no lifecycle events for popover close
-2. Popover detection via workspace API is structurally unreliable
-3. Async disk-write race conditions during rapid typing
-4. Editor instance tracking fails when popovers close
+### 1. No Popover Lifecycle Events
 
-**Key insight**: Sometimes the correct engineering decision is accepting a limitation rather than implementing an unreliable solution. The removed code (175 lines) eliminated multiple race conditions and produced a simpler, more maintainable codebase.
+Obsidian provides no `popover-close` or similar event. Attempted workarounds:
+- `active-leaf-change`: Only fires if active leaf changes (not when popover closes)
+- `layout-change`: Only fires on structural changes (split, resize)
+- `modify`/`metadata-change`: Fire on auto-save (2s delay), no editor context
 
-## The Problem
+**Result**: Cannot reliably detect when popover closes.
 
-### Initial Symptoms
+### 2. Popover Detection Unreliable
 
-User editing notes in Obsidian hover popovers experienced two related issues:
+Popovers are DOM overlays, not workspace leaves. Detection methods all failed:
 
-1. **Cursor jumping**: Cursor would jump to line start during rapid typing
-2. **Stale aliases**: After closing popover, the frontmatter alias property would not update to match the (successfully renamed) filename
-
-### Constraints
-
-- File rename functionality MUST work in popovers (core feature)
-- Alias updates must not interfere with typing (no cursor jumps)
-- Must handle rapid typing (multiple keystrokes per 100ms)
-- Must work with both hover popovers and regular editor tabs
-
-### Context
-
-The plugin automatically:
-1. Renames files based on first line content
-2. Maintains a frontmatter alias property matching the old filename
-3. Syncs multiple editor views to prevent flickering
-
-When editing in popovers, the rename worked correctly, but alias property remained stale until user manually opened file in main editor.
-
-## Timeline of Attempts
-
-### Phase 1: Editor Sync Debugging (00:36-01:09, 6 commits)
-
-**Objective**: Fix cursor jumping while maintaining alias visibility in popover
-
-#### Attempt 1: Re-enable Editor Sync (00:36, commit bde94aa)
-- **What**: Re-enabled `syncPopoverEditorBuffer()` calls previously disabled for testing
-- **Why**: Log showed alias written to disk but not visible in popover
-- **Result**: FAILED - Cursor jumping returned
-- **Evidence**: Used `replaceRange()` instead of `setValue()`, no `setCursor()` calls, but still jumping
-
-#### Attempt 2: Disk-Read Race Condition Fix (00:46, commit 39b9983)
-- **What**:
-  - Added 10ms delay after `processFrontMatter()` before `vault.read()`
-  - Skip disk read entirely for frontmatter creation, construct YAML directly
-- **Why**: Log showed disk content consistently behind editor content:
-  ```
-  Line 73:  disk 27 chars, editor 28 chars
-  Line 140: disk 33 chars, editor 36 chars
-  Line 177: disk 34 chars, editor 43 chars
-  ```
-- **Result**: FAILED - Cursor still jumped
-- **Evidence**: Race condition persisted even with delay
-
-#### Attempt 3: Skip Editor Sync in Popovers (00:56, commit f44cce4)
-- **What**: Added popover detection before all editor sync operations
-- **Why**: ANY `replaceRange()` call during rapid typing was interfering with cursor
-- **Result**: FAILED - Alias not visible in popover (trade-off accepted temporarily)
-- **Rationale**: Prioritized cursor stability over immediate alias visibility
-
-#### Attempt 4: Force Fresh Disk Reads (01:02, commit 9fdb0df)
-- **What**: Set `needsFreshRead` flag when skipping editor sync in popover
-- **Why**: Ensure cached content doesn't become stale
-- **Result**: N/A - Reverted in next commit
-
-#### Attempt 5: Skip view.save() Before processFrontMatter (01:09, commit 0ff1ce9)
-- **What**: Conditionally skip `view.save()` call when editing in popover
-- **Why**: Prevent additional disk write that might trigger race condition
-- **Result**: FAILED - Still had issues
-- **Evidence**: Removed in next commit as part of new approach
-
-### Phase 2: Defer Alias Updates to Popover Close (01:46-02:52, 7 commits)
-
-**Objective**: Stop updating aliases during popover editing, trigger update when popover closes
-
-#### Attempt 6: Skip Alias Updates, Pending Flag (01:46, commit ff269fe)
-- **What**:
-  - Detect popover editing via `isEditorInPopover()`, return early
-  - Set `pendingAliasRecheck` flag
-  - Add `active-leaf-change` event handler to detect popover close
-- **Why**: Complete separation - zero alias operations during popover editing
-- **Result**: PARTIALLY WORKED - Cursor jumping solved, but alias didn't update on close
-- **Evidence**: Log showed active-leaf-change didn't fire when popover closed
-
-#### Attempt 7: Add Layout-Change Event (01:54, commit 0d23821)
-- **What**: Added `layout-change` event handler alongside `active-leaf-change`
-- **Why**: Layout-change fires on any layout modification including popover close
-- **Result**: FAILED - Still not firing reliably
-- **Evidence**: Log showed no layout-change events when popover closed
-
-#### Attempt 8: Use Modify/Metadata Events (02:10, commit 1d55715)
-- **What**: Check pending flag in `modify` and `metadata-change` handlers
-- **Why**: These events fire reliably on auto-save when popover closes
-- **Result**: FAILED - Events fired but updates skipped
-- **Evidence**: Log showed "file not open in editor" message, updates bypassed
-
-#### Attempt 9: Transfer Pending Flag on Rename (02:23, commit 5138fef)
-- **What**: Synchronously transfer `pendingAliasRecheck` flag from old to new path during rename
-- **Why**: File path changes during rename, lose track of pending flag
-- **Result**: HELPED - Fixed one edge case, but core issue remained
-
-#### Attempt 10: Preserve Pending Flag (02:40, commit 14754dd)
-- **What**: Don't clear pending flag when content changes during processing
-- **Why**: Multiple renames during rapid typing were clearing flag prematurely
-- **Result**: HELPED - Another edge case fixed, but detection still broken
-
-#### Attempt 11: Pass isManualCommand Flag (02:52, commit a4c44e2)
-- **What**: Pass `isManualCommand=true` when updating alias from pending flag
-- **Why**: Bypass "file not open in editor" check when updating after popover close
-- **Result**: PARTIAL - Updates triggered but detection wrong
-
-#### Attempt 12: Refactor to isPendingAliasUpdate (03:20, commit 9ca6284)
-- **What**: New parameter `isPendingAliasUpdate` instead of `isManualCommand`
-- **Why**: Clearer semantics
-- **Result**: REVERTED (03:34, commit fa9372a) - Didn't solve core issue
-
-### Phase 3: Popover Detection Refinement (03:46-05:35, 8 commits)
-
-**Objective**: Reliably detect when popover is still open vs closed
-
-#### Attempt 13: Check Popover Closed Before Update (03:46, commit eddff18)
-- **What**: Verify popover actually closed before updating alias
-- **Why**: Distinguish between "update skipped during editing" and "update after close"
-- **Result**: FAILED - Detection method broken
-
-#### Attempt 14: Replace with hasOpenEditor (03:54, commit 25fcc14)
-- **What**: Replace `isFileInPopover()` with `hasOpenEditor()`
-- **Why**: Previous function always returned true
-- **Result**: FAILED - Still detecting incorrectly
-
-#### Attempt 15: Replace with isFileInHoverPopover (04:02, commit 58f5f1b)
-- **What**: Check `view.hoverPopover` structure specifically
-- **Why**: Distinguish hover popovers from other popover types
-- **Result**: FAILED - User pointed out going in circles, already had this function
-- **User feedback**: "why did you create a new isFileInHoverPopover() when we had isFileInPopover()? It seems like you're going in circles."
-
-#### Attempt 16: Store Editor Reference (04:11, commit 30c2595)
-- **What**:
-  - Store editor instance when setting pending flag
-  - Retrieve stored editor in event handlers
-  - Use same `isEditorInPopover()` detection logic everywhere
-- **Why**: Two different detection methods were inconsistent:
-  - alias-manager: `isEditorInPopover(editor, file)` - worked correctly
-  - event-handlers: `isFileInHoverPopover(file)` - broken
-- **Result**: FAILED - `isEditorInPopover()` returns true for BOTH "in popover" and "closed completely"
-
-#### Attempt 17: Add hasOpenEditor Check (05:04, commit ebfb8d8)
-- **What**: Before checking `isEditorInPopover()`, verify file open in any editor
-- **Why**: `isEditorInPopover()` returns true when `activeView.file?.path !== file.path`, which happens both in popover AND after file closed
-- **Logic**: `if (hasOpenEditor && editor && isEditorInPopover) { defer } else { update }`
-- **Result**: FAILED - `hasOpenEditor()` didn't detect files in hover popovers
-
-#### Attempt 18: Fix hasOpenEditor for Hover Popovers (05:19, commit 648da04)
-- **What**: Check both `view.file?.path` AND `view.hoverPopover?.file?.path`
-- **Why**: Hover popovers accessed via different property path
-- **Result**: FAILED - Still not detecting correctly
-
-#### Attempt 19: Add targetEl Check (05:30, commit f405237)
-- **What**: Check `view.hoverPopover.targetEl` exists (DOM element)
-- **Why**: `hoverPopover` object persists after close, `targetEl` only exists when actually rendered
-- **Result**: FAILED - Still issues with detection
-
-#### Attempt 20: Replace with isEditorStillOpen (05:35, commit 357356a)
-- **What**: Replace file-path-based detection with editor-instance-based detection
-- **Why**: Path matching unreliable due to varying popover structures, use editor object identity
-- **Result**: FAILED - Aliases updated while popover still open, or didn't update after close
-
-### Phase 4: Acceptance (05:58, commit 968f15f)
-
-**Decision**: Remove all auto-update-on-popover-close functionality
-
-**Rationale**:
-- 20 attempts over 5.5 hours
-- Every detection method failed in some scenario
-- No reliable way to detect popover close via Obsidian API
-- Removed 175 lines of fragile, unreliable code
-- Accepted limitation documented in settings UI
-
-**What was removed**:
-- `markPendingAliasRecheck()` calls and catch-up logic
-- `active-leaf-change` and `layout-change` event handlers
-- `checkPendingAliasUpdates()` function
-- `isEditorStillOpen()` and `hasOpenEditor()` functions
-- Pending alias checks from modify/metadata handlers
-- `isCheckingPendingUpdates` field
-- Pending flag transfer on rename
-
-**Current behavior**:
-- ✅ Typing in popover: Rename works, alias update skipped (prevents cursor jump)
-- ⚠️ Close popover: Nothing happens (alias stays stale)
-- ✅ Open in main editor: Normal auto-update works
-- ✅ Manual command: Force update works
-
-## Failed Solutions by Category
-
-### Category 1: Editor Sync Approaches (6 attempts)
-
-| # | Commit | Approach | Why It Failed |
-|---|--------|----------|---------------|
-| 1 | bde94aa | Re-enable editor sync with replaceRange() | Still caused cursor jumping despite surgical updates |
-| 2 | 39b9983 | Add 10ms delay + direct YAML construction | Race condition persisted, delay too short |
-| 3 | f44cce4 | Skip all editor sync in popovers | Fixed cursor but alias invisible (trade-off) |
-| 4 | 9fdb0df | Force fresh disk reads after skipping sync | Didn't address core issue |
-| 5 | 0ff1ce9 | Skip view.save() before processFrontMatter | Race condition remained |
-| 6 | 16:43 | Pass diskContent to avoid vault.read() | Removed in phase 2 approach |
-
-**Pattern**: ANY editor manipulation during rapid typing interfered with cursor, even "surgical" updates.
-
-**Root cause**: CodeMirror events from FLIT's edits triggered during user's active typing session.
-
-### Category 2: Event-Based Detection (7 attempts)
-
-| # | Commit | Event Source | Why It Failed |
-|---|--------|--------------|---------------|
-| 7 | ff269fe | active-leaf-change | Doesn't fire when popover closes if file not open elsewhere |
-| 8 | 0d23821 | layout-change | Doesn't fire if no actual layout change (e.g., popover overlay) |
-| 9 | 1d55715 | modify + metadata-change | Fire on auto-save, but wrong context (no editor reference) |
-| 10 | 5138fef | Flag transfer on rename | Helped edge case, didn't solve detection |
-| 11 | 14754dd | Preserve flag during changes | Helped edge case, didn't solve detection |
-| 12 | a4c44e2 | Use isManualCommand flag | Bypassed wrong check, detection still broken |
-| 13 | 9ca6284 | Rename to isPendingAliasUpdate | Semantics change, no functional improvement |
-
-**Pattern**: Obsidian provides no reliable "popover closed" event. Attempted to infer from workspace events, but none fire consistently.
-
-**Root cause**: Popovers are overlays, not workspace leaves. Closing them doesn't trigger workspace restructuring events.
-
-### Category 3: Popover Detection Methods (8 attempts)
-
-| # | Commit | Detection Method | Why It Failed |
-|---|--------|------------------|---------------|
-| 14 | eddff18 | Check before update | Used broken detection function |
-| 15 | 25fcc14 | hasOpenEditor(file) | Only checked main editor, missed popovers |
-| 16 | 58f5f1b | isFileInHoverPopover(file) | User pointed out this was circular, already tried |
-| 17 | 30c2595 | Store editor ref + isEditorInPopover(editor, file) | Returns true for both "in popover" and "closed" |
-| 18 | ebfb8d8 | hasOpenEditor() + isEditorInPopover() | hasOpenEditor() missed files in popovers |
-| 19 | 648da04 | Check view.hoverPopover.file.path | Still unreliable across different popover types |
-| 20 | f405237 | Check view.hoverPopover.targetEl | targetEl can be stale or structure varies |
-| 21 | 357356a | isEditorStillOpen(editor) via instance identity | Editor instances disappear unpredictably |
-
-**Pattern**: Every detection method had false positives or false negatives.
-
-**Root causes**:
-1. `isEditorInPopover()` compares active view to provided editor - returns true when file closed because no active view
-2. `hasOpenEditor()` iterates leaves, but popover editors aren't in main leaf structure
-3. `targetEl` approach assumes consistent popover DOM structure - not guaranteed by Obsidian API
-4. Editor instance tracking fails when Obsidian destroys editor before our event fires
-
-## Root Causes Identified
-
-### 1. Async Disk-Write Race Conditions
-
-**Evidence**: Log obsidian.md-1761428457405.log showed:
-```
-Line 73:  disk 27 chars, editor 28 chars
-Line 140: disk 33 chars, editor 36 chars
-Line 177: disk 34 chars, editor 43 chars
-```
-
-**Mechanism**:
-1. `processFrontMatter()` writes async to disk
-2. Promise resolves before disk write completes
-3. Subsequent `vault.read()` gets stale content
-4. Sync stale content to editor → overwrites user's new keystrokes
-
-**Why delays failed**: Async completion time unpredictable, 10-50ms insufficient for consistency.
-
-### 2. Popover API Unreliability
-
-**Structural issues**:
-- Popovers are DOM overlays, not workspace leaves
-- No dedicated API for popover lifecycle
-- Multiple popover types: hover, page preview, link preview (different structures)
-- `view.hoverPopover` property exists but undocumented, may change
-
-**Detection failures**:
-- File path matching: Popovers don't appear in `workspace.getLeavesOfType()`
-- Editor instance: Gets destroyed before close event fires
-- Active view comparison: Active view switches unpredictably
-- DOM element checking: Assumes internal Obsidian structure
-
-### 3. Event Timing Issues
-
-**What we needed**: Synchronous event when popover closes
-
-**What Obsidian provides**:
-- `active-leaf-change`: Only fires if active leaf actually changes
-- `layout-change`: Only fires on structural layout changes (split, resize)
-- `file-open`: Fires when opening, not closing
-- `modify` / `metadata-change`: Fire on auto-save (2s delay), no editor context
-
-**Why auto-save events failed**: By the time modify event fires 2 seconds later, we've lost editor reference and can't determine if it was a popover.
-
-### 4. Editor Instance Lifecycle Mismatch
-
-**The problem**: We store editor instance at time of editing, retrieve it later for detection.
-
-**What happens**:
-1. User types in popover → store `popoverEditor` instance
-2. User closes popover → Obsidian destroys `popoverEditor`
-3. Auto-save triggers 2s later → we have reference to destroyed editor
-4. Detection fails because we're checking a stale object
-
-**Why isEditorInPopover returns true for closed files**:
+**File path matching**: Popovers don't appear in `workspace.getLeavesOfType()`
+**Editor instance tracking**: Destroyed before events fire
+**Active view comparison**: `isEditorInPopover()` returns true for both "in popover" AND "file closed"
 ```typescript
-// Line 692-693 in alias-manager.ts
+// Returns true when file closed AND when in popover
 if (!activeView || activeView.file?.path !== file.path) {
-    return true;  // Returns true when file closed AND when in popover
+    return true;
 }
 ```
+**DOM element checking**: `view.hoverPopover.targetEl` unreliable, assumes internal structure
 
-## Technical Insights
-
-### Obsidian API Behaviors Discovered
-
-1. **Popover editors are ephemeral**: Created on popover open, destroyed on close, no lifecycle hooks
-2. **Auto-save is 2 seconds**: Obsidian's internal auto-save interval, not configurable
-3. **replaceRange() triggers events**: Even "surgical" edits cause editor-change to fire
-4. **Workspace events don't cover popovers**: Popovers are overlays outside main workspace leaf structure
-5. **Editor instance comparison unreliable**: Instances can change between event and check
+### 3. Async Disk-Write Race Conditions
 
-### What Would Be Needed for Working Solution
+`processFrontMatter()` promise resolves before disk write completes:
+- `vault.read()` immediately after returns stale content
+- Editor sync overwrites user's new keystrokes
+- Delays (10-50ms) insufficient due to unpredictable completion time
 
-1. **Obsidian API addition**: `workspace.on('popover-close', callback)` event
-2. **Alternative**: Stable popover identifier that persists after close
-3. **Alternative**: Synchronous way to query "is file currently in any popover"
-4. **Alternative**: Read-only mode in popovers (Obsidian feature, not plugin-controllable)
+### 4. Four Layers of Stale Content
 
-### Attempted Approaches Not Tried
+Manual commands revealed cascading cache issues:
 
-**Why not poll?**
-- Bad UX (CPU usage)
-- Still unreliable (popover could close between polls)
-- Against Obsidian plugin guidelines
+1. **Editor cache**: `editor.getValue()` stale after `processFrontMatter()` writes
+2. **Provided content cache**: Content passed to functions stale
+3. **Disk cache**: `vault.cachedRead()` returns stale content
+4. **Disk delay**: `vault.read()` returns empty/partial during async write (0-2 seconds)
 
-**Why not mutation observer?**
-- Fragile (depends on Obsidian's internal DOM structure)
-- Performance cost
-- Could break on Obsidian updates
+**Evidence**: Even with `preferFresh=true` and `vault.read()`, content varies:
+- 0 chars (empty file during write delay)
+- Body only (frontmatter not yet synced)
+- Full content (finally synced after 2+ seconds)
 
-**Why not iframe isolation?**
-- Can't control how Obsidian renders popovers
-- Would break other plugins
+### 5. Editor Instance Lifecycle Mismatch
 
-## Final Resolution
+Workflow: Store editor instance → User closes popover → Obsidian destroys editor → Auto-save fires 2s later → Check stale editor reference
 
-### What Was Removed (175 lines)
+**Result**: Detection always fails.
 
-**file-state-manager.ts**:
-- `pendingAliasEditor` field from FileState interface
-- `markPendingAliasRecheck()` editor parameter
-- `getPendingAliasEditor()` method
-- `clearPendingAliasRecheck()` editor cleanup
-- `getFilesWithPendingAliasRecheck()` method
+## Failed Approaches
 
-**event-handler-manager.ts**:
-- `registerActiveLeafChangeHandler()` method (25 lines)
-- `checkPendingAliasUpdates()` method (45 lines)
-- `isEditorStillOpen()` method (23 lines)
-- `hasOpenEditor()` method (22 lines)
-- `isCheckingPendingUpdates` field
-- Pending alias checks in modify handler (22 lines)
-- Pending alias checks in metadata handler (23 lines)
+### Category 1: Editor Sync During Typing
 
-**rename-engine.ts**:
-- Pending flag transfer on rename (9 lines)
+**Approach**: Update frontmatter in editor while user types
+**Methods tried**:
+- `replaceRange()` instead of `setValue()` (still caused cursor jump)
+- 10ms delay before disk read (race condition persisted)
+- Direct YAML construction without disk read (still cursor jump)
 
-**alias-manager.ts**:
-- `markPendingAliasRecheck()` call
-- Catch-up logic for pending aliases (10 lines)
+**Why failed**: ANY CodeMirror edit during active typing triggers events that interfere with cursor
 
-### What Remains
+### Category 2: Defer to Popover Close
 
-**Working functionality**:
-- ✅ File rename in popovers (instant)
-- ✅ Cursor stays in place (no jumping)
-- ✅ Normal editor alias updates (automatic)
-- ✅ Manual command alias updates (works everywhere)
-- ✅ Multi-editor sync for main editors
+**Approach**: Set pending flag, update when popover closes
+**Methods tried**:
+- `active-leaf-change` + `layout-change` events (don't fire)
+- `modify` + `metadata-change` events (fire on auto-save, wrong context)
+- Store editor reference for later detection (editor destroyed)
+- Transfer pending flag on rename (edge case fix, core issue remained)
 
-**Documented limitation**:
-- Settings UI now shows: "Limitations" section
-- English: "First line alias doesn't work in page preview. Using [Hover Editor] is recommended."
-- Russian: "Псевдоним первой строки не работает в предварительном просмотре страницы. Рекомендуется использовать [Hover Editor]."
-- Link to Hover Editor plugin (better popover editor with full features)
+**Why failed**: No reliable close event exists
 
-### Trade-off Acceptance
+### Category 3: Popover State Detection
 
-**What we gave up**:
-- Auto-update aliases when popover closes
+**Methods tried**:
+- `isFileInPopover(file)`: Only checks main editor
+- `hasOpenEditor(file)`: Misses popover editors
+- `view.hoverPopover.targetEl` exists: Stale after close
+- `isEditorInPopover(editor, file)`: True for both "in popover" and "closed"
+- `isEditorStillOpen(editor)`: Editor instance unreliable
 
-**What we gained**:
-- Reliable cursor positioning (no jumping)
-- 175 fewer lines of fragile code
-- No race conditions
-- Simpler mental model
-- Better user expectations (clear limitation vs unreliable behavior)
+**Why failed**: All detection has false positives or negatives
 
-**User impact**:
-- Users editing in popovers see stale alias until:
-  1. Opening file in main editor (triggers automatic update)
-  2. Running manual rename command
-  3. File auto-processes on next modification in main editor
+### Category 4: Manual Command Workarounds
 
-## Lessons Learned
+**Objective**: Bypass auto-update restrictions, force fresh disk read
 
-### When to Accept Limitations
+**Methods tried**:
+- Skip `providedEditor`: Still used `providedContent`
+- Skip `providedContent`: Used `vault.cachedRead()`
+- Set `preferFresh=true`: `vault.read()` returned empty (disk write delay)
+- Editor fallback when empty: `vault.read()` returned partial content (body without frontmatter)
 
-**Red flags indicating should accept limitation**:
-1. ✅ Multiple API approaches all failed
-2. ✅ No documented API for required functionality
-3. ✅ Solution requires polling or fragile heuristics
-4. ✅ Debugging time exceeds feature value
-5. ✅ Simpler workaround exists (manual command, open in main editor)
+**Why failed**: Obsidian's disk write delay (0-2s) + partial sync states = no consistent read method
 
-**This issue hit all five criteria.**
+## Phase 5: Manual Commands
 
-### Cost-Benefit of Continued Debugging
+After accepting auto-update limitation, manual commands also failed.
 
-**Time invested**: 5.5 hours, 27 commits, 12+ approaches
+**Additional issue discovered**: Event handler thrashing
+- Manual command adds alias via `processFrontMatter()`
+- Async write triggers `modify` event
+- Event handler reads stale content (no frontmatter yet)
+- Removes just-added alias
+- Pattern repeats
 
-**Functionality gain if solved**: Alias auto-updates in popovers (nice-to-have)
+**Fix (commit 47461d5)**: Guard event handlers with `pendingMetadataUpdates` Set - skip processing if file has pending write
 
-**Functionality at risk**: Cursor stability (must-have)
+**Result**: Event thrashing fixed, but manual commands still hit 4 layers of stale content
 
-**Code complexity added**: 175 lines of event handling, detection heuristics, edge cases
+**Final resolution (commit b39a049)**: Disable ALL alias operations in popovers (auto + manual)
 
-**Maintenance burden**: Would break on Obsidian API changes, unclear error states
+## Final Solution
 
-**Decision**: Not worth the cost. Feature is not core functionality, workarounds exist, reliability questionable.
-
-### Importance of Clear Failure Criteria
-
-**What we did wrong**: Kept trying new approaches without defining "when to stop"
-
-**What we should have done**: After 3-4 failed detection approaches, evaluate:
-- Is there a fundamental API limitation?
-- Is the user impact severe enough to justify complexity?
-- Is there a simpler alternative?
-
-**Outcome**: Eventually reached right decision, but cost 5.5 hours to get there.
-
-### User Communication
-
-**Before**: Plugin silently failed to update aliases in popovers, confusing users
-
-**After**:
-- Clear limitation documented in settings
-- Recommendation for alternative plugin
-- Cursor stability guaranteed
-- Manual workaround available
-
-**Lesson**: Honest limitation > unreliable feature
-
-## Epilogue: Manual Commands in Popovers (Phase 5)
-
-### The Return (October 27, 2025)
-
-After accepting the auto-update limitation, issues resurfaced with **manual rename commands** in popovers. User reported aliases not being added or being added multiple times when manually triggering updates.
-
-**New problem**: Manual commands should bypass popover restrictions (user explicitly requested), but faced same sync/cache issues.
-
-**Duration**: ~3 hours
-
-**Attempts**: 6 commits
-
-**Outcome**: Complete disabling of ALL alias operations in popovers (auto and manual)
-
-### Phase 5 Attempts
-
-#### Attempt 21: Guard Event Handlers (commit 47461d5)
-
-**Problem**: Manual command adds alias → `processFrontMatter()` writes → event handlers fire during async write → read stale content → remove just-added alias
-
-**Evidence** (obsidian.md-1761509853107.log):
-```
-Line 44: Manual command adds alias successfully
-Lines 46-54: THREE rapid removal operations
-```
-
-**Solution**: Check `pendingMetadataUpdates` Set in event handlers, skip if file has pending write
-
-**Result**: ✅ Event handler thrashing fixed
-
-#### Attempt 22-25: The Four Layers of Cache (commits 1832f77, 89fac27, 923997e, 4d3c2c3)
-
-**Objective**: Make manual commands read fresh disk content to detect existing aliases
-
-Each attempt revealed a deeper caching layer:
-
-**Attempt 22 (1832f77)**: Skip `providedEditor` parameter
-- **Problem**: Still used `providedContent` (stale editor cache)
-- **Result**: FAILED
-
-**Attempt 23 (89fac27)**: Skip `providedContent` too
-- **Problem**: Used `vault.cachedRead()` (stale disk cache)
-- **Result**: FAILED
-
-**Attempt 24 (923997e)**: Set `preferFresh=true` flag
-- **Problem**: `vault.read()` returned empty (delayed disk write)
-- **Evidence**: obsidian.md-1761512730457.log showed 0 chars for first 3 commands
-- **Result**: FAILED
-
-**Attempt 25 (4d3c2c3)**: Add editor fallback when disk empty
-- **Problem**: `vault.read()` returned partial content (body without frontmatter)
-- **Evidence**: obsidian.md-1761512158144.log showed content mismatch
-- **Result**: FAILED - Aliases still duplicated
-
-### Four Unfixable Obsidian Limitations
-
-After 5 attempts to work around popover sync issues:
-
-1. **Editor cache**: `editor.getValue()` returns stale content after `processFrontMatter()` writes
-2. **Delayed disk writes**: `vault.read()` returns empty for ~2 seconds after rename
-3. **Partial disk content**: Even `vault.read()` returns body without frontmatter during sync
-4. **Metadata desync**: Cache and disk have different states at any given moment
-
-### Attempt 26: Complete Disabling (commit b39a049)
-
-**Decision**: Disable ALL alias operations in popovers (both auto and manual)
-
-**Code change**: Replaced 25 lines of workarounds with simple early return:
 ```typescript
+// alias-manager.ts - Simple early return
 if (editor && this.isEditorInPopover(editor, file)) {
     verboseLog(this.plugin, `Skipping alias update in popover: ${file.path}`);
     return;
 }
 ```
 
-**Rationale**:
-- Every workaround failed due to fundamental Obsidian sync issues
-- Fighting these issues = complexity without reliability
-- 175 lines removed in Phase 4 + 29 lines in Phase 5 = 204 total
-- Clean, simple, maintainable
+**Removed**:
+- 175 lines of auto-update workarounds
+- 29 lines of manual command workarounds
+- Total: 204 lines
 
-**Evidence of success** (obsidian.md-1761514630158.log):
-- Lines 38, 65, 89, 109, 136, 159: "Skipping alias update in popover"
-- No duplicate additions
-- No stale content issues
-- Clean behavior
+**Current behavior**:
+- ✅ File rename works in popovers
+- ✅ No cursor jumping
+- ✅ Aliases work in main workspace
+- ❌ Aliases NOT updated in popovers (auto or manual)
+- Workaround: Open file in main editor or use Hover Editor plugin
 
-### Updated Statistics
+## Obsidian API Insights
 
-#### Phase 4 (Auto-updates):
-- **Duration**: 5 hours 22 minutes
-- **Commits**: 27
-- **Lines removed**: 175
+### Documented Behaviors
 
-#### Phase 5 (Manual commands):
-- **Duration**: ~3 hours
-- **Commits**: 6
-- **Lines added then removed**: 29
+1. **Popover editors are ephemeral**: Created on open, destroyed on close, no lifecycle hooks
+2. **Auto-save is 2 seconds**: Internal interval, not configurable
+3. **`replaceRange()` triggers events**: Even "surgical" edits cause editor-change
+4. **Workspace events exclude popovers**: Popovers are overlays outside leaf structure
+5. **Disk writes are async**: `processFrontMatter()` resolves before disk write completes
+6. **Content read hierarchy**:
+   - `providedContent` (stale after edits)
+   - `editor.getValue()` (stale after `processFrontMatter()`)
+   - `vault.cachedRead()` (stale, cached)
+   - `vault.read()` (fresh but empty/partial during write delay)
 
-#### Combined:
-- **Total duration**: 8+ hours
-- **Total commits**: 33
-- **Net lines removed**: 204
-- **Lessons learned**: Obsidian popover limitations affect ALL operations, not just auto-updates
+### What Would Be Needed
 
-## Conclusion
+- Obsidian API addition: `workspace.on('popover-close', callback)`
+- OR: Synchronous query for "is file currently in any popover"
+- OR: Consistent content read method that accounts for pending writes
 
-This debugging session demonstrates that sometimes the best solution is accepting a limitation. After exhausting every reasonable detection method and facing fundamental API constraints, removing the unreliable auto-update code produced a better outcome than any "working" solution would have.
+## Technical Notes
 
-**The epilogue reinforces this lesson**: Even manual commands (user-initiated, no automatic detection needed) hit insurmountable sync/cache issues. The final solution—complete disabling—is the only reliable approach.
+**Why not polling?**: Performance cost, against plugin guidelines, still unreliable
 
-### Key Insights
+**Why not mutation observer?**: Fragile (DOM structure dependency), breaks on Obsidian updates
 
-1. **Fundamental limitations can't be worked around**: Obsidian's popover sync architecture has inherent delays and inconsistencies that affect all operations
-2. **Complexity spirals**: Each workaround revealed a deeper caching layer, suggesting infinite regression
-3. **Clean code > feature completeness**: 204 lines removed = simpler, more reliable, more maintainable
-4. **User communication matters**: Clear limitation > unreliable behavior
-
-The key insight: **Working around API limitations is acceptable when alternative approaches exist and the workaround is properly documented. When even workarounds fail repeatedly, accept the limitation completely.**
-
-### Final Statistics
-
-- **Total duration**: 8+ hours across two sessions
-- **Total commits**: 33 (27 auto-update + 6 manual)
-- **Distinct approaches**: 18+
-- **Lines of code removed**: 204
-- **Lines of documentation**: 18 (translation keys + UI)
-- **Bugs fixed**: Cursor jumping (critical), alias thrashing (critical)
-- **Features removed**: All alias operations in popovers
-- **Net outcome**: Positive (simpler, more reliable codebase)
+**pendingMetadataUpdates Set**: Exists in code (alias-manager.ts) but only guards event handlers, doesn't solve read consistency
