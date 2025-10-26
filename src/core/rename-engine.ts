@@ -86,18 +86,14 @@ export class RenameEngine {
                     return;
                 }
             } else {
-                // First editor event - compare editor vs disk content to detect YAML-only changes
-                const diskContent = await this.plugin.app.vault.read(file);
+                // First editor event - check if file has only frontmatter (no body content)
                 const currentFrontmatterInfo = getFrontMatterInfo(currentContent);
-                const diskFrontmatterInfo = getFrontMatterInfo(diskContent);
-
                 const currentContentAfterFrontmatter = currentContent.substring(currentFrontmatterInfo.contentStart);
-                const diskContentAfterFrontmatter = diskContent.substring(diskFrontmatterInfo.contentStart);
 
-                if (currentContentAfterFrontmatter === diskContentAfterFrontmatter) {
-                    // YAML-only change (or no change) - skip processing
+                // If content after YAML is empty or whitespace-only, skip (YAML-only file)
+                if (!currentContentAfterFrontmatter.trim()) {
                     if (this.plugin.settings.core.verboseLogging) {
-                        console.debug(`Skipping - only frontmatter edited on first open: ${file.path}`);
+                        console.debug(`Skipping - only frontmatter exists on first open: ${file.path}`);
                     }
                     // Initialize tracking for next edit
                     const currentTitleRegion = this.extractTitleRegion(editor, file, currentContent);
@@ -106,9 +102,9 @@ export class RenameEngine {
                     return;
                 }
 
-                // Content after YAML differs - real edit, proceed with processing
+                // Content after YAML exists - proceed with processing
                 if (this.plugin.settings.core.verboseLogging) {
-                    console.debug(`First edit on new file or modified body, will process: ${file.path}`);
+                    console.debug(`First edit on file with body content, will process: ${file.path}`);
                 }
             }
 
