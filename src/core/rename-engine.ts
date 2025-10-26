@@ -272,14 +272,6 @@ export class RenameEngine {
             return { success: false, reason: 'not-markdown' };
         }
 
-        // Skip if file was recently renamed by plugin (editor content may be stale)
-        // After rename completes, Obsidian events trigger processFile before editor stabilizes
-        // This prevents extracting stale first-line content and renaming back to old value
-        if (this.plugin.fileStateManager.wasRecentlyRenamed(file.path, 100)) {
-            verboseLog(this.plugin, `Skipping - file was recently renamed, allowing editor to stabilize: ${file.path}`);
-            return { success: false, reason: 'recently-renamed' };
-        }
-
         // Capture original path before acquiring lock (path may change during rename)
         const originalPath = file.path;
 
@@ -712,6 +704,12 @@ export class RenameEngine {
                 }
             }
             return { success: true, reason: 'no-rename-needed' };
+        }
+
+        // Skip rename if file was recently renamed (allow alias update above, but prevent rename thrashing)
+        if (this.plugin.fileStateManager.wasRecentlyRenamed(file.path, 100)) {
+            verboseLog(this.plugin, `Skipping rename - file was recently renamed, allowing editor to stabilize: ${file.path}`);
+            return { success: false, reason: 'recently-renamed' };
         }
 
         let counter: number = 0;
