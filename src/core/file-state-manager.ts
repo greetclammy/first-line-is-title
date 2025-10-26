@@ -157,32 +157,6 @@ export class FileStateManager {
         }
     }
 
-    /**
-     * TESTING: Commented out to verify if this is actually needed
-     * Mark file as recently renamed (150ms TTL)
-     */
-    // markRecentlyRenamed(path: string): void {
-    //     const state = this.getOrCreateState(path);
-    //     state.recentlyRenamedTimestamp = Date.now();
-
-    //     setTimeout(() => {
-    //         const currentState = this.fileStates.get(path);
-    //         if (currentState) {
-    //             delete currentState.recentlyRenamedTimestamp;
-    //         }
-    //     }, TIMING.RENAME_TRACKING_CLEANUP_DELAY_MS);
-    // }
-
-    /**
-     * TESTING: Commented out to verify if this is actually needed
-     * Check if file was recently renamed (within TTL window)
-     */
-    // wasRecentlyRenamed(path: string): boolean {
-    //     const state = this.fileStates.get(path);
-    //     if (!state?.recentlyRenamedTimestamp) return false;
-    //     return (Date.now() - state.recentlyRenamedTimestamp) < TIMING.RENAME_TRACKING_CLEANUP_DELAY_MS;
-    // }
-
     // ============================================================================
     // CONTENT TRACKING (from RenameEngine)
     // ============================================================================

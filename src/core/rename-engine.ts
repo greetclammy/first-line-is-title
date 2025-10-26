@@ -713,7 +713,8 @@ export class RenameEngine {
         if (fileExists) {
             verboseLog(this.plugin, `Found conflicts for ${newPath}, starting counter loop`);
             let conflictCount = 0;
-            while (fileExists) {
+            const MAX_CONFLICT_ITERATIONS = 10000;
+            while (fileExists && conflictCount < MAX_CONFLICT_ITERATIONS) {
                 conflictCount++;
                 // Check if we're about to create a path that matches current file (with counter)
                 if (file.path == newPath) {
@@ -744,6 +745,13 @@ export class RenameEngine {
                 newPath = `${parentPath}${newTitle} ${counter}.md`;
                 fileExists = this.checkFileExistsCaseInsensitive(newPath, false); // Don't log individual conflicts
             }
+
+            // Check if we hit the safety limit
+            if (conflictCount >= MAX_CONFLICT_ITERATIONS) {
+                console.error(`Max conflict iterations (${MAX_CONFLICT_ITERATIONS}) reached for ${file.path}. Aborting rename to prevent infinite loop.`);
+                return { success: false, reason: 'max-conflicts-exceeded' };
+            }
+
             verboseLog(this.plugin, `Found available filename with counter ${counter} after checking ${conflictCount} conflicts`);
         } else {
             verboseLog(this.plugin, `No conflicts found for ${newPath}, proceeding without counter`);

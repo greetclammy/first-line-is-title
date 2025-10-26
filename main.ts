@@ -458,6 +458,13 @@ export default class FirstLineIsTitle extends Plugin {
         // Initialize file state manager
         this.fileStateManager = new FileStateManager(this);
 
+        // Schedule periodic maintenance to clean up stale state (every 10 minutes)
+        this.registerInterval(
+            window.setInterval(() => {
+                this.fileStateManager.runMaintenance();
+            }, 10 * 60 * 1000)
+        );
+
         // Check for first-time setup or long inactivity
         this.checkAndShowNotices();
 
