@@ -1,4 +1,4 @@
-import { App, TFile, Editor, MarkdownView } from 'obsidian';
+import { App, TFile, Editor, MarkdownView, ViewWithFileEditor } from 'obsidian';
 import { PluginSettings } from '../types';
 import { verboseLog } from '../utils';
 import FirstLineIsTitlePlugin from '../../main';
@@ -137,8 +137,8 @@ function findEditorContent(app: App, file: TFile): string | null {
     // Check hover popovers FIRST - most likely to have fresh content during active editing
     // Popovers are ephemeral and only exist when actively being used
     for (const leaf of leaves) {
-        // Accessing non-public API - hoverPopover not in official types
-        const view = leaf.view as any;
+        // Cast to ViewWithFileEditor to access MarkdownView properties
+        const view = leaf.view as ViewWithFileEditor;
 
         if (view?.hoverPopover?.targetEl && view.hoverPopover.editor) {
             const content = view.hoverPopover.editor.getValue();

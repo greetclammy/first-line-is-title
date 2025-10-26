@@ -1,4 +1,4 @@
-import { TFile, MarkdownView } from "obsidian";
+import { TFile, MarkdownView, ViewWithFileEditor } from "obsidian";
 import { verboseLog } from '../utils';
 import FirstLineIsTitle from '../../main';
 
@@ -161,8 +161,8 @@ export class EditorLifecycleManager {
 
         // Build new active files map
         for (const leaf of markdownViews) {
-            // Accessing non-public editor API - no official types available
-            const view = leaf.view as any;
+            // Cast to ViewWithFileEditor to access MarkdownView properties
+            const view = leaf.view as ViewWithFileEditor;
             if (view && view.file && view.editor) {
                 try {
                     const leafId = leaf.id;

@@ -3,7 +3,7 @@
  * These extend the official API with unofficial/undocumented properties
  */
 
-import { App, Command, WorkspaceLeaf, MetadataCache } from 'obsidian';
+import { App, Command, WorkspaceLeaf, MetadataCache, TFile, Editor } from 'obsidian';
 
 declare module 'obsidian' {
 	interface MetadataCache {
@@ -37,6 +37,20 @@ declare module 'obsidian' {
 		 */
 		obsidian_contextmenu?: Menu;
 	}
+
+	/**
+	 * Helper type for accessing undocumented properties on leaf views
+	 * At runtime, leaf.view may be a FileView or MarkdownView with these properties
+	 */
+	type ViewWithFileEditor = View & {
+		file?: TFile | null;
+		editor?: Editor | null;
+		hoverPopover?: {
+			targetEl?: HTMLElement;
+			editor?: Editor;
+			file?: TFile;
+		} | null;
+	};
 }
 
 // Error type extensions

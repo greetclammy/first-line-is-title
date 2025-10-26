@@ -1,5 +1,5 @@
-import FirstLineIsTitle from '../../main';
 import { verboseLog } from '../utils';
+import { FirstLineIsTitlePlugin } from '../settings/settings-base';
 
 /**
  * PluginInitializer
@@ -12,7 +12,7 @@ import { verboseLog } from '../utils';
  * - Handle settings defaults
  */
 export class PluginInitializer {
-    constructor(private plugin: FirstLineIsTitle) {}
+    constructor(private plugin: FirstLineIsTitlePlugin) {}
 
     get settings() {
         return this.plugin.settings;

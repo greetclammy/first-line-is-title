@@ -455,8 +455,7 @@ export class OtherTab extends SettingsTabBase {
                             await this.plugin.saveSettings();
 
                             // Re-run first-time setup logic (enable defaults, detect template folders/excalidraw)
-                            // PluginInitializer expects full plugin instance, not interface
-                            const pluginInitializer = new PluginInitializer(this.plugin as any);
+                            const pluginInitializer = new PluginInitializer(this.plugin);
                             await pluginInitializer.initializeFirstEnableLogic();
                             await pluginInitializer.checkFirstTimeExclusionsSetup();
 

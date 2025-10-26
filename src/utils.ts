@@ -1,4 +1,4 @@
-import { TFile, App, Platform, normalizePath } from "obsidian";
+import { TFile, App, Platform, normalizePath, ViewWithFileEditor } from "obsidian";
 import { PluginSettings, OSPreset } from './types';
 import { UNIVERSAL_FORBIDDEN_CHARS, WINDOWS_ANDROID_CHARS } from './constants';
 import { t } from './i18n';
@@ -48,8 +48,8 @@ function isFileOpenInAnyEditor(file: TFile, app: App): boolean {
 
     // Check main workspace leaves
     for (const leaf of leaves) {
-        // Accessing non-public editor API - no official types available
-        const view = leaf.view as any;
+        // Cast to ViewWithFileEditor to access FileView/MarkdownView properties
+        const view = leaf.view as ViewWithFileEditor;
         if (view?.file?.path === file.path) {
             return true;
         }
@@ -57,8 +57,8 @@ function isFileOpenInAnyEditor(file: TFile, app: App): boolean {
 
     // Check popovers
     for (const leaf of leaves) {
-        // Accessing non-public editor API - no official types available
-        const view = leaf.view as any;
+        // Cast to ViewWithFileEditor to access MarkdownView properties
+        const view = leaf.view as ViewWithFileEditor;
         if (view?.hoverPopover?.targetEl) {
             const popoverEditor = view.hoverPopover.editor;
             if (popoverEditor && view.hoverPopover.file?.path === file.path) {

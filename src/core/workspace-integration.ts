@@ -1,4 +1,4 @@
-import { TFile, MarkdownView, setIcon, Notice } from "obsidian";
+import { TFile, MarkdownView, setIcon, Notice, ViewWithFileEditor } from "obsidian";
 import { verboseLog } from '../utils';
 import { RenameAllFilesModal } from '../modals';
 import FirstLineIsTitle from '../../main';
@@ -340,8 +340,8 @@ export class WorkspaceIntegration {
                             let editorContent: string | undefined;
                             const leaves = app.workspace.getLeavesOfType("markdown");
                             for (const leaf of leaves) {
-                                // Accessing non-public editor API - no official types available
-                            const view = leaf.view as any;
+                                // Cast to ViewWithFileEditor to access MarkdownView properties
+                                const view = leaf.view as ViewWithFileEditor;
                                 if (view && view.file && view.file.path === file.path && view.editor) {
                                     const value = view.editor.getValue();
                                     if (typeof value === 'string') {
