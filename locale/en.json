@@ -412,7 +412,7 @@
       "limitations": {
         "title": "Limitations",
         "desc": {
-          "part1": "First line alias will not update automatically when editing in page preview. Using ",
+          "part1": "First line alias will not update when editing in page preview. Using ",
           "part2": " is recommended."
         }
       }
