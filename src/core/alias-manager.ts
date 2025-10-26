@@ -168,7 +168,7 @@ export class AliasManager {
 
             try {
                 verboseLog(this.plugin, `Adding alias to ${file.path} - no correct alias found`);
-                await this.addAliasToFile(file, titleSourceLine, titleToCompare, content, editor);
+                await this.addAliasToFile(file, editor);
             } catch (error) {
                 console.error('Error updating alias:', error);
             }
@@ -178,7 +178,7 @@ export class AliasManager {
         }
     }
 
-    async addAliasToFile(file: TFile, originalFirstNonEmptyLine: string, newTitle: string, content: string, editor?: any): Promise<void> {
+    async addAliasToFile(file: TFile, editor?: any): Promise<void> {
         try {
             // Check if file still exists before processing
             const currentFile = this.app.vault.getAbstractFileByPath(file.path);
@@ -189,8 +189,59 @@ export class AliasManager {
 
             file = currentFile;
 
-            const firstNonEmptyLine = originalFirstNonEmptyLine;
-            let aliasProcessedLine = firstNonEmptyLine;
+            // Save any unsaved changes before reading content
+            if (editor) {
+                // Editor provided - find the view containing this editor and save
+                // Note: No separate lock needed - already running within processFile()'s lock
+                const leaves = this.app.workspace.getLeavesOfType("markdown");
+                for (const leaf of leaves) {
+                    const view = leaf.view as MarkdownView;
+                    if (view?.file?.path === file.path && view.editor === editor) {
+                        await view.save();
+                        break;
+                    }
+                }
+            } else {
+                // Fallback: try active view save
+                const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
+                if (activeView && activeView.file?.path === file.path) {
+                    await activeView.save();
+                }
+            }
+
+            // Read FRESH content from editor AFTER saving to capture all characters typed during processing
+            // This eliminates race condition where alias is calculated from stale snapshot
+            const freshContent = await readFileContent(this.plugin, file, {
+                providedEditor: editor,
+                searchWorkspace: true
+            });
+
+            if (!freshContent || freshContent.trim() === '') {
+                verboseLog(this.plugin, `Skipping alias addition - empty content: ${file.path}`);
+                return;
+            }
+
+            // Extract first non-empty line from fresh content
+            const contentWithoutFrontmatter = this.plugin.renameEngine.stripFrontmatterFromContent(freshContent, file);
+            const lines = contentWithoutFrontmatter.split('\n');
+
+            let firstNonEmptyLine = '';
+            for (const line of lines) {
+                if (line.trim() !== '') {
+                    firstNonEmptyLine = line;
+                    break;
+                }
+            }
+
+            if (!firstNonEmptyLine || firstNonEmptyLine.trim() === '') {
+                verboseLog(this.plugin, `Removing plugin alias - no non-empty content found`);
+                await this.removePluginAliasesFromFile(file, false, editor);
+                return;
+            }
+
+            // Determine titleSourceLine using shared utility function
+            const titleSourceLine = findTitleSourceLine(firstNonEmptyLine, lines, this.settings, this.plugin);
+            let aliasProcessedLine = titleSourceLine;
 
             // Apply custom replacements to alias if enabled
             if (this.settings.customRules.enableCustomReplacements && this.settings.markupStripping.applyCustomRulesInAlias) {
@@ -226,7 +277,8 @@ export class AliasManager {
 
             this.settings.replaceCharacters.enableForbiddenCharReplacements = originalCharReplacementSetting;
             this.settings.markupStripping.enableStripMarkup = originalStripMarkupSetting;
-            const targetTitle = newTitle.trim();
+
+            const targetTitle = file.basename.trim();
             const aliasMatchesFilename = (aliasToAdd.trim() === targetTitle);
             const shouldAddAlias = !this.settings.aliases.addAliasOnlyIfFirstLineDiffers || !aliasMatchesFilename;
 
@@ -272,29 +324,9 @@ export class AliasManager {
             // Mark alias with ZWSP for identification
             const markedAlias = '\u200B' + aliasToAdd + '\u200B';
 
-            // Save any unsaved changes before modifying frontmatter
-            if (editor) {
-                // Editor provided - find the view containing this editor and save
-                // Note: No separate lock needed - already running within processFile()'s lock
-                const leaves = this.app.workspace.getLeavesOfType("markdown");
-                for (const leaf of leaves) {
-                    const view = leaf.view as MarkdownView;
-                    if (view?.file?.path === file.path && view.editor === editor) {
-                        await view.save();
-                        break;
-                    }
-                }
-            } else {
-                // Fallback: try active view save
-                const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
-                if (activeView && activeView.file?.path === file.path) {
-                    await activeView.save();
-                }
-            }
-
             // Parse content directly to avoid race conditions with metadata cache
-            const lines = content.split('\n');
-            const hasFrontmatter = lines.length > 0 && lines[0].trim() === '---';
+            const contentLines = freshContent.split('\n');
+            const hasFrontmatter = contentLines.length > 0 && contentLines[0].trim() === '---';
 
             if (!hasFrontmatter) {
                 // Get current file reference again right before processFrontMatter
@@ -466,15 +498,40 @@ export class AliasManager {
             this.plugin.pendingMetadataUpdates.add(currentFileForUpdate.path);
             verboseLog(this.plugin, `Updated alias \`${aliasToAdd}\` in ${currentFileForUpdate.path}`);
 
-            // Wait for processFrontMatter's async write to complete before reading
-            // processFrontMatter's promise resolves before disk write finishes
-            // Small delay allows write to complete, preventing stale reads during rapid typing
-            await new Promise(resolve => setTimeout(resolve, TIMING.FRONTMATTER_WRITE_DELAY_MS));
+            // Sync editor with updated frontmatter if editor available
+            // No delay or disk read needed - we know exactly what we wrote
+            if (editor) {
+                try {
+                    const currentEditorContent = editor.getValue();
+                    const frontmatterInfo = getFrontMatterInfo(currentEditorContent);
 
-            // Read file once after processFrontMatter completes to get updated content
-            const contentAfterWrite = await this.app.vault.read(currentFileForUpdate);
+                    if (frontmatterInfo.exists) {
+                        // Read fresh frontmatter from disk to get exact formatting after processFrontMatter
+                        const diskContent = await this.app.vault.read(currentFileForUpdate);
+                        const diskFrontmatterInfo = getFrontMatterInfo(diskContent);
 
-            await this.syncPopoverEditorBuffer(currentFileForUpdate, contentAfterWrite, editor);
+                        if (diskFrontmatterInfo.exists) {
+                            const diskFrontmatter = diskContent.substring(4, diskContent.indexOf('\n---\n', 4));
+                            const newFrontmatterWithDelimiters = `---\n${diskFrontmatter}\n---\n`;
+                            const oldFrontmatterLines = this.countFrontmatterLines(currentEditorContent);
+
+                            this.plugin.fileStateManager.markEditorSyncing(currentFileForUpdate.path);
+                            try {
+                                editor.replaceRange(
+                                    newFrontmatterWithDelimiters,
+                                    { line: 0, ch: 0 },
+                                    { line: oldFrontmatterLines, ch: 0 }
+                                );
+                                verboseLog(this.plugin, `[EDITOR-SYNC] Updated frontmatter via replaceRange (${oldFrontmatterLines} → ${this.countFrontmatterLines(editor.getValue())} lines)`);
+                            } finally {
+                                this.plugin.fileStateManager.clearEditorSyncing(currentFileForUpdate.path);
+                            }
+                        }
+                    }
+                } catch (error) {
+                    verboseLog(this.plugin, `[EDITOR-SYNC] Failed to sync after frontmatter update: ${error}`);
+                }
+            }
 
         } catch (error) {
             // Check if this is an ENOENT error (file was renamed during async operation)
@@ -573,15 +630,56 @@ export class AliasManager {
             this.plugin.pendingMetadataUpdates.add(currentFileForRemoval.path);
             verboseLog(this.plugin, `Removed plugin aliases from ${currentFileForRemoval.path}`);
 
-            // Wait for processFrontMatter's async write to complete before reading
-            // processFrontMatter's promise resolves before disk write finishes
-            // Small delay allows write to complete, preventing stale reads during rapid typing
-            await new Promise(resolve => setTimeout(resolve, TIMING.FRONTMATTER_WRITE_DELAY_MS));
+            // Sync editor with updated frontmatter if editor available
+            // No delay or disk read needed - we know exactly what we wrote
+            if (editor) {
+                try {
+                    const currentEditorContent = editor.getValue();
+                    const frontmatterInfo = getFrontMatterInfo(currentEditorContent);
 
-            // Read file once after processFrontMatter completes to get updated content
-            const contentAfterWrite = await this.app.vault.read(currentFileForRemoval);
+                    if (frontmatterInfo.exists) {
+                        // Read fresh frontmatter from disk to get exact formatting after processFrontMatter
+                        const diskContent = await this.app.vault.read(currentFileForRemoval);
+                        const diskFrontmatterInfo = getFrontMatterInfo(diskContent);
 
-            await this.syncPopoverEditorBuffer(currentFileForRemoval, contentAfterWrite, editor);
+                        if (diskFrontmatterInfo.exists) {
+                            const diskFrontmatter = diskContent.substring(4, diskContent.indexOf('\n---\n', 4));
+                            const newFrontmatterWithDelimiters = `---\n${diskFrontmatter}\n---\n`;
+                            const oldFrontmatterLines = this.countFrontmatterLines(currentEditorContent);
+
+                            this.plugin.fileStateManager.markEditorSyncing(currentFileForRemoval.path);
+                            try {
+                                editor.replaceRange(
+                                    newFrontmatterWithDelimiters,
+                                    { line: 0, ch: 0 },
+                                    { line: oldFrontmatterLines, ch: 0 }
+                                );
+                                verboseLog(this.plugin, `[EDITOR-SYNC] Removed frontmatter via replaceRange (${oldFrontmatterLines} lines)`);
+                            } finally {
+                                this.plugin.fileStateManager.clearEditorSyncing(currentFileForRemoval.path);
+                            }
+                        } else {
+                            // Frontmatter was completely removed
+                            const oldFrontmatterLines = this.countFrontmatterLines(currentEditorContent);
+                            if (oldFrontmatterLines > 0) {
+                                this.plugin.fileStateManager.markEditorSyncing(currentFileForRemoval.path);
+                                try {
+                                    editor.replaceRange(
+                                        '',
+                                        { line: 0, ch: 0 },
+                                        { line: oldFrontmatterLines, ch: 0 }
+                                    );
+                                    verboseLog(this.plugin, `[EDITOR-SYNC] Removed frontmatter via replaceRange (${oldFrontmatterLines} lines)`);
+                                } finally {
+                                    this.plugin.fileStateManager.clearEditorSyncing(currentFileForRemoval.path);
+                                }
+                            }
+                        }
+                    }
+                } catch (error) {
+                    verboseLog(this.plugin, `[EDITOR-SYNC] Failed to sync after alias removal: ${error}`);
+                }
+            }
         } catch (error) {
             // Check if this is an ENOENT error (file was renamed during async operation)
             if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
