@@ -49,10 +49,11 @@ export class FirstLineIsTitleSettings extends PluginSettingTab {
         const tabBar = this.containerEl.createEl('nav', { cls: 'flit-settings-tab-bar' });
         tabBar.setAttribute('role', 'tablist');
 
-        // Set tab min-width CSS variable based on locale (must be after tabBar creation)
+        // Add locale class for locale-specific styling (e.g., wider tabs for Russian)
         const locale = getCurrentLocale();
-        const tabMinWidth = locale === 'ru' ? '152px' : '140px';
-        tabBar.style.setProperty('--flit-tab-min-width', tabMinWidth);
+        if (locale === 'ru') {
+            tabBar.addClass('flit-locale-ru');
+        }
 
         const tabElements: HTMLElement[] = [];
 

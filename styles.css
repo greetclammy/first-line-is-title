@@ -615,6 +615,11 @@ br + .flit-table-container {
     min-width: min-content;
 }
 
+/* Russian locale requires wider tabs due to longer text */
+.flit-settings-tab-bar.flit-locale-ru {
+    --flit-tab-min-width: 152px;
+}
+
 .flit-settings-tab {
     display: flex;
     flex-direction: row;
