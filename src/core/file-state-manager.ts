@@ -43,6 +43,7 @@ export interface FileState {
     operationData?: OperationData;
     isLocked?: boolean;
     pendingAliasRecheck?: boolean;
+    pendingAliasEditor?: any; // Stored editor reference for popover detection
     isSyncingEditors?: boolean; // True when syncing background editors to prevent spurious rechecks
 
     // Rename tracking - prevents processing stale content after rename
@@ -368,10 +369,14 @@ export class FileStateManager {
 
     /**
      * Mark file for pending alias recheck
+     * @param editor - Optional editor reference for popover detection
      */
-    markPendingAliasRecheck(path: string): void {
+    markPendingAliasRecheck(path: string, editor?: any): void {
         const state = this.getOrCreateState(path);
         state.pendingAliasRecheck = true;
+        if (editor) {
+            state.pendingAliasEditor = editor;
+        }
     }
 
     /**
@@ -382,12 +387,20 @@ export class FileStateManager {
     }
 
     /**
+     * Get stored editor reference for pending alias recheck
+     */
+    getPendingAliasEditor(path: string): any | undefined {
+        return this.fileStates.get(path)?.pendingAliasEditor;
+    }
+
+    /**
      * Clear pending alias recheck
      */
     clearPendingAliasRecheck(path: string): void {
         const state = this.fileStates.get(path);
         if (state) {
             state.pendingAliasRecheck = false;
+            state.pendingAliasEditor = undefined;
         }
     }
 
