@@ -394,8 +394,9 @@ export class EventHandlerManager {
                     // Get stored editor reference for popover detection
                     const editor = this.plugin.fileStateManager.getPendingAliasEditor(file.path);
 
-                    // Verify popover actually closed using same detection logic as alias-manager
-                    if (editor && this.plugin.aliasManager.isEditorInPopover(editor, file)) {
+                    // Verify popover actually closed: file must still be open AND in popover
+                    // If file not open anywhere, popover has closed
+                    if (this.hasOpenEditor(file) && editor && this.plugin.aliasManager.isEditorInPopover(editor, file)) {
                         // Popover still open - keep pending flag, skip update to prevent cursor jump
                         verboseLog(this.plugin, `Pending alias update deferred - file still in popover: ${file.path}`);
                         return;
@@ -507,8 +508,9 @@ export class EventHandlerManager {
                     // Get stored editor reference for popover detection
                     const editor = this.plugin.fileStateManager.getPendingAliasEditor(file.path);
 
-                    // Verify popover actually closed using same detection logic as alias-manager
-                    if (editor && this.plugin.aliasManager.isEditorInPopover(editor, file)) {
+                    // Verify popover actually closed: file must still be open AND in popover
+                    // If file not open anywhere, popover has closed
+                    if (this.hasOpenEditor(file) && editor && this.plugin.aliasManager.isEditorInPopover(editor, file)) {
                         // Popover still open - keep pending flag, skip update to prevent cursor jump
                         verboseLog(this.plugin, `Pending alias update deferred - file still in popover: ${file.path}`);
                         return;
@@ -624,8 +626,9 @@ export class EventHandlerManager {
             // Get stored editor reference for popover detection
             const editor = this.plugin.fileStateManager.getPendingAliasEditor(filePath);
 
-            // Check if popover still open using same detection logic as alias-manager
-            if (editor && this.plugin.aliasManager.isEditorInPopover(editor, file)) {
+            // Check if popover still open: file must still be open AND in popover
+            // If file not open anywhere, popover has closed
+            if (this.hasOpenEditor(file) && editor && this.plugin.aliasManager.isEditorInPopover(editor, file)) {
                 // Popover still open - skip update
                 continue;
             }
@@ -641,6 +644,21 @@ export class EventHandlerManager {
         } finally {
             this.isCheckingPendingUpdates = false;
         }
+    }
+
+    /**
+     * Check if file currently has any open editor (main workspace or popover)
+     * Used to detect if popover closed vs still open
+     */
+    private hasOpenEditor(file: TFile): boolean {
+        const leaves = this.plugin.app.workspace.getLeavesOfType('markdown');
+        for (const leaf of leaves) {
+            const view = leaf.view as MarkdownView;
+            if (view?.file?.path === file.path) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
