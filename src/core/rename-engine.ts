@@ -86,14 +86,18 @@ export class RenameEngine {
                     return;
                 }
             } else {
-                // First editor event - check if file has only frontmatter (no body content)
+                // First editor event - compare editor vs disk to detect actual edits
+                const diskContent = await this.plugin.app.vault.read(file);
                 const currentFrontmatterInfo = getFrontMatterInfo(currentContent);
-                const currentContentAfterFrontmatter = currentContent.substring(currentFrontmatterInfo.contentStart);
+                const diskFrontmatterInfo = getFrontMatterInfo(diskContent);
 
-                // If content after YAML is empty or whitespace-only, skip (YAML-only file)
-                if (!currentContentAfterFrontmatter.trim()) {
+                const currentContentAfterFrontmatter = currentContent.substring(currentFrontmatterInfo.contentStart);
+                const diskContentAfterFrontmatter = diskContent.substring(diskFrontmatterInfo.contentStart);
+
+                if (currentContentAfterFrontmatter === diskContentAfterFrontmatter) {
+                    // No body edits (or YAML-only edit) - skip processing
                     if (this.plugin.settings.core.verboseLogging) {
-                        console.debug(`Skipping - only frontmatter exists on first open: ${file.path}`);
+                        console.debug(`Skipping - no body edits detected on first open: ${file.path}`);
                     }
                     // Initialize tracking for next edit
                     const currentTitleRegion = this.extractTitleRegion(editor, file, currentContent);
@@ -102,9 +106,9 @@ export class RenameEngine {
                     return;
                 }
 
-                // Content after YAML exists - proceed with processing
+                // Body content differs from disk - user edited body, proceed with processing
                 if (this.plugin.settings.core.verboseLogging) {
-                    console.debug(`First edit on file with body content, will process: ${file.path}`);
+                    console.debug(`Body edited, will process: ${file.path}`);
                 }
             }
 

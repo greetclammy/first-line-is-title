@@ -396,18 +396,13 @@ export class EventHandlerManager {
                             return;
                         }
                     } else {
-                        // First event - compare current disk vs itself to detect YAML-only state
-                        // (currentContent is already from disk at line 381)
-                        const currentFrontmatterInfo = getFrontMatterInfo(currentContent);
-                        const currentContentAfterFrontmatter = currentContent.substring(currentFrontmatterInfo.contentStart);
-
-                        // If content after YAML is empty or whitespace-only, skip (YAML-only file)
-                        if (!currentContentAfterFrontmatter.trim()) {
-                            if (this.plugin.settings.core.verboseLogging) {
-                                console.debug(`Skipping alias update - only frontmatter exists on first open: ${file.path}`);
-                            }
-                            return;
+                        // No previous state - cannot determine if edit is YAML-only
+                        // Skip to prevent processing files on first open with no actual edits
+                        // If user made edits, editor-change handler will have set previousContent
+                        if (this.plugin.settings.core.verboseLogging) {
+                            console.debug(`Skipping alias update - no previous state to compare: ${file.path}`);
                         }
+                        return;
                     }
 
                     // Skip if file has pending metadata update from processFrontMatter
@@ -458,18 +453,13 @@ export class EventHandlerManager {
                         return;
                     }
                 } else {
-                    // First event - compare current disk vs itself to detect YAML-only state
-                    // (currentContent is already from disk at line 430)
-                    const currentFrontmatterInfo = getFrontMatterInfo(currentContent);
-                    const currentContentAfterFrontmatter = currentContent.substring(currentFrontmatterInfo.contentStart);
-
-                    // If content after YAML is empty or whitespace-only, skip (YAML-only file)
-                    if (!currentContentAfterFrontmatter.trim()) {
-                        if (this.plugin.settings.core.verboseLogging) {
-                            console.debug(`Skipping metadata-alias update - only frontmatter exists on first open: ${file.path}`);
-                        }
-                        return;
+                    // No previous state - cannot determine if edit is YAML-only
+                    // Skip to prevent processing files on first open with no actual edits
+                    // If user made edits, editor-change handler will have set previousContent
+                    if (this.plugin.settings.core.verboseLogging) {
+                        console.debug(`Skipping metadata-alias update - no previous state to compare: ${file.path}`);
                     }
+                    return;
                 }
 
                 // Skip if file has pending metadata update from processFrontMatter
