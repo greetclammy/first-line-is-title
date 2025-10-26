@@ -229,7 +229,6 @@ export class WorkspaceIntegration {
                 const processFileCreation = async () => {
                 // Capture initial content immediately from the specific file's editor
                 let initialContent = '';
-                let templateContent: string | undefined; // Will be set if waitForTemplate is ON
                 try {
                     const leaves = app.workspace.getLeavesOfType("markdown");
                     for (const leaf of leaves) {
@@ -292,7 +291,6 @@ export class WorkspaceIntegration {
 
                     try {
                         // Step 2: Insert title if enabled
-                        // Use template content from Step 1 if available (cursor positioning already waited for it)
                         if (settings.insertTitleOnCreation) {
                             // POLICY: Check if file is open in editor OR canvas view is active
                             // Re-check after delay to allow editor time to open for regular files
@@ -306,7 +304,7 @@ export class WorkspaceIntegration {
                                 }
                             }
 
-                            // Check if canvas is active (for policy and template optimization)
+                            // Check if canvas is active (for policy check)
                             const canvasIsActive = app.workspace.getMostRecentLeaf()?.view?.getViewType?.() === 'canvas';
 
                             // Skip if no open editor and no active canvas
@@ -331,14 +329,7 @@ export class WorkspaceIntegration {
 
                             verboseLog(plugin, `CREATE: Processing title insertion (hasEditor: ${hasOpenEditor}, canvasActive: ${canvasIsActive})`);
 
-                            // Canvas optimization: If canvas active and templateContent not set (cursor step skipped),
-                            // set templateContent = initialContent to skip template wait in insertTitleOnCreation
-                            if (canvasIsActive && !templateContent) {
-                                templateContent = initialContent;
-                                verboseLog(plugin, `CREATE: Canvas active, using initial content as template content (skip wait)`);
-                            }
-
-                            titleWasInserted = await plugin.fileOperations.insertTitleOnCreation(file, initialContent, templateContent);
+                            titleWasInserted = await plugin.fileOperations.insertTitleOnCreation(file, initialContent);
                             verboseLog(plugin, `CREATE: insertTitleOnCreation returned ${titleWasInserted}`);
                         }
 

@@ -296,12 +296,8 @@ export class EventHandlerManager {
                     return;
                 }
 
-                // Check for YAML insertion to resolve waitForYamlOrTimeout early
+                // Early exit if still within creation delay window
                 if (info.file && editor) {
-                    const content = editor.getValue();
-                    this.plugin.fileOperations.checkYamlAndResolve(info.file, content);
-
-                    // Early exit if still within creation delay window
                     if (this.plugin.editorLifecycle.isFileInCreationDelay(info.file.path)) {
                         if (this.plugin.settings.core.verboseLogging) {
                             console.debug(`Skipping editor-change: file in creation delay: ${info.file.path}`);
