@@ -400,7 +400,7 @@ export class EventHandlerManager {
                         }
                     }
 
-                    await this.plugin.aliasManager.updateAliasIfNeeded(file);
+                    await this.plugin.aliasManager.updateAliasIfNeeded(file, currentContent);
                 }
             })
         );
@@ -442,7 +442,7 @@ export class EventHandlerManager {
                     }
                 }
 
-                await this.plugin.aliasManager.updateAliasIfNeeded(file);
+                await this.plugin.aliasManager.updateAliasIfNeeded(file, currentContent);
             })
         );
     }
