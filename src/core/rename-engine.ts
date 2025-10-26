@@ -378,6 +378,7 @@ export class RenameEngine {
         try {
             contentForRateLimit = await readFileContent(this.plugin, file, {
                 providedContent,
+                providedEditor: editor, // Use editor from manual command
                 preferFresh: true,
                 searchWorkspace: showNotices // Manual commands search for popover editors
             });
@@ -439,6 +440,7 @@ export class RenameEngine {
 
         let content = await readFileContent(this.plugin, file, {
             providedContent,
+            providedEditor: editor, // Use editor from manual command
             searchWorkspace: showNotices // Manual commands search for popover editors
         });
 
