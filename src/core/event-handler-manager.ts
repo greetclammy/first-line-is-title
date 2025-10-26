@@ -394,9 +394,9 @@ export class EventHandlerManager {
                     // Get stored editor reference for popover detection
                     const editor = this.plugin.fileStateManager.getPendingAliasEditor(file.path);
 
-                    // Verify popover actually closed: file must still be open AND in popover
-                    // If file not open anywhere, popover has closed
-                    if (this.hasOpenEditor(file) && editor && this.plugin.aliasManager.isEditorInPopover(editor, file)) {
+                    // Verify popover actually closed: stored editor must still exist AND be in popover
+                    // If editor instance no longer exists in workspace, popover has closed
+                    if (this.isEditorStillOpen(editor) && this.plugin.aliasManager.isEditorInPopover(editor, file)) {
                         // Popover still open - keep pending flag, skip update to prevent cursor jump
                         verboseLog(this.plugin, `Pending alias update deferred - file still in popover: ${file.path}`);
                         return;
@@ -508,9 +508,9 @@ export class EventHandlerManager {
                     // Get stored editor reference for popover detection
                     const editor = this.plugin.fileStateManager.getPendingAliasEditor(file.path);
 
-                    // Verify popover actually closed: file must still be open AND in popover
-                    // If file not open anywhere, popover has closed
-                    if (this.hasOpenEditor(file) && editor && this.plugin.aliasManager.isEditorInPopover(editor, file)) {
+                    // Verify popover actually closed: stored editor must still exist AND be in popover
+                    // If editor instance no longer exists in workspace, popover has closed
+                    if (this.isEditorStillOpen(editor) && this.plugin.aliasManager.isEditorInPopover(editor, file)) {
                         // Popover still open - keep pending flag, skip update to prevent cursor jump
                         verboseLog(this.plugin, `Pending alias update deferred - file still in popover: ${file.path}`);
                         return;
@@ -626,9 +626,9 @@ export class EventHandlerManager {
             // Get stored editor reference for popover detection
             const editor = this.plugin.fileStateManager.getPendingAliasEditor(filePath);
 
-            // Check if popover still open: file must still be open AND in popover
-            // If file not open anywhere, popover has closed
-            if (this.hasOpenEditor(file) && editor && this.plugin.aliasManager.isEditorInPopover(editor, file)) {
+            // Check if popover still open: stored editor must still exist AND be in popover
+            // If editor instance no longer exists in workspace, popover has closed
+            if (this.isEditorStillOpen(editor) && this.plugin.aliasManager.isEditorInPopover(editor, file)) {
                 // Popover still open - skip update
                 continue;
             }
@@ -647,22 +647,24 @@ export class EventHandlerManager {
     }
 
     /**
-     * Check if file currently has any open editor (main workspace or popover)
+     * Check if stored editor instance still exists in workspace
      * Used to detect if popover closed vs still open
      */
-    private hasOpenEditor(file: TFile): boolean {
+    private isEditorStillOpen(editor: any): boolean {
+        if (!editor) return false;
+
         const leaves = this.plugin.app.workspace.getLeavesOfType('markdown');
 
         for (const leaf of leaves) {
             const view = leaf.view as any;
 
-            // Check regular leaf editor
-            if (view?.file?.path === file.path) {
+            // Check if this leaf's editor matches stored editor
+            if (view?.editor === editor) {
                 return true;
             }
 
-            // Check hover popover (only if actually open/rendered)
-            if (view?.hoverPopover?.targetEl && view.hoverPopover.file?.path === file.path) {
+            // Check if this leaf's popover editor matches stored editor
+            if (view?.hoverPopover?.editor === editor) {
                 return true;
             }
         }
