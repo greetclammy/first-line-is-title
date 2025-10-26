@@ -395,6 +395,19 @@ export class EventHandlerManager {
                             // Don't update lastEditorContent here - let the editor handler do it
                             return;
                         }
+                    } else {
+                        // First event - compare current disk vs itself to detect YAML-only state
+                        // (currentContent is already from disk at line 381)
+                        const currentFrontmatterInfo = getFrontMatterInfo(currentContent);
+                        const currentContentAfterFrontmatter = currentContent.substring(currentFrontmatterInfo.contentStart);
+
+                        // If content after YAML is empty or whitespace-only, skip (YAML-only file)
+                        if (!currentContentAfterFrontmatter.trim()) {
+                            if (this.plugin.settings.core.verboseLogging) {
+                                console.debug(`Skipping alias update - only frontmatter exists on first open: ${file.path}`);
+                            }
+                            return;
+                        }
                     }
 
                     // Skip if file has pending metadata update from processFrontMatter
@@ -442,6 +455,19 @@ export class EventHandlerManager {
                             console.debug(`Skipping metadata-alias update - only frontmatter edited: ${file.path}`);
                         }
                         // Don't update lastEditorContent here - let the editor handler do it
+                        return;
+                    }
+                } else {
+                    // First event - compare current disk vs itself to detect YAML-only state
+                    // (currentContent is already from disk at line 430)
+                    const currentFrontmatterInfo = getFrontMatterInfo(currentContent);
+                    const currentContentAfterFrontmatter = currentContent.substring(currentFrontmatterInfo.contentStart);
+
+                    // If content after YAML is empty or whitespace-only, skip (YAML-only file)
+                    if (!currentContentAfterFrontmatter.trim()) {
+                        if (this.plugin.settings.core.verboseLogging) {
+                            console.debug(`Skipping metadata-alias update - only frontmatter exists on first open: ${file.path}`);
+                        }
                         return;
                     }
                 }
