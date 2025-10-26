@@ -57,9 +57,9 @@ export class CommandRegistrar {
             id: 'rename-current-file',
             name: t('commands.putFirstLineInTitle'),
             icon: 'file-pen',
-            editorCheckCallback: (checking: boolean, editor, view) => {
-                const activeFile = view.file;
-                if (!activeFile || activeFile.extension !== 'md') {
+            checkCallback: (checking: boolean) => {
+                const activeEditor = this.app.workspace.activeEditor;
+                if (!activeEditor?.file || activeEditor.file.extension !== 'md') {
                     return false;
                 }
 
@@ -67,9 +67,9 @@ export class CommandRegistrar {
                     return true;
                 }
 
-                verboseLog(this.plugin, `Manual rename command triggered for ${activeFile.path} (ignoring folder/tag/property exclusions, respecting disable property)`);
+                verboseLog(this.plugin, `Manual rename command triggered for ${activeEditor.file.path} (ignoring folder/tag/property exclusions, respecting disable property)`);
                 const exclusionOverrides = { ignoreFolder: true, ignoreTag: true, ignoreProperty: true };
-                this.plugin.renameEngine.processFile(activeFile, true, true, undefined, false, exclusionOverrides, true, editor);
+                this.plugin.renameEngine.processFile(activeEditor.file, true, true, undefined, false, exclusionOverrides, true, activeEditor.editor);
                 return true;
             }
         });
@@ -87,9 +87,9 @@ export class CommandRegistrar {
             id: 'rename-current-file-unless-excluded',
             name: t('commands.putFirstLineInTitleUnlessExcluded'),
             icon: 'file-pen',
-            editorCheckCallback: (checking: boolean, editor, view) => {
-                const activeFile = view.file;
-                if (!activeFile || activeFile.extension !== 'md') {
+            checkCallback: (checking: boolean) => {
+                const activeEditor = this.app.workspace.activeEditor;
+                if (!activeEditor?.file || activeEditor.file.extension !== 'md') {
                     return false;
                 }
 
@@ -97,8 +97,8 @@ export class CommandRegistrar {
                     return true;
                 }
 
-                verboseLog(this.plugin, `Manual rename command triggered for ${activeFile.path} (unless excluded)`);
-                this.plugin.renameEngine.processFile(activeFile, true, true, undefined, false, undefined, true, editor);
+                verboseLog(this.plugin, `Manual rename command triggered for ${activeEditor.file.path} (unless excluded)`);
+                this.plugin.renameEngine.processFile(activeEditor.file, true, true, undefined, false, undefined, true, activeEditor.editor);
                 return true;
             }
         });
@@ -185,29 +185,29 @@ export class CommandRegistrar {
      * Execute rename current file command (public method for ribbon/external use)
      */
     async executeRenameCurrentFile(): Promise<void> {
-        const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
-        if (!activeView?.file || activeView.file.extension !== 'md') {
+        const activeEditor = this.app.workspace.activeEditor;
+        if (!activeEditor?.file || activeEditor.file.extension !== 'md') {
             verboseLog(this.plugin, `Showing notice: ${t('notifications.errorNoActiveNote')}`);
             new Notice(t('notifications.errorNoActiveNote'));
             return;
         }
-        verboseLog(this.plugin, `Manual rename command triggered for ${activeView.file.path} (ignoring folder/tag/property exclusions, respecting disable property)`);
+        verboseLog(this.plugin, `Manual rename command triggered for ${activeEditor.file.path} (ignoring folder/tag/property exclusions, respecting disable property)`);
         const exclusionOverrides = { ignoreFolder: true, ignoreTag: true, ignoreProperty: true };
-        await this.plugin.renameEngine.processFile(activeView.file, true, true, undefined, false, exclusionOverrides, true, activeView.editor);
+        await this.plugin.renameEngine.processFile(activeEditor.file, true, true, undefined, false, exclusionOverrides, true, activeEditor.editor);
     }
 
     /**
      * Execute rename unless excluded command (public method for ribbon/external use)
      */
     async executeRenameUnlessExcluded(): Promise<void> {
-        const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
-        if (!activeView?.file || activeView.file.extension !== 'md') {
+        const activeEditor = this.app.workspace.activeEditor;
+        if (!activeEditor?.file || activeEditor.file.extension !== 'md') {
             verboseLog(this.plugin, `Showing notice: ${t('notifications.errorNoActiveNote')}`);
             new Notice(t('notifications.errorNoActiveNote'));
             return;
         }
-        verboseLog(this.plugin, `Manual rename command triggered for ${activeView.file.path} (unless excluded)`);
-        await this.plugin.renameEngine.processFile(activeView.file, true, true, undefined, false, undefined, true, activeView.editor);
+        verboseLog(this.plugin, `Manual rename command triggered for ${activeEditor.file.path} (unless excluded)`);
+        await this.plugin.renameEngine.processFile(activeEditor.file, true, true, undefined, false, undefined, true, activeEditor.editor);
     }
 
     /**
