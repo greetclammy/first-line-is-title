@@ -25,7 +25,7 @@ export class AliasManager {
             .filter(key => key.length > 0);
     }
 
-    async updateAliasIfNeeded(file: TFile, providedContent?: string, targetTitle?: string, isManualCommand = false, hasActiveEditor?: boolean, editor?: any): Promise<void> {
+    async updateAliasIfNeeded(file: TFile, providedContent?: string, targetTitle?: string, isManualCommand = false, hasActiveEditor?: boolean, editor?: any, isPendingAliasUpdate = false): Promise<void> {
         // Track plugin usage
         this.plugin.trackUsage();
 
@@ -48,7 +48,8 @@ export class AliasManager {
                 this.settings.exclusions.disableRenamingKey,
                 this.settings.exclusions.disableRenamingValue,
                 isManualCommand,
-                hasActiveEditor
+                hasActiveEditor,
+                isPendingAliasUpdate
             );
 
             if (!canModify) {

@@ -42,6 +42,7 @@ export function detectOS(): OSPreset {
  * Checks policy requirements and always-on safeguards.
  *
  * @param isManualCommand - true for manual commands, false for automatic operations
+ * @param isPendingAliasUpdate - true for pending alias updates after popover close (bypasses open editor check)
  * @returns {canModify: boolean, reason?: string}
  */
 export async function canModifyFile(
@@ -50,7 +51,8 @@ export async function canModifyFile(
     disableKey: string,
     disableValue: string,
     isManualCommand: boolean,
-    hasActiveEditor?: boolean
+    hasActiveEditor?: boolean,
+    isPendingAliasUpdate = false
 ): Promise<{ canModify: boolean; reason?: string }> {
     // Check 1: Disable property (ALWAYS-ON SAFEGUARD #4)
     // Fastest check, absolute blocker for all operations
@@ -60,8 +62,8 @@ export async function canModifyFile(
 
     // Check 2: File open in editor (ALWAYS-ON SAFEGUARD #5 for automatic operations)
     // Prevents processing external/programmatic edits
-    // Manual commands bypass this check
-    if (!isManualCommand) {
+    // Exceptions: Manual commands and pending alias updates (popover-close scenario)
+    if (!isManualCommand && !isPendingAliasUpdate) {
         // If hasActiveEditor provided (from editor-change event), trust it
         // This includes both leaf editors and popover/hover editors
         if (hasActiveEditor !== undefined) {
