@@ -51,7 +51,8 @@ export class AliasManager {
                 return;
             }
             const content = await readFileContent(this.plugin, file, {
-                providedContent
+                providedContent,
+                providedEditor: editor  // Use editor for fresh content
             });
 
             if (!content || content.trim() === '') {
