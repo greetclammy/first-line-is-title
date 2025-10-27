@@ -561,42 +561,33 @@ export class AliasManager {
      * @returns true if editor is in a popover, false if in main workspace or canvas
      */
     public isEditorInPopover(editor: any, file: TFile): boolean {
-        console.log(`[POPOVER-CHECK] Checking editor for ${file.path}`);
-        console.log(`[POPOVER-CHECK] Editor exists: ${!!editor}`);
-
         // Get the active markdown view
         const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
-        console.log(`[POPOVER-CHECK] Active MarkdownView exists: ${!!activeView}`);
-        console.log(`[POPOVER-CHECK] Active view file path: ${activeView?.file?.path || 'none'}`);
-        console.log(`[POPOVER-CHECK] Checking file path: ${file.path}`);
 
         // If there's no active view, or the active view's editor doesn't match
-        // the one we're syncing, check if this is a canvas editor
+        // the one we're syncing, it's likely a popover (unless it's a canvas editor)
         if (!activeView || activeView.file?.path !== file.path) {
             // Check if canvas is active - canvas editors should NOT be treated as popovers
-            const mostRecentLeaf = this.app.workspace.getMostRecentLeaf();
-            const viewType = mostRecentLeaf?.view?.getViewType?.();
-            console.log(`[POPOVER-CHECK] Most recent leaf view type: ${viewType || 'none'}`);
-
-            const canvasIsActive = viewType === 'canvas';
-            console.log(`[POPOVER-CHECK] Canvas is active: ${canvasIsActive}`);
-
+            const canvasIsActive = this.app.workspace.getMostRecentLeaf()?.view?.getViewType?.() === 'canvas';
             if (canvasIsActive) {
-                console.log(`[POPOVER-CHECK] Returning FALSE (allow canvas editor): ${file.path}`);
                 return false; // Allow alias updates for canvas editors
             }
-            console.log(`[POPOVER-CHECK] Returning TRUE (is popover): ${file.path}`);
             return true; // It's a popover
+        }
+
+        // Canvas editors may have matching activeView but different editor object
+        // Check for canvas BEFORE comparing editor objects
+        const canvasIsActive = this.app.workspace.getMostRecentLeaf()?.view?.getViewType?.() === 'canvas';
+        if (canvasIsActive) {
+            return false; // Allow alias updates for canvas editors
         }
 
         // If active view matches but editor object is different, it's a popover
         if (activeView.editor !== editor) {
-            console.log(`[POPOVER-CHECK] Editor mismatch - Returning TRUE (is popover): ${file.path}`);
             return true;
         }
 
         // Editor matches active view = main workspace editor
-        console.log(`[POPOVER-CHECK] Returning FALSE (main editor): ${file.path}`);
         return false;
     }
 }
