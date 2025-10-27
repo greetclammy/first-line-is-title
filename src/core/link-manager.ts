@@ -30,8 +30,20 @@ export class LinkManager {
         });
 
         if (hasSelection) {
-            // Process multiple selections
-            const changes = selections.map(sel => {
+            // Sort selections in reverse order (bottom to top) to preserve positions
+            selections.sort((a, b) => {
+                const aLine = Math.max(a.anchor.line, a.head.line);
+                const bLine = Math.max(b.anchor.line, b.head.line);
+                if (aLine !== bLine) {
+                    return bLine - aLine; // Reverse order
+                }
+                const aChar = Math.max(a.anchor.ch, a.head.ch);
+                const bChar = Math.max(b.anchor.ch, b.head.ch);
+                return bChar - aChar; // Reverse order
+            });
+
+            // Process selections in reverse order (bottom to top)
+            for (const sel of selections) {
                 // Normalize selection range (anchor might be after head)
                 const from = sel.anchor.line < sel.head.line ||
                     (sel.anchor.line === sel.head.line && sel.anchor.ch <= sel.head.ch)
@@ -39,10 +51,10 @@ export class LinkManager {
                 const to = from === sel.anchor ? sel.head : sel.anchor;
 
                 const selection = activeEditor.getRange(from, to);
-                let replacement: string;
 
                 if (selection.trim()) {
                     const trimmedSelection = selection.trim();
+                    let replacement: string;
 
                     // Check if selection is a wikilink - if so, toggle it off
                     if (trimmedSelection.startsWith('[[') && trimmedSelection.endsWith(']]')) {
@@ -61,27 +73,10 @@ export class LinkManager {
                         const safeLinkTarget = generateSafeLinkTarget(selection, this.plugin.settings);
                         replacement = `[[${safeLinkTarget}]]`;
                     }
-                } else {
-                    replacement = selection;
+
+                    activeEditor.replaceRange(replacement, from, to);
                 }
-
-                return {
-                    from,
-                    to,
-                    text: replacement
-                };
-            });
-
-            // Sort changes from earliest to latest position in document
-            // CodeMirror 6 requires changes to be ordered by position
-            changes.sort((a, b) => {
-                if (a.from.line !== b.from.line) {
-                    return a.from.line - b.from.line;
-                }
-                return a.from.ch - b.from.ch;
-            });
-
-            activeEditor.transaction({ changes });
+            }
         } else {
             // No selection - show modal
             const modal = new InternalLinkModal(this.plugin.app, this.plugin, (linkTarget: string) => {
@@ -112,8 +107,20 @@ export class LinkManager {
         });
 
         if (hasSelection) {
-            // Process multiple selections
-            const changes = selections.map(sel => {
+            // Sort selections in reverse order (bottom to top) to preserve positions
+            selections.sort((a, b) => {
+                const aLine = Math.max(a.anchor.line, a.head.line);
+                const bLine = Math.max(b.anchor.line, b.head.line);
+                if (aLine !== bLine) {
+                    return bLine - aLine; // Reverse order
+                }
+                const aChar = Math.max(a.anchor.ch, a.head.ch);
+                const bChar = Math.max(b.anchor.ch, b.head.ch);
+                return bChar - aChar; // Reverse order
+            });
+
+            // Process selections in reverse order (bottom to top)
+            for (const sel of selections) {
                 // Normalize selection range (anchor might be after head)
                 const from = sel.anchor.line < sel.head.line ||
                     (sel.anchor.line === sel.head.line && sel.anchor.ch <= sel.head.ch)
@@ -121,10 +128,10 @@ export class LinkManager {
                 const to = from === sel.anchor ? sel.head : sel.anchor;
 
                 const selection = activeEditor.getRange(from, to);
-                let replacement: string;
 
                 if (selection.trim()) {
                     const trimmedSelection = selection.trim();
+                    let replacement: string;
 
                     // Check if selection is a wikilink
                     if (trimmedSelection.startsWith('[[') && trimmedSelection.endsWith(']]')) {
@@ -154,27 +161,10 @@ export class LinkManager {
                         const safeLinkTarget = generateSafeLinkTarget(selection, this.plugin.settings);
                         replacement = `[[${safeLinkTarget}|${selection}]]`;
                     }
-                } else {
-                    replacement = selection;
+
+                    activeEditor.replaceRange(replacement, from, to);
                 }
-
-                return {
-                    from,
-                    to,
-                    text: replacement
-                };
-            });
-
-            // Sort changes from earliest to latest position in document
-            // CodeMirror 6 requires changes to be ordered by position
-            changes.sort((a, b) => {
-                if (a.from.line !== b.from.line) {
-                    return a.from.line - b.from.line;
-                }
-                return a.from.ch - b.from.ch;
-            });
-
-            activeEditor.transaction({ changes });
+            }
         } else {
             // No selection - show modal
             const modal = new InternalLinkModal(this.plugin.app, this.plugin, (linkTarget: string, linkCaption?: string) => {
