@@ -59,9 +59,7 @@ export class AliasManager {
                 const isCanvas = viewType === 'canvas';
                 const isPopoverOrCanvas = this.isEditorInPopoverOrCanvas(editor, file);
 
-                if (this.plugin.settings.core.verboseLogging) {
-                    console.debug(`Canvas detection: viewType="${viewType}", isCanvas=${isCanvas}, isPopoverOrCanvas=${isPopoverOrCanvas}`);
-                }
+                verboseLog(this.plugin, `Canvas detection: viewType="${viewType}", isCanvas=${isCanvas}, isPopoverOrCanvas=${isPopoverOrCanvas}`);
 
                 if (isPopoverOrCanvas) {
                     const context = isCanvas ? 'canvas' : 'popover';

@@ -30,30 +30,30 @@ export class LinkManager {
         });
 
         if (hasSelection) {
-            // Sort selections in reverse order (bottom to top) to preserve positions
-            selections.sort((a, b) => {
-                const aLine = Math.max(a.anchor.line, a.head.line);
-                const bLine = Math.max(b.anchor.line, b.head.line);
-                if (aLine !== bLine) {
-                    return bLine - aLine; // Reverse order
-                }
-                const aChar = Math.max(a.anchor.ch, a.head.ch);
-                const bChar = Math.max(b.anchor.ch, b.head.ch);
-                return bChar - aChar; // Reverse order
-            });
-
-            // Process selections in reverse order (bottom to top)
-            for (const sel of selections) {
+            // Step 1: Capture all selection data (positions + text) before modifying document
+            const selectionData = selections.map(sel => {
                 // Normalize selection range (anchor might be after head)
                 const from = sel.anchor.line < sel.head.line ||
                     (sel.anchor.line === sel.head.line && sel.anchor.ch <= sel.head.ch)
                     ? sel.anchor : sel.head;
                 const to = from === sel.anchor ? sel.head : sel.anchor;
 
-                const selection = activeEditor.getRange(from, to);
+                const text = activeEditor.getRange(from, to);
+                return { from, to, text };
+            });
 
-                if (selection.trim()) {
-                    const trimmedSelection = selection.trim();
+            // Step 2: Sort by START position in reverse (bottom-to-top, right-to-left)
+            selectionData.sort((a, b) => {
+                if (a.from.line !== b.from.line) {
+                    return b.from.line - a.from.line; // Reverse line order
+                }
+                return b.from.ch - a.from.ch; // Reverse character order
+            });
+
+            // Step 3: Process each selection using captured text (not re-reading from document)
+            for (const {from, to, text} of selectionData) {
+                if (text.trim()) {
+                    const trimmedSelection = text.trim();
                     let replacement: string;
 
                     // Check if selection is a wikilink - if so, toggle it off
@@ -70,7 +70,7 @@ export class LinkManager {
                         }
                     } else {
                         // Plain text: text → [[safe(text)]]
-                        const safeLinkTarget = generateSafeLinkTarget(selection, this.plugin.settings);
+                        const safeLinkTarget = generateSafeLinkTarget(text, this.plugin.settings);
                         replacement = `[[${safeLinkTarget}]]`;
                     }
 
@@ -107,30 +107,30 @@ export class LinkManager {
         });
 
         if (hasSelection) {
-            // Sort selections in reverse order (bottom to top) to preserve positions
-            selections.sort((a, b) => {
-                const aLine = Math.max(a.anchor.line, a.head.line);
-                const bLine = Math.max(b.anchor.line, b.head.line);
-                if (aLine !== bLine) {
-                    return bLine - aLine; // Reverse order
-                }
-                const aChar = Math.max(a.anchor.ch, a.head.ch);
-                const bChar = Math.max(b.anchor.ch, b.head.ch);
-                return bChar - aChar; // Reverse order
-            });
-
-            // Process selections in reverse order (bottom to top)
-            for (const sel of selections) {
+            // Step 1: Capture all selection data (positions + text) before modifying document
+            const selectionData = selections.map(sel => {
                 // Normalize selection range (anchor might be after head)
                 const from = sel.anchor.line < sel.head.line ||
                     (sel.anchor.line === sel.head.line && sel.anchor.ch <= sel.head.ch)
                     ? sel.anchor : sel.head;
                 const to = from === sel.anchor ? sel.head : sel.anchor;
 
-                const selection = activeEditor.getRange(from, to);
+                const text = activeEditor.getRange(from, to);
+                return { from, to, text };
+            });
 
-                if (selection.trim()) {
-                    const trimmedSelection = selection.trim();
+            // Step 2: Sort by START position in reverse (bottom-to-top, right-to-left)
+            selectionData.sort((a, b) => {
+                if (a.from.line !== b.from.line) {
+                    return b.from.line - a.from.line; // Reverse line order
+                }
+                return b.from.ch - a.from.ch; // Reverse character order
+            });
+
+            // Step 3: Process each selection using captured text (not re-reading from document)
+            for (const {from, to, text} of selectionData) {
+                if (text.trim()) {
+                    const trimmedSelection = text.trim();
                     let replacement: string;
 
                     // Check if selection is a wikilink
@@ -158,8 +158,8 @@ export class LinkManager {
                         }
                     } else {
                         // Plain text: Hey^ → [[Heyˆ|Hey^]]
-                        const safeLinkTarget = generateSafeLinkTarget(selection, this.plugin.settings);
-                        replacement = `[[${safeLinkTarget}|${selection}]]`;
+                        const safeLinkTarget = generateSafeLinkTarget(text, this.plugin.settings);
+                        replacement = `[[${safeLinkTarget}|${text}]]`;
                     }
 
                     activeEditor.replaceRange(replacement, from, to);
