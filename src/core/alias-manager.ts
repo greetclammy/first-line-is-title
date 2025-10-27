@@ -564,11 +564,29 @@ export class AliasManager {
         // Get the active markdown view
         const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
 
+        verboseLog(this.plugin, `[CANVAS-DEBUG] Checking popover for ${file.path}`);
+        verboseLog(this.plugin, `[CANVAS-DEBUG] activeView exists: ${!!activeView}, file matches: ${activeView?.file?.path === file.path}`);
+        verboseLog(this.plugin, `[CANVAS-DEBUG] editor matches activeView.editor: ${activeView?.editor === editor}`);
+
+        // Check most recent leaf
+        const mostRecentLeaf = this.app.workspace.getMostRecentLeaf();
+        const viewType = mostRecentLeaf?.view?.getViewType?.();
+        verboseLog(this.plugin, `[CANVAS-DEBUG] getMostRecentLeaf viewType: ${viewType || 'none'}`);
+
+        // Check all leaves for canvas
+        const allLeaves = this.app.workspace.getLeavesOfType('canvas');
+        verboseLog(this.plugin, `[CANVAS-DEBUG] canvas leaves count: ${allLeaves.length}`);
+
+        // Log all leaf types for debugging
+        const activeLeaf = this.app.workspace.activeLeaf;
+        verboseLog(this.plugin, `[CANVAS-DEBUG] active leaf viewType: ${activeLeaf?.view?.getViewType?.() || 'none'}`);
+
         // If there's no active view, or the active view's editor doesn't match
         // the one we're syncing, it's likely a popover (unless it's a canvas editor)
         if (!activeView || activeView.file?.path !== file.path) {
             // Check if canvas is active - canvas editors should NOT be treated as popovers
-            const canvasIsActive = this.app.workspace.getMostRecentLeaf()?.view?.getViewType?.() === 'canvas';
+            const canvasIsActive = viewType === 'canvas';
+            verboseLog(this.plugin, `[CANVAS-DEBUG] Path 1: canvasIsActive=${canvasIsActive}, returning ${!canvasIsActive}`);
             if (canvasIsActive) {
                 return false; // Allow alias updates for canvas editors
             }
@@ -577,17 +595,21 @@ export class AliasManager {
 
         // Canvas editors may have matching activeView but different editor object
         // Check for canvas BEFORE comparing editor objects
-        const canvasIsActive = this.app.workspace.getMostRecentLeaf()?.view?.getViewType?.() === 'canvas';
+        const canvasIsActive = viewType === 'canvas';
+        verboseLog(this.plugin, `[CANVAS-DEBUG] Path 2: canvasIsActive=${canvasIsActive}`);
         if (canvasIsActive) {
+            verboseLog(this.plugin, `[CANVAS-DEBUG] Path 2: Canvas detected, returning false`);
             return false; // Allow alias updates for canvas editors
         }
 
         // If active view matches but editor object is different, it's a popover
         if (activeView.editor !== editor) {
+            verboseLog(this.plugin, `[CANVAS-DEBUG] Path 3: Editor mismatch, returning true (popover)`);
             return true;
         }
 
         // Editor matches active view = main workspace editor
+        verboseLog(this.plugin, `[CANVAS-DEBUG] Path 4: Main editor, returning false`);
         return false;
     }
 }
