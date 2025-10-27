@@ -25,7 +25,7 @@ export class AliasManager {
             .filter(key => key.length > 0);
     }
 
-    async updateAliasIfNeeded(file: TFile, providedContent?: string, targetTitle?: string, editor?: any): Promise<void> {
+    async updateAliasIfNeeded(file: TFile, providedContent?: string, targetTitle?: string, editor?: any): Promise<boolean> {
         // Track plugin usage
         this.plugin.trackUsage();
 
@@ -33,7 +33,7 @@ export class AliasManager {
             const currentFile = this.app.vault.getAbstractFileByPath(file.path);
             if (!currentFile || !(currentFile instanceof TFile)) {
                 verboseLog(this.plugin, `Skipping alias update - file no longer exists: ${file.path}`);
-                return;
+                return false;
             }
 
             file = currentFile;
@@ -44,18 +44,18 @@ export class AliasManager {
             // Check disable property FIRST - this cannot be overridden by any command
             if (await hasDisablePropertyInFile(file, this.app, this.settings.exclusions.disableRenamingKey, this.settings.exclusions.disableRenamingValue)) {
                 verboseLog(this.plugin, `Skipping alias update - file has disable property: ${file.path}`);
-                return;
+                return false;
             }
 
             if (!shouldProcessFile(file, this.settings, this.app, undefined, undefined, this.plugin)) {
-                return;
+                return false;
             }
 
-            // Skip ALL alias operations in popovers due to Obsidian sync/cache issues
-            // Popovers have: delayed disk writes, stale editor cache, content mismatches
-            if (editor && this.isEditorInPopover(editor, file)) {
-                verboseLog(this.plugin, `Skipping alias update in popover: ${file.path}`);
-                return;
+            // Skip ALL alias operations in popovers/canvas due to Obsidian sync/cache issues
+            // Popovers and canvas have: delayed disk writes, stale editor cache, content mismatches
+            if (editor && this.isEditorInPopoverOrCanvas(editor, file)) {
+                verboseLog(this.plugin, `Skipping alias update in popover/canvas: ${file.path}`);
+                return false;
             }
 
             const content = await readFileContent(this.plugin, file, {
@@ -64,7 +64,7 @@ export class AliasManager {
             });
 
             if (!content || content.trim() === '') {
-                return;
+                return false;
             }
 
             const contentWithoutFrontmatter = this.plugin.renameEngine.stripFrontmatterFromContent(content, file);
@@ -83,7 +83,7 @@ export class AliasManager {
                 if (this.settings.aliases.enableAliases) {
                     await this.removePluginAliasesFromFile(file);
                 }
-                return;
+                return false;
             }
 
             // Determine titleSourceLine using shared utility function
@@ -91,7 +91,7 @@ export class AliasManager {
             const titleSourceLine = findTitleSourceLine(firstNonEmptyLine, lines, this.settings, this.plugin);
 
             if (!this.settings.aliases.enableAliases) {
-                return;
+                return false;
             }
 
             // Parse frontmatter from fresh editor content instead of stale cache
@@ -104,7 +104,7 @@ export class AliasManager {
                 } catch (error) {
                     // YAML is malformed (e.g., user is mid-typing) - skip alias update until valid
                     verboseLog(this.plugin, `Skipping alias update - malformed YAML in ${file.path}`);
-                    return;
+                    return false;
                 }
             }
 
@@ -116,7 +116,7 @@ export class AliasManager {
 
             if (!shouldHaveAlias) {
                 await this.removePluginAliasesFromFile(file);
-                return;
+                return false;
             }
 
             const aliasPropertyKeys = this.getAliasPropertyKeys();
@@ -148,7 +148,7 @@ export class AliasManager {
 
             if (allPropertiesHaveCorrectAlias) {
                 verboseLog(this.plugin, `File ${file.path} already has correct alias in all properties`);
-                return;
+                return true;
             }
 
             // Note: Lock already acquired by processFile - alias runs within that lock
@@ -157,12 +157,15 @@ export class AliasManager {
             try {
                 verboseLog(this.plugin, `Adding alias to ${file.path} - no correct alias found`);
                 await this.addAliasToFile(file, titleSourceLine, titleToCompare, content);
+                return true;
             } catch (error) {
                 console.error('Error updating alias:', error);
+                return false;
             }
 
         } catch (error) {
             console.error('Error updating alias:', error);
+            return false;
         }
     }
 
@@ -555,12 +558,20 @@ export class AliasManager {
     }
 
     /**
-     * Check if editor is in a popover (hover preview) or main workspace
+     * Check if editor is in a popover (hover preview) or canvas
+     * Canvas editors are treated like popovers - alias updates disabled due to sync/cache issues
      * @param editor - Editor instance to check
      * @param file - File being edited
-     * @returns true if editor is in a popover, false if in main workspace or canvas
+     * @returns true if editor is in a popover or canvas, false if in main workspace
      */
-    public isEditorInPopover(editor: any, file: TFile): boolean {
+    public isEditorInPopoverOrCanvas(editor: any, file: TFile): boolean {
+        // Check if canvas is active - treat canvas like popovers (disable alias updates)
+        // Canvas has similar cache/sync issues as popovers, making reliable alias updates impossible
+        const canvasLeaves = this.app.workspace.getLeavesOfType('canvas');
+        if (canvasLeaves.length > 0) {
+            return true; // Canvas active - disable alias updates
+        }
+
         // If editor is provided, it's from editor-change event
         // Popovers don't trigger editor-change events, so this is always a real editor
         if (editor) {
