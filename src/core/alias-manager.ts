@@ -561,26 +561,42 @@ export class AliasManager {
      * @returns true if editor is in a popover, false if in main workspace or canvas
      */
     public isEditorInPopover(editor: any, file: TFile): boolean {
+        verboseLog(this.plugin, `[POPOVER-CHECK] Checking editor for ${file.path}`);
+        verboseLog(this.plugin, `[POPOVER-CHECK] Editor exists: ${!!editor}`);
+
         // Get the active markdown view
         const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
+        verboseLog(this.plugin, `[POPOVER-CHECK] Active MarkdownView exists: ${!!activeView}`);
+        verboseLog(this.plugin, `[POPOVER-CHECK] Active view file path: ${activeView?.file?.path || 'none'}`);
+        verboseLog(this.plugin, `[POPOVER-CHECK] Checking file path: ${file.path}`);
 
         // If there's no active view, or the active view's editor doesn't match
         // the one we're syncing, check if this is a canvas editor
         if (!activeView || activeView.file?.path !== file.path) {
             // Check if canvas is active - canvas editors should NOT be treated as popovers
-            const canvasIsActive = this.app.workspace.getMostRecentLeaf()?.view?.getViewType?.() === 'canvas';
+            const mostRecentLeaf = this.app.workspace.getMostRecentLeaf();
+            const viewType = mostRecentLeaf?.view?.getViewType?.();
+            verboseLog(this.plugin, `[POPOVER-CHECK] Most recent leaf view type: ${viewType || 'none'}`);
+
+            const canvasIsActive = viewType === 'canvas';
+            verboseLog(this.plugin, `[POPOVER-CHECK] Canvas is active: ${canvasIsActive}`);
+
             if (canvasIsActive) {
+                verboseLog(this.plugin, `[POPOVER-CHECK] Returning FALSE (allow canvas editor): ${file.path}`);
                 return false; // Allow alias updates for canvas editors
             }
+            verboseLog(this.plugin, `[POPOVER-CHECK] Returning TRUE (is popover): ${file.path}`);
             return true; // It's a popover
         }
 
         // If active view matches but editor object is different, it's a popover
         if (activeView.editor !== editor) {
+            verboseLog(this.plugin, `[POPOVER-CHECK] Editor mismatch - Returning TRUE (is popover): ${file.path}`);
             return true;
         }
 
         // Editor matches active view = main workspace editor
+        verboseLog(this.plugin, `[POPOVER-CHECK] Returning FALSE (main editor): ${file.path}`);
         return false;
     }
 }
