@@ -439,6 +439,9 @@ export default class FirstLineIsTitle extends Plugin {
         // Initialize i18n system
         initI18n();
 
+        // Development verification: Log plugin load with timestamp to confirm new builds take effect
+        console.log(`%c[FLIT] Plugin loaded at ${new Date().toLocaleTimeString()}`, 'color: #00ff00; font-weight: bold');
+
         await this.loadSettings();
 
         // Reset Debug mode if more than 24 hours have passed since it was enabled
