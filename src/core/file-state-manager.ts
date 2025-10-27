@@ -41,6 +41,7 @@ export interface FileState {
     isLocked?: boolean;
     pendingAliasRecheck?: boolean;
     pendingAliasEditor?: any; // Stored editor reference for popover detection
+    lastAliasUpdateSucceeded?: boolean; // Whether last alias update succeeded (true) or was skipped (false)
     isSyncingEditors?: boolean; // True when syncing background editors to prevent spurious rechecks
 
     // Rename tracking - prevents processing stale content after rename
@@ -181,6 +182,21 @@ export class FileStateManager {
         if (state) {
             delete state.lastEditorContent;
         }
+    }
+
+    /**
+     * Set last alias update status
+     */
+    setLastAliasUpdateStatus(path: string, succeeded: boolean): void {
+        const state = this.getOrCreateState(path);
+        state.lastAliasUpdateSucceeded = succeeded;
+    }
+
+    /**
+     * Get last alias update status
+     */
+    getLastAliasUpdateStatus(path: string): boolean | undefined {
+        return this.fileStates.get(path)?.lastAliasUpdateSucceeded;
     }
 
     /**

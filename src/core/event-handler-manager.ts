@@ -388,7 +388,10 @@ export class EventHandlerManager {
                         const currentContentAfterFrontmatter = currentContent.substring(currentFrontmatterInfo.contentStart);
                         const previousContentAfterFrontmatter = previousContent.substring(previousFrontmatterInfo.contentStart);
 
-                        if (currentContentAfterFrontmatter === previousContentAfterFrontmatter) {
+                        // Only skip if body unchanged AND last alias update succeeded
+                        // If last update was skipped (e.g., popover/canvas), retry now
+                        const lastUpdateSucceeded = this.plugin.fileStateManager.getLastAliasUpdateStatus(file.path);
+                        if (currentContentAfterFrontmatter === previousContentAfterFrontmatter && lastUpdateSucceeded) {
                             if (this.plugin.settings.core.verboseLogging) {
                                 console.debug(`Skipping alias update - only frontmatter edited: ${file.path}`);
                             }
@@ -411,7 +414,8 @@ export class EventHandlerManager {
                         return;
                     }
 
-                    await this.plugin.aliasManager.updateAliasIfNeeded(file, currentContent);
+                    const aliasUpdateSucceeded = await this.plugin.aliasManager.updateAliasIfNeeded(file, currentContent);
+                    this.plugin.fileStateManager.setLastAliasUpdateStatus(file.path, aliasUpdateSucceeded);
                 }
             })
         );
@@ -445,7 +449,10 @@ export class EventHandlerManager {
                     const currentContentAfterFrontmatter = currentContent.substring(currentFrontmatterInfo.contentStart);
                     const previousContentAfterFrontmatter = previousContent.substring(previousFrontmatterInfo.contentStart);
 
-                    if (currentContentAfterFrontmatter === previousContentAfterFrontmatter) {
+                    // Only skip if body unchanged AND last alias update succeeded
+                    // If last update was skipped (e.g., popover/canvas), retry now
+                    const lastUpdateSucceeded = this.plugin.fileStateManager.getLastAliasUpdateStatus(file.path);
+                    if (currentContentAfterFrontmatter === previousContentAfterFrontmatter && lastUpdateSucceeded) {
                         if (this.plugin.settings.core.verboseLogging) {
                             console.debug(`Skipping metadata-alias update - only frontmatter edited: ${file.path}`);
                         }
@@ -470,7 +477,8 @@ export class EventHandlerManager {
                     return;
                 }
 
-                await this.plugin.aliasManager.updateAliasIfNeeded(file, currentContent);
+                const aliasUpdateSucceeded = await this.plugin.aliasManager.updateAliasIfNeeded(file, currentContent);
+                this.plugin.fileStateManager.setLastAliasUpdateStatus(file.path, aliasUpdateSucceeded);
             })
         );
     }
