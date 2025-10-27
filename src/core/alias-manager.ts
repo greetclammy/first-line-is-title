@@ -53,19 +53,21 @@ export class AliasManager {
 
             // Skip ALL alias operations in popovers/canvas due to Obsidian sync/cache issues
             // Popovers and canvas have: delayed disk writes, stale editor cache, content mismatches
-            if (editor) {
-                const mostRecentLeaf = this.app.workspace.getMostRecentLeaf();
-                const viewType = mostRecentLeaf?.view?.getViewType?.();
-                const isCanvas = viewType === 'canvas';
-                const isPopoverOrCanvas = this.isEditorInPopoverOrCanvas(editor, file);
 
-                verboseLog(this.plugin, `Canvas detection: viewType="${viewType}", isCanvas=${isCanvas}, isPopoverOrCanvas=${isPopoverOrCanvas}`);
+            // Check canvas first - works without editor parameter
+            const mostRecentLeaf = this.app.workspace.getMostRecentLeaf();
+            const viewType = mostRecentLeaf?.view?.getViewType?.();
+            const isCanvas = viewType === 'canvas';
 
-                if (isPopoverOrCanvas) {
-                    const context = isCanvas ? 'canvas' : 'popover';
-                    verboseLog(this.plugin, `Skipping alias update in ${context}: ${file.path}`);
-                    return false;
-                }
+            if (isCanvas) {
+                verboseLog(this.plugin, `Skipping alias update in canvas: ${file.path}`);
+                return false;
+            }
+
+            // Check popover (requires editor parameter)
+            if (editor && this.isEditorInPopoverOrCanvas(editor, file)) {
+                verboseLog(this.plugin, `Skipping alias update in popover: ${file.path}`);
+                return false;
             }
 
             const content = await readFileContent(this.plugin, file, {
@@ -568,20 +570,13 @@ export class AliasManager {
     }
 
     /**
-     * Check if editor is in a popover (hover preview) or canvas
-     * Canvas editors are treated like popovers - alias updates disabled due to sync/cache issues
+     * Check if editor is in a popover (hover preview)
+     * Note: Canvas is checked separately before calling this method
      * @param editor - Editor instance to check
      * @param file - File being edited
-     * @returns true if editor is in a popover or canvas, false if in main workspace
+     * @returns true if editor is in a popover, false if in main workspace
      */
     public isEditorInPopoverOrCanvas(editor: any, file: TFile): boolean {
-        // Check if canvas is active - treat canvas like popovers (disable alias updates)
-        // Canvas has similar cache/sync issues as popovers, making reliable alias updates impossible
-        const canvasIsActive = this.app.workspace.getMostRecentLeaf()?.view?.getViewType?.() === 'canvas';
-        if (canvasIsActive) {
-            return true; // Canvas active - disable alias updates
-        }
-
         // If editor is provided, it's from editor-change event
         // Popovers don't trigger editor-change events, so this is always a real editor
         if (editor) {
