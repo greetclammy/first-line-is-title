@@ -38,6 +38,9 @@ import { LinkManager } from './src/core/link-manager';
 import { EventHandlerManager } from './src/core/event-handler-manager';
 import { FileStateManager } from './src/core/file-state-manager';
 
+// Build-time constant injected by esbuild
+declare const BUILD_GIT_HASH: string;
+
 export default class FirstLineIsTitle extends Plugin {
     settings: PluginSettings;
     isFullyLoaded: boolean = false;
@@ -439,8 +442,8 @@ export default class FirstLineIsTitle extends Plugin {
         // Initialize i18n system
         initI18n();
 
-        // Development verification: Log plugin load with timestamp to confirm new builds take effect
-        console.log(`%c[FLIT] Plugin loaded at ${new Date().toLocaleTimeString()}`, 'color: #00ff00; font-weight: bold');
+        // Development verification: Log plugin load with git hash to confirm new builds take effect
+        console.log(`%c[FLIT] Plugin loaded - build ${BUILD_GIT_HASH}`, 'color: #00ff00; font-weight: bold');
 
         await this.loadSettings();
 
