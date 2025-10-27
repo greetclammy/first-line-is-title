@@ -1,6 +1,7 @@
 import esbuild from "esbuild";
 import process from "process";
 import builtins from "builtin-modules";
+import { execSync } from "child_process";
 
 const banner =
 `/*
@@ -10,6 +11,14 @@ if you want to view the source, please visit the github repository of this plugi
 `;
 
 const prod = (process.argv[2] === "production");
+
+// Get current git commit hash
+let gitHash = "unknown";
+try {
+	gitHash = execSync("git rev-parse --short HEAD").toString().trim();
+} catch (e) {
+	console.warn("Could not get git commit hash:", e.message);
+}
 
 esbuild.build({
 	banner: {
@@ -41,5 +50,8 @@ esbuild.build({
 	outfile: "main.js",
 	loader: {
 		'.json': 'json'
+	},
+	define: {
+		'BUILD_GIT_HASH': JSON.stringify(gitHash)
 	}
 }).catch(() => process.exit(1));
