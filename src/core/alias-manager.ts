@@ -54,8 +54,7 @@ export class AliasManager {
             // Skip ALL alias operations in popovers/canvas due to Obsidian sync/cache issues
             // Popovers and canvas have: delayed disk writes, stale editor cache, content mismatches
             if (editor) {
-                const canvasLeaves = this.app.workspace.getLeavesOfType('canvas');
-                const isCanvas = canvasLeaves.length > 0;
+                const isCanvas = this.app.workspace.getMostRecentLeaf()?.view?.getViewType?.() === 'canvas';
                 const isPopoverOrCanvas = this.isEditorInPopoverOrCanvas(editor, file);
 
                 if (isPopoverOrCanvas) {
@@ -574,8 +573,8 @@ export class AliasManager {
     public isEditorInPopoverOrCanvas(editor: any, file: TFile): boolean {
         // Check if canvas is active - treat canvas like popovers (disable alias updates)
         // Canvas has similar cache/sync issues as popovers, making reliable alias updates impossible
-        const canvasLeaves = this.app.workspace.getLeavesOfType('canvas');
-        if (canvasLeaves.length > 0) {
+        const canvasIsActive = this.app.workspace.getMostRecentLeaf()?.view?.getViewType?.() === 'canvas';
+        if (canvasIsActive) {
             return true; // Canvas active - disable alias updates
         }
 
