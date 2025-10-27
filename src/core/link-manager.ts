@@ -72,6 +72,15 @@ export class LinkManager {
                 };
             });
 
+            // Sort changes from earliest to latest position in document
+            // CodeMirror 6 requires changes to be ordered by position
+            changes.sort((a, b) => {
+                if (a.from.line !== b.from.line) {
+                    return a.from.line - b.from.line;
+                }
+                return a.from.ch - b.from.ch;
+            });
+
             activeEditor.transaction({ changes });
         } else {
             // No selection - show modal
@@ -154,6 +163,15 @@ export class LinkManager {
                     to,
                     text: replacement
                 };
+            });
+
+            // Sort changes from earliest to latest position in document
+            // CodeMirror 6 requires changes to be ordered by position
+            changes.sort((a, b) => {
+                if (a.from.line !== b.from.line) {
+                    return a.from.line - b.from.line;
+                }
+                return a.from.ch - b.from.ch;
             });
 
             activeEditor.transaction({ changes });
