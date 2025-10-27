@@ -19,31 +19,60 @@ export class LinkManager {
             return;
         }
 
-        const selection = activeEditor.getSelection();
+        const selections = activeEditor.listSelections();
 
-        if (selection.trim()) {
-            const trimmedSelection = selection.trim();
+        // Check if any selection has content
+        const hasSelection = selections.some(sel => {
+            const from = sel.anchor;
+            const to = sel.head;
+            const text = activeEditor.getRange(from, to);
+            return text.trim().length > 0;
+        });
 
-            // Check if selection is a wikilink - if so, toggle it off
-            if (trimmedSelection.startsWith('[[') && trimmedSelection.endsWith(']]')) {
-                const linkContent = trimmedSelection.slice(2, -2);
-                const pipeIndex = linkContent.indexOf('|');
+        if (hasSelection) {
+            // Process multiple selections
+            const changes = selections.map(sel => {
+                // Normalize selection range (anchor might be after head)
+                const from = sel.anchor.line < sel.head.line ||
+                    (sel.anchor.line === sel.head.line && sel.anchor.ch <= sel.head.ch)
+                    ? sel.anchor : sel.head;
+                const to = from === sel.anchor ? sel.head : sel.anchor;
 
-                if (pipeIndex !== -1) {
-                    // Has caption: [[target|caption]] → caption
-                    const caption = linkContent.slice(pipeIndex + 1);
-                    activeEditor.replaceSelection(caption);
+                const selection = activeEditor.getRange(from, to);
+                let replacement: string;
+
+                if (selection.trim()) {
+                    const trimmedSelection = selection.trim();
+
+                    // Check if selection is a wikilink - if so, toggle it off
+                    if (trimmedSelection.startsWith('[[') && trimmedSelection.endsWith(']]')) {
+                        const linkContent = trimmedSelection.slice(2, -2);
+                        const pipeIndex = linkContent.indexOf('|');
+
+                        if (pipeIndex !== -1) {
+                            // Has caption: [[target|caption]] → caption
+                            replacement = linkContent.slice(pipeIndex + 1);
+                        } else {
+                            // No caption: [[target]] → reverse(target)
+                            replacement = reverseSafeLinkTarget(linkContent, this.plugin.settings);
+                        }
+                    } else {
+                        // Plain text: text → [[safe(text)]]
+                        const safeLinkTarget = generateSafeLinkTarget(selection, this.plugin.settings);
+                        replacement = `[[${safeLinkTarget}]]`;
+                    }
                 } else {
-                    // No caption: [[target]] → reverse(target)
-                    const reversedTarget = reverseSafeLinkTarget(linkContent, this.plugin.settings);
-                    activeEditor.replaceSelection(reversedTarget);
+                    replacement = selection;
                 }
-            } else {
-                // Plain text: text → [[safe(text)]]
-                const safeLinkTarget = generateSafeLinkTarget(selection, this.plugin.settings);
-                const wikiLink = `[[${safeLinkTarget}]]`;
-                activeEditor.replaceSelection(wikiLink);
-            }
+
+                return {
+                    from,
+                    to,
+                    text: replacement
+                };
+            });
+
+            activeEditor.transaction({ changes });
         } else {
             // No selection - show modal
             const modal = new InternalLinkModal(this.plugin.app, this.plugin, (linkTarget: string) => {
@@ -63,42 +92,71 @@ export class LinkManager {
             return;
         }
 
-        const selection = activeEditor.getSelection();
+        const selections = activeEditor.listSelections();
 
-        if (selection.trim()) {
-            const trimmedSelection = selection.trim();
+        // Check if any selection has content
+        const hasSelection = selections.some(sel => {
+            const from = sel.anchor;
+            const to = sel.head;
+            const text = activeEditor.getRange(from, to);
+            return text.trim().length > 0;
+        });
 
-            // Check if selection is a wikilink
-            if (trimmedSelection.startsWith('[[') && trimmedSelection.endsWith(']]')) {
-                const linkContent = trimmedSelection.slice(2, -2);
-                const pipeIndex = linkContent.indexOf('|');
+        if (hasSelection) {
+            // Process multiple selections
+            const changes = selections.map(sel => {
+                // Normalize selection range (anchor might be after head)
+                const from = sel.anchor.line < sel.head.line ||
+                    (sel.anchor.line === sel.head.line && sel.anchor.ch <= sel.head.ch)
+                    ? sel.anchor : sel.head;
+                const to = from === sel.anchor ? sel.head : sel.anchor;
 
-                if (pipeIndex !== -1) {
-                    // Has caption: [[target|caption]]
-                    const target = linkContent.slice(0, pipeIndex);
-                    const caption = linkContent.slice(pipeIndex + 1);
-                    const reversedTarget = reverseSafeLinkTarget(target, this.plugin.settings);
+                const selection = activeEditor.getRange(from, to);
+                let replacement: string;
 
-                    if (reversedTarget === caption) {
-                        // [[Heyˆ|Hey^]] → Hey^ (strip when caption matches reversed target)
-                        activeEditor.replaceSelection(caption);
+                if (selection.trim()) {
+                    const trimmedSelection = selection.trim();
+
+                    // Check if selection is a wikilink
+                    if (trimmedSelection.startsWith('[[') && trimmedSelection.endsWith(']]')) {
+                        const linkContent = trimmedSelection.slice(2, -2);
+                        const pipeIndex = linkContent.indexOf('|');
+
+                        if (pipeIndex !== -1) {
+                            // Has caption: [[target|caption]]
+                            const target = linkContent.slice(0, pipeIndex);
+                            const caption = linkContent.slice(pipeIndex + 1);
+                            const reversedTarget = reverseSafeLinkTarget(target, this.plugin.settings);
+
+                            if (reversedTarget === caption) {
+                                // [[Heyˆ|Hey^]] → Hey^ (strip when caption matches reversed target)
+                                replacement = caption;
+                            } else {
+                                // [[Heyˆ|Bye]] → [[Heyˆ|Hey^]] (update caption to reversed target)
+                                replacement = `[[${target}|${reversedTarget}]]`;
+                            }
+                        } else {
+                            // No caption: [[Heyˆ]] → [[Heyˆ|Hey^]] (add caption as reversed target)
+                            const reversedTarget = reverseSafeLinkTarget(linkContent, this.plugin.settings);
+                            replacement = `[[${linkContent}|${reversedTarget}]]`;
+                        }
                     } else {
-                        // [[Heyˆ|Bye]] → [[Heyˆ|Hey^]] (update caption to reversed target)
-                        const wikiLink = `[[${target}|${reversedTarget}]]`;
-                        activeEditor.replaceSelection(wikiLink);
+                        // Plain text: Hey^ → [[Heyˆ|Hey^]]
+                        const safeLinkTarget = generateSafeLinkTarget(selection, this.plugin.settings);
+                        replacement = `[[${safeLinkTarget}|${selection}]]`;
                     }
                 } else {
-                    // No caption: [[Heyˆ]] → [[Heyˆ|Hey^]] (add caption as reversed target)
-                    const reversedTarget = reverseSafeLinkTarget(linkContent, this.plugin.settings);
-                    const wikiLink = `[[${linkContent}|${reversedTarget}]]`;
-                    activeEditor.replaceSelection(wikiLink);
+                    replacement = selection;
                 }
-            } else {
-                // Plain text: Hey^ → [[Heyˆ|Hey^]]
-                const safeLinkTarget = generateSafeLinkTarget(selection, this.plugin.settings);
-                const wikiLink = `[[${safeLinkTarget}|${selection}]]`;
-                activeEditor.replaceSelection(wikiLink);
-            }
+
+                return {
+                    from,
+                    to,
+                    text: replacement
+                };
+            });
+
+            activeEditor.transaction({ changes });
         } else {
             // No selection - show modal
             const modal = new InternalLinkModal(this.plugin.app, this.plugin, (linkTarget: string, linkCaption?: string) => {
