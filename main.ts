@@ -442,9 +442,6 @@ export default class FirstLineIsTitle extends Plugin {
         // Initialize i18n system
         initI18n();
 
-        // Development verification: Log plugin load with git hash to confirm new builds take effect
-        console.log(`Plugin loaded - build ${BUILD_GIT_HASH}`);
-
         await this.loadSettings();
 
         // Reset Debug mode if more than 24 hours have passed since it was enabled
@@ -509,7 +506,7 @@ export default class FirstLineIsTitle extends Plugin {
         this.settings.replaceCharacters.osPreset = detectOS();
         await this.saveSettings();
 
-        verboseLog(this, 'Plugin loaded', this.settings);
+        console.log(`Plugin loaded - build ${BUILD_GIT_HASH}`, this.settings);
         verboseLog(this, `Detected OS: \`${this.settings.replaceCharacters.osPreset}\``);
 
         // Initialize first-enable logic and exclusions setup
