@@ -443,7 +443,7 @@ export default class FirstLineIsTitle extends Plugin {
         initI18n();
 
         // Development verification: Log plugin load with git hash to confirm new builds take effect
-        console.log(`%c[FLIT] Plugin loaded - build ${BUILD_GIT_HASH}`, 'color: #00ff00; font-weight: bold');
+        console.log(`Plugin loaded - build ${BUILD_GIT_HASH}`);
 
         await this.loadSettings();
 
