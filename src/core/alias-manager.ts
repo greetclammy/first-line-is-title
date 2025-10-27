@@ -558,16 +558,21 @@ export class AliasManager {
      * Check if editor is in a popover (hover preview) or main workspace
      * @param editor - Editor instance to check
      * @param file - File being edited
-     * @returns true if editor is in a popover, false if in main workspace
+     * @returns true if editor is in a popover, false if in main workspace or canvas
      */
     public isEditorInPopover(editor: any, file: TFile): boolean {
         // Get the active markdown view
         const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
 
         // If there's no active view, or the active view's editor doesn't match
-        // the one we're syncing, then this editor is likely in a popover
+        // the one we're syncing, check if this is a canvas editor
         if (!activeView || activeView.file?.path !== file.path) {
-            return true;
+            // Check if canvas is active - canvas editors should NOT be treated as popovers
+            const canvasIsActive = this.app.workspace.getMostRecentLeaf()?.view?.getViewType?.() === 'canvas';
+            if (canvasIsActive) {
+                return false; // Allow alias updates for canvas editors
+            }
+            return true; // It's a popover
         }
 
         // If active view matches but editor object is different, it's a popover
