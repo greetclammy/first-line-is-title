@@ -21,13 +21,11 @@ export class LinkManager {
 
         const selections = activeEditor.listSelections();
 
-        // Check if any selection has content
-        const hasSelection = selections.some(sel => {
-            const from = sel.anchor;
-            const to = sel.head;
-            const text = activeEditor.getRange(from, to);
-            return text.trim().length > 0;
-        });
+        // Check if any selection has content (anchor != head means text is selected)
+        const hasSelection = selections.some(sel =>
+            sel.anchor.line !== sel.head.line ||
+            sel.anchor.ch !== sel.head.ch
+        );
 
         if (hasSelection) {
             // Step 1: Capture all selection data (positions + text) before modifying document
@@ -98,13 +96,11 @@ export class LinkManager {
 
         const selections = activeEditor.listSelections();
 
-        // Check if any selection has content
-        const hasSelection = selections.some(sel => {
-            const from = sel.anchor;
-            const to = sel.head;
-            const text = activeEditor.getRange(from, to);
-            return text.trim().length > 0;
-        });
+        // Check if any selection has content (anchor != head means text is selected)
+        const hasSelection = selections.some(sel =>
+            sel.anchor.line !== sel.head.line ||
+            sel.anchor.ch !== sel.head.ch
+        );
 
         if (hasSelection) {
             // Step 1: Capture all selection data (positions + text) before modifying document
