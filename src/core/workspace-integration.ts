@@ -249,15 +249,8 @@ export class WorkspaceIntegration {
                 verboseLog(plugin, `CREATE: New file created, processing: ${file.name}`);
 
                 try {
-                    // Use FileCreationCoordinator to determine actions immediately
-                    const actions = await plugin.workspaceIntegration.fileCreationCoordinator.determineActions(file, {
-                        initialContent,
-                        pluginLoadTime: plugin.pluginLoadTime
-                    });
-
-                    verboseLog(plugin, `CREATE: Decision path: ${actions.decisionPath}`);
-
-                    // Check if file has open editor or canvas is active
+                    // Check if file has open editor or canvas is active FIRST
+                    // (before running expensive coordinator logic)
                     const leaves = app.workspace.getLeavesOfType("markdown");
                     let hasOpenEditor = false;
                     for (const leaf of leaves) {
@@ -288,6 +281,14 @@ export class WorkspaceIntegration {
 
                         plugin.workspaceIntegration.lastTitleInsertionTime = now;
                     }
+
+                    // Now call FileCreationCoordinator (only after confirming we have a view)
+                    const actions = await plugin.workspaceIntegration.fileCreationCoordinator.determineActions(file, {
+                        initialContent,
+                        pluginLoadTime: plugin.pluginLoadTime
+                    });
+
+                    verboseLog(plugin, `CREATE: Decision path: ${actions.decisionPath}`);
 
                     // Execute title insertion and cursor positioning immediately (not affected by newNoteDelay)
                     if (actions.shouldInsertTitle) {

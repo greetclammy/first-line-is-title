@@ -260,9 +260,15 @@ export class FileCreationCoordinator {
         const excludeSubfolders = this.plugin.settings.exclusions.excludeSubfolders;
         const includeSubfolders = this.plugin.settings.exclusions.includeSubfolders;
 
+        // If no folders configured, don't exclude anything (regardless of strategy)
+        const nonEmptyFolders = folderExclusions.filter(f => f.trim() !== '');
+        if (nonEmptyFolders.length === 0) {
+            return false;
+        }
+
         // Check exact match or subfolder match
         let isInList = false;
-        for (const exc of folderExclusions) {
+        for (const exc of nonEmptyFolders) {
             if (exc === folderPath) {
                 // Exact match
                 isInList = true;
