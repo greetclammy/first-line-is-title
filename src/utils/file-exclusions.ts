@@ -4,16 +4,30 @@ import { filterNonEmpty } from './string-processing';
 import { normalizeTag, stripFrontmatter, fileHasTargetTags } from './tag-utils';
 
 /**
+ * Normalize folder path, preserving root folder "/"
+ * Obsidian's normalizePath strips leading/trailing slashes, turning "/" into ""
+ * But FLIT stores root as "/", while Obsidian uses "" for root folder paths
+ */
+function normalizeFolderPath(folder: string): string {
+    // Preserve root folder
+    if (folder === '/') {
+        return '/';
+    }
+    return normalizePath(folder);
+}
+
+/**
  * Check if file is in any of the configured folders
  * Supports subfolder checking if enabled in settings
  */
 export function isFileInConfiguredFolders(file: TFile, settings: PluginSettings): boolean {
     // Filter out empty strings and normalize paths
     const nonEmptyFolders = filterNonEmpty(settings.exclusions.excludedFolders)
-        .map(folder => normalizePath(folder));
+        .map(folder => normalizeFolderPath(folder));
     if (nonEmptyFolders.length === 0) return false;
 
-    const filePath = file.parent?.path as string;
+    // Obsidian uses "" for root folder, but FLIT stores it as "/"
+    const filePath = file.parent?.path === '' ? '/' : file.parent?.path as string;
     if (nonEmptyFolders.includes(filePath)) {
         return true;
     }
@@ -21,6 +35,9 @@ export function isFileInConfiguredFolders(file: TFile, settings: PluginSettings)
     // Check subfolders if enabled
     if (settings.exclusions.excludeSubfolders) {
         for (const folder of nonEmptyFolders) {
+            // Root folder "/" has no subfolders to check
+            if (folder === '/') continue;
+
             if (filePath && filePath.startsWith(folder + "/")) {
                 return true;
             }

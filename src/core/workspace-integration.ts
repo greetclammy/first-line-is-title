@@ -2,6 +2,7 @@ import { TFile, MarkdownView, setIcon, Notice, ViewWithFileEditor } from "obsidi
 import { verboseLog } from '../utils';
 import { RenameAllFilesModal } from '../modals';
 import FirstLineIsTitle from '../../main';
+import { FileCreationCoordinator } from './file-creation-coordinator';
 
 /**
  * WorkspaceIntegration
@@ -22,6 +23,7 @@ export class WorkspaceIntegration {
     private plugin: FirstLineIsTitle;
     private commandPaletteObserver?: MutationObserver;
     private originalSaveCallback?: (checking: boolean) => boolean | void;
+    private fileCreationCoordinator: FileCreationCoordinator;
 
     // Track last title insertion to prevent mass insertions when canvas is active
     public lastTitleInsertionTime = 0;
@@ -29,6 +31,7 @@ export class WorkspaceIntegration {
 
     constructor(plugin: FirstLineIsTitle) {
         this.plugin = plugin;
+        this.fileCreationCoordinator = new FileCreationCoordinator(plugin);
     }
 
     get app() {
@@ -245,96 +248,89 @@ export class WorkspaceIntegration {
 
                 verboseLog(plugin, `CREATE: New file created, processing in ${settings.newNoteDelay}ms: ${file.name}`);
 
-                // Check if title will be skipped (early detection)
-                const untitledPattern = /^Untitled(\s[1-9]\d*)?$/;
-                const isUntitled = untitledPattern.test(file.basename);
-
-                // Step 1: Move cursor (always respect exclusions)
-                if (settings.renameNotes === "automatically" && settings.moveCursorToFirstLine) {
-                    // Always check exclusions (cursor never moved in excluded notes)
-                    const isExcluded = await plugin.fileOperations.isFileExcludedForCursorPositioning(file, initialContent);
-                    if (isExcluded) {
-                        verboseLog(plugin, `Skipping cursor positioning - file is excluded: ${file.path}`);
-                    } else {
-                        // Position cursor after exclusion check passes
-                        requestAnimationFrame(() => {
-                            setTimeout(() => {
-                                // Check if file has a view (not in canvas) after delays
-                                const leaves = app.workspace.getLeavesOfType("markdown");
-                                let fileHasView = false;
-                                for (const leaf of leaves) {
-                                    const view = leaf.view as MarkdownView;
-                                    if (view && view.file?.path === file.path) {
-                                        fileHasView = true;
-                                        break;
-                                    }
-                                }
-
-                                if (fileHasView) {
-                                    // Determine if title insertion will be skipped (Step 2)
-                                    const hasContent = initialContent.trim() !== '';
-                                    const willSkipTitleInsertion = !settings.insertTitleOnCreation || isUntitled || hasContent;
-                                    plugin.fileOperations.handleCursorPositioning(file, willSkipTitleInsertion);
-                                } else {
-                                    verboseLog(plugin, `Skipping cursor positioning - no view found (canvas): ${file.path}`);
-                                }
-                            }, 200);
-                        });
-                    }
-                }
-
                 // Processing function for new file creation
                 const processNewFile = async () => {
                     verboseLog(plugin, `CREATE: Processing new file after delay: ${file.name}`);
 
-                    let titleWasInserted = false;
-
                     try {
-                        // Step 2: Insert title if enabled
-                        if (settings.insertTitleOnCreation) {
-                            // POLICY: Check if file is open in editor OR canvas view is active
-                            // Re-check after delay to allow editor time to open for regular files
-                            const leaves = app.workspace.getLeavesOfType("markdown");
-                            let hasOpenEditor = false;
-                            for (const leaf of leaves) {
-                                const view = leaf.view as MarkdownView;
-                                if (view?.file?.path === file.path) {
-                                    hasOpenEditor = true;
-                                    break;
-                                }
+                        // Use FileCreationCoordinator to determine actions
+                        const actions = await plugin.workspaceIntegration.fileCreationCoordinator.determineActions(file, {
+                            initialContent,
+                            pluginLoadTime: plugin.pluginLoadTime
+                        });
+
+                        verboseLog(plugin, `CREATE: Decision path: ${actions.decisionPath}`);
+
+                        // Check if file has open editor or canvas is active
+                        const leaves = app.workspace.getLeavesOfType("markdown");
+                        let hasOpenEditor = false;
+                        for (const leaf of leaves) {
+                            const view = leaf.view as MarkdownView;
+                            if (view?.file?.path === file.path) {
+                                hasOpenEditor = true;
+                                break;
                             }
+                        }
 
-                            // Check if canvas is active (for policy check)
-                            const canvasIsActive = app.workspace.getMostRecentLeaf()?.view?.getViewType?.() === 'canvas';
+                        const canvasIsActive = app.workspace.getMostRecentLeaf()?.view?.getViewType?.() === 'canvas';
 
-                            // Skip if no open editor and no active canvas
-                            if (!hasOpenEditor && !canvasIsActive) {
-                                verboseLog(plugin, `CREATE: Skipping title insertion - file not in editor and canvas not active: ${file.name}`);
+                        // Skip if no open editor and no active canvas
+                        if (!hasOpenEditor && !canvasIsActive) {
+                            verboseLog(plugin, `CREATE: Skipping - file not in editor and canvas not active: ${file.name}`);
+                            return;
+                        }
+
+                        // Rate limiting: if relying on canvas detection (no open editor), only process 1 file per second
+                        if (!hasOpenEditor && canvasIsActive) {
+                            const now = Date.now();
+                            const timeSinceLastInsertion = now - plugin.workspaceIntegration.lastTitleInsertionTime;
+
+                            if (timeSinceLastInsertion < plugin.workspaceIntegration.TITLE_INSERTION_RATE_LIMIT_MS) {
+                                verboseLog(plugin, `CREATE: Skipping - rate limited (${timeSinceLastInsertion}ms since last): ${file.name}`);
                                 return;
                             }
 
-                            // Rate limiting: if relying on canvas detection (no open editor), only process 1 file per second
-                            // This prevents mass title insertion if multiple files created programmatically while canvas focused
-                            if (!hasOpenEditor && canvasIsActive) {
-                                const now = Date.now();
-                                const timeSinceLastInsertion = now - plugin.workspaceIntegration.lastTitleInsertionTime;
-
-                                if (timeSinceLastInsertion < plugin.workspaceIntegration.TITLE_INSERTION_RATE_LIMIT_MS) {
-                                    verboseLog(plugin, `CREATE: Skipping title insertion - rate limited (${timeSinceLastInsertion}ms since last): ${file.name}`);
-                                    return;
-                                }
-
-                                plugin.workspaceIntegration.lastTitleInsertionTime = now;
-                            }
-
-                            verboseLog(plugin, `CREATE: Processing title insertion (hasEditor: ${hasOpenEditor}, canvasActive: ${canvasIsActive})`);
-
-                            titleWasInserted = await plugin.fileOperations.insertTitleOnCreation(file, initialContent);
-                            verboseLog(plugin, `CREATE: insertTitleOnCreation returned ${titleWasInserted}`);
+                            plugin.workspaceIntegration.lastTitleInsertionTime = now;
                         }
 
-                        // Step 3: Rename file if automatic mode and plugin fully loaded
-                        // Note: Cursor positioning already handled in Step 2 (insertTitleOnCreation)
+                        // Execute actions determined by coordinator
+                        if (actions.shouldInsertTitle) {
+                            verboseLog(plugin, `CREATE: Inserting title for: ${file.path}`);
+                            await plugin.fileOperations.insertTitleOnCreation(file, initialContent);
+                        }
+
+                        if (actions.shouldMoveCursor) {
+                            verboseLog(plugin, `CREATE: Moving cursor for: ${file.path} (placeCursorAtEnd: ${actions.placeCursorAtEnd})`);
+
+                            requestAnimationFrame(() => {
+                                setTimeout(() => {
+                                    // Re-check if file has a view after delays
+                                    const leaves = app.workspace.getLeavesOfType("markdown");
+                                    let fileHasView = false;
+                                    for (const leaf of leaves) {
+                                        const view = leaf.view as MarkdownView;
+                                        if (view && view.file?.path === file.path) {
+                                            fileHasView = true;
+                                            break;
+                                        }
+                                    }
+
+                                    if (fileHasView) {
+                                        // Use coordinator's explicit placeCursorAtEnd decision
+                                        // This respects the decision tree outcomes from Nodes 16-18
+                                        plugin.fileOperations.handleCursorPositioning(
+                                            file,
+                                            !actions.shouldInsertTitle,
+                                            actions.placeCursorAtEnd
+                                        );
+                                    } else {
+                                        verboseLog(plugin, `Skipping cursor positioning - no view found (canvas): ${file.path}`);
+                                    }
+                                }, 200);
+                            });
+                        }
+
+                        // Rename file if automatic mode and plugin fully loaded
                         if (settings.renameNotes === "automatically" && plugin.isFullyLoaded) {
                             // Get current editor content if file is open
                             let editorContent: string | undefined;
