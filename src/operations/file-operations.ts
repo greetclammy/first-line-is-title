@@ -325,10 +325,11 @@ export class FileOperations {
      * @param usePlaceCursorAtLineEndSetting - Controls cursor placement:
      *   - true: Use placeCursorAtLineEnd setting (when title insertion will be skipped)
      *   - false: Always position at line start (when title will be inserted in Step 2)
+     * @param explicitPlaceCursorAtEnd - Optional explicit override from coordinator decision tree
      * Rationale: If title will be inserted, cursor positioned at start now, then Step 2
      * repositions at end after insertion. If title skipped, position at end now.
      */
-    async handleCursorPositioning(file: TFile, usePlaceCursorAtLineEndSetting: boolean = true): Promise<void> {
+    async handleCursorPositioning(file: TFile, usePlaceCursorAtLineEndSetting: boolean = true, explicitPlaceCursorAtEnd?: boolean): Promise<void> {
         try {
             verboseLog(this.plugin, `handleCursorPositioning called for ${file.path}, usePlaceCursorAtLineEndSetting: ${usePlaceCursorAtLineEndSetting}`);
 
@@ -383,7 +384,14 @@ export class FileOperations {
                 // Determine target position
                 let targetPosition: {line: number, ch: number};
 
-                if (!usePlaceCursorAtLineEndSetting) {
+                if (explicitPlaceCursorAtEnd !== undefined) {
+                    // Use explicit override from coordinator decision tree
+                    if (explicitPlaceCursorAtEnd) {
+                        targetPosition = { line: titleLineNumber, ch: titleLineLength };
+                    } else {
+                        targetPosition = { line: titleLineNumber, ch: 0 };
+                    }
+                } else if (!usePlaceCursorAtLineEndSetting) {
                     // Title will be inserted in Step 2 - position at start of title line
                     targetPosition = { line: titleLineNumber, ch: 0 };
                 } else {
