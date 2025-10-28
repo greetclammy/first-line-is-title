@@ -772,20 +772,30 @@ export function reverseCharacterReplacements(text: string, settings: PluginSetti
 /**
  * Normalizes a folder path for duplicate comparison
  * - Trims whitespace
- * - Removes leading and trailing slashes
+ * - Removes leading and trailing slashes (except preserves root "/")
  * - Converts to lowercase for case-insensitive comparison
  */
 function normalizeFolderPath(path: string): string {
-    return path.trim().replace(/^\/+|\/+$/g, '').toLowerCase();
+    const trimmed = path.trim();
+    // Preserve root folder
+    if (trimmed === '/') {
+        return '/';
+    }
+    return trimmed.replace(/^\/+|\/+$/g, '').toLowerCase();
 }
 
 /**
  * Cleans a folder path for storage (preserves case)
  * - Trims whitespace
- * - Removes leading and trailing slashes
+ * - Removes leading and trailing slashes (except preserves root "/")
  */
 function cleanFolderPath(path: string): string {
-    return path.trim().replace(/^\/+|\/+$/g, '');
+    const trimmed = path.trim();
+    // Preserve root folder
+    if (trimmed === '/') {
+        return '/';
+    }
+    return trimmed.replace(/^\/+|\/+$/g, '');
 }
 
 /**
