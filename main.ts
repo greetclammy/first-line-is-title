@@ -506,7 +506,9 @@ export default class FirstLineIsTitle extends Plugin {
         this.settings.replaceCharacters.osPreset = detectOS();
         await this.saveSettings();
 
-        console.log(`Plugin loaded - build ${BUILD_GIT_HASH}`, this.settings);
+        if (this.settings.core.verboseLogging) {
+            console.log(`Plugin loaded - build ${BUILD_GIT_HASH}`, this.settings);
+        }
         verboseLog(this, `Detected OS: \`${this.settings.replaceCharacters.osPreset}\``);
 
         // Initialize first-enable logic and exclusions setup
