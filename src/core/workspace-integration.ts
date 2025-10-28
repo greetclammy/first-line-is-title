@@ -249,28 +249,9 @@ export class WorkspaceIntegration {
                 verboseLog(plugin, `CREATE: New file created, processing: ${file.name}`);
 
                 try {
-                    // Check if file has open editor or canvas is active FIRST
-                    // (before running expensive coordinator logic)
-                    const leaves = app.workspace.getLeavesOfType("markdown");
-                    let hasOpenEditor = false;
-                    for (const leaf of leaves) {
-                        const view = leaf.view as MarkdownView;
-                        if (view?.file?.path === file.path) {
-                            hasOpenEditor = true;
-                            break;
-                        }
-                    }
-
+                    // Canvas rate limiting: prevent mass insertions when canvas creates many files
                     const canvasIsActive = app.workspace.getMostRecentLeaf()?.view?.getViewType?.() === 'canvas';
-
-                    // Skip if no open editor and no active canvas
-                    if (!hasOpenEditor && !canvasIsActive) {
-                        verboseLog(plugin, `CREATE: Skipping - file not in editor and canvas not active: ${file.name}`);
-                        return;
-                    }
-
-                    // Rate limiting: if relying on canvas detection (no open editor), only process 1 file per second
-                    if (!hasOpenEditor && canvasIsActive) {
+                    if (canvasIsActive) {
                         const now = Date.now();
                         const timeSinceLastInsertion = now - plugin.workspaceIntegration.lastTitleInsertionTime;
 
@@ -282,7 +263,7 @@ export class WorkspaceIntegration {
                         plugin.workspaceIntegration.lastTitleInsertionTime = now;
                     }
 
-                    // Now call FileCreationCoordinator (only after confirming we have a view)
+                    // Call FileCreationCoordinator to determine actions
                     const actions = await plugin.workspaceIntegration.fileCreationCoordinator.determineActions(file, {
                         initialContent,
                         pluginLoadTime: plugin.pluginLoadTime
