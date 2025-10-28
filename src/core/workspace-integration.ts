@@ -246,126 +246,132 @@ export class WorkspaceIntegration {
                     verboseLog(plugin, `CREATE: Could not read initial editor content`);
                 }
 
-                verboseLog(plugin, `CREATE: New file created, processing in ${settings.newNoteDelay}ms: ${file.name}`);
+                verboseLog(plugin, `CREATE: New file created, processing: ${file.name}`);
 
-                // Processing function for new file creation
-                const processNewFile = async () => {
-                    verboseLog(plugin, `CREATE: Processing new file after delay: ${file.name}`);
+                try {
+                    // Use FileCreationCoordinator to determine actions immediately
+                    const actions = await plugin.workspaceIntegration.fileCreationCoordinator.determineActions(file, {
+                        initialContent,
+                        pluginLoadTime: plugin.pluginLoadTime
+                    });
 
-                    try {
-                        // Use FileCreationCoordinator to determine actions
-                        const actions = await plugin.workspaceIntegration.fileCreationCoordinator.determineActions(file, {
-                            initialContent,
-                            pluginLoadTime: plugin.pluginLoadTime
-                        });
+                    verboseLog(plugin, `CREATE: Decision path: ${actions.decisionPath}`);
 
-                        verboseLog(plugin, `CREATE: Decision path: ${actions.decisionPath}`);
-
-                        // Check if file has open editor or canvas is active
-                        const leaves = app.workspace.getLeavesOfType("markdown");
-                        let hasOpenEditor = false;
-                        for (const leaf of leaves) {
-                            const view = leaf.view as MarkdownView;
-                            if (view?.file?.path === file.path) {
-                                hasOpenEditor = true;
-                                break;
-                            }
+                    // Check if file has open editor or canvas is active
+                    const leaves = app.workspace.getLeavesOfType("markdown");
+                    let hasOpenEditor = false;
+                    for (const leaf of leaves) {
+                        const view = leaf.view as MarkdownView;
+                        if (view?.file?.path === file.path) {
+                            hasOpenEditor = true;
+                            break;
                         }
+                    }
 
-                        const canvasIsActive = app.workspace.getMostRecentLeaf()?.view?.getViewType?.() === 'canvas';
+                    const canvasIsActive = app.workspace.getMostRecentLeaf()?.view?.getViewType?.() === 'canvas';
 
-                        // Skip if no open editor and no active canvas
-                        if (!hasOpenEditor && !canvasIsActive) {
-                            verboseLog(plugin, `CREATE: Skipping - file not in editor and canvas not active: ${file.name}`);
+                    // Skip if no open editor and no active canvas
+                    if (!hasOpenEditor && !canvasIsActive) {
+                        verboseLog(plugin, `CREATE: Skipping - file not in editor and canvas not active: ${file.name}`);
+                        return;
+                    }
+
+                    // Rate limiting: if relying on canvas detection (no open editor), only process 1 file per second
+                    if (!hasOpenEditor && canvasIsActive) {
+                        const now = Date.now();
+                        const timeSinceLastInsertion = now - plugin.workspaceIntegration.lastTitleInsertionTime;
+
+                        if (timeSinceLastInsertion < plugin.workspaceIntegration.TITLE_INSERTION_RATE_LIMIT_MS) {
+                            verboseLog(plugin, `CREATE: Skipping - rate limited (${timeSinceLastInsertion}ms since last): ${file.name}`);
                             return;
                         }
 
-                        // Rate limiting: if relying on canvas detection (no open editor), only process 1 file per second
-                        if (!hasOpenEditor && canvasIsActive) {
-                            const now = Date.now();
-                            const timeSinceLastInsertion = now - plugin.workspaceIntegration.lastTitleInsertionTime;
-
-                            if (timeSinceLastInsertion < plugin.workspaceIntegration.TITLE_INSERTION_RATE_LIMIT_MS) {
-                                verboseLog(plugin, `CREATE: Skipping - rate limited (${timeSinceLastInsertion}ms since last): ${file.name}`);
-                                return;
-                            }
-
-                            plugin.workspaceIntegration.lastTitleInsertionTime = now;
-                        }
-
-                        // Execute actions determined by coordinator
-                        if (actions.shouldInsertTitle) {
-                            verboseLog(plugin, `CREATE: Inserting title for: ${file.path}`);
-                            await plugin.fileOperations.insertTitleOnCreation(file, initialContent);
-                        }
-
-                        if (actions.shouldMoveCursor) {
-                            verboseLog(plugin, `CREATE: Moving cursor for: ${file.path} (placeCursorAtEnd: ${actions.placeCursorAtEnd})`);
-
-                            requestAnimationFrame(() => {
-                                setTimeout(() => {
-                                    // Re-check if file has a view after delays
-                                    const leaves = app.workspace.getLeavesOfType("markdown");
-                                    let fileHasView = false;
-                                    for (const leaf of leaves) {
-                                        const view = leaf.view as MarkdownView;
-                                        if (view && view.file?.path === file.path) {
-                                            fileHasView = true;
-                                            break;
-                                        }
-                                    }
-
-                                    if (fileHasView) {
-                                        // Use coordinator's explicit placeCursorAtEnd decision
-                                        // This respects the decision tree outcomes from Nodes 16-18
-                                        plugin.fileOperations.handleCursorPositioning(
-                                            file,
-                                            !actions.shouldInsertTitle,
-                                            actions.placeCursorAtEnd
-                                        );
-                                    } else {
-                                        verboseLog(plugin, `Skipping cursor positioning - no view found (canvas): ${file.path}`);
-                                    }
-                                }, 200);
-                            });
-                        }
-
-                        // Rename file if automatic mode and plugin fully loaded
-                        if (settings.renameNotes === "automatically" && plugin.isFullyLoaded) {
-                            // Get current editor content if file is open
-                            let editorContent: string | undefined;
-                            const leaves = app.workspace.getLeavesOfType("markdown");
-                            for (const leaf of leaves) {
-                                // Cast to ViewWithFileEditor to access MarkdownView properties
-                                const view = leaf.view as ViewWithFileEditor;
-                                if (view && view.file && view.file.path === file.path && view.editor) {
-                                    const value = view.editor.getValue();
-                                    if (typeof value === 'string') {
-                                        editorContent = value;
-                                    }
-                                    break;
-                                }
-                            }
-                            // hasActiveEditor=true because we just verified editor exists (lines 340-346)
-                            await plugin.renameEngine.processFile(file, true, false, editorContent, false, undefined, true);
-                        }
-
-                        verboseLog(plugin, `CREATE: Completed processing new file: ${file.name}`);
-                    } catch (error) {
-                        console.error(`CREATE: Failed to process new file ${file.path}:`, error);
-                    } finally {
-                        plugin.editorLifecycle.clearCreationDelayTimer(file.path);
+                        plugin.workspaceIntegration.lastTitleInsertionTime = now;
                     }
-                };
 
-                // Execute immediately if no delay, otherwise use timer
-                if (settings.newNoteDelay === 0) {
-                    // No delay - process immediately without blocking events
-                    await processNewFile();
-                } else {
-                    // Has delay - use timer and block events during delay
-                    const timer = setTimeout(processNewFile, settings.newNoteDelay);
-                    plugin.editorLifecycle.setCreationDelayTimer(file.path, timer);
+                    // Execute title insertion and cursor positioning immediately (not affected by newNoteDelay)
+                    if (actions.shouldInsertTitle) {
+                        verboseLog(plugin, `CREATE: Inserting title for: ${file.path}`);
+                        await plugin.fileOperations.insertTitleOnCreation(file, initialContent);
+                    }
+
+                    if (actions.shouldMoveCursor) {
+                        verboseLog(plugin, `CREATE: Moving cursor for: ${file.path} (placeCursorAtEnd: ${actions.placeCursorAtEnd})`);
+
+                        requestAnimationFrame(() => {
+                            setTimeout(() => {
+                                // Re-check if file has a view after delays
+                                const leaves = app.workspace.getLeavesOfType("markdown");
+                                let fileHasView = false;
+                                for (const leaf of leaves) {
+                                    const view = leaf.view as MarkdownView;
+                                    if (view && view.file?.path === file.path) {
+                                        fileHasView = true;
+                                        break;
+                                    }
+                                }
+
+                                if (fileHasView) {
+                                    // Use coordinator's explicit placeCursorAtEnd decision
+                                    // This respects the decision tree outcomes from Nodes 16-18
+                                    plugin.fileOperations.handleCursorPositioning(
+                                        file,
+                                        !actions.shouldInsertTitle,
+                                        actions.placeCursorAtEnd
+                                    );
+                                } else {
+                                    verboseLog(plugin, `Skipping cursor positioning - no view found (canvas): ${file.path}`);
+                                }
+                            }, 200);
+                        });
+                    }
+
+                    // Rename file if automatic mode - respects newNoteDelay setting
+                    const processRename = async () => {
+                        try {
+                            if (settings.renameNotes === "automatically" && plugin.isFullyLoaded) {
+                                verboseLog(plugin, `CREATE: Processing rename after delay: ${file.name}`);
+
+                                // Get current editor content if file is open
+                                let editorContent: string | undefined;
+                                const leaves = app.workspace.getLeavesOfType("markdown");
+                                for (const leaf of leaves) {
+                                    // Cast to ViewWithFileEditor to access MarkdownView properties
+                                    const view = leaf.view as ViewWithFileEditor;
+                                    if (view && view.file && view.file.path === file.path && view.editor) {
+                                        const value = view.editor.getValue();
+                                        if (typeof value === 'string') {
+                                            editorContent = value;
+                                        }
+                                        break;
+                                    }
+                                }
+                                // hasActiveEditor=true because we just verified editor exists
+                                await plugin.renameEngine.processFile(file, true, false, editorContent, false, undefined, true);
+                            }
+
+                            verboseLog(plugin, `CREATE: Completed processing new file: ${file.name}`);
+                        } catch (error) {
+                            console.error(`CREATE: Failed to process rename for ${file.path}:`, error);
+                        } finally {
+                            plugin.editorLifecycle.clearCreationDelayTimer(file.path);
+                        }
+                    };
+
+                    // Execute rename with delay (if configured)
+                    if (settings.newNoteDelay === 0) {
+                        // No delay - process immediately without blocking events
+                        await processRename();
+                    } else {
+                        // Has delay - use timer and block events during delay
+                        verboseLog(plugin, `CREATE: Scheduling rename in ${settings.newNoteDelay}ms: ${file.name}`);
+                        const timer = setTimeout(processRename, settings.newNoteDelay);
+                        plugin.editorLifecycle.setCreationDelayTimer(file.path, timer);
+                    }
+
+                } catch (error) {
+                    console.error(`CREATE: Failed to process new file ${file.path}:`, error);
+                    plugin.editorLifecycle.clearCreationDelayTimer(file.path);
                 }
                 }; // End processFileCreation
 
