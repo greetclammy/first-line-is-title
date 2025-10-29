@@ -73,8 +73,8 @@
 Удаляют запрещенные символы из имен файлов:
 
 - [Safe Filename Linter](https://obsidian.md/plugins?id=safe-filename-linter)
+- [Sync-safe file names](https://obsidian.md/plugins?id=sync-safe-file-names)
 - [Filename Sanitizer](https://github.com/devHudi/obsidian-filename-sanitizer)
-- [Sync-safe file names](https://github.com/j-maas/sync-safe-file-names)
 
 Показывают пользовательские заголовки вместо имен файлов:
 
