@@ -87,7 +87,3 @@ Show custom titles in place of filenames:
 
 - [Copy Link](https://github.com/greetclammy/copy-link) - Add commands to quickly copy links to files, headings and blocks.
 - [Adapt to Current View](https://github.com/greetclammy/adapt-to-current-view/) - Set different accent colors for Reading view, Live Preview and Source view.
-
-<br>
-
-<p align="center">Made with ❤️ for the Obsidian community</p>
