@@ -85,5 +85,6 @@ Show custom titles in place of filenames:
 
 ## 👨‍💻 My plugins
 
-- [Copy Link](https://github.com/greetclammy/copy-link) - Add commands to quickly copy links to files, headings and blocks.
 - [Adapt to Current View](https://github.com/greetclammy/adapt-to-current-view/) - Set different accent colors for Reading view, Live Preview and Source view.
+- [Copy Link](https://github.com/greetclammy/copy-link) - Add commands to quickly copy links to files, headings and blocks.
+- [Dynamic Views](https://github.com/greetclammy/dynamic-views) - Elegant card views for Bases and Datacore.
