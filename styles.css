@@ -1088,11 +1088,11 @@ hr.flit-divider {
 }
 
 /* Fix alignment of setting names with icons */
-.setting-item-name {
+/*.setting-item-name {
     display: flex;
     align-items: center;
     line-height: 1.4;
-}
+}*/
 
 /* ==========================================================================
    Command Palette Icons
