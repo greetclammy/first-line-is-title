@@ -26,8 +26,8 @@ Automatically set the first line as note title, just like in Apple Notes! Forget
 ## 🔏 File integrity
 
 - Only notes that are currently open in the editor are processed, along with any notes you explicitly select for batch operations (like renaming all notes in a folder).
-- Multiple safeguards are in place to prevent unintended changes but **regular [backups](https://help.obsidian.md/backup) remain your ultimate safety net**.
 - By default, note modification date is preserved on rename.
+- Multiple safeguards are in place to prevent unintended changes but **regular [backups](https://help.obsidian.md/backup) remain your ultimate safety net**.
 
 ## ✅ Install
 
