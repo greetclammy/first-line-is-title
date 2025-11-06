@@ -269,8 +269,6 @@ export class WorkspaceIntegration {
                         pluginLoadTime: plugin.pluginLoadTime
                     });
 
-                    verboseLog(plugin, `CREATE: Decision path: ${actions.decisionPath}`);
-
                     // Execute title insertion and cursor positioning immediately (not affected by newNoteDelay)
                     if (actions.shouldInsertTitle) {
                         verboseLog(plugin, `CREATE: Inserting title for: ${file.path}`);
