@@ -57,7 +57,7 @@ Note: to get updates for _First Line is Title_, you will have to check for and i
 - [Report bugs](https://github.com/greetclammy/first-line-is-title/issues)
 - [Request features](https://github.com/greetclammy/first-line-is-title/issues)
 - [Contribute improvements](https://github.com/greetclammy/first-line-is-title/pulls)
-- Share your thoughts on:
+- Discuss on:
   - [Obsidian Forum](https://forum.obsidian.md/t/plugin-to-automatically-copy-first-line-in-note-to-note-title/103558)
   - [Discord](https://discord.com/channels/686053708261228577/707816848615407697) • [Join](https://discord.com/invite/obsidianmd)
   - [r/ObsidianMD](https://www.reddit.com/r/ObsidianMD/comments/1nwmq0x/comment/nhm2x61/)
