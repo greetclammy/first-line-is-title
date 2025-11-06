@@ -6,7 +6,8 @@
     text-align: left;
 }
 
-.modal-title {
+.flit-modal-heading .modal-title,
+.flit-modal-heading-left .modal-title {
     text-align: center;
     margin-top: 10px;
     font-size: 1.5em;
@@ -1070,8 +1071,7 @@ hr.flit-divider {
     margin-top: 1em;
 }
 
-/* Setting item icon styling */
-.setting-item-icon {
+.flit-settings-page .setting-item-icon {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -1082,7 +1082,7 @@ hr.flit-divider {
     flex-shrink: 0;
 }
 
-.setting-item-icon svg {
+.flit-settings-page .setting-item-icon svg {
     width: 16px;
     height: 16px;
 }
