@@ -28,8 +28,8 @@
 ## 🔏 Целостность файлов
 
 - Обрабатываются только заметки, открытые в редакторе, а также заметки, которые явно выбраны для массовых операций (например, переименование всех заметок в папке).
+- По умолчанию, время последнего изменения заметки остается неизменной при переименовании.
 - Несколько механизмов защиты предотвращают нежелательные изменения, но **регулярное [резервное копирование](https://help.obsidian.md/backup) остается вашей главной гарантией безопасности**.
-- По умолчанию, дата последнего изменения заметки остается неизменной при переименовании.
 
 ## ✅ Установка
 
@@ -60,32 +60,3 @@
 - [Предложить функцию](https://github.com/greetclammy/first-line-is-title/issues)
 - [Внести улучшения](https://github.com/greetclammy/first-line-is-title/pulls)
 - [Поделиться мнением](https://github.com/greetclammy/first-line-is-title/discussions)
-
-## 👀 Похожие плагины
-
-Помещают первую строку/заголовок в имя файла или свойство:
-
-- [Auto Filename](https://obsidian.md/plugins?id=auto-filename)
-- [File Title Updater](https://obsidian.md/plugins?id=file-title-updater)
-- [Filename Heading Sync](https://obsidian.md/plugins?id=obsidian-filename-heading-sync)
-- [Linter](https://obsidian.md/plugins?id=obsidian-linter)
-
-Удаляют запрещенные символы из имен файлов:
-
-- [Safe Filename Linter](https://obsidian.md/plugins?id=safe-filename-linter)
-- [Sync-safe file names](https://obsidian.md/plugins?id=sync-safe-file-names)
-- [Filename Sanitizer](https://github.com/devHudi/obsidian-filename-sanitizer)
-
-Показывают пользовательские заголовки вместо имен файлов:
-
-- [Front Matter Title](https://obsidian.md/plugins?id=obsidian-front-matter-title-plugin)
-- [Title As Link Text](https://obsidian.md/plugins?id=title-as-link-text)
-
-## 👨‍💻 Мои плагины
-
-- [Copy Link](https://github.com/greetclammy/copy-link) - Добавляет команды для быстрого копирования ссылок на файлы, заголовки и блоки.
-- [Adapt to Current View](https://github.com/greetclammy/adapt-to-current-view/) - Устанавливает разные акцентные цвета для режима чтения, Live Preview и исходного кода.
-
-<br>
-
-<p align="center">Сделано с ❤️ для сообщества Obsidian</p>
