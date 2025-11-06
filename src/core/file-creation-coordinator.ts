@@ -303,13 +303,13 @@ export class FileCreationCoordinator {
     }
 
     /**
-     * Node 3: Check if any exclusions are configured
+     * Node 3: Check if any tags or properties are configured in Exclusions
+     * Note: Folders are checked separately in Node 2
      */
     private hasExclusions(): boolean {
         const excl = this.plugin.settings.exclusions;
-        return excl.excludedFolders.length > 0 ||
-               excl.excludedTags.length > 0 ||
-               excl.excludedProperties.length > 0;
+        return excl.excludedTags.some(t => t.trim() !== '') ||
+               excl.excludedProperties.some(p => p.key?.trim() !== '');
     }
 
     /**
