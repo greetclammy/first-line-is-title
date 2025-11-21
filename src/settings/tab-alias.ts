@@ -65,6 +65,7 @@ export class PropertiesTab extends SettingsTabBase {
     const aliasToggleSetting = new Setting(this.containerEl)
       .setName(t("settings.alias.addAlias.name"))
       .setDesc(t("settings.alias.addAlias.desc"))
+      .setHeading()
       .addToggle((toggle) =>
         toggle
           .setValue(this.plugin.settings.aliases.enableAliases)
@@ -88,10 +89,6 @@ export class PropertiesTab extends SettingsTabBase {
             renderAliasSettings();
           }),
       );
-
-    aliasToggleSetting.settingEl.addClass("flit-master-toggle");
-    aliasToggleSetting.settingEl.addClass("flit-no-border");
-    aliasToggleSetting.settingEl.addClass("flit-margin-bottom-20");
 
     const aliasContainer = this.containerEl.createDiv({
       cls: "flit-alias-container",
@@ -491,9 +488,12 @@ export class PropertiesTab extends SettingsTabBase {
     if (!Platform.isMobile) {
       const limitationsSetting = new Setting(aliasContainer)
         .setName(t("settings.alias.limitations.title"))
-        .setDesc("");
+        .setDesc("")
+        .setHeading();
 
-      limitationsSetting.settingEl.addClass("flit-section-header");
+      limitationsSetting.settingEl.style.borderBottom = "1px solid var(--background-modifier-border)";
+      limitationsSetting.settingEl.style.paddingBottom = "12px";
+      limitationsSetting.settingEl.style.marginBottom = "12px";
 
       const limitationsContainer = aliasContainer.createDiv();
       const limitationsDesc = limitationsContainer.createEl("p", {

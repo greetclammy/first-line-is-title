@@ -11,6 +11,7 @@ export class StripMarkupTab extends SettingsTabBase {
     const masterToggleSetting = new Setting(this.containerEl)
       .setName(t("settings.stripMarkup.name"))
       .setDesc(t("settings.stripMarkup.desc"))
+      .setHeading()
       .addToggle((toggle) => {
         toggle
           .setValue(this.plugin.settings.markupStripping.enableStripMarkup)
@@ -34,10 +35,6 @@ export class StripMarkupTab extends SettingsTabBase {
             ).updateAliasConditionalSettings?.();
           });
       });
-
-    masterToggleSetting.settingEl.addClass("flit-master-toggle");
-    masterToggleSetting.settingEl.addClass("flit-no-border");
-    masterToggleSetting.settingEl.addClass("flit-margin-bottom-20");
 
     const stripMarkupContainer = this.containerEl.createDiv({
       cls: "flit-strip-markup-container",

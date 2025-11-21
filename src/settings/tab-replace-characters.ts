@@ -14,6 +14,7 @@ export class ForbiddenCharsTab extends SettingsTabBase {
     const headerToggleSetting = new Setting(this.containerEl)
       .setName(t("settings.replaceCharacters.name"))
       .setDesc(t("settings.replaceCharacters.desc"))
+      .setHeading()
       .addToggle((toggle) => {
         toggle
           .setValue(
@@ -113,10 +114,6 @@ export class ForbiddenCharsTab extends SettingsTabBase {
             ).updateGeneralConditionalSettings?.();
           });
       });
-
-    headerToggleSetting.settingEl.addClass("flit-master-toggle");
-    headerToggleSetting.settingEl.addClass("flit-no-border");
-    headerToggleSetting.settingEl.addClass("flit-margin-bottom-20");
 
     const charSettingsContainer = this.containerEl.createDiv({
       cls: "flit-char-settings-container",
@@ -236,8 +233,8 @@ export class ForbiddenCharsTab extends SettingsTabBase {
 
       const allOSesHeaderSetting = new Setting(charSettingsContainer)
         .setName(t("settings.replaceCharacters.allOSes.title"))
-        .setDesc(t("settings.replaceCharacters.allOSes.desc"));
-      allOSesHeaderSetting.settingEl.addClass("flit-master-toggle");
+        .setDesc(t("settings.replaceCharacters.allOSes.desc"))
+        .setHeading();
 
       const allOSesNoteEl = charSettingsContainer.createEl("div", {
         cls: "setting-item-description flit-margin-top-15 flit-margin-bottom-15",
@@ -522,8 +519,8 @@ export class ForbiddenCharsTab extends SettingsTabBase {
             toggle.toggleEl.tabIndex = -1;
             toggle.toggleEl.setAttribute("aria-disabled", "true");
           }
-        });
-      windowsAndroidHeaderSetting.settingEl.addClass("flit-master-toggle");
+        })
+        .setHeading();
       windowsAndroidHeaderSetting.settingEl.addClass(
         "flit-windows-android-header",
       );

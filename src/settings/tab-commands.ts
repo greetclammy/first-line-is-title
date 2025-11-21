@@ -11,6 +11,7 @@ export class CommandsTab extends SettingsTabBase {
     const ribbonHeaderSetting = new Setting(this.containerEl)
       .setName(t("settings.commands.ribbon.title"))
       .setDesc(t("settings.commands.ribbon.desc"))
+      .setHeading()
       .addToggle((toggle) => {
         toggle
           .setValue(this.plugin.settings.core.enableRibbon)
@@ -21,7 +22,6 @@ export class CommandsTab extends SettingsTabBase {
             updateRibbonUI();
           });
       });
-    ribbonHeaderSetting.settingEl.addClass("flit-master-toggle");
     this.containerEl.createEl("br");
 
     const ribbonContainer = this.containerEl.createDiv();
@@ -154,6 +154,7 @@ export class CommandsTab extends SettingsTabBase {
     const commandPaletteHeaderSetting = new Setting(this.containerEl)
       .setName(t("settings.commands.palette.title"))
       .setDesc(t("settings.commands.palette.desc"))
+      .setHeading()
       .addToggle((toggle) => {
         toggle
           .setValue(this.plugin.settings.core.enableCommandPalette)
@@ -164,7 +165,6 @@ export class CommandsTab extends SettingsTabBase {
             updateCommandPaletteUI();
           });
       });
-    commandPaletteHeaderSetting.settingEl.addClass("flit-master-toggle");
     this.containerEl.createEl("br");
 
     const commandPaletteContainer = this.containerEl.createDiv();
@@ -500,6 +500,7 @@ export class CommandsTab extends SettingsTabBase {
     const fileHeaderSetting = new Setting(this.containerEl)
       .setName(t("settings.commands.file.title"))
       .setDesc(t("settings.commands.file.desc"))
+      .setHeading()
       .addToggle((toggle) => {
         toggle
           .setValue(this.plugin.settings.core.enableFileCommands)
@@ -510,8 +511,6 @@ export class CommandsTab extends SettingsTabBase {
             updateFileUI();
           });
       });
-
-    fileHeaderSetting.settingEl.addClass("flit-master-toggle");
     this.containerEl.createEl("br");
 
     const fileContainer = this.containerEl.createDiv();
@@ -600,6 +599,7 @@ export class CommandsTab extends SettingsTabBase {
     const folderHeaderSetting = new Setting(this.containerEl)
       .setName(t("settings.commands.folder.title"))
       .setDesc(t("settings.commands.folder.desc"))
+      .setHeading()
       .addToggle((toggle) => {
         toggle
           .setValue(this.plugin.settings.core.enableFolderCommands)
@@ -610,8 +610,6 @@ export class CommandsTab extends SettingsTabBase {
             updateFolderUI();
           });
       });
-
-    folderHeaderSetting.settingEl.addClass("flit-master-toggle");
     this.containerEl.createEl("br");
 
     const folderContainer = this.containerEl.createDiv();
@@ -704,6 +702,7 @@ export class CommandsTab extends SettingsTabBase {
     const tagHeaderSetting = new Setting(this.containerEl)
       .setName(t("settings.commands.tag.title"))
       .setDesc(t("settings.commands.tag.desc"))
+      .setHeading()
       .addToggle((toggle) => {
         toggle
           .setValue(this.plugin.settings.core.enableTagCommands)
@@ -714,8 +713,6 @@ export class CommandsTab extends SettingsTabBase {
             updateTagUI();
           });
       });
-
-    tagHeaderSetting.settingEl.addClass("flit-master-toggle");
     this.containerEl.createEl("br");
 
     const tagContainer = this.containerEl.createDiv();
@@ -804,6 +801,7 @@ export class CommandsTab extends SettingsTabBase {
     const vaultSearchHeaderSetting = new Setting(this.containerEl)
       .setName(t("settings.commands.search.title"))
       .setDesc(t("settings.commands.search.desc"))
+      .setHeading()
       .addToggle((toggle) => {
         toggle
           .setValue(this.plugin.settings.core.enableVaultSearchContextMenu)
@@ -814,8 +812,6 @@ export class CommandsTab extends SettingsTabBase {
             updateVaultSearchUI();
           });
       });
-
-    vaultSearchHeaderSetting.settingEl.addClass("flit-master-toggle");
     this.containerEl.createEl("br");
 
     const vaultSearchContainer = this.containerEl.createDiv({
