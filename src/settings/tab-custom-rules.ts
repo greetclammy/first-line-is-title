@@ -14,7 +14,7 @@ export class CustomReplacementsTab extends SettingsTabBase {
       .setDesc(t("settings.customRules.desc"))
       .setHeading()
       .addToggle((toggle) => {
-        customHeaderToggleSetting.settingEl.style.marginBottom = "12px";
+        customHeaderToggleSetting.settingEl.style.marginBottom = "0.75em";
         toggle
           .setValue(this.plugin.settings.customRules.enableCustomReplacements)
           .onChange(async (value) => {
