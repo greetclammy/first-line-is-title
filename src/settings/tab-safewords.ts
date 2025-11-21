@@ -333,11 +333,9 @@ export class SafewordsTab extends SettingsTabBase {
                     if (isLastEmptyEntry) {
                         deleteButton.classList.add('disabled');
                         deleteButton.removeAttribute('aria-label');
-                        deleteButton.title = "";
                     } else {
                         deleteButton.classList.remove('disabled');
                         deleteButton.setAttribute('aria-label', t('ariaLabels.remove'));
-                        deleteButton.title = t('ariaLabels.remove');
                     }
 
                     // Update up button state

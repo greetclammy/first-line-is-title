@@ -76,12 +76,11 @@ export class IncludeExcludeTab extends SettingsTabBase {
                         removeButton.setDisabled(true);
                         removeButton.extraSettingsEl.classList.add('flit-state-disabled');
                         removeButton.extraSettingsEl.removeAttribute('aria-label');
-                        removeButton.extraSettingsEl.title = "";
                     } else {
                         removeButton.setDisabled(false);
                         removeButton.extraSettingsEl.classList.remove('flit-state-disabled');
                         removeButton.extraSettingsEl.classList.add('flit-state-enabled');
-                        removeButton.setTooltip("Remove");
+                        removeButton.setTooltip(t('ariaLabels.remove'));
                     }
                 };
 
@@ -259,12 +258,11 @@ export class IncludeExcludeTab extends SettingsTabBase {
                         removeButton.setDisabled(true);
                         removeButton.extraSettingsEl.classList.add('flit-state-disabled');
                         removeButton.extraSettingsEl.removeAttribute('aria-label');
-                        removeButton.extraSettingsEl.title = "";
                     } else {
                         removeButton.setDisabled(false);
                         removeButton.extraSettingsEl.classList.remove('flit-state-disabled');
                         removeButton.extraSettingsEl.classList.add('flit-state-enabled');
-                        removeButton.setTooltip("Remove");
+                        removeButton.setTooltip(t('ariaLabels.remove'));
                     }
                 };
 
@@ -421,12 +419,11 @@ export class IncludeExcludeTab extends SettingsTabBase {
                         removeButton.setDisabled(true);
                         removeButton.extraSettingsEl.classList.add('flit-state-disabled');
                         removeButton.extraSettingsEl.removeAttribute('aria-label');
-                        removeButton.extraSettingsEl.title = "";
                     } else {
                         removeButton.setDisabled(false);
                         removeButton.extraSettingsEl.classList.remove('flit-state-disabled');
                         removeButton.extraSettingsEl.classList.add('flit-state-enabled');
-                        removeButton.setTooltip("Remove");
+                        removeButton.setTooltip(t('ariaLabels.remove'));
                     }
                 };
                 const propertyInputContainer = propertySetting.controlEl.createDiv({ cls: "flit-property-container" });

@@ -371,11 +371,9 @@ export class CustomReplacementsTab extends SettingsTabBase {
                     if (isLastEmptyEntry) {
                         deleteButton.classList.add('disabled');
                         deleteButton.removeAttribute('aria-label');
-                        deleteButton.title = "";
                     } else {
                         deleteButton.classList.remove('disabled');
-                        deleteButton.setAttribute('aria-label', 'Remove');
-                        deleteButton.title = "Remove";
+                        deleteButton.setAttribute('aria-label', t('ariaLabels.remove'));
                     }
 
                     if (index === 0 || isLastEmptyEntry) {
