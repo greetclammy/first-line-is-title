@@ -4,31 +4,31 @@
  */
 
 export interface CharReplacementConfig {
-    /** The string to replace the character with */
-    replacement: string;
-    /** Whether this replacement is enabled */
-    enabled: boolean;
-    /** Trim whitespace to the left of this character */
-    trimLeft: boolean;
-    /** Trim whitespace to the right of this character */
-    trimRight: boolean;
+  /** The string to replace the character with */
+  replacement: string;
+  /** Whether this replacement is enabled */
+  enabled: boolean;
+  /** Trim whitespace to the left of this character */
+  trimLeft: boolean;
+  /** Trim whitespace to the right of this character */
+  trimRight: boolean;
 }
 
 export interface CharReplacements {
-    slash: CharReplacementConfig;
-    colon: CharReplacementConfig;
-    asterisk: CharReplacementConfig;
-    question: CharReplacementConfig;
-    lessThan: CharReplacementConfig;
-    greaterThan: CharReplacementConfig;
-    quote: CharReplacementConfig;
-    pipe: CharReplacementConfig;
-    hash: CharReplacementConfig;
-    leftBracket: CharReplacementConfig;
-    rightBracket: CharReplacementConfig;
-    caret: CharReplacementConfig;
-    backslash: CharReplacementConfig;
-    dot: CharReplacementConfig;
+  slash: CharReplacementConfig;
+  colon: CharReplacementConfig;
+  asterisk: CharReplacementConfig;
+  question: CharReplacementConfig;
+  lessThan: CharReplacementConfig;
+  greaterThan: CharReplacementConfig;
+  quote: CharReplacementConfig;
+  pipe: CharReplacementConfig;
+  hash: CharReplacementConfig;
+  leftBracket: CharReplacementConfig;
+  rightBracket: CharReplacementConfig;
+  caret: CharReplacementConfig;
+  backslash: CharReplacementConfig;
+  dot: CharReplacementConfig;
 }
 
 /**
@@ -40,18 +40,18 @@ export type CharKey = keyof CharReplacements;
  * All supported character keys as a constant array
  */
 export const CHAR_KEYS: CharKey[] = [
-    'slash',
-    'colon',
-    'asterisk',
-    'question',
-    'lessThan',
-    'greaterThan',
-    'quote',
-    'pipe',
-    'hash',
-    'leftBracket',
-    'rightBracket',
-    'caret',
-    'backslash',
-    'dot'
+  "slash",
+  "colon",
+  "asterisk",
+  "question",
+  "lessThan",
+  "greaterThan",
+  "quote",
+  "pipe",
+  "hash",
+  "leftBracket",
+  "rightBracket",
+  "caret",
+  "backslash",
+  "dot",
 ];

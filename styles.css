@@ -1,425 +1,426 @@
 .flit-modal-heading {
-    text-align: center;
+  text-align: center;
 }
 
 .flit-modal-heading-left {
-    text-align: left;
+  text-align: left;
 }
 
 .flit-modal-heading .modal-title,
 .flit-modal-heading-left .modal-title {
-    text-align: center;
-    margin-top: 10px;
-    font-size: 1.5em;
-    font-weight: 600;
+  text-align: center;
+  margin-top: 10px;
+  font-size: 1.5em;
+  font-weight: 600;
 }
 
 .flit-link-input-full {
-    width: 100%;
-    box-sizing: border-box;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .flit-modal-button-container {
-    display: flex;
-    justify-content: flex-end;
-    gap: 10px;
-    margin-top: 20px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 20px;
 }
 
-
 .flit-char-header {
-    margin: 0;
+  margin: 0;
 }
 
 .flit-char-settings-container {
-    display: block;
+  display: block;
 }
 
 .flit-char-settings-container.hidden {
-    display: none;
+  display: none;
 }
 
 /* Style setting names to look like headings for section toggles */
 .flit-header-setting .setting-item-name {
-    font-size: 1.4em;
-    font-weight: 600;
-    color: var(--text-normal);
-    margin: 0;
+  font-size: 1.4em;
+  font-weight: 600;
+  color: var(--text-normal);
+  margin: 0;
 }
 
 .flit-header-setting .setting-item-description {
-    margin-top: 5px;
-    font-size: 0.9em;
+  margin-top: 5px;
+  font-size: 0.9em;
 }
 
 .flit-char-replacement-section-header {
-    margin-bottom: 10px;
+  margin-bottom: 10px;
 }
 
 .flit-char-replacement-section-header.windows-android {
-    margin-top: 12px;
-    margin-bottom: 5px;
-    padding-top: 8px;
-    display: flex;
-    align-items: center;
-    gap: 10px;
+  margin-top: 12px;
+  margin-bottom: 5px;
+  padding-top: 8px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
 .flit-char-replacement-section-header.command-palette {
-    margin-top: 12px;
-    margin-bottom: 5px;
-    padding-top: 8px;
-    display: flex;
-    align-items: center;
-    gap: 10px;
+  margin-top: 12px;
+  margin-bottom: 5px;
+  padding-top: 8px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
 .flit-char-replacement-section-header.ribbon {
-    margin-top: 12px;
-    margin-bottom: 5px;
-    padding-top: 8px;
-    display: flex;
-    align-items: center;
-    gap: 10px;
+  margin-top: 12px;
+  margin-bottom: 5px;
+  padding-top: 8px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
 .flit-char-replacement-section-header.context-menu {
-    margin-top: 12px;
-    margin-bottom: 5px;
-    padding-top: 8px;
-    display: flex;
-    align-items: center;
-    gap: 10px;
+  margin-top: 12px;
+  margin-bottom: 5px;
+  padding-top: 8px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
 .flit-section-title {
-    margin: 0;
-    font-size: 1.33em; /* Standard H3 size */
-    font-weight: 600; /* Standard H3 weight */
+  margin: 0;
+  font-size: 1.33em; /* Standard H3 size */
+  font-weight: 600; /* Standard H3 weight */
 }
 
-.flit-char-replacement-header, .flit-char-replacement-setting {
-    display: flex;
-    align-items: flex-start;
-    padding: 8px 16px;
-    border-bottom: 1px solid var(--background-modifier-border);
-    gap: 8px;
-    width: fit-content;
-    min-width: 750px;
-    background-color: var(--background-primary);
+.flit-char-replacement-header,
+.flit-char-replacement-setting {
+  display: flex;
+  align-items: flex-start;
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--background-modifier-border);
+  gap: 8px;
+  width: fit-content;
+  min-width: 750px;
+  background-color: var(--background-primary);
 }
 
 .flit-char-replacement-header {
-    border-bottom: 1px solid var(--background-modifier-border);
-    font-weight: bold;
-    font-size: 0.9em;
-    padding-top: 9px;
+  border-bottom: 1px solid var(--background-modifier-border);
+  font-weight: bold;
+  font-size: 0.9em;
+  padding-top: 9px;
 }
 
 .flit-char-replacement-header.hidden {
-    display: none;
+  display: none;
 }
 
 .flit-char-replacement-setting:last-of-type {
-    border-bottom: none;
-    width: fit-content;
-    min-width: 750px;
+  border-bottom: none;
+  width: fit-content;
+  min-width: 750px;
 }
 
 .flit-char-replacement-setting.disabled {
-    opacity: 0.5;
-    pointer-events: none;
+  opacity: 0.5;
+  pointer-events: none;
 }
 
 .flit-char-replacement-setting.hidden {
-    display: none;
+  display: none;
 }
 
 .flit-char-name-column {
-    width: 308px;
-    min-width: 308px;
-    max-width: 308px;
-    flex-shrink: 0;
-    text-align: left;
-    display: flex;
-    flex-direction: column;
+  width: 308px;
+  min-width: 308px;
+  max-width: 308px;
+  flex-shrink: 0;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
 }
 
 .flit-char-name-column .setting-item-name {
-    margin-bottom: 2px;
+  margin-bottom: 2px;
 }
 
 .flit-char-name-column .setting-item-description {
-    margin-top: 0;
-    margin-bottom: 0;
-    font-size: 0.85em;
-    color: var(--text-muted);
+  margin-top: 0;
+  margin-bottom: 0;
+  font-size: 0.85em;
+  color: var(--text-muted);
 }
 
 .flit-char-text-input-container {
-    width: 160px;
-    min-width: 160px;
-    max-width: 160px;
-    flex-shrink: 0;
-    display: flex;
-    align-items: center;
-    gap: 4px;
+  width: 160px;
+  min-width: 160px;
+  max-width: 160px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .flit-char-text-input {
-    width: 120px !important;
-    min-width: 120px !important;
-    max-width: 120px !important;
-    flex: none !important;
-    flex-grow: 0 !important;
-    flex-shrink: 0 !important;
-    box-sizing: border-box;
-    overflow: hidden;
-    text-overflow: ellipsis;
+  width: 120px !important;
+  min-width: 120px !important;
+  max-width: 120px !important;
+  flex: none !important;
+  flex-grow: 0 !important;
+  flex-shrink: 0 !important;
+  box-sizing: border-box;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .flit-restore-icon {
-    padding: 4px;
-    background: transparent;
-    border: none;
-    cursor: pointer;
-    color: var(--text-muted);
-    display: flex;
-    align-items: center;
+  padding: 4px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
 }
 
 .flit-restore-icon:hover {
-    color: var(--text-normal);
+  color: var(--text-normal);
 }
 
-
 .flit-custom-header {
-    margin: 0;
+  margin: 0;
 }
 
 .flit-table-container {
-    overflow-x: auto;
-    overflow-y: visible;
-    width: fit-content;
-    max-width: 100%;
-    margin-bottom: 10px;
-    padding: 0 0 1px 0;
-    border: none;
-    border-radius: var(--radius-s);
+  overflow-x: auto;
+  overflow-y: visible;
+  width: fit-content;
+  max-width: 100%;
+  margin-bottom: 10px;
+  padding: 0 0 1px 0;
+  border: none;
+  border-radius: var(--radius-s);
 }
 
 /* Always show scrollbar for tables */
 .flit-table-container::-webkit-scrollbar {
-    -webkit-appearance: none;
-    height: 8px;
+  -webkit-appearance: none;
+  height: 8px;
 }
 
 .flit-table-container::-webkit-scrollbar-thumb {
-    background-color: var(--scrollbar-thumb-bg);
-    border-radius: 6px;
+  background-color: var(--scrollbar-thumb-bg);
+  border-radius: 6px;
 }
 
 .flit-table-container::-webkit-scrollbar-track {
-    background-color: var(--scrollbar-bg);
+  background-color: var(--scrollbar-bg);
 }
 
 /* Hide scrollbar when all features are disabled */
 .flit-table-container.flit-master-disabled::-webkit-scrollbar {
-    display: none;
+  display: none;
 }
-
 
 /* Ensure Windows/Android table container doesn't clip outline */
 .flit-table-container.flit-windows-android-table {
-    padding: 0;
+  padding: 0;
 }
 
 /* Add spacing when table follows a br element (Windows/Android table case) */
 br + .flit-table-container {
-    margin-top: 2px;
+  margin-top: 2px;
 }
 
 /* Fix Windows/Android table border visibility
    Root cause: Border painting issue when table follows toggle-containing Setting
    Solution: Use box-shadow on wrapper instead of container so border scrolls with content */
 .flit-windows-android-table {
-    border: none !important;
+  border: none !important;
 }
 
 .flit-windows-android-table .flit-table-wrapper {
-    box-shadow: 0 0 0 1px var(--background-modifier-border);
-    border-radius: var(--radius-s);
-    overflow: hidden;
+  box-shadow: 0 0 0 1px var(--background-modifier-border);
+  border-radius: var(--radius-s);
+  overflow: hidden;
 }
 
 /* Remove last row bottom border in Windows/Android table to prevent double border */
 .flit-windows-android-table .flit-char-replacement-setting:last-of-type {
-    border-bottom: none !important;
+  border-bottom: none !important;
 }
 
 /* Apply border-radius to first and last rows to match container */
 .flit-windows-android-table .flit-char-replacement-header {
-    border-top-left-radius: var(--radius-s);
-    border-top-right-radius: var(--radius-s);
+  border-top-left-radius: var(--radius-s);
+  border-top-right-radius: var(--radius-s);
 }
 
 .flit-windows-android-table .flit-char-replacement-setting:last-of-type {
-    border-bottom-left-radius: var(--radius-s);
-    border-bottom-right-radius: var(--radius-s);
+  border-bottom-left-radius: var(--radius-s);
+  border-bottom-right-radius: var(--radius-s);
 }
 
 .flit-table-wrapper {
-    width: fit-content;
-    max-width: none; /* Allow tables to be wider than viewport */
-    padding: 1px;
-    padding-bottom: 0;
+  width: fit-content;
+  max-width: none; /* Allow tables to be wider than viewport */
+  padding: 1px;
+  padding-bottom: 0;
 }
 
-.flit-custom-replacement-header, .flit-safeword-header {
-    display: flex;
-    align-items: center;
-    padding: 9px 16px 8px 16px;
-    border-bottom: 1px solid var(--background-modifier-border);
-    font-weight: bold;
-    font-size: 0.9em;
-    gap: 8px;
-    width: fit-content;
-    min-width: 746px;
-    background-color: var(--background-primary);
+.flit-custom-replacement-header,
+.flit-safeword-header {
+  display: flex;
+  align-items: center;
+  padding: 9px 16px 8px 16px;
+  border-bottom: 1px solid var(--background-modifier-border);
+  font-weight: bold;
+  font-size: 0.9em;
+  gap: 8px;
+  width: fit-content;
+  min-width: 746px;
+  background-color: var(--background-primary);
 }
 
 .flit-custom-replacement-header .flit-toggle-column:first-of-type,
 .flit-safeword-header .flit-toggle-column:first-of-type {
-    margin-right: 0;
+  margin-right: 0;
 }
 
 .flit-custom-replacement-header .flit-toggle-column:last-of-type,
 .flit-safeword-header .flit-toggle-column:last-of-type {
-    margin-right: 0;
+  margin-right: 0;
 }
 
-.flit-custom-replacement-header.hidden, .flit-safeword-header.hidden {
-    display: none;
+.flit-custom-replacement-header.hidden,
+.flit-safeword-header.hidden {
+  display: none;
 }
 
-.flit-custom-replacement-setting, .flit-safeword-setting {
-    display: flex;
-    align-items: flex-start;
-    padding: 8px 16px;
-    border-bottom: 1px solid var(--background-modifier-border);
-    gap: 8px;
-    width: fit-content;
-    min-width: 746px;
-    background-color: var(--background-primary);
+.flit-custom-replacement-setting,
+.flit-safeword-setting {
+  display: flex;
+  align-items: flex-start;
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--background-modifier-border);
+  gap: 8px;
+  width: fit-content;
+  min-width: 746px;
+  background-color: var(--background-primary);
 }
 
 .flit-custom-replacement-setting .flit-toggle-column:first-of-type,
 .flit-safeword-setting .flit-toggle-column:first-of-type {
-    margin-right: 0;
+  margin-right: 0;
 }
 
 .flit-custom-replacement-setting .flit-toggle-column:last-of-type,
 .flit-safeword-setting .flit-toggle-column:last-of-type {
-    margin-right: 0;
+  margin-right: 0;
 }
 
-.flit-custom-replacement-setting:last-of-type, .flit-safeword-setting:last-of-type {
-    border-bottom: none;
-    width: fit-content;
-    min-width: 746px;
+.flit-custom-replacement-setting:last-of-type,
+.flit-safeword-setting:last-of-type {
+  border-bottom: none;
+  width: fit-content;
+  min-width: 746px;
 }
 
-.flit-custom-replacement-setting.hidden, .flit-safeword-setting.hidden {
-    display: none;
+.flit-custom-replacement-setting.hidden,
+.flit-safeword-setting.hidden {
+  display: none;
 }
 
 .flit-enable-column {
-    width: 70px;
-    min-width: 70px;
-    max-width: 70px;
-    flex-shrink: 0;
-    text-align: left;
+  width: 70px;
+  min-width: 70px;
+  max-width: 70px;
+  flex-shrink: 0;
+  text-align: left;
 }
 
 .flit-text-column {
-    width: 180px;
-    min-width: 180px;
-    max-width: 180px;
-    flex-shrink: 0;
-    text-align: left;
-    overflow: hidden;
+  width: 180px;
+  min-width: 180px;
+  max-width: 180px;
+  flex-shrink: 0;
+  text-align: left;
+  overflow: hidden;
 }
 
 .flit-text-column.flit-safeword-input {
-    width: 290px;
-    min-width: 290px;
-    max-width: 290px;
+  width: 290px;
+  min-width: 290px;
+  max-width: 290px;
 }
 
 .flit-text-column input {
-    width: 100%;
-    max-width: 100%;
-    box-sizing: border-box;
-    /* Remove overflow: hidden to prevent outline clipping */
-    text-overflow: ellipsis;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  /* Remove overflow: hidden to prevent outline clipping */
+  text-overflow: ellipsis;
 }
 
 .flit-toggle-column {
-    width: 70px;
-    min-width: 70px;
-    max-width: 70px;
-    flex-shrink: 0;
-    text-align: left;
-    line-height: 1.2;
+  width: 70px;
+  min-width: 70px;
+  max-width: 70px;
+  flex-shrink: 0;
+  text-align: left;
+  line-height: 1.2;
 }
 
 .flit-toggle-column.center {
-    display: flex;
-    justify-content: left;
+  display: flex;
+  justify-content: left;
 }
 
-
 .flit-actions-column {
-    width: 104px;
-    min-width: 104px;
-    max-width: 104px;
-    flex-shrink: 0;
+  width: 104px;
+  min-width: 104px;
+  max-width: 104px;
+  flex-shrink: 0;
 }
 
 .flit-button-container {
-    display: flex;
-    gap: 4px;
-    align-items: center;
+  display: flex;
+  gap: 4px;
+  align-items: center;
 }
 
 .flit-nav-button {
-    padding: 4px;
-    background: transparent;
-    border: none;
-    cursor: pointer;
+  padding: 4px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
 }
 
 .flit-nav-button.disabled,
 .flit-delete-button.disabled {
-    cursor: not-allowed;
-    opacity: 0.25 !important;
-    pointer-events: none !important;
+  cursor: not-allowed;
+  opacity: 0.25 !important;
+  pointer-events: none !important;
 }
 
-
-
-.flit-add-replacement-button.hidden, .flit-add-safeword-button.hidden {
-    display: none;
+.flit-add-replacement-button.hidden,
+.flit-add-safeword-button.hidden {
+  display: none;
 }
 
 .flit-section-title {
-    border-bottom: none !important;
+  border-bottom: none !important;
 }
 
 .flit-section-title + .setting-item {
-    border-top: none !important;
-    margin-top: 15px !important;
-    padding-top: 0 !important;
+  border-top: none !important;
+  margin-top: 15px !important;
+  padding-top: 0 !important;
 }
 
 /* Let Obsidian handle all input styling naturally */
@@ -428,34 +429,34 @@ br + .flit-table-container {
 .flit-custom-replacement-setting input[type="text"],
 .flit-safeword-setting input[type="text"],
 .flit-text-column input[type="text"] {
-    margin: 2px !important;
-    width: calc(100% - 4px) !important;
-    max-width: calc(100% - 4px) !important;
+  margin: 2px !important;
+  width: calc(100% - 4px) !important;
+  max-width: calc(100% - 4px) !important;
 }
 
 /* Adjust row alignment to accommodate input margins */
 .flit-custom-replacement-setting,
 .flit-safeword-setting {
-    align-items: stretch !important;
+  align-items: stretch !important;
 }
 
 /* Remove all container-level disabled styling */
 .flit-custom-replacements-container.disabled,
 .flit-safewords-container.disabled {
-    /* Remove all styling - containers should never be styled as disabled */
+  /* Remove all styling - containers should never be styled as disabled */
 }
 
 /* Ensure alias container allows overflow for dropdowns */
 .flit-alias-container {
-    overflow: visible !important;
+  overflow: visible !important;
 }
 
 .flit-alias-container .setting-item {
-    overflow: visible !important;
+  overflow: visible !important;
 }
 
 .flit-alias-container .setting-item-control {
-    overflow: visible !important;
+  overflow: visible !important;
 }
 
 /* Apply disabled styling to section elements when master toggle OFF */
@@ -464,73 +465,73 @@ br + .flit-table-container {
 .master-disabled .flit-safeword-header,
 .master-disabled .flit-add-replacement-button,
 .master-disabled .flit-add-safeword-button {
-    opacity: 0.5;
+  opacity: 0.5;
 }
 
 /* Gray out individual row content (but not the row container itself) */
 .master-disabled .flit-custom-replacement-setting > *:not(.flit-actions-column),
 .master-disabled .flit-safeword-setting > *:not(.flit-actions-column) {
-    opacity: 0.5;
+  opacity: 0.5;
 }
 
 /* Keep action buttons visible */
 .master-disabled .flit-actions-column {
-    opacity: 1 !important;
+  opacity: 1 !important;
 }
 
 /* Reset row-disabled opacity when inside master-disabled to prevent stacking */
 .master-disabled .flit-row-disabled > * {
-    opacity: 1 !important;
+  opacity: 1 !important;
 }
 
 /* Delete button inherits from clickable-icon, no additional styling needed */
 
 /* Maximize excluded folder text input width */
 .flit-excluded-folder-setting {
-    display: flex !important;
-    align-items: center !important;
+  display: flex !important;
+  align-items: center !important;
 }
 .flit-excluded-folder-setting .setting-item-info {
-    display: none !important;
+  display: none !important;
 }
 .flit-excluded-folder-setting .setting-item-control {
-    flex: 1 !important;
-    max-width: none !important;
+  flex: 1 !important;
+  max-width: none !important;
 }
 
 /* Action buttons styling - will be disabled via master disabled class */
 .flit-nav-button,
 .flit-actions-column,
 .flit-button-container {
-    /* No forced opacity or pointer-events - allow parent classes to control */
+  /* No forced opacity or pointer-events - allow parent classes to control */
 }
 
 /* Fix alignment of action buttons */
 .flit-custom-replacement-setting,
 .flit-safeword-setting {
-    display: flex;
-    align-items: center !important; /* Force center alignment */
+  display: flex;
+  align-items: center !important; /* Force center alignment */
 }
 
 .flit-actions-column {
-    display: flex;
-    align-items: center;
-    justify-content: flex-start;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
 }
 
 .flit-button-container {
-    display: flex;
-    align-items: center;
-    gap: 4px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 
 /* Fix spacing between last toggle and actions */
 .flit-toggle-column:last-of-type {
-    margin-right: 0;
+  margin-right: 0;
 }
 
 .flit-actions-column {
-    margin-left: 4px;
+  margin-left: 4px;
 }
 
 /* Ensure master toggles are never greyed out - SCOPED TO PLUGIN ONLY */
@@ -542,25 +543,24 @@ br + .flit-table-container {
 .flit-char-header-container input[type="checkbox"],
 .flit-custom-header-container [role="switch"],
 .flit-char-header-container [role="switch"] {
-    opacity: 1 !important;
-    pointer-events: auto !important;
-    display: block !important;
-    visibility: visible !important;
+  opacity: 1 !important;
+  pointer-events: auto !important;
+  display: block !important;
+  visibility: visible !important;
 }
 
 /* Fix the visual artifact in toggle - hide pseudo-elements causing circular artifacts */
 .flit-custom-header-container,
 .flit-char-header-container {
-    position: relative !important;
+  position: relative !important;
 }
 
 .flit-custom-header-container .setting-item,
 .flit-char-header-container .setting-item {
-    border: none !important;
-    padding: 0 !important;
-    background: none !important;
+  border: none !important;
+  padding: 0 !important;
+  background: none !important;
 }
-
 
 /* Ensure toggle elements don't inherit problematic styles */
 .flit-custom-header-container .checkbox-container,
@@ -571,24 +571,24 @@ br + .flit-table-container {
 .flit-char-header-container input[type="checkbox"],
 .flit-custom-header-container [role="switch"],
 .flit-char-header-container [role="switch"] {
-    background: transparent !important;
-    border: none !important;
-    box-shadow: none !important;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
 }
 
 /* Force visibility on all toggle elements in header containers */
 .flit-custom-header-container *,
 .flit-char-header-container * {
-    opacity: inherit !important;
+  opacity: inherit !important;
 }
 
 /* Specifically target toggle container elements */
 .flit-custom-header-container > *:last-child,
 .flit-char-header-container > *:last-child {
-    opacity: 1 !important;
-    pointer-events: auto !important;
-    display: block !important;
-    visibility: visible !important;
+  opacity: 1 !important;
+  pointer-events: auto !important;
+  display: block !important;
+  visibility: visible !important;
 }
 
 /* Minimal fix: Only target known problematic elements in plugin containers */
@@ -598,183 +598,180 @@ br + .flit-table-container {
    ========================================================================== */
 
 .flit-settings-tab-bar {
-    --flit-tab-min-width: 140px;
-    display: grid;
-    gap: 4px;
-    padding: 4px;
-    padding-bottom: 1rem;
-    width: 100%;
-    max-width: 100%;
-    box-sizing: border-box;
-    justify-content: stretch;
-    /* Start with 5 columns, CSS will adjust based on container width */
-    grid-template-columns: repeat(5, minmax(var(--flit-tab-min-width), 1fr));
-    /* Allow horizontal scrolling when tabs need more space than container provides */
-    overflow-x: auto;
-    overflow-y: hidden;
-    /* Ensure grid can be wider than container when needed */
-    min-width: min-content;
+  --flit-tab-min-width: 140px;
+  display: grid;
+  gap: 4px;
+  padding: 4px;
+  padding-bottom: 1rem;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  justify-content: stretch;
+  /* Start with 5 columns, CSS will adjust based on container width */
+  grid-template-columns: repeat(5, minmax(var(--flit-tab-min-width), 1fr));
+  /* Allow horizontal scrolling when tabs need more space than container provides */
+  overflow-x: auto;
+  overflow-y: hidden;
+  /* Ensure grid can be wider than container when needed */
+  min-width: min-content;
 }
 
 /* Russian locale requires wider tabs due to longer text */
 .flit-settings-tab-bar.flit-locale-ru {
-    --flit-tab-min-width: 152px;
+  --flit-tab-min-width: 152px;
 }
 
 .flit-settings-tab {
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    justify-content: center;
-    gap: var(--size-4-2);
-    padding: 10px;
-    border: 1px solid var(--background-modifier-border);
-    cursor: pointer;
-    border-radius: var(--radius-s);
-    transition: all 0.15s ease;
-    width: 100%;
-    min-width: var(--flit-tab-min-width);
-    box-sizing: border-box;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: var(--size-4-2);
+  padding: 10px;
+  border: 1px solid var(--background-modifier-border);
+  cursor: pointer;
+  border-radius: var(--radius-s);
+  transition: all 0.15s ease;
+  width: 100%;
+  min-width: var(--flit-tab-min-width);
+  box-sizing: border-box;
 }
 
 .flit-settings-tab-name {
-    white-space: normal;
-    text-align: center;
-    line-height: 1.2;
-    word-break: break-word;
-    font-size: 0.85em;
+  white-space: normal;
+  text-align: center;
+  line-height: 1.2;
+  word-break: break-word;
+  font-size: 0.85em;
 }
 
 /* Use container queries if supported, fallback to media queries */
 @supports (container-type: inline-size) {
-    .flit-settings-page {
-        container-type: inline-size;
-    }
+  .flit-settings-page {
+    container-type: inline-size;
+  }
 
-    /* 5-4 layout: container width >= 720px (5 * min-width + gaps) */
-    @container (min-width: 720px) {
-        .flit-settings-tab-bar {
-            grid-template-columns: repeat(5, minmax(var(--flit-tab-min-width), 1fr));
-            justify-content: stretch;
-        }
+  /* 5-4 layout: container width >= 720px (5 * min-width + gaps) */
+  @container (min-width: 720px) {
+    .flit-settings-tab-bar {
+      grid-template-columns: repeat(5, minmax(var(--flit-tab-min-width), 1fr));
+      justify-content: stretch;
     }
+  }
 
-    /* 3-3-3 layout: container width 420px-719px (3 * min-width + gaps) */
-    @container (min-width: 420px) and (max-width: 719px) {
-        .flit-settings-tab-bar {
-            grid-template-columns: repeat(3, minmax(var(--flit-tab-min-width), 1fr));
-            justify-content: stretch;
-        }
+  /* 3-3-3 layout: container width 420px-719px (3 * min-width + gaps) */
+  @container (min-width: 420px) and (max-width: 719px) {
+    .flit-settings-tab-bar {
+      grid-template-columns: repeat(3, minmax(var(--flit-tab-min-width), 1fr));
+      justify-content: stretch;
     }
+  }
 
-    /* 2-2-2-2-1 layout: container width 280px-419px (2 * min-width + gaps) */
-    @container (min-width: 280px) and (max-width: 419px) {
-        .flit-settings-tab-bar {
-            grid-template-columns: repeat(2, minmax(var(--flit-tab-min-width), 1fr));
-            justify-content: stretch;
-        }
+  /* 2-2-2-2-1 layout: container width 280px-419px (2 * min-width + gaps) */
+  @container (min-width: 280px) and (max-width: 419px) {
+    .flit-settings-tab-bar {
+      grid-template-columns: repeat(2, minmax(var(--flit-tab-min-width), 1fr));
+      justify-content: stretch;
     }
+  }
 
-    /* 9 rows: container width < 280px - still enforce minimum */
-    @container (max-width: 279px) {
-        .flit-settings-tab-bar {
-            grid-template-columns: minmax(var(--flit-tab-min-width), 1fr);
-            justify-content: stretch;
-            /* Grid will be min-width wide minimum, allowing horizontal scroll if needed */
-            min-width: var(--flit-tab-min-width);
-        }
+  /* 9 rows: container width < 280px - still enforce minimum */
+  @container (max-width: 279px) {
+    .flit-settings-tab-bar {
+      grid-template-columns: minmax(var(--flit-tab-min-width), 1fr);
+      justify-content: stretch;
+      /* Grid will be min-width wide minimum, allowing horizontal scroll if needed */
+      min-width: var(--flit-tab-min-width);
     }
+  }
 }
 
 /* Fallback for browsers without container query support */
 @supports not (container-type: inline-size) {
-    /* Use reasonable viewport-based breakpoints as fallback */
-    @media screen and (min-width: 720px) {
-        .flit-settings-tab-bar {
-            grid-template-columns: repeat(5, minmax(var(--flit-tab-min-width), 1fr));
-            max-width: 720px;
-            margin: 0 auto;
-        }
+  /* Use reasonable viewport-based breakpoints as fallback */
+  @media screen and (min-width: 720px) {
+    .flit-settings-tab-bar {
+      grid-template-columns: repeat(5, minmax(var(--flit-tab-min-width), 1fr));
+      max-width: 720px;
+      margin: 0 auto;
     }
+  }
 
-    @media screen and (max-width: 719px) and (min-width: 420px) {
-        .flit-settings-tab-bar {
-            grid-template-columns: repeat(3, minmax(var(--flit-tab-min-width), 1fr));
-        }
+  @media screen and (max-width: 719px) and (min-width: 420px) {
+    .flit-settings-tab-bar {
+      grid-template-columns: repeat(3, minmax(var(--flit-tab-min-width), 1fr));
     }
+  }
 
-    @media screen and (max-width: 419px) and (min-width: 280px) {
-        .flit-settings-tab-bar {
-            grid-template-columns: repeat(2, minmax(var(--flit-tab-min-width), 1fr));
-        }
+  @media screen and (max-width: 419px) and (min-width: 280px) {
+    .flit-settings-tab-bar {
+      grid-template-columns: repeat(2, minmax(var(--flit-tab-min-width), 1fr));
     }
+  }
 
-    @media screen and (max-width: 279px) {
-        .flit-settings-tab-bar {
-            grid-template-columns: minmax(var(--flit-tab-min-width), 1fr);
-            min-width: var(--flit-tab-min-width);
-        }
+  @media screen and (max-width: 279px) {
+    .flit-settings-tab-bar {
+      grid-template-columns: minmax(var(--flit-tab-min-width), 1fr);
+      min-width: var(--flit-tab-min-width);
     }
+  }
 }
 
-
-
-
 .flit-settings-tab:hover:not(.flit-settings-tab-active) {
-    background-color: var(--background-modifier-hover);
+  background-color: var(--background-modifier-hover);
 }
 
 .flit-settings-tab:focus-visible {
-    outline: 2px solid var(--color-accent);
-    outline-offset: 2px;
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
 }
 
 .flit-settings-tab-active {
-    background-color: var(--color-accent) !important;
-    color: var(--text-on-accent) !important;
+  background-color: var(--color-accent) !important;
+  color: var(--text-on-accent) !important;
 }
 
 /* Ensure active tab styling works on mobile with increased specificity */
 .flit-settings-tab.flit-settings-tab-active {
-    background-color: var(--color-accent) !important;
-    color: var(--text-on-accent) !important;
+  background-color: var(--color-accent) !important;
+  color: var(--text-on-accent) !important;
 }
 
 /* Force active styling on mobile devices */
 @media screen and (max-width: 768px) {
-    .flit-settings-tab.flit-settings-tab-active {
-        background-color: var(--color-accent) !important;
-        color: var(--text-on-accent) !important;
-    }
+  .flit-settings-tab.flit-settings-tab-active {
+    background-color: var(--color-accent) !important;
+    color: var(--text-on-accent) !important;
+  }
 }
 
 .flit-settings-tab-name {
-    font-weight: bold;
-    text-align: center;
-    line-height: 1.2;
-    font-size: 0.9em;
-    white-space: nowrap;
+  font-weight: bold;
+  text-align: center;
+  line-height: 1.2;
+  font-size: 0.9em;
+  white-space: nowrap;
 }
 
 /* Ensure tab name inherits color from parent */
 .flit-settings-tab-active .flit-settings-tab-name {
-    color: inherit !important;
+  color: inherit !important;
 }
 
 .flit-settings-page {
-    /* Container for tab content */
-    width: 100%;
-    max-width: 100%;
-    box-sizing: border-box;
+  /* Container for tab content */
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .flit-divider {
-    display: none !important; /* Hide redundant divider lines since tables now have proper bottom borders */
+  display: none !important; /* Hide redundant divider lines since tables now have proper bottom borders */
 }
 
 /* Hide any HR elements that might be creating redundant borders */
 hr.flit-divider {
-    display: none !important;
+  display: none !important;
 }
 
 /* Remove borders from settings elements that might be creating extra lines */
@@ -782,27 +779,27 @@ hr.flit-divider {
 .flit-table-wrapper + hr,
 .flit-add-replacement-button + hr,
 .flit-add-safeword-button + hr {
-    display: none !important;
+  display: none !important;
 }
 
 /* Remove any borders from containers that might appear after tables */
 .flit-table-container,
 .flit-table-wrapper {
-    border-bottom: none !important;
-    margin-bottom: 0 !important;
+  border-bottom: none !important;
+  margin-bottom: 0 !important;
 }
 
 /* Remove borders from add buttons and their containers */
 .flit-add-replacement-button,
 .flit-add-safeword-button {
-    border-top: none !important;
-    border-bottom: none !important;
-    margin-top: 10px !important;
-    /* Keep buttons fixed to viewport width, don't let them scroll */
-    width: 100%;
-    max-width: 100%;
-    position: relative;
-    overflow: visible;
+  border-top: none !important;
+  border-bottom: none !important;
+  margin-top: 10px !important;
+  /* Keep buttons fixed to viewport width, don't let them scroll */
+  width: 100%;
+  max-width: 100%;
+  position: relative;
+  overflow: visible;
 }
 
 /* Hide any setting item borders that might appear after tables */
@@ -810,7 +807,7 @@ hr.flit-divider {
 .flit-table-wrapper + .setting-item,
 .flit-custom-replacement-setting:last-of-type + .setting-item,
 .flit-safeword-setting:last-of-type + .setting-item {
-    border-top: none !important;
+  border-top: none !important;
 }
 
 /* Nuclear option: remove ALL borders from any elements that might follow tables */
@@ -818,210 +815,212 @@ hr.flit-divider {
 .flit-table-wrapper ~ *,
 .flit-custom-replacement-setting:last-of-type ~ *,
 .flit-safeword-setting:last-of-type ~ * {
-    border-top: none !important;
-    border-bottom: none !important;
+  border-top: none !important;
+  border-bottom: none !important;
 }
 
 /* Remove borders from any section elements */
 .flit-settings-page hr,
 .flit-settings-page .setting-item:first-of-type {
-    border-top: none !important;
+  border-top: none !important;
 }
 
 /* Keep non-table elements fixed to viewport width (don't let them scroll horizontally) */
 .flit-settings-page h2,
 .flit-settings-page h3,
 .flit-settings-page p,
-.flit-settings-page .setting-item:not(.flit-custom-replacement-setting):not(.flit-safeword-setting):not(.flit-char-replacement-setting),
+.flit-settings-page
+  .setting-item:not(.flit-custom-replacement-setting):not(
+    .flit-safeword-setting
+  ):not(.flit-char-replacement-setting),
 .flit-char-replacement-section-header,
 .flit-section-title {
-    width: 100%;
-    max-width: 100%;
-    overflow-x: hidden; /* Force no horizontal overflow */
-    box-sizing: border-box;
-    word-wrap: break-word; /* Prevent text overflow */
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden; /* Force no horizontal overflow */
+  box-sizing: border-box;
+  word-wrap: break-word; /* Prevent text overflow */
 }
 
 /* Allow table containers to scroll while preventing everything else from overflowing */
 .flit-table-container {
-    /* Allow horizontal scroll for tables only */
-    overflow-x: auto !important;
+  /* Allow horizontal scroll for tables only */
+  overflow-x: auto !important;
 }
 
 /* Prevent non-table elements from causing horizontal overflow */
 .flit-settings-page > *:not(.flit-table-container) {
-    max-width: 100%;
-    overflow-x: hidden;
-    box-sizing: border-box;
+  max-width: 100%;
+  overflow-x: hidden;
+  box-sizing: border-box;
 }
 
 /* Master toggle styling */
 .flit-master-toggle {
-    border-top: none !important;
-    border-bottom: 1px solid var(--background-modifier-border) !important;
+  border-top: none !important;
+  border-bottom: 1px solid var(--background-modifier-border) !important;
 }
 
 /* Ensure no double borders from Obsidian's default setting-item styling */
 .flit-master-toggle.setting-item {
-    border-bottom: 1px solid var(--background-modifier-border) !important;
+  border-bottom: 1px solid var(--background-modifier-border) !important;
 }
 
 /* Section header styling (like master toggle but can be greyed out) */
 .flit-section-header {
-    border-top: none !important;
-    border-bottom: 1px solid var(--background-modifier-border) !important;
+  border-top: none !important;
+  border-bottom: 1px solid var(--background-modifier-border) !important;
 }
 
 .flit-section-header.setting-item {
-    border-bottom: 1px solid var(--background-modifier-border) !important;
+  border-bottom: 1px solid var(--background-modifier-border) !important;
 }
 
 .flit-section-header .setting-item-name {
-    font-weight: bold;
+  font-weight: bold;
 }
 
 /* Remove border-top from settings that immediately follow the Processing order master toggle to prevent border stacking */
 .flit-processing-order-toggle + .setting-item {
-    border-top: none !important;
+  border-top: none !important;
 }
 
 /* Remove borders from specific toggle settings - higher specificity to override master toggle */
 .flit-master-toggle.flit-no-border {
-    border-bottom: none !important;
+  border-bottom: none !important;
 }
 
 /* Master toggle names should be bold */
 .flit-master-toggle .setting-item-name {
-    font-weight: bold;
+  font-weight: bold;
 }
 
 /* Ensure consistent X button positioning and sizing across all sections */
 .flit-excluded-folder-setting .setting-item-control {
-    display: flex !important;
-    align-items: center !important;
-    gap: 8px !important;
-    width: 100% !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  width: 100% !important;
 }
 
 .flit-excluded-folder-setting .setting-item-control input {
-    flex: 1 !important;
-    min-width: 0 !important;
-    /* Add margin to prevent focus outline clipping */
-    margin: 2px !important;
+  flex: 1 !important;
+  min-width: 0 !important;
+  /* Add margin to prevent focus outline clipping */
+  margin: 2px !important;
 }
 
 .flit-excluded-folder-setting .setting-item-control .clickable-icon {
-    flex-shrink: 0 !important;
-    width: 32px !important;
-    height: 32px !important;
+  flex-shrink: 0 !important;
+  width: 32px !important;
+  height: 32px !important;
 }
 
 /* Property container - ensure it doesn't push X button off screen */
 .flit-property-container {
-    flex: 1 !important;
-    min-width: 0 !important;
-    width: auto !important;
+  flex: 1 !important;
+  min-width: 0 !important;
+  width: auto !important;
 }
 
 /* Property inputs - make them flexible at narrow widths */
 .flit-property-key-input,
 .flit-property-value-input {
-    flex: 1 !important;
-    min-width: 60px !important;
+  flex: 1 !important;
+  min-width: 60px !important;
 }
-
 
 /* Ensure all X buttons are the same size */
 .flit-button-container .clickable-icon {
-    width: 32px !important;
-    height: 32px !important;
-    min-width: 32px !important;
-    min-height: 32px !important;
-    font-size: 16px !important;
+  width: 32px !important;
+  height: 32px !important;
+  min-width: 32px !important;
+  min-height: 32px !important;
+  font-size: 16px !important;
 }
 
 /* Ensure restore button in excluded folder settings has same size as X buttons */
 .flit-excluded-folder-setting .setting-item-control .flit-restore-icon {
-    width: 32px !important;
-    height: 32px !important;
-    min-width: 32px !important;
-    min-height: 32px !important;
-    flex-shrink: 0 !important;
-    font-size: 16px !important;
+  width: 32px !important;
+  height: 32px !important;
+  min-width: 32px !important;
+  min-height: 32px !important;
+  flex-shrink: 0 !important;
+  font-size: 16px !important;
 }
 
 /* Fix Property disable renaming restore button on mobile */
 .flit-property-control-wrapper {
-    display: flex !important;
-    align-items: center !important;
-    gap: 8px !important;
-    width: 100% !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  width: 100% !important;
 }
 
 .flit-restore-button-container {
-    flex-shrink: 0 !important;
-    display: flex !important;
-    align-items: center !important;
-    justify-content: center !important;
+  flex-shrink: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
 }
 
 .flit-restore-button-container .flit-restore-icon {
-    width: 32px !important;
-    height: 32px !important;
-    min-width: 32px !important;
-    min-height: 32px !important;
-    display: flex !important;
-    align-items: center !important;
-    justify-content: center !important;
+  width: 32px !important;
+  height: 32px !important;
+  min-width: 32px !important;
+  min-height: 32px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
 }
 
 .flit-restore-button-container .flit-restore-icon svg {
-    width: 18px !important;
-    height: 18px !important;
+  width: 18px !important;
+  height: 18px !important;
 }
 
 /* Disabled row styling - only apply opacity to non-toggle elements */
 .flit-row-disabled {
-    pointer-events: none;
+  pointer-events: none;
 }
 
 /* For custom table rows (Replace Characters section) */
 .flit-row-disabled .flit-char-name-column,
 .flit-row-disabled .flit-char-text-input-container,
 .flit-row-disabled .flit-toggle-column {
-    opacity: 0.5;
+  opacity: 0.5;
 }
 
 /* For regular settings (Alias section) */
 .setting-item.flit-row-disabled .setting-item-name,
 .setting-item.flit-row-disabled .setting-item-description {
-    opacity: 0.5;
+  opacity: 0.5;
 }
 
 /* Also grey out the control toggle when disabled */
 .setting-item.flit-row-disabled .setting-item-control {
-    opacity: 0.5;
+  opacity: 0.5;
 }
 
 /* Keep the toggle itself interactive even in disabled rows */
 .flit-row-disabled .flit-enable-column {
-    pointer-events: auto;
+  pointer-events: auto;
 }
 
 /* Keep reorder and delete buttons interactive even in disabled rows */
 .flit-row-disabled .flit-actions-column {
-    pointer-events: auto;
-    opacity: 1;
+  pointer-events: auto;
+  opacity: 1;
 }
 
 /* But disable enable column when master toggle is OFF */
 .flit-master-disabled .flit-enable-column {
-    pointer-events: none;
+  pointer-events: none;
 }
 
 /* Master disabled section styling - DO NOT apply opacity to container */
 .flit-master-disabled {
-    pointer-events: none;
+  pointer-events: none;
 }
 
 /* Apply opacity to specific element types, NOT containers */
@@ -1034,26 +1033,26 @@ hr.flit-divider {
 .flit-master-disabled .flit-safeword-setting,
 .flit-master-disabled br,
 .flit-master-disabled p.setting-item-description {
-    opacity: 0.5;
+  opacity: 0.5;
 }
 
 /* Also apply to elements that get .flit-master-disabled class directly (like descriptions, headers) */
 .flit-master-disabled.setting-item-description,
 .flit-master-disabled.flit-section-header {
-    opacity: 0.5;
+  opacity: 0.5;
 }
 
 /* IMPORTANT: Keep ONLY the controlling master toggle (with .flit-no-border) at full opacity */
 .flit-master-disabled > .setting-item.flit-no-border {
-    opacity: 1 !important;
-    pointer-events: auto !important;
+  opacity: 1 !important;
+  pointer-events: auto !important;
 }
 
 /* When section is disabled, disabled rows should have same opacity as enabled rows (no stacking) */
 .flit-master-disabled .flit-char-replacement-setting.flit-row-disabled,
 .flit-master-disabled .flit-custom-replacement-setting.flit-row-disabled,
 .flit-master-disabled .flit-safeword-setting.flit-row-disabled {
-    opacity: 0.5 !important; /* Same as enabled rows in disabled section */
+  opacity: 0.5 !important; /* Same as enabled rows in disabled section */
 }
 
 /* Reset child element opacity inside disabled rows to prevent stacking */
@@ -1063,28 +1062,28 @@ hr.flit-divider {
 .flit-master-disabled .setting-item.flit-row-disabled .setting-item-name,
 .flit-master-disabled .setting-item.flit-row-disabled .setting-item-description,
 .flit-master-disabled .setting-item.flit-row-disabled .setting-item-control {
-    opacity: 1 !important; /* Reset to 1 so parent's 0.5 is the final opacity */
+  opacity: 1 !important; /* Reset to 1 so parent's 0.5 is the final opacity */
 }
 
 /* Processing order container spacing */
 .flit-processing-order-container {
-    margin-top: 1em;
+  margin-top: 1em;
 }
 
 .flit-settings-page .setting-item-icon {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 16px;
-    height: 16px;
-    margin-right: 8px;
-    color: var(--text-muted);
-    flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  margin-right: 8px;
+  color: var(--text-muted);
+  flex-shrink: 0;
 }
 
 .flit-settings-page .setting-item-icon svg {
-    width: 16px;
-    height: 16px;
+  width: 16px;
+  height: 16px;
 }
 
 /* Fix alignment of setting names with icons */
@@ -1100,19 +1099,19 @@ hr.flit-divider {
 
 /* Dynamic command palette icons injected via JavaScript */
 .flit-command-icon {
-    display: inline-flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    width: 16px !important;
-    height: 16px !important;
-    margin-right: 8px !important;
-    color: var(--text-muted) !important;
-    flex-shrink: 0 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 16px !important;
+  height: 16px !important;
+  margin-right: 8px !important;
+  color: var(--text-muted) !important;
+  flex-shrink: 0 !important;
 }
 
 .flit-command-icon svg {
-    width: 16px !important;
-    height: 16px !important;
+  width: 16px !important;
+  height: 16px !important;
 }
 
 /* ==========================================================================
@@ -1120,8 +1119,8 @@ hr.flit-divider {
    ========================================================================== */
 
 .flit-colon-separator {
-    color: var(--text-muted);
-    flex-shrink: 0;
+  color: var(--text-muted);
+  flex-shrink: 0;
 }
 
 /* ==========================================================================
@@ -1130,57 +1129,57 @@ hr.flit-divider {
 
 /* Simple sub-settings container styling - copied from notebook-navigator */
 .flit-sub-settings {
-    margin-inline-start: 20px;
-    padding-left: 1em;
-    position: relative;
+  margin-inline-start: 20px;
+  padding-left: 1em;
+  position: relative;
 }
 
 /* Create shortened indentation line */
 .flit-sub-settings::before {
-    content: '';
-    position: absolute;
-    left: 0;
-    top: 0;
-    bottom: 10px;
-    width: 1px;
-    background-color: var(--background-modifier-border);
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 10px;
+  width: 1px;
+  background-color: var(--background-modifier-border);
 }
 
 /* Double-indented settings (for nested sub-settings) */
 .flit-double-indent {
-    position: relative;
-    margin-inline-start: 20px;
-    padding-left: 1em;
+  position: relative;
+  margin-inline-start: 20px;
+  padding-left: 1em;
 }
 
 /* Create second indentation line for double-indented settings */
 .flit-double-indent::before {
-    content: '';
-    position: absolute;
-    left: 0;
-    top: 0;
-    bottom: 10px;
-    width: 2px;
-    background-color: var(--background-modifier-border);
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 10px;
+  width: 2px;
+  background-color: var(--background-modifier-border);
 }
 
 /* Fix dropdown clipping for double-indented settings */
 .flit-double-indent .setting-item-control {
-    overflow: visible !important;
+  overflow: visible !important;
 }
 
 /* Ensure sub-settings container doesn't clip dropdowns */
 .flit-sub-settings {
-    overflow: visible !important;
+  overflow: visible !important;
 }
 
 /* Fix parent container clipping issues */
 .flit-settings-page .flit-sub-settings {
-    overflow: visible !important;
+  overflow: visible !important;
 }
 
 .flit-settings-page .flit-sub-settings .setting-item {
-    overflow: visible !important;
+  overflow: visible !important;
 }
 
 /* ==========================================================================
@@ -1188,108 +1187,121 @@ hr.flit-divider {
    ========================================================================== */
 
 /* Fix dropdown menu clipping in settings - ONLY for non-table elements */
-.mod-settings .setting-item-control:not(.flit-table-container .setting-item-control) {
-    overflow: visible !important;
+.mod-settings
+  .setting-item-control:not(.flit-table-container .setting-item-control) {
+  overflow: visible !important;
 }
 
 /* Fix dropdown clipping for indented settings - comprehensive approach */
 .flit-sub-settings .setting-item-control,
 .flit-double-indent .setting-item-control {
-    overflow: visible !important;
+  overflow: visible !important;
 }
 
 /* Ensure dropdown elements have proper overflow handling */
 .mod-settings .dropdown,
 .mod-settings select {
-    position: relative !important;
-    z-index: 1000 !important;
+  position: relative !important;
+  z-index: 1000 !important;
 }
 
 /* Fix specific Obsidian dropdown clipping - EXCLUDE table containers */
-.setting-item-control:not(.flit-table-container .setting-item-control):not(.flit-table-wrapper .setting-item-control) .dropdown,
-.setting-item-control:not(.flit-table-container .setting-item-control):not(.flit-table-wrapper .setting-item-control) select,
-.setting-item-control:not(.flit-table-container .setting-item-control):not(.flit-table-wrapper .setting-item-control) .clickable-icon {
-    overflow: visible !important;
-    position: relative;
-    z-index: 100 !important;
+.setting-item-control:not(.flit-table-container .setting-item-control):not(
+    .flit-table-wrapper .setting-item-control
+  )
+  .dropdown,
+.setting-item-control:not(.flit-table-container .setting-item-control):not(
+    .flit-table-wrapper .setting-item-control
+  )
+  select,
+.setting-item-control:not(.flit-table-container .setting-item-control):not(
+    .flit-table-wrapper .setting-item-control
+  )
+  .clickable-icon {
+  overflow: visible !important;
+  position: relative;
+  z-index: 100 !important;
 }
 
 /* Ensure dropdown menus can extend past container boundaries - EXCLUDE tables */
-.mod-settings .setting-item:not(.flit-custom-replacement-setting):not(.flit-safeword-setting):not(.flit-char-replacement-setting) {
-    overflow: visible !important;
-    position: relative;
+.mod-settings
+  .setting-item:not(.flit-custom-replacement-setting):not(
+    .flit-safeword-setting
+  ):not(.flit-char-replacement-setting) {
+  overflow: visible !important;
+  position: relative;
 }
 
 /* Fix main settings container overflow - ONLY fix horizontal clipping, preserve vertical scroll */
 .vertical-tab-content {
-    overflow-x: visible !important;
-    /* Keep vertical scrolling intact */
+  overflow-x: visible !important;
+  /* Keep vertical scrolling intact */
 }
 
 /* Specific fix for plugin settings tabs - ONLY fix horizontal clipping */
 .flit-settings-page {
-    overflow-x: visible !important;
-    /* Allow normal vertical overflow behavior */
-    position: relative;
+  overflow-x: visible !important;
+  /* Allow normal vertical overflow behavior */
+  position: relative;
 }
 
 /* Comprehensive dropdown clipping fix - ensure all parent containers allow horizontal overflow */
 .mod-settings .flit-settings-page,
 .mod-settings .flit-sub-settings,
 .mod-settings .flit-double-indent {
-    overflow-x: visible !important;
-    /* Preserve existing vertical overflow behavior */
+  overflow-x: visible !important;
+  /* Preserve existing vertical overflow behavior */
 }
 
 /* Fix vertical-tab-content to only fix horizontal clipping */
 .mod-settings .vertical-tab-content {
-    overflow-x: visible !important;
-    /* Keep vertical scrolling intact - don't override overflow-y */
+  overflow-x: visible !important;
+  /* Keep vertical scrolling intact - don't override overflow-y */
 }
 
 /* Ensure dropdowns have proper z-index */
 .flit-sub-settings select,
 .flit-double-indent select {
-    position: relative;
-    z-index: 1000;
+  position: relative;
+  z-index: 1000;
 }
 
 /* Bullet point styling */
 .setting-item-description ul li {
-    list-style-type: disc;
+  list-style-type: disc;
 }
 
 /* Prevent toggle focus outline clipping on right edge */
 .flit-settings-page .setting-item-control {
-    padding-right: 4px;
+  padding-right: 4px;
 }
 
 /* Property disable container - wrap to vertical layout earlier */
 @media (max-width: 950px) {
-    .setting-item:has(.flit-property-disable-container) {
-        flex-wrap: wrap !important;
-    }
+  .setting-item:has(.flit-property-disable-container) {
+    flex-wrap: wrap !important;
+  }
 
-    .setting-item:has(.flit-property-disable-container) .setting-item-info {
-        flex-basis: 100%;
-    }
+  .setting-item:has(.flit-property-disable-container) .setting-item-info {
+    flex-basis: 100%;
+  }
 
-    .setting-item:has(.flit-property-disable-container) .setting-item-control {
-        justify-content: flex-start;
-    }
+  .setting-item:has(.flit-property-disable-container) .setting-item-control {
+    justify-content: flex-start;
+  }
 }
 
 /* RESTORE table horizontal scrolling - tables MUST remain scrollable */
 .flit-table-container {
-    overflow-x: auto !important;
-    overflow-y: visible !important;
-    position: relative;
+  overflow-x: auto !important;
+  overflow-y: visible !important;
+  position: relative;
 }
 
 /* Ensure table wrappers maintain scrolling */
 .flit-table-wrapper {
-    overflow: visible;
-    position: relative;
+  overflow: visible;
+  position: relative;
 }
 
 /* For dropdowns INSIDE tables, use different positioning strategy */
@@ -1298,8 +1310,8 @@ hr.flit-divider {
 .flit-custom-replacement-setting .setting-item-control,
 .flit-safeword-setting .setting-item-control,
 .flit-char-replacement-setting .setting-item-control {
-    position: static;
-    overflow: hidden;
+  position: static;
+  overflow: hidden;
 }
 
 /* Ensure dropdown menus from tables can still be visible with higher z-index */
@@ -1308,17 +1320,17 @@ hr.flit-divider {
 .flit-custom-replacement-setting select,
 .flit-safeword-setting select,
 .flit-char-replacement-setting select {
-    position: relative;
-    z-index: 2000 !important;
+  position: relative;
+  z-index: 2000 !important;
 }
 
 /* Ensure all dropdown-related elements have proper stacking */
 .dropdown-menu,
 .suggestion-container,
 .menu {
-    position: absolute !important;
-    z-index: 9999 !important;
-    overflow: visible !important;
+  position: absolute !important;
+  z-index: 9999 !important;
+  overflow: visible !important;
 }
 
 /* ==========================================================================
@@ -1327,20 +1339,20 @@ hr.flit-divider {
 
 /* Make focused links in setting descriptions look the same as hovered links */
 .setting-item-description a:focus {
-    color: var(--link-color-hover, var(--text-accent-hover));
-    text-decoration: underline;
+  color: var(--link-color-hover, var(--text-accent-hover));
+  text-decoration: underline;
 }
 
 /* Ensure link focus styling works in all contexts */
 .mod-settings a:focus {
-    color: var(--link-color-hover, var(--text-accent-hover));
-    text-decoration: underline;
+  color: var(--link-color-hover, var(--text-accent-hover));
+  text-decoration: underline;
 }
 
 /* Fix Leave feedback button focus outline clipping */
 .flit-leave-feedback-button {
-    /* Add margin to create space for outline */
-    margin: 4px 0 !important;
+  /* Add margin to create space for outline */
+  margin: 4px 0 !important;
 }
 
 /* ==========================================================================
@@ -1348,21 +1360,21 @@ hr.flit-divider {
    ========================================================================== */
 
 .flit-progress-container {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    padding: 4px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 4px 0;
 }
 
 .flit-progress-message {
-    font-size: 0.95em;
-    color: var(--text-normal);
-    text-align: center;
+  font-size: 0.95em;
+  color: var(--text-normal);
+  text-align: center;
 }
 
 .flit-progress-bar-wrapper {
-    width: 100%;
-    min-width: 200px;
+  width: 100%;
+  min-width: 200px;
 }
 
 /* ==========================================================================
@@ -1371,37 +1383,46 @@ hr.flit-divider {
 
 /* Hide individual properties */
 .flit-property-hidden {
-    display: none !important;
+  display: none !important;
 }
 
 /* Hide property containers */
 .flit-container-hidden {
-    display: none !important;
+  display: none !important;
 }
 
 /* Fix multi-select wrapping ONLY when plugin has visible properties (scoped to avoid overriding core)
    Apply flex layout only to properties that have .flit-property-visible class */
-.metadata-container:not(.cm-editor .metadata-container) .metadata-property.flit-property-visible {
-    display: flex;
-    flex-wrap: nowrap;
+.metadata-container:not(.cm-editor .metadata-container)
+  .metadata-property.flit-property-visible {
+  display: flex;
+  flex-wrap: nowrap;
 }
 
-.metadata-container:not(.cm-editor .metadata-container) .metadata-property.flit-property-visible .metadata-property-key {
-    flex-shrink: 0;
-    min-width: 0;
+.metadata-container:not(.cm-editor .metadata-container)
+  .metadata-property.flit-property-visible
+  .metadata-property-key {
+  flex-shrink: 0;
+  min-width: 0;
 }
 
-.metadata-container:not(.cm-editor .metadata-container) .metadata-property.flit-property-visible .metadata-property-value {
-    flex-shrink: 1;
-    min-width: 0;
-    flex-grow: 1;
+.metadata-container:not(.cm-editor .metadata-container)
+  .metadata-property.flit-property-visible
+  .metadata-property-value {
+  flex-shrink: 1;
+  min-width: 0;
+  flex-grow: 1;
 }
 
-.metadata-container:not(.cm-editor .metadata-container) .metadata-property.flit-property-visible .multi-select-container,
-.metadata-container:not(.cm-editor .metadata-container) .metadata-property.flit-property-visible .metadata-input-longtext {
-    flex-shrink: 1;
-    min-width: 0;
-    max-width: 100%;
+.metadata-container:not(.cm-editor .metadata-container)
+  .metadata-property.flit-property-visible
+  .multi-select-container,
+.metadata-container:not(.cm-editor .metadata-container)
+  .metadata-property.flit-property-visible
+  .metadata-input-longtext {
+  flex-shrink: 1;
+  min-width: 0;
+  max-width: 100%;
 }
 
 /* ==========================================================================
@@ -1409,86 +1430,144 @@ hr.flit-divider {
    ========================================================================== */
 
 /* Display utilities */
-.flit-display-flex { display: flex; }
-.flit-display-none { display: none; }
-.flit-display-empty { display: ''; }
+.flit-display-flex {
+  display: flex;
+}
+.flit-display-none {
+  display: none;
+}
+.flit-display-empty {
+  display: "";
+}
 
 /* Gap utilities */
-.flit-gap-8 { gap: 8px; }
-.flit-gap-10 { gap: 10px; }
+.flit-gap-8 {
+  gap: 8px;
+}
+.flit-gap-10 {
+  gap: 10px;
+}
 
 /* Opacity utilities */
-.flit-opacity-half { opacity: 0.5; }
-.flit-opacity-full { opacity: 1; }
-.flit-opacity-empty { opacity: ''; }
+.flit-opacity-half {
+  opacity: 0.5;
+}
+.flit-opacity-full {
+  opacity: 1;
+}
+.flit-opacity-empty {
+  opacity: "";
+}
 
 /* Pointer events utilities */
-.flit-pointer-none { pointer-events: none; }
-.flit-pointer-auto { pointer-events: auto; }
-.flit-pointer-empty { pointer-events: ''; }
+.flit-pointer-none {
+  pointer-events: none;
+}
+.flit-pointer-auto {
+  pointer-events: auto;
+}
+.flit-pointer-empty {
+  pointer-events: "";
+}
 
 /* Width utilities */
-.flit-width-100 { width: 100%; }
-.flit-width-120 { width: 120px; }
+.flit-width-100 {
+  width: 100%;
+}
+.flit-width-120 {
+  width: 120px;
+}
 
 /* Margin utilities */
-.flit-margin-0 { margin: 0; }
-.flit-margin-top-5 { margin-top: 5px; }
-.flit-margin-top-6 { margin-top: 6px; }
-.flit-margin-top-10 { margin-top: 10px; }
-.flit-margin-top-12 { margin-top: 12px; }
-.flit-margin-top-15 { margin-top: 15px; }
-.flit-margin-bottom-0 { margin-bottom: 0; }
-.flit-margin-bottom-10 { margin-bottom: 10px; }
-.flit-margin-bottom-15 { margin-bottom: 15px; }
-.flit-margin-bottom-20 { margin-bottom: 20px; }
+.flit-margin-0 {
+  margin: 0;
+}
+.flit-margin-top-5 {
+  margin-top: 5px;
+}
+.flit-margin-top-6 {
+  margin-top: 6px;
+}
+.flit-margin-top-10 {
+  margin-top: 10px;
+}
+.flit-margin-top-12 {
+  margin-top: 12px;
+}
+.flit-margin-top-15 {
+  margin-top: 15px;
+}
+.flit-margin-bottom-0 {
+  margin-bottom: 0;
+}
+.flit-margin-bottom-10 {
+  margin-bottom: 10px;
+}
+.flit-margin-bottom-15 {
+  margin-bottom: 15px;
+}
+.flit-margin-bottom-20 {
+  margin-bottom: 20px;
+}
 
 /* Padding utilities */
-.flit-padding-left-20 { padding-left: 20px; }
+.flit-padding-left-20 {
+  padding-left: 20px;
+}
 
 /* Alignment utilities */
-.flit-align-center { display: flex; align-items: center; gap: 8px; }
-.flit-align-items-center { align-items: center; }
+.flit-align-center {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.flit-align-items-center {
+  align-items: center;
+}
 
 /* Justify content utilities */
-.flit-justify-center { justify-content: center; }
+.flit-justify-center {
+  justify-content: center;
+}
 
 /* Feedback button container - replaces cssText */
 .flit-feedback-container {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    width: 100%;
-    margin: 20px 0;
-    padding: 4px 0;
-    overflow: visible;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  margin: 20px 0;
+  padding: 4px 0;
+  overflow: visible;
 }
 
 /* Feedback button styling - replaces inline styles */
 .flit-feedback-button {
-    display: flex;
-    align-items: center;
-    gap: 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 /* Border utilities */
-.flit-border-top-none { border-top: none; }
+.flit-border-top-none {
+  border-top: none;
+}
 
 /* State management utilities - for enable/disable interactions */
 .flit-state-disabled {
-    opacity: 0.5;
-    pointer-events: none;
+  opacity: 0.5;
+  pointer-events: none;
 }
 
 .flit-state-enabled {
-    opacity: 1;
-    pointer-events: auto;
+  opacity: 1;
+  pointer-events: auto;
 }
 
 /* Property container - used in exclusions tab */
 .flit-property-control-wrapper {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
 }

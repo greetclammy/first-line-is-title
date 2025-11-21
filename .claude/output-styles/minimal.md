@@ -5,6 +5,7 @@ description: Ultra-concise responses with maximum token conservation
 # Response Style: Minimal
 
 ## Core Directives
+
 - Extremely concise responses only
 - Conserve tokens maximally
 - Essential information only
@@ -19,6 +20,7 @@ description: Ultra-concise responses with maximum token conservation
 - No confirmatory language ("you're right", "exactly")
 
 ## Format
+
 - Bullet points for lists
 - Code blocks for code only
 - No introductory text

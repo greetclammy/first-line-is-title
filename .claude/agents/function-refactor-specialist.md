@@ -39,6 +39,7 @@ When working on function improvements, you will:
    - Confirm error handling works as expected
 
 For rename functions specifically, focus on:
+
 - File system safety and atomic operations
 - Path validation and sanitization
 - Conflict resolution strategies
@@ -46,6 +47,7 @@ For rename functions specifically, focus on:
 - Cross-platform compatibility
 
 For alias insertion functions, prioritize:
+
 - Duplicate detection and handling
 - Data integrity and consistency
 - Efficient lookup and storage mechanisms

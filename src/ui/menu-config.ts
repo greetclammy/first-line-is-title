@@ -1,5 +1,5 @@
 import { Menu } from "obsidian";
-import FirstLineIsTitlePlugin from '../../main';
+import FirstLineIsTitlePlugin from "../../main";
 
 /**
  * Declarative Menu Configuration System
@@ -13,57 +13,58 @@ import FirstLineIsTitlePlugin from '../../main';
  */
 
 export interface MenuItemConfig {
-    id: string;
-    title: string | ((context: any) => string);
-    icon: string;
-    visible: (context: any) => boolean;
-    onClick: (context: any) => void | Promise<void>;
+  id: string;
+  title: string | ((context: any) => string);
+  icon: string;
+  visible: (context: any) => boolean;
+  onClick: (context: any) => void | Promise<void>;
 }
 
 export interface MenuConfig {
-    items: MenuItemConfig[];
-    addSeparator?: boolean;
+  items: MenuItemConfig[];
+  addSeparator?: boolean;
 }
 
 /**
  * Renders menu items from declarative configuration
  */
 export class MenuRenderer {
-    constructor(private plugin: FirstLineIsTitlePlugin) {}
+  constructor(private plugin: FirstLineIsTitlePlugin) {}
 
-    /**
-     * Render menu items from configuration
-     * @param menu Obsidian Menu instance
-     * @param config Menu configuration
-     * @param context Context object passed to visibility/onClick functions
-     */
-    render(menu: Menu, config: MenuConfig, context: any): void {
-        const visibleItems = config.items.filter(item => item.visible(context));
+  /**
+   * Render menu items from configuration
+   * @param menu Obsidian Menu instance
+   * @param config Menu configuration
+   * @param context Context object passed to visibility/onClick functions
+   */
+  render(menu: Menu, config: MenuConfig, context: any): void {
+    const visibleItems = config.items.filter((item) => item.visible(context));
 
-        if (config.addSeparator && visibleItems.length > 0) {
-            menu.addSeparator();
-        }
-
-        for (const itemConfig of visibleItems) {
-            menu.addItem((item) => {
-                const title = typeof itemConfig.title === 'function'
-                    ? itemConfig.title(context)
-                    : itemConfig.title;
-
-                item
-                    .setTitle(title)
-                    .setIcon(itemConfig.icon)
-                    .onClick(async () => {
-                        await itemConfig.onClick(context);
-                    });
-            });
-        }
+    if (config.addSeparator && visibleItems.length > 0) {
+      menu.addSeparator();
     }
 
-    /**
-     * Check if menu has any visible items
-     */
-    hasVisibleItems(config: MenuConfig, context: any): boolean {
-        return config.items.some(item => item.visible(context));
+    for (const itemConfig of visibleItems) {
+      menu.addItem((item) => {
+        const title =
+          typeof itemConfig.title === "function"
+            ? itemConfig.title(context)
+            : itemConfig.title;
+
+        item
+          .setTitle(title)
+          .setIcon(itemConfig.icon)
+          .onClick(async () => {
+            await itemConfig.onClick(context);
+          });
+      });
     }
+  }
+
+  /**
+   * Check if menu has any visible items
+   */
+  hasVisibleItems(config: MenuConfig, context: any): boolean {
+    return config.items.some((item) => item.visible(context));
+  }
 }
