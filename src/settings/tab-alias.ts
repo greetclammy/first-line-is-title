@@ -191,11 +191,13 @@ export class PropertiesTab extends SettingsTabBase {
     });
     li2.appendText(t("settings.alias.aliasPropertyName.noteTitle.part2"));
     li2.createEl("a", {
+      // eslint-disable-next-line obsidianmd/ui/sentence-case -- proper noun (plugin name)
       text: "Notebook Navigator",
       href: "obsidian://show-plugin?id=notebook-navigator",
     });
     li2.appendText(t("settings.alias.aliasPropertyName.noteTitle.part3"));
     li2.createEl("a", {
+      // eslint-disable-next-line obsidianmd/ui/sentence-case -- proper noun (plugin name)
       text: "Front Matter Title",
       href: "obsidian://show-plugin?id=obsidian-front-matter-title-plugin",
     });
@@ -491,16 +493,13 @@ export class PropertiesTab extends SettingsTabBase {
         .setDesc("")
         .setHeading();
 
-      limitationsSetting.settingEl.style.borderBottom = "1px solid var(--background-modifier-border)";
-      limitationsSetting.settingEl.style.paddingBottom = "12px";
-      limitationsSetting.settingEl.style.marginBottom = "12px";
-
       const limitationsContainer = aliasContainer.createDiv();
       const limitationsDesc = limitationsContainer.createEl("p", {
         cls: "setting-item-description flit-margin-top-12",
       });
       limitationsDesc.appendText(t("settings.alias.limitations.desc.part1"));
       limitationsDesc.createEl("a", {
+        // eslint-disable-next-line obsidianmd/ui/sentence-case -- proper noun (plugin name)
         text: "Hover Editor",
         href: "obsidian://show-plugin?id=obsidian-hover-editor",
       });

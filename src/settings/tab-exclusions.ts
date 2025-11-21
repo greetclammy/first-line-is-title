@@ -34,10 +34,6 @@ export class IncludeExcludeTab extends SettingsTabBase {
       .setDesc(t("settings.exclusions.folders.desc"))
       .setHeading();
 
-    foldersHeaderSetting.settingEl.style.borderBottom = "1px solid var(--background-modifier-border)";
-    foldersHeaderSetting.settingEl.style.paddingBottom = "12px";
-    foldersHeaderSetting.settingEl.style.marginBottom = "12px";
-
     const folderNote = this.containerEl.createEl("p", {
       cls: "setting-item-description",
     });
@@ -234,10 +230,6 @@ export class IncludeExcludeTab extends SettingsTabBase {
       .setDesc(t("settings.exclusions.tags.desc"))
       .setHeading();
 
-    tagsHeaderSetting.settingEl.style.borderBottom = "1px solid var(--background-modifier-border)";
-    tagsHeaderSetting.settingEl.style.paddingBottom = "12px";
-    tagsHeaderSetting.settingEl.style.marginBottom = "12px";
-
     const tagNotes = this.containerEl.createEl("div", {
       cls: "setting-item-description",
     });
@@ -268,6 +260,7 @@ export class IncludeExcludeTab extends SettingsTabBase {
     const parts = tagWranglerText.split("Tag Wrangler");
     tagLi2.appendText(parts[0]);
     tagLi2.createEl("a", {
+      // eslint-disable-next-line obsidianmd/ui/sentence-case -- proper noun (plugin name)
       text: "Tag Wrangler",
       href: "obsidian://show-plugin?id=tag-wrangler",
     });
@@ -476,10 +469,6 @@ export class IncludeExcludeTab extends SettingsTabBase {
       .setName(t("settings.exclusions.properties.title"))
       .setDesc(t("settings.exclusions.properties.desc"))
       .setHeading();
-
-    propertiesHeaderSetting.settingEl.style.borderBottom = "1px solid var(--background-modifier-border)";
-    propertiesHeaderSetting.settingEl.style.paddingBottom = "12px";
-    propertiesHeaderSetting.settingEl.style.marginBottom = "12px";
 
     const propertyNotes = this.containerEl.createEl("div", {
       cls: "setting-item-description",
@@ -757,10 +746,6 @@ export class IncludeExcludeTab extends SettingsTabBase {
       .setName(t("settings.exclusions.disableProperty.title"))
       .setDesc("")
       .setHeading();
-
-    propertyDisableSetting.settingEl.style.borderBottom = "1px solid var(--background-modifier-border)";
-    propertyDisableSetting.settingEl.style.paddingBottom = "12px";
-    propertyDisableSetting.settingEl.style.marginBottom = "12px";
 
     const propertyDesc = propertyDisableSetting.descEl;
     propertyDesc.appendText(t("settings.exclusions.disableProperty.desc"));

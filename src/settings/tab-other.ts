@@ -116,11 +116,13 @@ export class OtherTab extends SettingsTabBase {
     const cardLinkDesc = cardLinkSetting.descEl;
     cardLinkDesc.appendText(t("settings.other.grabCardLink.desc.part1"));
     cardLinkDesc.createEl("a", {
+      // eslint-disable-next-line obsidianmd/ui/sentence-case -- proper noun (plugin name)
       text: "Auto Card Link",
       href: "obsidian://show-plugin?id=auto-card-link",
     });
     cardLinkDesc.appendText(t("settings.other.grabCardLink.desc.part2"));
     cardLinkDesc.createEl("a", {
+      // eslint-disable-next-line obsidianmd/ui/sentence-case -- proper noun (plugin name)
       text: "Link Embed",
       href: "obsidian://show-plugin?id=obsidian-link-embed",
     });

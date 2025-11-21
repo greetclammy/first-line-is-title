@@ -236,10 +236,6 @@ export class ForbiddenCharsTab extends SettingsTabBase {
         .setDesc(t("settings.replaceCharacters.allOSes.desc"))
         .setHeading();
 
-      allOSesHeaderSetting.settingEl.style.borderBottom = "1px solid var(--background-modifier-border)";
-      allOSesHeaderSetting.settingEl.style.paddingBottom = "12px";
-      allOSesHeaderSetting.settingEl.style.marginBottom = "12px";
-
       const allOSesNoteEl = charSettingsContainer.createEl("div", {
         cls: "setting-item-description flit-margin-top-15 flit-margin-bottom-15",
       });
@@ -526,9 +522,6 @@ export class ForbiddenCharsTab extends SettingsTabBase {
           }
         });
 
-      windowsAndroidHeaderSetting.settingEl.style.borderBottom = "1px solid var(--background-modifier-border) !important";
-      windowsAndroidHeaderSetting.settingEl.style.paddingBottom = "12px !important";
-      windowsAndroidHeaderSetting.settingEl.style.marginBottom = "12px !important";
       charSettingsContainer.createEl("br");
 
       windowsAndroidTableContainer = charSettingsContainer.createEl("div", {
