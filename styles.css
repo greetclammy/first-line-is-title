@@ -1567,6 +1567,11 @@ hr.flit-divider {
   pointer-events: auto;
 }
 
+/* Section heading margin - override Obsidian's default 30px */
+.flit-settings-page .setting-item-heading {
+  margin-top: 0.75em;
+}
+
 /* Property container - used in exclusions tab */
 .flit-property-control-wrapper {
   display: flex;
