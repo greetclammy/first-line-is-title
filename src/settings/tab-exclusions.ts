@@ -34,6 +34,10 @@ export class IncludeExcludeTab extends SettingsTabBase {
       .setDesc(t("settings.exclusions.folders.desc"))
       .setHeading();
 
+    foldersHeaderSetting.settingEl.style.borderBottom = "1px solid var(--background-modifier-border)";
+    foldersHeaderSetting.settingEl.style.paddingBottom = "12px";
+    foldersHeaderSetting.settingEl.style.marginBottom = "12px";
+
     const folderNote = this.containerEl.createEl("p", {
       cls: "setting-item-description",
     });
@@ -229,6 +233,10 @@ export class IncludeExcludeTab extends SettingsTabBase {
       .setName(t("settings.exclusions.tags.title"))
       .setDesc(t("settings.exclusions.tags.desc"))
       .setHeading();
+
+    tagsHeaderSetting.settingEl.style.borderBottom = "1px solid var(--background-modifier-border)";
+    tagsHeaderSetting.settingEl.style.paddingBottom = "12px";
+    tagsHeaderSetting.settingEl.style.marginBottom = "12px";
 
     const tagNotes = this.containerEl.createEl("div", {
       cls: "setting-item-description",
@@ -468,6 +476,10 @@ export class IncludeExcludeTab extends SettingsTabBase {
       .setName(t("settings.exclusions.properties.title"))
       .setDesc(t("settings.exclusions.properties.desc"))
       .setHeading();
+
+    propertiesHeaderSetting.settingEl.style.borderBottom = "1px solid var(--background-modifier-border)";
+    propertiesHeaderSetting.settingEl.style.paddingBottom = "12px";
+    propertiesHeaderSetting.settingEl.style.marginBottom = "12px";
 
     const propertyNotes = this.containerEl.createEl("div", {
       cls: "setting-item-description",
