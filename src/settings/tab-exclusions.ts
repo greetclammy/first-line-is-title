@@ -34,7 +34,6 @@ export class IncludeExcludeTab extends SettingsTabBase {
       .setDesc(t("settings.exclusions.folders.desc"))
       .setHeading();
 
-    foldersHeaderSetting.settingEl.style.marginTop = "0";
     foldersHeaderSetting.settingEl.style.borderBottom = "1px solid var(--background-modifier-border)";
     foldersHeaderSetting.settingEl.style.paddingBottom = "12px";
     foldersHeaderSetting.settingEl.style.marginBottom = "12px";
@@ -235,7 +234,6 @@ export class IncludeExcludeTab extends SettingsTabBase {
       .setDesc(t("settings.exclusions.tags.desc"))
       .setHeading();
 
-    tagsHeaderSetting.settingEl.style.marginTop = "0";
     tagsHeaderSetting.settingEl.style.borderBottom = "1px solid var(--background-modifier-border)";
     tagsHeaderSetting.settingEl.style.paddingBottom = "12px";
     tagsHeaderSetting.settingEl.style.marginBottom = "12px";
@@ -479,7 +477,6 @@ export class IncludeExcludeTab extends SettingsTabBase {
       .setDesc(t("settings.exclusions.properties.desc"))
       .setHeading();
 
-    propertiesHeaderSetting.settingEl.style.marginTop = "0";
     propertiesHeaderSetting.settingEl.style.borderBottom = "1px solid var(--background-modifier-border)";
     propertiesHeaderSetting.settingEl.style.paddingBottom = "12px";
     propertiesHeaderSetting.settingEl.style.marginBottom = "12px";
@@ -761,7 +758,6 @@ export class IncludeExcludeTab extends SettingsTabBase {
       .setDesc("")
       .setHeading();
 
-    propertyDisableSetting.settingEl.style.marginTop = "0";
     propertyDisableSetting.settingEl.style.borderBottom = "1px solid var(--background-modifier-border)";
     propertyDisableSetting.settingEl.style.paddingBottom = "12px";
     propertyDisableSetting.settingEl.style.marginBottom = "12px";

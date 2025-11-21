@@ -23,11 +23,9 @@ export class CommandsTab extends SettingsTabBase {
           });
       });
 
-    ribbonHeaderSetting.settingEl.style.marginTop = "0";
     ribbonHeaderSetting.settingEl.style.borderBottom = "1px solid var(--background-modifier-border)";
     ribbonHeaderSetting.settingEl.style.paddingBottom = "12px";
     ribbonHeaderSetting.settingEl.style.marginBottom = "12px";
-    this.containerEl.createEl("br");
 
     const ribbonContainer = this.containerEl.createDiv();
 
@@ -171,11 +169,9 @@ export class CommandsTab extends SettingsTabBase {
           });
       });
 
-    commandPaletteHeaderSetting.settingEl.style.marginTop = "0";
     commandPaletteHeaderSetting.settingEl.style.borderBottom = "1px solid var(--background-modifier-border)";
     commandPaletteHeaderSetting.settingEl.style.paddingBottom = "12px";
     commandPaletteHeaderSetting.settingEl.style.marginBottom = "12px";
-    this.containerEl.createEl("br");
 
     const commandPaletteContainer = this.containerEl.createDiv();
     commandPaletteContainer.addClass("flit-master-disable-target");
@@ -522,11 +518,9 @@ export class CommandsTab extends SettingsTabBase {
           });
       });
 
-    fileHeaderSetting.settingEl.style.marginTop = "0";
     fileHeaderSetting.settingEl.style.borderBottom = "1px solid var(--background-modifier-border)";
     fileHeaderSetting.settingEl.style.paddingBottom = "12px";
     fileHeaderSetting.settingEl.style.marginBottom = "12px";
-    this.containerEl.createEl("br");
 
     const fileContainer = this.containerEl.createDiv();
     fileContainer.addClass("flit-master-disable-target");
@@ -626,11 +620,9 @@ export class CommandsTab extends SettingsTabBase {
           });
       });
 
-    folderHeaderSetting.settingEl.style.marginTop = "0";
     folderHeaderSetting.settingEl.style.borderBottom = "1px solid var(--background-modifier-border)";
     folderHeaderSetting.settingEl.style.paddingBottom = "12px";
     folderHeaderSetting.settingEl.style.marginBottom = "12px";
-    this.containerEl.createEl("br");
 
     const folderContainer = this.containerEl.createDiv();
     folderContainer.addClass("flit-master-disable-target");
@@ -734,11 +726,9 @@ export class CommandsTab extends SettingsTabBase {
           });
       });
 
-    tagHeaderSetting.settingEl.style.marginTop = "0";
     tagHeaderSetting.settingEl.style.borderBottom = "1px solid var(--background-modifier-border)";
     tagHeaderSetting.settingEl.style.paddingBottom = "12px";
     tagHeaderSetting.settingEl.style.marginBottom = "12px";
-    this.containerEl.createEl("br");
 
     const tagContainer = this.containerEl.createDiv();
     tagContainer.addClass("flit-master-disable-target");
@@ -838,11 +828,9 @@ export class CommandsTab extends SettingsTabBase {
           });
       });
 
-    vaultSearchHeaderSetting.settingEl.style.marginTop = "0";
     vaultSearchHeaderSetting.settingEl.style.borderBottom = "1px solid var(--background-modifier-border)";
     vaultSearchHeaderSetting.settingEl.style.paddingBottom = "12px";
     vaultSearchHeaderSetting.settingEl.style.marginBottom = "12px";
-    this.containerEl.createEl("br");
 
     const vaultSearchContainer = this.containerEl.createDiv({
       cls: "flit-vault-search-container",
