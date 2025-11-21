@@ -8,7 +8,8 @@
     "build": "npx tsc -v -noEmit -skipLibCheck && node esbuild.config.mjs production",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
-    "version": "node version-bump.mjs && git add manifest.json versions.json"
+    "version": "node version-bump.mjs && git add manifest.json versions.json",
+    "postversion": "git tag -d v$(node -p \"require('./package.json').version\") 2>/dev/null || true && git tag $(node -p \"require('./package.json').version\")"
   },
   "keywords": [],
   "author": "",
