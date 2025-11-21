@@ -526,9 +526,9 @@ export class ForbiddenCharsTab extends SettingsTabBase {
           }
         });
 
-      windowsAndroidHeaderSetting.settingEl.style.borderBottom = "1px solid var(--background-modifier-border)";
-      windowsAndroidHeaderSetting.settingEl.style.paddingBottom = "12px";
-      windowsAndroidHeaderSetting.settingEl.style.marginBottom = "12px";
+      windowsAndroidHeaderSetting.settingEl.style.borderBottom = "1px solid var(--background-modifier-border) !important";
+      windowsAndroidHeaderSetting.settingEl.style.paddingBottom = "12px !important";
+      windowsAndroidHeaderSetting.settingEl.style.marginBottom = "12px !important";
       charSettingsContainer.createEl("br");
 
       windowsAndroidTableContainer = charSettingsContainer.createEl("div", {
