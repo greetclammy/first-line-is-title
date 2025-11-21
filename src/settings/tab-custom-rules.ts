@@ -641,6 +641,7 @@ export class CustomReplacementsTab extends SettingsTabBase {
       .setDesc("")
       .setHeading();
 
+    globalProcessingHeaderSetting.settingEl.style.marginTop = "0";
     globalProcessingHeaderSetting.settingEl.style.borderBottom = "1px solid var(--background-modifier-border)";
     globalProcessingHeaderSetting.settingEl.style.paddingBottom = "12px";
     globalProcessingHeaderSetting.settingEl.style.marginBottom = "12px";
