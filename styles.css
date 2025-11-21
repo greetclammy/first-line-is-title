@@ -1199,8 +1199,8 @@ hr.flit-divider {
 }
 
 /* Ensure dropdown elements have proper overflow handling */
-.mod-settings .dropdown,
-.mod-settings select {
+.flit-settings-page .dropdown,
+.flit-settings-page select {
   position: relative !important;
   z-index: 1000 !important;
 }
@@ -1233,7 +1233,7 @@ hr.flit-divider {
 }
 
 /* Fix main settings container overflow - ONLY fix horizontal clipping, preserve vertical scroll */
-.vertical-tab-content {
+.flit-settings-page .vertical-tab-content {
   overflow-x: visible !important;
   /* Keep vertical scrolling intact */
 }
@@ -1254,7 +1254,7 @@ hr.flit-divider {
 }
 
 /* Fix vertical-tab-content to only fix horizontal clipping */
-.mod-settings .vertical-tab-content {
+.flit-settings-page .mod-settings .vertical-tab-content {
   overflow-x: visible !important;
   /* Keep vertical scrolling intact - don't override overflow-y */
 }
@@ -1267,7 +1267,7 @@ hr.flit-divider {
 }
 
 /* Bullet point styling */
-.setting-item-description ul li {
+.flit-settings-page .setting-item-description ul li {
   list-style-type: disc;
 }
 
@@ -1325,9 +1325,9 @@ hr.flit-divider {
 }
 
 /* Ensure all dropdown-related elements have proper stacking */
-.dropdown-menu,
-.suggestion-container,
-.menu {
+.flit-settings-page .dropdown-menu,
+.flit-settings-page .suggestion-container,
+.flit-settings-page .menu {
   position: absolute !important;
   z-index: 9999 !important;
   overflow: visible !important;
@@ -1338,13 +1338,13 @@ hr.flit-divider {
    ========================================================================== */
 
 /* Make focused links in setting descriptions look the same as hovered links */
-.setting-item-description a:focus {
+.flit-settings-page .setting-item-description a:focus {
   color: var(--link-color-hover, var(--text-accent-hover));
   text-decoration: underline;
 }
 
 /* Ensure link focus styling works in all contexts */
-.mod-settings a:focus {
+.flit-settings-page a:focus {
   color: var(--link-color-hover, var(--text-accent-hover));
   text-decoration: underline;
 }
