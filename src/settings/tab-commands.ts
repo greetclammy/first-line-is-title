@@ -22,6 +22,10 @@ export class CommandsTab extends SettingsTabBase {
             updateRibbonUI();
           });
       });
+
+    ribbonHeaderSetting.settingEl.style.borderBottom = "1px solid var(--background-modifier-border)";
+    ribbonHeaderSetting.settingEl.style.paddingBottom = "12px";
+    ribbonHeaderSetting.settingEl.style.marginBottom = "12px";
     this.containerEl.createEl("br");
 
     const ribbonContainer = this.containerEl.createDiv();
@@ -165,6 +169,10 @@ export class CommandsTab extends SettingsTabBase {
             updateCommandPaletteUI();
           });
       });
+
+    commandPaletteHeaderSetting.settingEl.style.borderBottom = "1px solid var(--background-modifier-border)";
+    commandPaletteHeaderSetting.settingEl.style.paddingBottom = "12px";
+    commandPaletteHeaderSetting.settingEl.style.marginBottom = "12px";
     this.containerEl.createEl("br");
 
     const commandPaletteContainer = this.containerEl.createDiv();
