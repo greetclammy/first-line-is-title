@@ -15,7 +15,7 @@ Automatically set the first line as note title, just like in Apple Notes! Forget
 - Move cursor to first line on note creation.
 - Put any first line content in title or headings only.
 - Replace characters forbidden in filenames with safe alternatives, or omit them entirely.
-- Strip markdown syntax from filenames.
+- Strip Markdown syntax from filenames.
 - Add custom replacement rules.
 - Automatically populate first line alias property — make forbidden characters searchable in Quick switcher or [Omnisearch](https://obsidian.md/plugins?id=omnisearch), or set as note title in [Notebook Navigator](https://obsidian.md/plugins?id=notebook-navigator) or [Front Matter Title](https://obsidian.md/plugins?id=obsidian-front-matter-title-plugin).
 - Commands to batch rename all notes in folder, all notes with tag, all search results, or entire vault.
@@ -26,7 +26,8 @@ Automatically set the first line as note title, just like in Apple Notes! Forget
 ## 🔏 File integrity
 
 - Only notes that are currently open in the editor are processed, along with any notes you explicitly select for batch operations (like renaming all notes in a folder).
-- Multiple safeguards are in place to prevent unintended changes but [regular backups](https://help.obsidian.md/backup) remain your ultimate safety net.
+- By default, note modification time is preserved on rename.
+- Multiple safeguards are in place to prevent unintended changes but **regular [backups](https://help.obsidian.md/backup) remain your ultimate safety net**.
 
 ## ✅ Install
 
@@ -56,37 +57,8 @@ Note: to get updates for _First Line is Title_, you will have to check for and i
 - [Report bugs](https://github.com/greetclammy/first-line-is-title/issues)
 - [Request features](https://github.com/greetclammy/first-line-is-title/issues)
 - [Contribute improvements](https://github.com/greetclammy/first-line-is-title/pulls)
-- Share your thoughts on:
+- Discuss on:
   - [Obsidian Forum](https://forum.obsidian.md/t/plugin-to-automatically-copy-first-line-in-note-to-note-title/103558)
-  - [Discord](https://discord.com/channels/686053708261228577/707816848615407697) • [Join](https://discord.com/invite/obsidianmd)
-  - [r/ObsidianMD](https://www.reddit.com/r/ObsidianMD/comments/1nwmq0x/comment/nhm2x61/)
   - [GitHub discussions](https://github.com/greetclammy/first-line-is-title/discussions)
-
-## 👀 Similar plugins
-
-Put first line/heading into filename or property:
-
-- [Auto Filename](https://obsidian.md/plugins?id=auto-filename)
-- [File Title Updater](https://obsidian.md/plugins?id=file-title-updater)
-- [Filename Heading Sync](https://obsidian.md/plugins?id=obsidian-filename-heading-sync)
-- [Linter](https://obsidian.md/plugins?id=obsidian-linter)
-
-Remove forbidden characters in filenames:
-
-- [Safe Filename Linter](https://obsidian.md/plugins?id=safe-filename-linter)
-- [Filename Sanitizer](https://github.com/devHudi/obsidian-filename-sanitizer)
-- [Sync-safe file names](https://github.com/j-maas/sync-safe-file-names)
-
-Show custom titles in place of filenames:
-
-- [Front Matter Title](https://obsidian.md/plugins?id=obsidian-front-matter-title-plugin)
-- [Title As Link Text](https://obsidian.md/plugins?id=title-as-link-text)
-
-## 👨‍💻 My plugins
-
-- [Copy Link](https://github.com/greetclammy/copy-link) - Add commands to quickly copy links to files, headings and blocks.
-- [Adapt to Current View](https://github.com/greetclammy/adapt-to-current-view/) - Set different accent colors for Reading view, Live Preview and Source view.
-
-<br>
-
-<p align="center">Made with ❤️ for the Obsidian community</p>
+  - [r/ObsidianMD](https://www.reddit.com/r/ObsidianMD/comments/1nwmq0x/comment/nhm2x61/)
+  - [Discord](https://discord.com/channels/686053708261228577/707816848615407697) • [Join](https://discord.com/invite/obsidianmd)
