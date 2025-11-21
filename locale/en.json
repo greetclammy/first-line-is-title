@@ -270,7 +270,7 @@
           "excludeAllExcept": "Exclude all except...",
           "part2": " also excludes notes with no tags."
         },
-        "tagWranglerWarning": "Tags renamed with Tag Wrangler are not reflected below. Update manually after renaming.",
+        "tagWranglerWarning": "Renamed tags are not reflected below. Update manually after renaming.",
         "matchTags": {
           "name": "Match tags",
           "desc": "Set where tags should be matched.",

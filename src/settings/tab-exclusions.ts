@@ -256,15 +256,7 @@ export class IncludeExcludeTab extends SettingsTabBase {
     tagLi1.appendText(t("settings.exclusions.tags.excludeAllNote.part2"));
 
     const tagLi2 = tagUl.createEl("li");
-    const tagWranglerText = t("settings.exclusions.tags.tagWranglerWarning");
-    const parts = tagWranglerText.split("Tag Wrangler");
-    tagLi2.appendText(parts[0]);
-    tagLi2.createEl("a", {
-      // eslint-disable-next-line obsidianmd/ui/sentence-case -- proper noun (plugin name)
-      text: "Tag Wrangler",
-      href: "obsidian://show-plugin?id=tag-wrangler",
-    });
-    tagLi2.appendText(parts[1] || "");
+    tagLi2.appendText(t("settings.exclusions.tags.tagWranglerWarning"));
 
     const tagMatchingSetting = new Setting(this.containerEl)
       .setName(t("settings.exclusions.tags.matchTags.name"))
