@@ -375,7 +375,7 @@ export class CommandRegistrar {
   }
 
   /**
-   * Register command: Insert filename
+   * Register command: Insert filename at cursor position
    * Inserts current filename at cursor position with character reversal
    */
   private registerInsertFilenameCommand(): void {
