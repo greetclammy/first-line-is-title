@@ -14,7 +14,6 @@ export class CustomReplacementsTab extends SettingsTabBase {
       .setDesc(t("settings.customRules.desc"))
       .setHeading()
       .addToggle((toggle) => {
-        customHeaderToggleSetting.settingEl.style.marginBottom = "0.75em";
         toggle
           .setValue(this.plugin.settings.customRules.enableCustomReplacements)
           .onChange(async (value) => {
@@ -53,6 +52,8 @@ export class CustomReplacementsTab extends SettingsTabBase {
             ).updateAliasConditionalSettings?.();
           });
       });
+
+    customHeaderToggleSetting.settingEl.style.marginBottom = "0.75em";
 
     const customBulletListEl = this.containerEl.createEl("div", {
       cls: "setting-item-description flit-margin-top-12",
