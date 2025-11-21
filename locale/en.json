@@ -244,7 +244,7 @@
     },
     "exclusions": {
       "desc": "Set how notes should be excluded from processing.",
-      "note": "Note: rules don't override other rules. For example, a note in excluded folder but with included tag will not be processed.",
+      "note": "Note: rules can't override other rules. For example, a note in excluded folder but with included tag will not be processed.",
       "folders": {
         "title": "Folders",
         "desc": "Set folders to match.",
