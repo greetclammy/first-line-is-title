@@ -31,8 +31,8 @@ export class IncludeExcludeTab extends SettingsTabBase {
 
     const foldersHeaderSetting = new Setting(this.containerEl)
       .setName(t("settings.exclusions.folders.title"))
-      .setDesc(t("settings.exclusions.folders.desc"));
-    foldersHeaderSetting.settingEl.addClass("flit-master-toggle");
+      .setDesc(t("settings.exclusions.folders.desc"))
+      .setHeading();
 
     const folderNote = this.containerEl.createEl("p", {
       cls: "setting-item-description",
@@ -227,8 +227,8 @@ export class IncludeExcludeTab extends SettingsTabBase {
 
     const tagsHeaderSetting = new Setting(this.containerEl)
       .setName(t("settings.exclusions.tags.title"))
-      .setDesc(t("settings.exclusions.tags.desc"));
-    tagsHeaderSetting.settingEl.addClass("flit-master-toggle");
+      .setDesc(t("settings.exclusions.tags.desc"))
+      .setHeading();
 
     const tagNotes = this.containerEl.createEl("div", {
       cls: "setting-item-description",
@@ -466,8 +466,8 @@ export class IncludeExcludeTab extends SettingsTabBase {
 
     const propertiesHeaderSetting = new Setting(this.containerEl)
       .setName(t("settings.exclusions.properties.title"))
-      .setDesc(t("settings.exclusions.properties.desc"));
-    propertiesHeaderSetting.settingEl.addClass("flit-master-toggle");
+      .setDesc(t("settings.exclusions.properties.desc"))
+      .setHeading();
 
     const propertyNotes = this.containerEl.createEl("div", {
       cls: "setting-item-description",
@@ -743,9 +743,12 @@ export class IncludeExcludeTab extends SettingsTabBase {
 
     const propertyDisableSetting = new Setting(this.containerEl)
       .setName(t("settings.exclusions.disableProperty.title"))
-      .setDesc("");
+      .setDesc("")
+      .setHeading();
 
-    propertyDisableSetting.settingEl.addClass("flit-master-toggle");
+    propertyDisableSetting.settingEl.style.borderBottom = "1px solid var(--background-modifier-border)";
+    propertyDisableSetting.settingEl.style.paddingBottom = "12px";
+    propertyDisableSetting.settingEl.style.marginBottom = "12px";
 
     const propertyDesc = propertyDisableSetting.descEl;
     propertyDesc.appendText(t("settings.exclusions.disableProperty.desc"));

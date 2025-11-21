@@ -1187,7 +1187,7 @@ hr.flit-divider {
    ========================================================================== */
 
 /* Fix dropdown menu clipping in settings - ONLY for non-table elements */
-.mod-settings
+.flit-settings-page
   .setting-item-control:not(.flit-table-container .setting-item-control) {
   overflow: visible !important;
 }
@@ -1206,15 +1206,18 @@ hr.flit-divider {
 }
 
 /* Fix specific Obsidian dropdown clipping - EXCLUDE table containers */
-.setting-item-control:not(.flit-table-container .setting-item-control):not(
+.flit-settings-page
+  .setting-item-control:not(.flit-table-container .setting-item-control):not(
     .flit-table-wrapper .setting-item-control
   )
   .dropdown,
-.setting-item-control:not(.flit-table-container .setting-item-control):not(
+.flit-settings-page
+  .setting-item-control:not(.flit-table-container .setting-item-control):not(
     .flit-table-wrapper .setting-item-control
   )
   select,
-.setting-item-control:not(.flit-table-container .setting-item-control):not(
+.flit-settings-page
+  .setting-item-control:not(.flit-table-container .setting-item-control):not(
     .flit-table-wrapper .setting-item-control
   )
   .clickable-icon {
@@ -1224,7 +1227,7 @@ hr.flit-divider {
 }
 
 /* Ensure dropdown menus can extend past container boundaries - EXCLUDE tables */
-.mod-settings
+.flit-settings-page
   .setting-item:not(.flit-custom-replacement-setting):not(
     .flit-safeword-setting
   ):not(.flit-char-replacement-setting) {
