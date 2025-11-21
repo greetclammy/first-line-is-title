@@ -347,8 +347,6 @@ export class CustomReplacementsTab extends SettingsTabBase {
             updateButtonState();
           });
 
-          this.addForbiddenCharProtection(input1);
-
           const input2Container = rowEl.createDiv({ cls: "flit-text-column" });
           const input2 = input2Container.createEl("input", { type: "text" });
           input2.placeholder = t("settings.replaceCharacters.emptyPlaceholder");
@@ -642,6 +640,10 @@ export class CustomReplacementsTab extends SettingsTabBase {
       .setName(t("settings.customRules.processingOrder.title"))
       .setDesc("")
       .setHeading();
+
+    globalProcessingHeaderSetting.settingEl.style.borderBottom = "1px solid var(--background-modifier-border)";
+    globalProcessingHeaderSetting.settingEl.style.paddingBottom = "12px";
+    globalProcessingHeaderSetting.settingEl.style.marginBottom = "12px";
 
     processingOrderContainer = this.containerEl.createDiv({
       cls: "flit-processing-order-container",

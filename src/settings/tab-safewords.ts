@@ -1,6 +1,5 @@
 import { Setting, setIcon } from "obsidian";
 import { SettingsTabBase, FirstLineIsTitlePlugin } from "./settings-base";
-import { UNIVERSAL_FORBIDDEN_CHARS, WINDOWS_ANDROID_CHARS } from "../constants";
 import { t } from "../i18n";
 import { TIMING } from "../constants/timing";
 
@@ -206,48 +205,9 @@ export class SafewordsTab extends SettingsTabBase {
         input.placeholder = t("settings.replaceCharacters.emptyPlaceholder");
         input.value = safeword.text;
         input.addEventListener("input", async (e) => {
-          const inputEl = e.target as HTMLInputElement;
-          let value = inputEl.value;
-
-          // Define forbidden characters
-          const universalForbidden = UNIVERSAL_FORBIDDEN_CHARS;
-          const windowsAndroidForbidden = WINDOWS_ANDROID_CHARS;
-
-          let forbiddenChars = [...universalForbidden];
-          if (this.plugin.settings.replaceCharacters.osPreset === "Windows") {
-            forbiddenChars.push(...windowsAndroidForbidden);
-          }
-
-          // Filter out forbidden characters
-          let filteredValue = "";
-          for (let i = 0; i < value.length; i++) {
-            const char = value[i];
-
-            // Special case for dot: forbidden only at start
-            if (char === "." && i === 0) {
-              continue; // Skip dot at start
-            }
-
-            // Skip other forbidden characters
-            if (forbiddenChars.includes(char)) {
-              continue;
-            }
-
-            filteredValue += char;
-          }
-
-          // Update input if value changed
-          if (filteredValue !== value) {
-            inputEl.value = filteredValue;
-            // Restore cursor position
-            const cursorPos = Math.min(
-              inputEl.selectionStart || 0,
-              filteredValue.length,
-            );
-            inputEl.setSelectionRange(cursorPos, cursorPos);
-          }
-
-          this.plugin.settings.safewords.safewords[index].text = filteredValue;
+          this.plugin.settings.safewords.safewords[index].text = (
+            e.target as HTMLInputElement
+          ).value;
           this.plugin.debugLog(
             `safewords[${index}].text`,
             this.plugin.settings.safewords.safewords[index].text,
@@ -255,6 +215,8 @@ export class SafewordsTab extends SettingsTabBase {
           await this.plugin.saveSettings();
           updateButtonState();
         });
+
+        this.addForbiddenCharProtection(input);
 
         const startToggleContainer = rowEl.createDiv({
           cls: "flit-toggle-column center",
