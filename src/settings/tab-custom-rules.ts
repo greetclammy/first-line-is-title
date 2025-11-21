@@ -53,7 +53,7 @@ export class CustomReplacementsTab extends SettingsTabBase {
           });
       });
 
-    customHeaderToggleSetting.settingEl.style.marginBottom = "0.75em";
+    customHeaderToggleSetting.settingEl.style.marginBottom = "0";
 
     const customBulletListEl = this.containerEl.createEl("div", {
       cls: "setting-item-description flit-margin-top-12",
