@@ -53,9 +53,6 @@ export class CustomReplacementsTab extends SettingsTabBase {
           });
       });
 
-    customHeaderToggleSetting.settingEl.style.marginBottom = "0";
-    customHeaderToggleSetting.settingEl.style.paddingBottom = "0";
-
     const customBulletListEl = this.containerEl.createEl("div", {
       cls: "setting-item-description flit-margin-top-12",
     });
@@ -643,10 +640,6 @@ export class CustomReplacementsTab extends SettingsTabBase {
       .setName(t("settings.customRules.processingOrder.title"))
       .setDesc("")
       .setHeading();
-
-    globalProcessingHeaderSetting.settingEl.style.borderBottom = "1px solid var(--background-modifier-border)";
-    globalProcessingHeaderSetting.settingEl.style.paddingBottom = "12px";
-    globalProcessingHeaderSetting.settingEl.style.marginBottom = "12px";
 
     processingOrderContainer = this.containerEl.createDiv({
       cls: "flit-processing-order-container",
