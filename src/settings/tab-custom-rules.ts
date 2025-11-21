@@ -12,6 +12,7 @@ export class CustomReplacementsTab extends SettingsTabBase {
     const customHeaderToggleSetting = new Setting(this.containerEl)
       .setName(t("settings.customRules.name"))
       .setDesc(t("settings.customRules.desc"))
+      .setHeading()
       .addToggle((toggle) => {
         toggle
           .setValue(this.plugin.settings.customRules.enableCustomReplacements)
@@ -51,9 +52,6 @@ export class CustomReplacementsTab extends SettingsTabBase {
             ).updateAliasConditionalSettings?.();
           });
       });
-
-    customHeaderToggleSetting.settingEl.addClass("flit-master-toggle");
-    customHeaderToggleSetting.settingEl.addClass("flit-no-border");
 
     const customBulletListEl = this.containerEl.createEl("div", {
       cls: "setting-item-description flit-margin-top-12",
@@ -642,9 +640,8 @@ export class CustomReplacementsTab extends SettingsTabBase {
 
     globalProcessingHeaderSetting = new Setting(this.containerEl)
       .setName(t("settings.customRules.processingOrder.title"))
-      .setDesc("");
-
-    globalProcessingHeaderSetting.settingEl.addClass("flit-section-header");
+      .setDesc("")
+      .setHeading();
 
     processingOrderContainer = this.containerEl.createDiv({
       cls: "flit-processing-order-container",
