@@ -519,6 +519,10 @@ export class CommandsTab extends SettingsTabBase {
             updateFileUI();
           });
       });
+
+    fileHeaderSetting.settingEl.style.borderBottom = "1px solid var(--background-modifier-border)";
+    fileHeaderSetting.settingEl.style.paddingBottom = "12px";
+    fileHeaderSetting.settingEl.style.marginBottom = "12px";
     this.containerEl.createEl("br");
 
     const fileContainer = this.containerEl.createDiv();
@@ -618,6 +622,10 @@ export class CommandsTab extends SettingsTabBase {
             updateFolderUI();
           });
       });
+
+    folderHeaderSetting.settingEl.style.borderBottom = "1px solid var(--background-modifier-border)";
+    folderHeaderSetting.settingEl.style.paddingBottom = "12px";
+    folderHeaderSetting.settingEl.style.marginBottom = "12px";
     this.containerEl.createEl("br");
 
     const folderContainer = this.containerEl.createDiv();
@@ -721,6 +729,10 @@ export class CommandsTab extends SettingsTabBase {
             updateTagUI();
           });
       });
+
+    tagHeaderSetting.settingEl.style.borderBottom = "1px solid var(--background-modifier-border)";
+    tagHeaderSetting.settingEl.style.paddingBottom = "12px";
+    tagHeaderSetting.settingEl.style.marginBottom = "12px";
     this.containerEl.createEl("br");
 
     const tagContainer = this.containerEl.createDiv();
@@ -820,6 +832,10 @@ export class CommandsTab extends SettingsTabBase {
             updateVaultSearchUI();
           });
       });
+
+    vaultSearchHeaderSetting.settingEl.style.borderBottom = "1px solid var(--background-modifier-border)";
+    vaultSearchHeaderSetting.settingEl.style.paddingBottom = "12px";
+    vaultSearchHeaderSetting.settingEl.style.marginBottom = "12px";
     this.containerEl.createEl("br");
 
     const vaultSearchContainer = this.containerEl.createDiv({
