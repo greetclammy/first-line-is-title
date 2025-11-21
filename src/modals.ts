@@ -769,7 +769,7 @@ export class ProcessTagModal extends Modal {
 
     const optionsContainer = contentEl.createDiv({ cls: "flit-modal-options" });
 
-    // Rename notes with child tags checkbox
+    // Rename notes with subtags checkbox
     const childTagsContainer = optionsContainer.createDiv({
       cls: "flit-checkbox-container",
     });
