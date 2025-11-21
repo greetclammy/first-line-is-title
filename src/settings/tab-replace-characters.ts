@@ -525,9 +525,6 @@ export class ForbiddenCharsTab extends SettingsTabBase {
             toggle.toggleEl.setAttribute("aria-disabled", "true");
           }
         });
-      windowsAndroidHeaderSetting.settingEl.addClass(
-        "flit-windows-android-header",
-      );
       windowsAndroidHeaderSetting.settingEl.style.borderBottom = "1px solid var(--background-modifier-border)";
       windowsAndroidHeaderSetting.settingEl.style.paddingBottom = "12px";
       windowsAndroidHeaderSetting.settingEl.style.marginBottom = "12px";
