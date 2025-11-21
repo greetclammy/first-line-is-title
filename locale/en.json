@@ -18,7 +18,7 @@
     "toggleAutomaticRenaming": "Toggle automatic renaming",
     "addSafeInternalLink": "Add safe internal link",
     "addSafeInternalLinkWithCaption": "Add safe internal link with caption",
-    "insertFilename": "Insert filename",
+    "insertFilename": "Insert filename at cursor position",
     "putFirstLineInTitleNFolders": {
       "many": "Put first line in title ({{count}} folders)"
     },
