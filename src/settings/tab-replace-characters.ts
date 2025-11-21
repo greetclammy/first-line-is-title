@@ -478,6 +478,7 @@ export class ForbiddenCharsTab extends SettingsTabBase {
       const windowsAndroidHeaderSetting = new Setting(charSettingsContainer)
         .setName(t("settings.replaceCharacters.windowsAndroid.title"))
         .setDesc(t("settings.replaceCharacters.windowsAndroid.desc"))
+        .setHeading()
         .addToggle((toggle) => {
           windowsAndroidToggleComponent = toggle;
           toggle
@@ -523,8 +524,7 @@ export class ForbiddenCharsTab extends SettingsTabBase {
             toggle.toggleEl.tabIndex = -1;
             toggle.toggleEl.setAttribute("aria-disabled", "true");
           }
-        })
-        .setHeading();
+        });
       windowsAndroidHeaderSetting.settingEl.addClass(
         "flit-windows-android-header",
       );
