@@ -27,6 +27,11 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Pull README files from GitHub
+        run: |
+          curl -f -o README.md https://raw.githubusercontent.com/greetclammy/first-line-is-title/main/README.md
+          curl -f -o README_RU.md https://raw.githubusercontent.com/greetclammy/first-line-is-title/main/README_RU.md
+
       - name: Commit all changes to repo
         run: |
           git config user.name "github-actions[bot]"
