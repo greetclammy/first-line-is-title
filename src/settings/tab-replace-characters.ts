@@ -525,9 +525,11 @@ export class ForbiddenCharsTab extends SettingsTabBase {
             toggle.toggleEl.setAttribute("aria-disabled", "true");
           }
         });
+
       windowsAndroidHeaderSetting.settingEl.style.borderBottom = "1px solid var(--background-modifier-border)";
       windowsAndroidHeaderSetting.settingEl.style.paddingBottom = "12px";
       windowsAndroidHeaderSetting.settingEl.style.marginBottom = "12px";
+      charSettingsContainer.createEl("br");
 
       windowsAndroidTableContainer = charSettingsContainer.createEl("div", {
         cls: "flit-table-container flit-windows-android-table",
