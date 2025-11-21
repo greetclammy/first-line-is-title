@@ -3,4 +3,5 @@ CLAUDE.md
 main.js
 node_modules/
 data.json
-first-line-is-title.zip
+*.zip
+.claude

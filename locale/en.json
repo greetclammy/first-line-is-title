@@ -130,7 +130,7 @@
     "renameInExcludedFolders": "Rename notes in excluded folders",
     "renameWithExcludedTags": "Rename notes with excluded tags",
     "renameWithExcludedProperties": "Rename notes with excluded properties",
-    "renameWithChildTags": "Rename notes with child tags (e.g., #parent/child)",
+    "renameWithChildTags": "Rename notes with subtags (e.g., #parent/child)",
     "resetAllSettings": "This will reset all plugin settings to their default values and delete all custom rules. This cannot be undone.",
     "addRemoveProperty": "This will add/remove the key:value property in {{count}} note(s).",
     "disableEnableAddProperty": "This will add the property ",
@@ -279,7 +279,7 @@
           "inBodyOnly": "In note body only"
         },
         "matchChildTags": {
-          "name": "Match child tags",
+          "name": "Match subtags",
           "desc": "For example, also match #parent/child if #parent is listed below."
         },
         "exclusionMode": {
