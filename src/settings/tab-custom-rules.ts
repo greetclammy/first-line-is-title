@@ -54,6 +54,7 @@ export class CustomReplacementsTab extends SettingsTabBase {
       });
 
     customHeaderToggleSetting.settingEl.style.marginBottom = "0";
+    customHeaderToggleSetting.settingEl.style.paddingBottom = "0";
 
     const customBulletListEl = this.containerEl.createEl("div", {
       cls: "setting-item-description flit-margin-top-12",
