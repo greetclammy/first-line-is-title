@@ -228,7 +228,7 @@ export class GeneralTab extends SettingsTabBase {
             cls: "mod-cta flit-leave-feedback-button flit-feedback-button"
         });
         button.addEventListener('click', () => {
-            window.open("https://github.com/greetclammy/first-line-is-title/issues", "_blank");
+            window.open("https://github.com/greetclammy/first-line-is-title?tab=readme-ov-file#%EF%B8%8F-support", "_blank");
         });
 
         // Add icon (commander-style)

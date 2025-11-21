@@ -1142,7 +1142,7 @@ hr.flit-divider {
     left: 0;
     top: 0;
     bottom: 10px;
-    width: 2px;
+    width: 1px;
     background-color: var(--background-modifier-border);
 }
 
