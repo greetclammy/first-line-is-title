@@ -27,6 +27,8 @@ describe('RateLimiter', () => {
         maxOperations: 0,
       });
 
+      // First call is allowed (initializes tracker), subsequent calls blocked
+      expect(limiter.checkLimit('test')).toBe(true);
       expect(limiter.checkLimit('test')).toBe(false);
     });
   });

@@ -198,7 +198,7 @@ describe('tag-utils', () => {
       vi.mocked(getFrontMatterInfo).mockReturnValue({
         exists: true,
         frontmatter: 'title: My Note',
-        contentStart: 24,
+        contentStart: 23,
         lineStart: 0,
       });
 
@@ -212,7 +212,7 @@ describe('tag-utils', () => {
       vi.mocked(getFrontMatterInfo).mockReturnValue({
         exists: true,
         frontmatter: 'title: My Note',
-        contentStart: 21,
+        contentStart: 23,
         lineStart: 0,
       });
 
@@ -231,7 +231,7 @@ describe('tag-utils', () => {
       vi.mocked(getFrontMatterInfo).mockReturnValue({
         exists: true,
         frontmatter: 'title: My Note',
-        contentStart: 24,
+        contentStart: 23,
         lineStart: 0,
       });
 

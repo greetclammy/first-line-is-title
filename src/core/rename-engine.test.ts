@@ -14,7 +14,10 @@ function createMockPlugin() {
     trackUsage: vi.fn(),
     cacheManager: {
       isLocked: vi.fn().mockReturnValue(false),
+      acquireLock: vi.fn().mockReturnValue(true),
+      releaseLock: vi.fn(),
       markPendingAliasRecheck: vi.fn(),
+      hasPendingAliasRecheck: vi.fn().mockReturnValue(false),
     },
     fileStateManager: {
       isEditorSyncing: vi.fn().mockReturnValue(false),
@@ -22,6 +25,7 @@ function createMockPlugin() {
       setLastEditorContent: vi.fn(),
       getTitleRegionCache: vi.fn().mockReturnValue(null),
       setTitleRegionCache: vi.fn(),
+      clearAllTitleRegionCaches: vi.fn(),
       needsFreshRead: vi.fn().mockReturnValue(false),
       clearNeedsFreshRead: vi.fn(),
     },
@@ -258,11 +262,9 @@ describe('RenameEngine', () => {
 
   describe('clearTitleRegionCache', () => {
     it('should clear title region cache via fileStateManager', () => {
-      plugin.fileStateManager.clearTitleRegionCache = vi.fn();
-
       renameEngine.clearTitleRegionCache();
 
-      expect(plugin.fileStateManager.clearTitleRegionCache).toHaveBeenCalled();
+      expect(plugin.fileStateManager.clearAllTitleRegionCaches).toHaveBeenCalled();
     });
   });
 
@@ -398,30 +400,32 @@ describe('RenameEngine', () => {
   });
 
   describe('checkFileExistsCaseInsensitive', () => {
-    it('should return null when file does not exist', () => {
+    it('should return false when file does not exist', () => {
+      plugin.app.vault.getAbstractFileByPath = vi.fn().mockReturnValue(null);
       plugin.app.vault.getAllLoadedFiles = vi.fn().mockReturnValue([]);
 
       const result = renameEngine.checkFileExistsCaseInsensitive('test.md');
 
-      expect(result).toBeNull();
+      expect(result).toBe(false);
     });
 
-    it('should find file with exact case match', () => {
+    it('should return true with exact case match', () => {
       const existingFile = createMockFile('Test.md');
-      plugin.app.vault.getAllLoadedFiles = vi.fn().mockReturnValue([existingFile]);
+      plugin.app.vault.getAbstractFileByPath = vi.fn().mockReturnValue(existingFile);
 
       const result = renameEngine.checkFileExistsCaseInsensitive('Test.md');
 
-      expect(result).toBe(existingFile);
+      expect(result).toBe(true);
     });
 
-    it('should find file with case-insensitive match', () => {
+    it('should return true with case-insensitive match', () => {
       const existingFile = createMockFile('Test.md');
+      plugin.app.vault.getAbstractFileByPath = vi.fn().mockReturnValue(null);
       plugin.app.vault.getAllLoadedFiles = vi.fn().mockReturnValue([existingFile]);
 
       const result = renameEngine.checkFileExistsCaseInsensitive('test.md');
 
-      expect(result).toBe(existingFile);
+      expect(result).toBe(true);
     });
 
     it('should find file among multiple files', () => {
@@ -429,32 +433,35 @@ describe('RenameEngine', () => {
       const file2 = createMockFile('Target.md');
       const file3 = createMockFile('file3.md');
 
+      plugin.app.vault.getAbstractFileByPath = vi.fn().mockReturnValue(null);
       plugin.app.vault.getAllLoadedFiles = vi.fn().mockReturnValue([file1, file2, file3]);
 
       const result = renameEngine.checkFileExistsCaseInsensitive('target.md');
 
-      expect(result).toBe(file2);
+      expect(result).toBe(true);
     });
 
     it('should handle paths with folders', () => {
       const existingFile = createMockFile('Folder/File.md');
+      plugin.app.vault.getAbstractFileByPath = vi.fn().mockReturnValue(null);
       plugin.app.vault.getAllLoadedFiles = vi.fn().mockReturnValue([existingFile]);
 
       const result = renameEngine.checkFileExistsCaseInsensitive('folder/file.md');
 
-      expect(result).toBe(existingFile);
+      expect(result).toBe(true);
     });
 
-    it('should return first match when multiple case-variants exist', () => {
+    it('should return true when multiple case-variants exist', () => {
       const file1 = createMockFile('test.md');
       const file2 = createMockFile('Test.md');
       const file3 = createMockFile('TEST.md');
 
+      plugin.app.vault.getAbstractFileByPath = vi.fn().mockReturnValue(null);
       plugin.app.vault.getAllLoadedFiles = vi.fn().mockReturnValue([file1, file2, file3]);
 
       const result = renameEngine.checkFileExistsCaseInsensitive('TeSt.md');
 
-      expect(result).toBe(file1); // First match
+      expect(result).toBe(true); // Found match
     });
   });
 

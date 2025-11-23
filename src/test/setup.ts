@@ -14,7 +14,14 @@ const dom = new JSDOM('<!DOCTYPE html><html><body></body></html>', {
 
 global.document = dom.window.document as any;
 global.window = dom.window as any;
-global.navigator = dom.window.navigator as any;
+
+// Use defineProperty for navigator since it's read-only in newer Node.js
+Object.defineProperty(global, 'navigator', {
+  value: dom.window.navigator,
+  writable: true,
+  configurable: true,
+});
+
 global.HTMLElement = dom.window.HTMLElement as any;
 global.Element = dom.window.Element as any;
 global.Node = dom.window.Node as any;

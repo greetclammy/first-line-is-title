@@ -157,26 +157,44 @@ const folder = createMockFolder('Notes');
 
 ## 📊 Current Test Coverage
 
-### Modules with Tests (250+ tests total)
+### Modules with Tests (490+ tests total) 🎉
 
-- ✅ **String Processing** (40+ tests)
+#### Core Modules
+- ✅ **Rename Engine** (60+ tests)
+  - Rate limiting, frontmatter stripping
+  - Title extraction, cache management
+  - Editor change processing, file workflow
+
+- ✅ **Cache Manager** (52 tests)
+  - LRU cache implementation
+  - Path reservation & conflict detection
+  - File operation locks, file existence cache
+
+- ✅ **Rate Limiter** (60+ tests)
+  - Per-key and global rate limiting
+  - Time window management, performance tests
+
+- ✅ **Debug Utilities** (41 tests)
+  - Setting logs, file content output
+  - Verbose logging controls
+
+- ✅ **i18n** (80+ tests)
+  - Locale switching, translations
+  - English/Russian plural forms with all edge cases
+
+#### Utility Modules
+- ✅ **String Processing** (45 tests)
   - Forbidden character handling
   - Safe link generation
   - Character replacement logic
 
-- ✅ **File Exclusions** (80+ tests)
+- ✅ **File Exclusions** (85 tests)
   - Folder exclusions & subfolders
   - Tag exclusions (frontmatter & inline)
   - Property exclusions
   - shouldProcessFile logic with strategies
 
-- ✅ **Cache Manager** (50+ tests)
-  - LRU cache implementation
-  - Path reservation & conflict detection
-  - File operation locks
-  - File existence cache
-
-- ✅ **Tag Utils** (60+ tests)
+- ✅ **Tag Utils** (63 tests)
   - Tag normalization
   - YAML parsing
   - Target tag detection

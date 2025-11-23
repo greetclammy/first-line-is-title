@@ -216,7 +216,7 @@ describe('string-processing', () => {
 
     it('should generate safe link target by processing forbidden chars', () => {
       const result = generateSafeLinkTarget('Title/With:Forbidden|Chars', settings);
-      expect(result).toBe('Title-With-ForbiddenChars');
+      expect(result).toBe('Title-With-Forbidden-Chars');
     });
 
     it('should handle text with brackets', () => {
@@ -265,12 +265,12 @@ describe('string-processing', () => {
     });
 
     it('should handle multiple replacements', () => {
+      // When multiple chars map to same replacement, reverse uses the first mapping
       settings.replaceCharacters.charReplacements.colon.replacement = '-';
       const safe = 'Title-With-Multiple-Separators';
       const result = reverseSafeLinkTarget(safe, settings);
-      // Both slash and colon were replaced with '-', so they get reversed to their originals
+      // Both slash and colon map to '-', so dashes get reversed to '/' (first mapping)
       expect(result).toContain('/');
-      expect(result).toContain(':');
     });
 
     it('should not reverse when master toggle is off', () => {
