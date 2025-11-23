@@ -361,7 +361,8 @@ export const setIcon = vi.fn((el: HTMLElement, icon: string) => {
   el.setAttribute('data-icon', icon);
 });
 
-export const getFrontMatterInfo = vi.fn((content: string) => {
+export const getFrontMatterInfo = vi.fn(() => {
+  // Default: no frontmatter (tests will mock specific return values)
   return {
     exists: false,
     frontmatter: '',

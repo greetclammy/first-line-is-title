@@ -196,10 +196,10 @@ describe('utils', () => {
     it('should handle case-insensitive string comparison', async () => {
       const file = createMockFile('test.md');
       app.metadataCache.getFileCache = vi.fn().mockReturnValue({
-        frontmatter: { status: 'TRUE' },
+        frontmatter: { status: 'DISABLED' },
       });
 
-      const result = await hasDisablePropertyInFile(file, app, 'status', 'true');
+      const result = await hasDisablePropertyInFile(file, app, 'status', 'disabled');
       expect(result).toBe(true);
     });
 
