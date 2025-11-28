@@ -1,4 +1,4 @@
-import { TFile } from "obsidian";
+import type { TFile } from "obsidian";
 import FirstLineIsTitlePlugin from "../../main";
 import { TIMING } from "../constants/timing";
 

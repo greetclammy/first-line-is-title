@@ -56,6 +56,7 @@ export interface ExclusionOverrides {
 export interface CoreSettings {
   // Rename behavior
   renameNotes: "automatically" | "manually";
+  titleCase: "preserve" | "uppercase" | "lowercase";
   renameOnFocus: boolean;
   renameOnSave: boolean;
   onlyRenameIfHeading: boolean;

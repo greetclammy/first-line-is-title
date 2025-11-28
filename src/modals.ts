@@ -49,7 +49,7 @@ export class RenameAllFilesModal extends Modal {
     messagePara.createEl("strong", { text: `${count} ${parts.noun}` });
     messagePara.appendText(parts.after);
 
-    const ensureList = contentEl.createEl("p", {
+    contentEl.createEl("p", {
       text: t("modals.ensure"),
       cls: "flit-margin-top-10 flit-margin-bottom-10",
     });

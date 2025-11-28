@@ -1,10 +1,9 @@
-import { Setting, Notice, setIcon } from "obsidian";
+import { Setting, setIcon } from "obsidian";
 import { SettingsTabBase, FirstLineIsTitlePlugin } from "./settings-base";
 import {
   ExclusionStrategy,
   TagPropertyExclusionStrategy,
   TagMatchingMode,
-  ExcludedProperty,
 } from "../types";
 import { FolderSuggest, TagSuggest } from "../suggests";
 import { DEFAULT_SETTINGS } from "../constants";
@@ -29,7 +28,7 @@ export class IncludeExcludeTab extends SettingsTabBase {
     importantNote.appendText(t("settings.exclusions.note"));
     importantNote.classList.add("flit-margin-bottom-15");
 
-    const foldersHeaderSetting = new Setting(this.containerEl)
+    new Setting(this.containerEl)
       .setName(t("settings.exclusions.folders.title"))
       .setDesc(t("settings.exclusions.folders.desc"))
       .setHeading();
@@ -55,7 +54,7 @@ export class IncludeExcludeTab extends SettingsTabBase {
       );
     subfolderSetting.settingEl.classList.add("flit-border-top-none");
 
-    const folderModeSetting = new Setting(this.containerEl)
+    new Setting(this.containerEl)
       .setName(t("settings.exclusions.folders.exclusionMode.name"))
       .setDesc(t("settings.exclusions.folders.exclusionMode.desc"))
       .addDropdown((dropdown) =>
@@ -225,7 +224,7 @@ export class IncludeExcludeTab extends SettingsTabBase {
 
     renderExcludedFolders();
 
-    const tagsHeaderSetting = new Setting(this.containerEl)
+    new Setting(this.containerEl)
       .setName(t("settings.exclusions.tags.title"))
       .setDesc(t("settings.exclusions.tags.desc"))
       .setHeading();
@@ -284,7 +283,7 @@ export class IncludeExcludeTab extends SettingsTabBase {
       );
     tagMatchingSetting.settingEl.classList.add("flit-border-top-none");
 
-    const childTagsSetting = new Setting(this.containerEl)
+    new Setting(this.containerEl)
       .setName(t("settings.exclusions.tags.matchChildTags.name"))
       .setDesc(t("settings.exclusions.tags.matchChildTags.desc"))
       .addToggle((toggle) =>
@@ -297,7 +296,7 @@ export class IncludeExcludeTab extends SettingsTabBase {
           }),
       );
 
-    const tagModeSetting = new Setting(this.containerEl)
+    new Setting(this.containerEl)
       .setName(t("settings.exclusions.tags.exclusionMode.name"))
       .setDesc(t("settings.exclusions.tags.exclusionMode.desc"))
       .addDropdown((dropdown) =>
@@ -457,7 +456,7 @@ export class IncludeExcludeTab extends SettingsTabBase {
 
     renderExcludedTags();
 
-    const propertiesHeaderSetting = new Setting(this.containerEl)
+    new Setting(this.containerEl)
       .setName(t("settings.exclusions.properties.title"))
       .setDesc(t("settings.exclusions.properties.desc"))
       .setHeading();
@@ -591,7 +590,7 @@ export class IncludeExcludeTab extends SettingsTabBase {
           keyInput.value = property.key;
           keyInput.tabIndex = 0;
 
-          const colonSpan = propertyInputContainer.createEl("span", {
+          propertyInputContainer.createEl("span", {
             text: t("settings.exclusions.properties.separator"),
             cls: "flit-colon-separator",
           });
@@ -794,7 +793,7 @@ export class IncludeExcludeTab extends SettingsTabBase {
     keyInput.value = this.plugin.settings.exclusions.disableRenamingKey;
     keyInput.tabIndex = 0;
 
-    const colonSpan = propertyInputContainer.createEl("span", {
+    propertyInputContainer.createEl("span", {
       text: t("settings.exclusions.properties.separator"),
       cls: "flit-colon-separator",
     });
@@ -860,11 +859,9 @@ export class IncludeExcludeTab extends SettingsTabBase {
     const defaultTextContainer = this.containerEl.createEl("div", {
       cls: "setting-item-description flit-margin-top-5 flit-margin-bottom-20",
     });
-    defaultTextContainer
-      .createEl("small")
-      .createEl("strong", {
-        text: t("settings.exclusions.disableProperty.default"),
-      });
+    defaultTextContainer.createEl("small").createEl("strong", {
+      text: t("settings.exclusions.disableProperty.default"),
+    });
 
     propertyDisableSetting.settingEl.classList.add("flit-margin-bottom-20");
   }

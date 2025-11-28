@@ -9,7 +9,7 @@ export class CustomReplacementsTab extends SettingsTabBase {
   }
 
   render(): void {
-    const customHeaderToggleSetting = new Setting(this.containerEl)
+    const mainToggle = new Setting(this.containerEl)
       .setName(t("settings.customRules.name"))
       .setDesc(t("settings.customRules.desc"))
       .setHeading()
@@ -52,6 +52,10 @@ export class CustomReplacementsTab extends SettingsTabBase {
             ).updateAliasConditionalSettings?.();
           });
       });
+    mainToggle.settingEl.addClass(
+      "flit-heading-no-border",
+      "flit-margin-bottom-12",
+    );
 
     const customBulletListEl = this.containerEl.createEl("div", {
       cls: "setting-item-description flit-margin-top-12",
@@ -64,10 +68,10 @@ export class CustomReplacementsTab extends SettingsTabBase {
         cls: "flit-margin-0 flit-padding-left-20",
       });
 
-      const li1 = ul.createEl("li", {
+      ul.createEl("li", {
         text: t("settings.customRules.rulesAppliedSequentially"),
       });
-      const li3 = ul.createEl("li", {
+      ul.createEl("li", {
         text: t("settings.customRules.whitespacePreserved"),
       });
 

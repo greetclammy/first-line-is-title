@@ -1,11 +1,4 @@
-import {
-  TFile,
-  TFolder,
-  MarkdownView,
-  Notice,
-  getFrontMatterInfo,
-  parseYaml,
-} from "obsidian";
+import { TFile, MarkdownView, getFrontMatterInfo, parseYaml } from "obsidian";
 import { PluginSettings } from "../types";
 import {
   verboseLog,
@@ -13,9 +6,8 @@ import {
   hasDisablePropertyInFile,
 } from "../utils";
 import { t } from "../i18n";
-import { TITLE_CHAR_REVERSAL_MAP } from "../constants";
 import { readFileContent } from "../utils/content-reader";
-import { TIMING, LIMITS } from "../constants/timing";
+import { TIMING } from "../constants/timing";
 import FirstLineIsTitle from "../../main";
 
 export class FileOperations {
@@ -405,13 +397,36 @@ export class FileOperations {
           `[TITLE-INSERT] Inserting title via vault.process`,
         );
         await this.app.vault.process(file, (content) => {
-          if (yamlEndLine !== -1) {
-            const lines = content.split("\n");
-            const insertLine = yamlEndLine + 1;
-            lines.splice(insertLine, 0, finalTitle);
-            return lines.join("\n");
+          // Always use fresh content from vault.process callback (not stale initialContent)
+          // This handles race conditions where file content changed since initial read
+          const freshLines = content.split("\n");
+          let freshYamlEndLine = -1;
+          if (freshLines[0] === "---") {
+            for (let i = 1; i < freshLines.length; i++) {
+              if (freshLines[i] === "---") {
+                freshYamlEndLine = i;
+                break;
+              }
+            }
+          }
+
+          // Check if content after YAML is non-empty (race condition: content appeared)
+          const contentStartLine =
+            freshYamlEndLine !== -1 ? freshYamlEndLine + 1 : 0;
+          const contentAfterYaml = freshLines
+            .slice(contentStartLine)
+            .join("\n")
+            .trim();
+          if (contentAfterYaml !== "") {
+            // Content exists - skip insertion to avoid duplicate
+            return content;
+          }
+
+          if (freshYamlEndLine !== -1) {
+            freshLines.splice(freshYamlEndLine + 1, 0, finalTitle);
+            return freshLines.join("\n");
           } else {
-            return finalTitle + "\n";
+            return finalTitle + "\n" + content;
           }
         });
       }

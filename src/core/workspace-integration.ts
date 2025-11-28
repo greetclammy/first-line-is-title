@@ -1,10 +1,4 @@
-import {
-  TFile,
-  MarkdownView,
-  setIcon,
-  Notice,
-  ViewWithFileEditor,
-} from "obsidian";
+import { TFile, MarkdownView, setIcon, ViewWithFileEditor } from "obsidian";
 import { verboseLog } from "../utils";
 import { RenameAllFilesModal } from "../modals";
 import FirstLineIsTitle from "../../main";

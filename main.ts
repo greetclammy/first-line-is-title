@@ -1,31 +1,14 @@
-import { Notice, Plugin, TFile, TFolder, MarkdownView } from "obsidian";
+import { Notice, Plugin, TFile, TFolder } from "obsidian";
 import { PluginSettings } from "./src/types";
 import { DEFAULT_SETTINGS } from "./src/constants";
-import { initI18n, t, tp, getCurrentLocale } from "./src/i18n";
+import { initI18n, t, getCurrentLocale } from "./src/i18n";
 import {
   verboseLog,
   detectOS,
-  isFileExcluded,
-  shouldProcessFile,
   hasDisablePropertyInFile,
-  containsSafeword,
-  extractTitle,
-  isValidHeading,
-  generateSafeLinkTarget,
-  normalizeTag,
   deepMerge,
   deduplicateExclusions,
 } from "./src/utils";
-import {
-  RenameAllFilesModal,
-  RenameFolderModal,
-  RenameMultipleFoldersModal,
-  ClearSettingsModal,
-  ProcessTagModal,
-  InternalLinkModal,
-  RenameModal,
-  DisableEnableModal,
-} from "./src/modals";
 import { FirstLineIsTitleSettings } from "./src/settings/settings-main";
 import { RenameEngine } from "./src/core/rename-engine";
 import { ContextMenuManager } from "./src/ui/context-menus";
@@ -279,7 +262,6 @@ export default class FirstLineIsTitle extends Plugin {
     if (files.length === 0) return;
 
     let processed = 0;
-    let skipped = 0;
     let errors = 0;
 
     new Notice(
@@ -310,8 +292,6 @@ export default class FirstLineIsTitle extends Plugin {
           );
           if (result.success) {
             processed++;
-          } else {
-            skipped++;
           }
         }
       } catch (error) {

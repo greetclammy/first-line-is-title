@@ -1,4 +1,4 @@
-import { Menu, TFile, TFolder, setIcon, Notice } from "obsidian";
+import { Menu, TFile, TFolder, setIcon } from "obsidian";
 import { verboseLog } from "../utils";
 import { ProcessTagModal, RenameMultipleFoldersModal } from "../modals";
 import FirstLineIsTitlePlugin from "../../main";
@@ -108,7 +108,7 @@ export class ContextMenuManager {
   /**
    * Gets the appropriate menu text for folder operations based on scope strategy.
    */
-  getFolderMenuText(folderPath: string): { disable: string; enable: string } {
+  getFolderMenuText(_folderPath: string): { disable: string; enable: string } {
     if (
       this.plugin.settings.exclusions.folderScopeStrategy === "Only exclude..."
     ) {
@@ -129,7 +129,7 @@ export class ContextMenuManager {
   /**
    * Gets the appropriate menu text for tag operations based on scope strategy.
    */
-  getTagMenuText(tagName: string): { disable: string; enable: string } {
+  getTagMenuText(_tagName: string): { disable: string; enable: string } {
     if (
       this.plugin.settings.exclusions.tagScopeStrategy === "Only exclude..."
     ) {
@@ -184,7 +184,6 @@ export class ContextMenuManager {
   addTagMenuItemsToDOM(menuEl: HTMLElement, tagName: string): void {
     if (!this.plugin.settings.core.enableTagCommands) return;
 
-    const tagToFind = tagName.startsWith("#") ? tagName : `#${tagName}`;
     const shouldShowDisable = this.shouldShowDisableMenuForTag(tagName);
     const menuText = this.getTagMenuText(tagName);
 

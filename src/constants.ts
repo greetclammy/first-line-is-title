@@ -1,16 +1,10 @@
-import {
-  PluginSettings,
-  OSPreset,
-  TagMatchingMode,
-  FileReadMethod,
-  ExcludedProperty,
-} from "./types";
-import { CharReplacements } from "./types/char-replacement";
+import { PluginSettings, TagMatchingMode } from "./types";
 
 export const DEFAULT_SETTINGS: PluginSettings = {
   core: {
     // Rename behavior
     renameNotes: "automatically",
+    titleCase: "preserve",
     renameOnFocus: false,
     renameOnSave: false,
     onlyRenameIfHeading: false,
@@ -169,7 +163,7 @@ export const DEFAULT_SETTINGS: PluginSettings = {
         trimRight: false,
       },
       quote: {
-        replacement: "＂",
+        replacement: "''",
         enabled: false,
         trimLeft: false,
         trimRight: false,

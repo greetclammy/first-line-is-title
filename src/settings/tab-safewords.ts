@@ -9,7 +9,7 @@ export class SafewordsTab extends SettingsTabBase {
   }
 
   render(): void {
-    const safewordsHeaderToggleSetting = new Setting(this.containerEl)
+    const mainToggle = new Setting(this.containerEl)
       .setName(t("settings.safewords.enableSafewords.name"))
       .setDesc(t("settings.safewords.enableSafewords.desc"))
       .setHeading()
@@ -33,6 +33,7 @@ export class SafewordsTab extends SettingsTabBase {
             renderSafewords();
           });
       });
+    mainToggle.settingEl.addClass("flit-heading-no-border");
 
     const safewordsContainer = this.containerEl.createDiv({
       cls: "flit-safewords-container",

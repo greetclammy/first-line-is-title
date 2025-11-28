@@ -48,7 +48,7 @@ export class OtherTab extends SettingsTabBase {
 
     charCountSetting.addSlider((slider) => {
       slider
-        .setLimits(1, 255, 1)
+        .setLimits(1, 252, 1)
         .setValue(this.plugin.settings.core.charCount)
         .setDynamicTooltip()
         .onChange(async (value) => {
@@ -206,11 +206,9 @@ export class OtherTab extends SettingsTabBase {
       t("settings.other.contentReadMethod.desc"),
     );
     contentReadMethodDesc.createEl("br");
-    contentReadMethodDesc
-      .createEl("small")
-      .createEl("strong", {
-        text: t("settings.other.contentReadMethod.default"),
-      });
+    contentReadMethodDesc.createEl("small").createEl("strong", {
+      text: t("settings.other.contentReadMethod.default"),
+    });
 
     const contentReadContainer = contentReadMethodSetting.controlEl.createDiv({
       cls: "flit-content-read-container flit-display-flex flit-gap-10",
@@ -374,7 +372,7 @@ export class OtherTab extends SettingsTabBase {
 
     debugSubSettingsContainer = this.containerEl.createDiv("flit-sub-settings");
 
-    const debugContentSetting = new Setting(debugSubSettingsContainer)
+    new Setting(debugSubSettingsContainer)
       .setName(t("settings.other.debugOutputContent.name"))
       .setDesc(t("settings.other.debugOutputContent.desc"))
       .addToggle((toggle) =>

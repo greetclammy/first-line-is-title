@@ -62,7 +62,7 @@ export class PropertiesTab extends SettingsTabBase {
       }
     };
 
-    const aliasToggleSetting = new Setting(this.containerEl)
+    const mainToggle = new Setting(this.containerEl)
       .setName(t("settings.alias.addAlias.name"))
       .setDesc(t("settings.alias.addAlias.desc"))
       .setHeading()
@@ -89,6 +89,7 @@ export class PropertiesTab extends SettingsTabBase {
             renderAliasSettings();
           }),
       );
+    mainToggle.settingEl.addClass("flit-heading-no-border");
 
     const aliasContainer = this.containerEl.createDiv({
       cls: "flit-alias-container",
@@ -204,11 +205,9 @@ export class PropertiesTab extends SettingsTabBase {
     li2.appendText(t("settings.alias.aliasPropertyName.noteTitle.part4"));
 
     aliasKeyDesc.createEl("br");
-    aliasKeyDesc
-      .createEl("small")
-      .createEl("strong", {
-        text: t("settings.alias.aliasPropertyName.default"),
-      });
+    aliasKeyDesc.createEl("small").createEl("strong", {
+      text: t("settings.alias.aliasPropertyName.default"),
+    });
     const aliasPropertyKeyContainer =
       aliasPropertyKeySetting.controlEl.createDiv({
         cls: "flit-char-text-input-container",
@@ -255,7 +254,7 @@ export class PropertiesTab extends SettingsTabBase {
       await this.plugin.saveSettings();
     });
 
-    const addAliasConditionalSetting = new Setting(aliasContainer)
+    new Setting(aliasContainer)
       .setName(t("settings.alias.onlyAddIfDiffers.name"))
       .setDesc(t("settings.alias.onlyAddIfDiffers.desc"))
       .addToggle((toggle) => {
@@ -393,7 +392,7 @@ export class PropertiesTab extends SettingsTabBase {
       }
     });
 
-    const keepEmptyAliasPropertySetting = new Setting(aliasContainer)
+    new Setting(aliasContainer)
       .setName(t("settings.alias.keepEmptyProperty.name"))
       .setDesc(t("settings.alias.keepEmptyProperty.desc"))
       .addToggle((toggle) => {
@@ -411,7 +410,7 @@ export class PropertiesTab extends SettingsTabBase {
           });
       });
 
-    const hideAliasPropertySetting = new Setting(aliasContainer)
+    new Setting(aliasContainer)
       .setName(t("settings.alias.hideProperty.name"))
       .setDesc(t("settings.alias.hideProperty.desc"))
       .addDropdown((dropdown) =>
@@ -469,7 +468,7 @@ export class PropertiesTab extends SettingsTabBase {
       hideInSidebarSetting.settingEl.addClass("flit-display-none");
     }
 
-    const suppressMergeNotificationsSetting = new Setting(aliasContainer)
+    new Setting(aliasContainer)
       .setName(t("settings.alias.hideMergeNotifications.name"))
       .setDesc(t("settings.alias.hideMergeNotifications.desc"))
       .addToggle((toggle) => {
@@ -488,7 +487,7 @@ export class PropertiesTab extends SettingsTabBase {
       });
 
     if (!Platform.isMobile) {
-      const limitationsSetting = new Setting(aliasContainer)
+      new Setting(aliasContainer)
         .setName(t("settings.alias.limitations.title"))
         .setDesc("")
         .setHeading();

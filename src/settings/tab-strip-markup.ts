@@ -8,7 +8,7 @@ export class StripMarkupTab extends SettingsTabBase {
   }
 
   render(): void {
-    const masterToggleSetting = new Setting(this.containerEl)
+    const mainToggle = new Setting(this.containerEl)
       .setName(t("settings.stripMarkup.name"))
       .setDesc(t("settings.stripMarkup.desc"))
       .setHeading()
@@ -35,6 +35,7 @@ export class StripMarkupTab extends SettingsTabBase {
             ).updateAliasConditionalSettings?.();
           });
       });
+    mainToggle.settingEl.addClass("flit-heading-no-border");
 
     const stripMarkupContainer = this.containerEl.createDiv({
       cls: "flit-strip-markup-container",

@@ -1,4 +1,4 @@
-import { TFile, Notice, normalizePath } from "obsidian";
+import { normalizePath } from "obsidian";
 import { verboseLog } from "../utils";
 import FirstLineIsTitle from "../../main";
 

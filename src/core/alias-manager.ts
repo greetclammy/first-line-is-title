@@ -1,5 +1,4 @@
 import { TFile, MarkdownView, getFrontMatterInfo, parseYaml } from "obsidian";
-import { NodeError } from "../obsidian-ex";
 import { PluginSettings } from "../types";
 import {
   verboseLog,
