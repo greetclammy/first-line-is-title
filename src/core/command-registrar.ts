@@ -1,4 +1,4 @@
-import { Notice, MarkdownView } from "obsidian";
+import { Notice } from "obsidian";
 import { verboseLog, reverseCharacterReplacements } from "../utils";
 import { RenameAllFilesModal } from "../modals";
 import FirstLineIsTitle from "../../main";

@@ -139,7 +139,6 @@ interface OperationData {
 
 export class CacheManager {
   private plugin: FirstLineIsTitlePlugin;
-  private config: CacheConfig;
 
   // Optimized data structures
   private contentCache: LRUCache<string, string>;
@@ -153,7 +152,6 @@ export class CacheManager {
     config: CacheConfig = DEFAULT_CACHE_CONFIG,
   ) {
     this.plugin = plugin;
-    this.config = config;
 
     // Initialize optimized caches
     this.contentCache = new LRUCache(config.maxContentEntries);

@@ -3,10 +3,9 @@ import {
   Editor,
   Notice,
   getFrontMatterInfo,
-  parseYaml,
   MarkdownView,
 } from "obsidian";
-import { PluginSettings, TitleRegionCache } from "../types";
+import { TitleRegionCache } from "../types";
 import { TIMING, LIMITS } from "../constants/timing";
 import {
   verboseLog,

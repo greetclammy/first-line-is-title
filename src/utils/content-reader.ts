@@ -1,6 +1,4 @@
 import { App, TFile, Editor, MarkdownView, ViewWithFileEditor } from "obsidian";
-import { PluginSettings } from "../types";
-import { verboseLog } from "../utils";
 import FirstLineIsTitlePlugin from "../../main";
 
 /**

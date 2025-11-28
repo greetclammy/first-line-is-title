@@ -8,7 +8,7 @@ export class CommandsTab extends SettingsTabBase {
   }
 
   render(): void {
-    const ribbonHeaderSetting = new Setting(this.containerEl)
+    new Setting(this.containerEl)
       .setName(t("settings.commands.ribbon.title"))
       .setDesc(t("settings.commands.ribbon.desc"))
       .setHeading()
@@ -150,7 +150,7 @@ export class CommandsTab extends SettingsTabBase {
     );
 
     updateRibbonUI();
-    const commandPaletteHeaderSetting = new Setting(this.containerEl)
+    new Setting(this.containerEl)
       .setName(t("settings.commands.palette.title"))
       .setDesc(t("settings.commands.palette.desc"))
       .setHeading()
@@ -495,7 +495,7 @@ export class CommandsTab extends SettingsTabBase {
     );
 
     updateCommandPaletteUI();
-    const fileHeaderSetting = new Setting(this.containerEl)
+    new Setting(this.containerEl)
       .setName(t("settings.commands.file.title"))
       .setDesc(t("settings.commands.file.desc"))
       .setHeading()
@@ -593,7 +593,7 @@ export class CommandsTab extends SettingsTabBase {
       fileEnableSetting.nameEl.firstChild,
     );
 
-    const folderHeaderSetting = new Setting(this.containerEl)
+    new Setting(this.containerEl)
       .setName(t("settings.commands.folder.title"))
       .setDesc(t("settings.commands.folder.desc"))
       .setHeading()
@@ -695,7 +695,7 @@ export class CommandsTab extends SettingsTabBase {
       folderEnableSetting.nameEl.firstChild,
     );
 
-    const tagHeaderSetting = new Setting(this.containerEl)
+    new Setting(this.containerEl)
       .setName(t("settings.commands.tag.title"))
       .setDesc(t("settings.commands.tag.desc"))
       .setHeading()
@@ -793,7 +793,7 @@ export class CommandsTab extends SettingsTabBase {
       tagEnableSetting.nameEl.firstChild,
     );
 
-    const vaultSearchHeaderSetting = new Setting(this.containerEl)
+    new Setting(this.containerEl)
       .setName(t("settings.commands.search.title"))
       .setDesc(t("settings.commands.search.desc"))
       .setHeading()

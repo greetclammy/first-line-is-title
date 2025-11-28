@@ -11,7 +11,7 @@ export class ForbiddenCharsTab extends SettingsTabBase {
   }
 
   render(): void {
-    const headerToggleSetting = new Setting(this.containerEl)
+    const mainToggle = new Setting(this.containerEl)
       .setName(t("settings.replaceCharacters.name"))
       .setDesc(t("settings.replaceCharacters.desc"))
       .setHeading()
@@ -114,6 +114,7 @@ export class ForbiddenCharsTab extends SettingsTabBase {
             ).updateGeneralConditionalSettings?.();
           });
       });
+    mainToggle.settingEl.addClass("flit-heading-no-border");
 
     const charSettingsContainer = this.containerEl.createDiv({
       cls: "flit-char-settings-container",
@@ -231,7 +232,7 @@ export class ForbiddenCharsTab extends SettingsTabBase {
     const updateCharacterSettings = () => {
       charSettingsContainer.empty();
 
-      const allOSesHeaderSetting = new Setting(charSettingsContainer)
+      new Setting(charSettingsContainer)
         .setName(t("settings.replaceCharacters.allOSes.title"))
         .setDesc(t("settings.replaceCharacters.allOSes.desc"))
         .setHeading();
@@ -355,7 +356,7 @@ export class ForbiddenCharsTab extends SettingsTabBase {
         const nameContainer = rowEl.createEl("div", {
           cls: "flit-char-name-column",
         });
-        const nameEl = nameContainer.createEl("div", {
+        nameContainer.createEl("div", {
           text: setting.name,
           cls: "setting-item-name",
         });
@@ -471,7 +472,7 @@ export class ForbiddenCharsTab extends SettingsTabBase {
         updateRowAppearance();
       });
 
-      const windowsAndroidHeaderSetting = new Setting(charSettingsContainer)
+      new Setting(charSettingsContainer)
         .setName(t("settings.replaceCharacters.windowsAndroid.title"))
         .setDesc(t("settings.replaceCharacters.windowsAndroid.desc"))
         .setHeading()
@@ -618,7 +619,7 @@ export class ForbiddenCharsTab extends SettingsTabBase {
         const nameContainer = rowEl.createEl("div", {
           cls: "flit-char-name-column",
         });
-        const nameEl = nameContainer.createEl("div", {
+        nameContainer.createEl("div", {
           text: setting.name,
           cls: "setting-item-name",
         });

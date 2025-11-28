@@ -1,4 +1,4 @@
-import { App, Setting } from "obsidian";
+import { App } from "obsidian";
 import { PluginSettings } from "../types";
 import { UNIVERSAL_FORBIDDEN_CHARS, WINDOWS_ANDROID_CHARS } from "../constants";
 import { detectOS } from "../utils";

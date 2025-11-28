@@ -1038,7 +1038,8 @@ hr.flit-divider {
 
 /* Also apply to elements that get .flit-master-disabled class directly (like descriptions, headers) */
 .flit-master-disabled.setting-item-description,
-.flit-master-disabled.flit-section-header {
+.flit-master-disabled.flit-section-header,
+.flit-master-disabled.setting-item-heading {
   opacity: 0.5;
 }
 
@@ -1506,6 +1507,9 @@ hr.flit-divider {
 .flit-margin-bottom-10 {
   margin-bottom: 10px;
 }
+.flit-margin-bottom-12 {
+  margin-bottom: 12px !important;
+}
 .flit-margin-bottom-15 {
   margin-bottom: 15px;
 }
@@ -1539,7 +1543,8 @@ hr.flit-divider {
   justify-content: center;
   align-items: center;
   width: 100%;
-  margin: 20px 0;
+  margin-top: 20px;
+  margin-bottom: 0;
   padding: 4px 0;
   overflow: visible;
 }
@@ -1573,6 +1578,13 @@ hr.flit-divider {
   border-bottom: 1px solid var(--background-modifier-border);
   padding-bottom: 12px;
   margin-bottom: 12px;
+}
+
+/* Remove border from main toggle headings at top of tabs */
+.flit-settings-page .setting-item-heading.flit-heading-no-border {
+  border-bottom: none;
+  padding-bottom: 0;
+  margin-bottom: 24px;
 }
 
 /* Property container - used in exclusions tab */

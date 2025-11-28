@@ -2,11 +2,6 @@ import { moment } from "obsidian";
 import enTranslations from "../locale/en.json";
 import ruTranslations from "../locale/ru.json";
 
-// Translation type
-type TranslationStrings = {
-  [key: string]: string | TranslationStrings;
-};
-
 // Module state - initialized immediately to prevent tree-shaking
 const state = (() => {
   return {

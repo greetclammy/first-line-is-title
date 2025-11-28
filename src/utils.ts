@@ -1,10 +1,4 @@
-import {
-  TFile,
-  App,
-  Platform,
-  normalizePath,
-  ViewWithFileEditor,
-} from "obsidian";
+import { TFile, App, Platform, ViewWithFileEditor } from "obsidian";
 import { PluginSettings, OSPreset } from "./types";
 import { UNIVERSAL_FORBIDDEN_CHARS, WINDOWS_ANDROID_CHARS } from "./constants";
 import { t } from "./i18n";
@@ -301,7 +295,7 @@ export function extractTitle(line: string, settings: PluginSettings): string {
 
   if (!backslashReplacementEnabled) {
     // Backslash disabled: use as escape character, omit from output
-    line = line.replace(/\\(.)/g, (match, char) => {
+    line = line.replace(/\\(.)/g, (_match, char) => {
       const placeholder = `__ESCAPED_${escapeCounter++}__`;
       escapeMap.set(placeholder, char);
       return placeholder;
@@ -517,7 +511,7 @@ export function extractTitle(line: string, settings: PluginSettings): string {
 
   // Handle regular embedded image links
   const regularEmbedRegex = /!\[(.*?)\]\((.*?)\)/g;
-  line = line.replace(regularEmbedRegex, (match, caption) => caption);
+  line = line.replace(regularEmbedRegex, (_match, caption) => caption);
 
   // Handle headers - only if the original line was a valid heading and strip heading markup is enabled
   if (
@@ -595,6 +589,17 @@ export function extractTitle(line: string, settings: PluginSettings): string {
   // Final check: if line is empty or only whitespace after all processing
   if (line.trim() === "") {
     return t("untitled");
+  }
+
+  // Apply title case transformation
+  switch (settings.core.titleCase) {
+    case "uppercase":
+      line = line.toUpperCase();
+      break;
+    case "lowercase":
+      line = line.toLowerCase();
+      break;
+    // "preserve" - no change
   }
 
   return line;

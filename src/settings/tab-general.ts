@@ -1,6 +1,5 @@
 import { Setting, setIcon } from "obsidian";
 import { SettingsTabBase, FirstLineIsTitlePlugin } from "./settings-base";
-import { DEFAULT_SETTINGS } from "../constants";
 import { RenameAllFilesModal } from "../modals";
 import { t, getCurrentLocale } from "../i18n";
 
@@ -11,7 +10,6 @@ export class GeneralTab extends SettingsTabBase {
 
   render(): void {
     let renameOnFocusContainer: HTMLElement;
-    let placeCursorSetting: Setting;
 
     const updateAutomaticRenameVisibility = () => {
       if (this.plugin.settings.core.renameNotes === "automatically") {
@@ -81,6 +79,26 @@ export class GeneralTab extends SettingsTabBase {
           }),
       );
 
+    // Title case
+    new Setting(this.containerEl)
+      .setName(t("settings.general.titleCase.name"))
+      .setDesc(t("settings.general.titleCase.desc"))
+      .addDropdown((dropdown) =>
+        dropdown
+          .addOption("preserve", t("settings.general.titleCase.preserve"))
+          .addOption("uppercase", t("settings.general.titleCase.uppercase"))
+          .addOption("lowercase", t("settings.general.titleCase.lowercase"))
+          .setValue(this.plugin.settings.core.titleCase)
+          .onChange(async (value) => {
+            this.plugin.settings.core.titleCase = value as
+              | "preserve"
+              | "uppercase"
+              | "lowercase";
+            this.plugin.debugLog("titleCase", value);
+            await this.plugin.saveSettings();
+          }),
+      );
+
     // Move cursor to first line
     new Setting(this.containerEl)
       .setName(t("settings.general.moveCursorToFirstLine.name"))
@@ -101,7 +119,7 @@ export class GeneralTab extends SettingsTabBase {
       this.containerEl.createDiv("flit-sub-settings");
 
     // Place cursor at line end
-    placeCursorSetting = new Setting(cursorOptionsContainer)
+    new Setting(cursorOptionsContainer)
       .setName(t("settings.general.placeCursorAtLineEnd.name"))
       .setDesc(t("settings.general.placeCursorAtLineEnd.desc"))
       .addToggle((toggle) =>

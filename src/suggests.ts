@@ -41,7 +41,7 @@ export class FolderSuggest extends AbstractInputSuggest<TFolder> {
     el.setText(folder.path);
   }
 
-  selectSuggestion(folder: TFolder, evt: MouseEvent | KeyboardEvent): void {
+  selectSuggestion(folder: TFolder, _evt: MouseEvent | KeyboardEvent): void {
     // Execute callback first to handle the setting change
     this.onSelectCallback(folder.path);
 
@@ -95,7 +95,7 @@ export class TagSuggest extends AbstractInputSuggest<string> {
     el.setText(tag);
   }
 
-  selectSuggestion(tag: string, evt: MouseEvent | KeyboardEvent): void {
+  selectSuggestion(tag: string, _evt: MouseEvent | KeyboardEvent): void {
     // Execute callback first to handle the setting change
     this.onSelectCallback(tag);
 

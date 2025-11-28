@@ -29,7 +29,6 @@ export class EditorLifecycleManager {
     string,
     { editor: any; file: TFile; lastChangeTime: number }
   >();
-  private checkTimer: NodeJS.Timeout | null = null;
 
   // Track active editors for tab close detection
   private activeEditorFiles = new Map<
@@ -41,9 +40,6 @@ export class EditorLifecycleManager {
       leafId: string;
     }
   >();
-
-  // Throttle timer system for checkInterval > 0
-  private throttleTimers = new Map<string, NodeJS.Timeout>();
 
   // Track files in creation delay period with their timer references
   private creationDelayTimers = new Map<string, NodeJS.Timeout>();
@@ -192,10 +188,6 @@ export class EditorLifecycleManager {
 
           activeLeafIds.add(leafId);
 
-          const firstLine = this.extractFirstLineFromEditor(
-            view.editor,
-            view.file,
-          );
           const existing = this.activeEditorFiles.get(view.file.path);
 
           newActiveFiles.set(view.file.path, {

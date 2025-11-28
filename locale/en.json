@@ -199,6 +199,13 @@
         "name": "Only rename if first line is heading",
         "desc": "Don't rename notes if the first line is not a heading."
       },
+      "titleCase": {
+        "name": "Title case",
+        "desc": "Transform the case of the title when renaming.",
+        "preserve": "Preserve case",
+        "uppercase": "Uppercase",
+        "lowercase": "Lowercase"
+      },
       "moveCursorToFirstLine": {
         "name": "Move cursor to first line",
         "desc": "Place the cursor in the first line when creating a new note."
