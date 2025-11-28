@@ -4,5 +4,6 @@
 	"minAppVersion": "1.8.0",
 	"description": "Automatically set the first line as note title.",
 	"author": "greetclammy",
-	"isDesktopOnly": false
+	"isDesktopOnly": false,
+	"version": "3.9.0"
 }
