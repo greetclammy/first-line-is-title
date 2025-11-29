@@ -65,7 +65,17 @@ export function t(
     if (value && typeof value === "object" && key in value) {
       value = value[key];
     } else {
-      return fb || keyPath;
+      // Key not found, use fallback
+      let result = fb || keyPath;
+
+      // Replace variables if provided
+      if (vars) {
+        for (const [varKey, varVal] of Object.entries(vars)) {
+          result = result.replace(new RegExp(`\\{\\{${varKey}\\}\\}`, 'g'), String(varVal));
+        }
+      }
+
+      return result;
     }
   }
 
@@ -74,7 +84,7 @@ export function t(
   // Replace variables if provided
   if (vars) {
     for (const [key, val] of Object.entries(vars)) {
-      result = result.replace(`{{${key}}}`, String(val));
+      result = result.replace(new RegExp(`\\{\\{${key}\\}\\}`, 'g'), String(val));
     }
   }
 
