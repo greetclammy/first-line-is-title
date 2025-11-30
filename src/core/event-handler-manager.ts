@@ -8,7 +8,7 @@ import {
 } from "obsidian";
 import FirstLineIsTitlePlugin from "../../main";
 import { verboseLog } from "../utils";
-import { t, tp } from "../i18n";
+import { tp } from "../i18n";
 import { RenameModal, DisableEnableModal } from "../modals";
 import { around } from "monkey-around";
 import { detectTagFromDOM, detectTagFromEditor } from "../utils/tag-detection";
@@ -115,7 +115,7 @@ export class EventHandlerManager {
                   ),
                 )
                 .setIcon("file-pen")
-                .onClick(async () => {
+                .onClick(() => {
                   new RenameModal(
                     this.plugin.app,
                     this.plugin,
@@ -136,7 +136,7 @@ export class EventHandlerManager {
                   tp("commands.disableRenamingNNotes", markdownFiles.length),
                 )
                 .setIcon("square-x")
-                .onClick(async () => {
+                .onClick(() => {
                   new DisableEnableModal(
                     this.plugin.app,
                     this.plugin,
@@ -158,7 +158,7 @@ export class EventHandlerManager {
                   tp("commands.enableRenamingNNotes", markdownFiles.length),
                 )
                 .setIcon("square-check")
-                .onClick(async () => {
+                .onClick(() => {
                   new DisableEnableModal(
                     this.plugin.app,
                     this.plugin,
@@ -240,23 +240,34 @@ export class EventHandlerManager {
    */
   private registerSearchResultsMenuHandler(): void {
     this.registerEvent(
-      this.plugin.app.workspace.on(
-        "search:results-menu" as any,
-        (menu: Menu, leaf: any) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (this.plugin.app.workspace as any).on(
+        "search:results-menu",
+        (menu: Menu, leaf: Record<string, unknown>) => {
           if (!this.plugin.settings.core.enableVaultSearchContextMenu) return;
 
           // Extract files from search results DOM structure
           let files: TFile[] = [];
-          if (leaf.dom?.vChildren?.children) {
-            leaf.dom.vChildren.children.forEach((e: any) => {
-              if (
-                e.file &&
-                e.file instanceof TFile &&
-                e.file.extension === "md"
-              ) {
-                files.push(e.file);
-              }
-            });
+          if (
+            leaf.dom &&
+            typeof leaf.dom === "object" &&
+            "vChildren" in leaf.dom &&
+            leaf.dom.vChildren &&
+            typeof leaf.dom.vChildren === "object" &&
+            "children" in leaf.dom.vChildren &&
+            Array.isArray(leaf.dom.vChildren.children)
+          ) {
+            leaf.dom.vChildren.children.forEach(
+              (e: Record<string, unknown>) => {
+                if (
+                  e.file &&
+                  e.file instanceof TFile &&
+                  e.file.extension === "md"
+                ) {
+                  files.push(e.file);
+                }
+              },
+            );
           }
 
           if (files.length < 1) return;
@@ -277,7 +288,7 @@ export class EventHandlerManager {
                   tp("commands.putFirstLineInTitleNNotes", files.length),
                 )
                 .setIcon("file-pen")
-                .onClick(async () => {
+                .onClick(() => {
                   new RenameModal(this.plugin.app, this.plugin, files).open();
                 });
             });
@@ -294,7 +305,7 @@ export class EventHandlerManager {
               item
                 .setTitle(tp("commands.disableRenamingNNotes", files.length))
                 .setIcon("square-x")
-                .onClick(async () => {
+                .onClick(() => {
                   new DisableEnableModal(
                     this.plugin.app,
                     this.plugin,
@@ -316,7 +327,7 @@ export class EventHandlerManager {
               item
                 .setTitle(tp("commands.enableRenamingNNotes", files.length))
                 .setIcon("square-check")
-                .onClick(async () => {
+                .onClick(() => {
                   new DisableEnableModal(
                     this.plugin.app,
                     this.plugin,
@@ -336,7 +347,7 @@ export class EventHandlerManager {
    */
   private registerEditorChangeHandler(): void {
     this.registerEvent(
-      this.plugin.app.workspace.on("editor-change", async (editor, info) => {
+      this.plugin.app.workspace.on("editor-change", (editor, info) => {
         if (this.plugin.settings.core.verboseLogging) {
           console.debug(
             `Editor change detected for file: ${info.file?.path || "unknown"}`,
@@ -404,7 +415,7 @@ export class EventHandlerManager {
   private registerFileSystemHandlers(): void {
     // File rename handler
     this.registerEvent(
-      this.plugin.app.vault.on("rename", async (file, oldPath) => {
+      this.plugin.app.vault.on("rename", (file, oldPath) => {
         if (file instanceof TFile && file.extension === "md") {
           // Update file state
           this.plugin.fileStateManager?.notifyFileRenamed(oldPath, file.path);

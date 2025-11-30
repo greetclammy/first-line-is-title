@@ -1,4 +1,4 @@
-import { Setting, setIcon } from "obsidian";
+import { Setting, setIcon, ToggleComponent } from "obsidian";
 import { SettingsTabBase, FirstLineIsTitlePlugin } from "./settings-base";
 import { detectOS } from "../utils";
 import { DEFAULT_SETTINGS } from "../constants";
@@ -80,7 +80,7 @@ export class ForbiddenCharsTab extends SettingsTabBase {
             updateCharacterSettings(); // Rebuild to show new toggle states
             updateCharacterReplacementUI();
             updateWindowsAndroidUI();
-            if (windowsAndroidToggleComponent) {
+            if (windowsAndroidToggleComponent !== undefined) {
               windowsAndroidToggleComponent.setDisabled(!value);
               if (value) {
                 windowsAndroidToggleComponent.toggleEl.classList.remove(
@@ -107,7 +107,7 @@ export class ForbiddenCharsTab extends SettingsTabBase {
                 );
               }
             }
-            (
+            void (
               this.plugin as typeof this.plugin & {
                 updateGeneralConditionalSettings?: () => Promise<void>;
               }
@@ -227,7 +227,7 @@ export class ForbiddenCharsTab extends SettingsTabBase {
     ];
 
     let windowsAndroidTableContainer: HTMLElement;
-    let windowsAndroidToggleComponent: any;
+    let windowsAndroidToggleComponent: ToggleComponent | undefined;
 
     const updateCharacterSettings = () => {
       charSettingsContainer.empty();
@@ -378,18 +378,20 @@ export class ForbiddenCharsTab extends SettingsTabBase {
           },
         });
         setIcon(restoreButton, "rotate-ccw");
-        restoreButton.addEventListener("click", async () => {
-          this.plugin.settings.replaceCharacters.charReplacements[
-            key
-          ].replacement =
-            DEFAULT_SETTINGS.replaceCharacters.charReplacements[
+        restoreButton.addEventListener("click", () => {
+          void (async () => {
+            this.plugin.settings.replaceCharacters.charReplacements[
               key
-            ].replacement;
-          textInput.value =
-            DEFAULT_SETTINGS.replaceCharacters.charReplacements[
-              key
-            ].replacement;
-          await this.plugin.saveSettings();
+            ].replacement =
+              DEFAULT_SETTINGS.replaceCharacters.charReplacements[
+                key
+              ].replacement;
+            textInput.value =
+              DEFAULT_SETTINGS.replaceCharacters.charReplacements[
+                key
+              ].replacement;
+            await this.plugin.saveSettings();
+          })();
         });
 
         const textInput = inputContainer.createEl("input", {
@@ -403,16 +405,18 @@ export class ForbiddenCharsTab extends SettingsTabBase {
           this.plugin.settings.replaceCharacters.charReplacements[
             key
           ].replacement;
-        textInput.addEventListener("input", async (e) => {
-          this.plugin.settings.replaceCharacters.charReplacements[
-            key
-          ].replacement = (e.target as HTMLInputElement).value;
-          this.plugin.debugLog(
-            `charReplacements.${String(key)}.replacement`,
-            this.plugin.settings.replaceCharacters.charReplacements[key]
-              .replacement,
-          );
-          await this.plugin.saveSettings();
+        textInput.addEventListener("input", (e) => {
+          void (async () => {
+            this.plugin.settings.replaceCharacters.charReplacements[
+              key
+            ].replacement = (e.target as HTMLInputElement).value;
+            this.plugin.debugLog(
+              `charReplacements.${String(key)}.replacement`,
+              this.plugin.settings.replaceCharacters.charReplacements[key]
+                .replacement,
+            );
+            await this.plugin.saveSettings();
+          })();
         });
 
         this.addForbiddenCharProtection(textInput);
@@ -635,18 +639,20 @@ export class ForbiddenCharsTab extends SettingsTabBase {
           },
         });
         setIcon(restoreButton, "rotate-ccw");
-        restoreButton.addEventListener("click", async () => {
-          this.plugin.settings.replaceCharacters.charReplacements[
-            key
-          ].replacement =
-            DEFAULT_SETTINGS.replaceCharacters.charReplacements[
+        restoreButton.addEventListener("click", () => {
+          void (async () => {
+            this.plugin.settings.replaceCharacters.charReplacements[
               key
-            ].replacement;
-          textInput.value =
-            DEFAULT_SETTINGS.replaceCharacters.charReplacements[
-              key
-            ].replacement;
-          await this.plugin.saveSettings();
+            ].replacement =
+              DEFAULT_SETTINGS.replaceCharacters.charReplacements[
+                key
+              ].replacement;
+            textInput.value =
+              DEFAULT_SETTINGS.replaceCharacters.charReplacements[
+                key
+              ].replacement;
+            await this.plugin.saveSettings();
+          })();
         });
 
         const textInput = inputContainer.createEl("input", {
@@ -660,16 +666,18 @@ export class ForbiddenCharsTab extends SettingsTabBase {
           this.plugin.settings.replaceCharacters.charReplacements[
             key
           ].replacement;
-        textInput.addEventListener("input", async (e) => {
-          this.plugin.settings.replaceCharacters.charReplacements[
-            key
-          ].replacement = (e.target as HTMLInputElement).value;
-          this.plugin.debugLog(
-            `charReplacements.${String(key)}.replacement`,
-            this.plugin.settings.replaceCharacters.charReplacements[key]
-              .replacement,
-          );
-          await this.plugin.saveSettings();
+        textInput.addEventListener("input", (e) => {
+          void (async () => {
+            this.plugin.settings.replaceCharacters.charReplacements[
+              key
+            ].replacement = (e.target as HTMLInputElement).value;
+            this.plugin.debugLog(
+              `charReplacements.${String(key)}.replacement`,
+              this.plugin.settings.replaceCharacters.charReplacements[key]
+                .replacement,
+            );
+            await this.plugin.saveSettings();
+          })();
         });
 
         this.addForbiddenCharProtection(textInput, true);

@@ -1,4 +1,4 @@
-import { TFile, MarkdownView, ViewWithFileEditor } from "obsidian";
+import { TFile, MarkdownView, ViewWithFileEditor, Editor } from "obsidian";
 import { verboseLog, findTitleSourceLine } from "../utils";
 import FirstLineIsTitle from "../../main";
 
@@ -13,10 +13,6 @@ import FirstLineIsTitle from "../../main";
  * - Poll active editors for changes (interval-based)
  * - Immediate change detection (event-based)
  * - Manage editor lifecycle events
- *
- * Note: Editor objects are typed as `any` because we access Obsidian's non-public
- * editor API properties (e.g., in workspace leaf traversal). This is intentional
- * and necessary for the plugin's functionality.
  */
 export class EditorLifecycleManager {
   private plugin: FirstLineIsTitle;
@@ -27,7 +23,7 @@ export class EditorLifecycleManager {
   // Interval-based checking system
   private pendingChecks = new Map<
     string,
-    { editor: any; file: TFile; lastChangeTime: number }
+    { editor: Editor; file: TFile; lastChangeTime: number }
   >();
 
   // Track active editors for tab close detection
@@ -35,7 +31,7 @@ export class EditorLifecycleManager {
     string,
     {
       file: TFile;
-      editor: any;
+      editor: Editor;
       lastFirstLine: string | undefined;
       leafId: string;
     }
@@ -168,7 +164,7 @@ export class EditorLifecycleManager {
       string,
       {
         file: TFile;
-        editor: any;
+        editor: Editor;
         lastFirstLine: string | undefined;
         leafId: string;
       }
@@ -356,7 +352,7 @@ export class EditorLifecycleManager {
    * Handle editor change with throttle for checkInterval > 0
    * Only starts timer if first line actually changed from last known state
    */
-  handleEditorChangeWithThrottle(editor: any, file: TFile): void {
+  handleEditorChangeWithThrottle(editor: Editor, file: TFile): void {
     const filePath = file.path;
 
     // Skip files in creation delay
@@ -429,7 +425,7 @@ export class EditorLifecycleManager {
       this.plugin,
       `Starting throttle timer (${this.settings.core.checkInterval}ms) for: ${filePath}`,
     );
-    const timer = setTimeout(async () => {
+    const timer = setTimeout(() => {
       verboseLog(
         this.plugin,
         `Throttle timer expired, processing: ${file.path}`,
@@ -439,14 +435,14 @@ export class EditorLifecycleManager {
       this.plugin.fileStateManager.clearThrottleTimer(file.path);
 
       // Process file
-      try {
-        await this.renameEngine.processEditorChangeOptimal(editor, file);
-      } catch (error) {
-        console.error(
-          `Error processing throttled change for ${filePath}:`,
-          error,
-        );
-      }
+      this.renameEngine
+        .processEditorChangeOptimal(editor, file)
+        .catch((error) => {
+          console.error(
+            `Error processing throttled change for ${filePath}:`,
+            error,
+          );
+        });
     }, this.settings.core.checkInterval);
 
     this.plugin.fileStateManager.setThrottleTimer(filePath, timer);
@@ -502,7 +498,7 @@ export class EditorLifecycleManager {
   /**
    * Extract first line from editor content
    */
-  public extractFirstLineFromEditor(editor: any, file: TFile): string {
+  public extractFirstLineFromEditor(editor: Editor, file: TFile): string {
     try {
       const content = editor.getValue();
       const lines = content.split("\n");
@@ -574,7 +570,7 @@ export class EditorLifecycleManager {
     string,
     {
       file: TFile;
-      editor: any;
+      editor: Editor;
       lastFirstLine: string | undefined;
       leafId: string;
     }

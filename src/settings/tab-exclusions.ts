@@ -1,4 +1,9 @@
-import { Setting, setIcon } from "obsidian";
+import {
+  Setting,
+  setIcon,
+  TextComponent,
+  ExtraButtonComponent,
+} from "obsidian";
 import { SettingsTabBase, FirstLineIsTitlePlugin } from "./settings-base";
 import {
   ExclusionStrategy,
@@ -15,7 +20,7 @@ export class IncludeExcludeTab extends SettingsTabBase {
     super(plugin, containerEl);
   }
 
-  async render(): Promise<void> {
+  render(): void {
     const tabDesc = this.containerEl.createEl("div", {
       cls: "setting-item-description",
     });
@@ -82,31 +87,37 @@ export class IncludeExcludeTab extends SettingsTabBase {
       this.plugin.settings.exclusions.excludedFolders.forEach(
         (folder, index) => {
           const folderSetting = new Setting(folderContainer);
-          let textInput: any;
-          let removeButton: any;
+          let _textInput: TextComponent | undefined;
+          let removeButton: ExtraButtonComponent | undefined;
 
           const updateButtonState = () => {
             const isLastEmptyEntry =
               this.plugin.settings.exclusions.excludedFolders.length === 1 &&
               this.plugin.settings.exclusions.excludedFolders[0].trim() === "";
 
-            if (isLastEmptyEntry) {
-              removeButton.setDisabled(true);
-              removeButton.extraSettingsEl.classList.add("flit-state-disabled");
-              removeButton.extraSettingsEl.removeAttribute("aria-label");
-            } else {
-              removeButton.setDisabled(false);
-              removeButton.extraSettingsEl.classList.remove(
-                "flit-state-disabled",
-              );
-              removeButton.extraSettingsEl.classList.add("flit-state-enabled");
-              removeButton.setTooltip(t("ariaLabels.remove"));
+            if (removeButton) {
+              if (isLastEmptyEntry) {
+                removeButton.setDisabled(true);
+                removeButton.extraSettingsEl.classList.add(
+                  "flit-state-disabled",
+                );
+                removeButton.extraSettingsEl.removeAttribute("aria-label");
+              } else {
+                removeButton.setDisabled(false);
+                removeButton.extraSettingsEl.classList.remove(
+                  "flit-state-disabled",
+                );
+                removeButton.extraSettingsEl.classList.add(
+                  "flit-state-enabled",
+                );
+                removeButton.setTooltip(t("ariaLabels.remove"));
+              }
             }
           };
 
           folderSetting
             .addText((text) => {
-              textInput = text;
+              _textInput = text;
               text
                 .setPlaceholder(t("settings.exclusions.folders.placeholder"))
                 .setValue(folder)
@@ -131,15 +142,17 @@ export class IncludeExcludeTab extends SettingsTabBase {
                 new FolderSuggest(
                   this.plugin.app,
                   text.inputEl,
-                  async (selectedPath: string) => {
-                    this.plugin.settings.exclusions.excludedFolders[index] =
-                      selectedPath;
-                    this.plugin.debugLog(
-                      "excludedFolders",
-                      this.plugin.settings.exclusions.excludedFolders,
-                    );
-                    await this.plugin.saveSettings();
-                    updateButtonState();
+                  (selectedPath: string) => {
+                    void (async () => {
+                      this.plugin.settings.exclusions.excludedFolders[index] =
+                        selectedPath;
+                      this.plugin.debugLog(
+                        "excludedFolders",
+                        this.plugin.settings.exclusions.excludedFolders,
+                      );
+                      await this.plugin.saveSettings();
+                      updateButtonState();
+                    })();
                   },
                   otherExclusions,
                 );
@@ -323,31 +336,33 @@ export class IncludeExcludeTab extends SettingsTabBase {
       tagContainer.empty();
       this.plugin.settings.exclusions.excludedTags.forEach((tag, index) => {
         const tagSetting = new Setting(tagContainer);
-        let textInput: any;
-        let removeButton: any;
+        let _textInput: TextComponent | undefined;
+        let removeButton: ExtraButtonComponent | undefined;
 
         const updateButtonState = () => {
           const isLastEmptyEntry =
             this.plugin.settings.exclusions.excludedTags.length === 1 &&
             this.plugin.settings.exclusions.excludedTags[0].trim() === "";
 
-          if (isLastEmptyEntry) {
-            removeButton.setDisabled(true);
-            removeButton.extraSettingsEl.classList.add("flit-state-disabled");
-            removeButton.extraSettingsEl.removeAttribute("aria-label");
-          } else {
-            removeButton.setDisabled(false);
-            removeButton.extraSettingsEl.classList.remove(
-              "flit-state-disabled",
-            );
-            removeButton.extraSettingsEl.classList.add("flit-state-enabled");
-            removeButton.setTooltip(t("ariaLabels.remove"));
+          if (removeButton) {
+            if (isLastEmptyEntry) {
+              removeButton.setDisabled(true);
+              removeButton.extraSettingsEl.classList.add("flit-state-disabled");
+              removeButton.extraSettingsEl.removeAttribute("aria-label");
+            } else {
+              removeButton.setDisabled(false);
+              removeButton.extraSettingsEl.classList.remove(
+                "flit-state-disabled",
+              );
+              removeButton.extraSettingsEl.classList.add("flit-state-enabled");
+              removeButton.setTooltip(t("ariaLabels.remove"));
+            }
           }
         };
 
         tagSetting
           .addText((text) => {
-            textInput = text;
+            _textInput = text;
             text
               .setPlaceholder(t("settings.exclusions.tags.placeholder"))
               .setValue(tag)
@@ -371,15 +386,17 @@ export class IncludeExcludeTab extends SettingsTabBase {
               new TagSuggest(
                 this.plugin.app,
                 text.inputEl,
-                async (selectedTag: string) => {
-                  this.plugin.settings.exclusions.excludedTags[index] =
-                    selectedTag;
-                  this.plugin.debugLog(
-                    "excludedTags",
-                    this.plugin.settings.exclusions.excludedTags,
-                  );
-                  await this.plugin.saveSettings();
-                  updateButtonState();
+                (selectedTag: string) => {
+                  void (async () => {
+                    this.plugin.settings.exclusions.excludedTags[index] =
+                      selectedTag;
+                    this.plugin.debugLog(
+                      "excludedTags",
+                      this.plugin.settings.exclusions.excludedTags,
+                    );
+                    await this.plugin.saveSettings();
+                    updateButtonState();
+                  })();
                 },
                 otherExclusions,
               );
@@ -548,9 +565,9 @@ export class IncludeExcludeTab extends SettingsTabBase {
       this.plugin.settings.exclusions.excludedProperties.forEach(
         (property, index) => {
           const propertySetting = new Setting(propertyContainer);
-          let keyInput: any;
-          let valueInput: any;
-          let removeButton: any;
+          let keyInput: HTMLInputElement;
+          let valueInput: HTMLInputElement;
+          let removeButton: ExtraButtonComponent | undefined;
 
           const updateButtonState = () => {
             const isLastEmptyEntry =
@@ -560,17 +577,23 @@ export class IncludeExcludeTab extends SettingsTabBase {
               this.plugin.settings.exclusions.excludedProperties[0].value.trim() ===
                 "";
 
-            if (isLastEmptyEntry) {
-              removeButton.setDisabled(true);
-              removeButton.extraSettingsEl.classList.add("flit-state-disabled");
-              removeButton.extraSettingsEl.removeAttribute("aria-label");
-            } else {
-              removeButton.setDisabled(false);
-              removeButton.extraSettingsEl.classList.remove(
-                "flit-state-disabled",
-              );
-              removeButton.extraSettingsEl.classList.add("flit-state-enabled");
-              removeButton.setTooltip(t("ariaLabels.remove"));
+            if (removeButton) {
+              if (isLastEmptyEntry) {
+                removeButton.setDisabled(true);
+                removeButton.extraSettingsEl.classList.add(
+                  "flit-state-disabled",
+                );
+                removeButton.extraSettingsEl.removeAttribute("aria-label");
+              } else {
+                removeButton.setDisabled(false);
+                removeButton.extraSettingsEl.classList.remove(
+                  "flit-state-disabled",
+                );
+                removeButton.extraSettingsEl.classList.add(
+                  "flit-state-enabled",
+                );
+                removeButton.setTooltip(t("ariaLabels.remove"));
+              }
             }
           };
           const propertyInputContainer = propertySetting.controlEl.createDiv({
@@ -630,26 +653,31 @@ export class IncludeExcludeTab extends SettingsTabBase {
             },
             true,
           );
-          keyInput.addEventListener("input", async (e: any) => {
-            this.plugin.settings.exclusions.excludedProperties[index].key =
-              e.target.value;
-            this.plugin.debugLog(
-              "excludedProperties",
-              this.plugin.settings.exclusions.excludedProperties,
-            );
-            await this.plugin.saveSettings();
-            updateButtonState();
+          keyInput.addEventListener("input", (e: Event) => {
+            void (async () => {
+              this.plugin.settings.exclusions.excludedProperties[index].key = (
+                e.target as HTMLInputElement
+              ).value;
+              this.plugin.debugLog(
+                "excludedProperties",
+                this.plugin.settings.exclusions.excludedProperties,
+              );
+              await this.plugin.saveSettings();
+              updateButtonState();
+            })();
           });
 
-          valueInput.addEventListener("input", async (e: any) => {
-            this.plugin.settings.exclusions.excludedProperties[index].value =
-              e.target.value;
-            this.plugin.debugLog(
-              "excludedProperties",
-              this.plugin.settings.exclusions.excludedProperties,
-            );
-            await this.plugin.saveSettings();
-            updateButtonState();
+          valueInput.addEventListener("input", (e: Event) => {
+            void (async () => {
+              this.plugin.settings.exclusions.excludedProperties[index].value =
+                (e.target as HTMLInputElement).value;
+              this.plugin.debugLog(
+                "excludedProperties",
+                this.plugin.settings.exclusions.excludedProperties,
+              );
+              await this.plugin.saveSettings();
+              updateButtonState();
+            })();
           });
 
           propertySetting.addExtraButton((button) => {
@@ -833,28 +861,34 @@ export class IncludeExcludeTab extends SettingsTabBase {
       },
       true,
     );
-    keyInput.addEventListener("input", async (e) => {
-      this.plugin.settings.exclusions.disableRenamingKey = (
-        e.target as HTMLInputElement
-      ).value;
-      await this.plugin.saveSettings();
+    keyInput.addEventListener("input", (e) => {
+      void (async () => {
+        this.plugin.settings.exclusions.disableRenamingKey = (
+          e.target as HTMLInputElement
+        ).value;
+        await this.plugin.saveSettings();
+      })();
     });
 
-    valueInput.addEventListener("input", async (e) => {
-      this.plugin.settings.exclusions.disableRenamingValue = (
-        e.target as HTMLInputElement
-      ).value;
-      await this.plugin.saveSettings();
+    valueInput.addEventListener("input", (e) => {
+      void (async () => {
+        this.plugin.settings.exclusions.disableRenamingValue = (
+          e.target as HTMLInputElement
+        ).value;
+        await this.plugin.saveSettings();
+      })();
     });
 
-    propertyRestoreButton.addEventListener("click", async () => {
-      this.plugin.settings.exclusions.disableRenamingKey =
-        DEFAULT_SETTINGS.exclusions.disableRenamingKey;
-      this.plugin.settings.exclusions.disableRenamingValue =
-        DEFAULT_SETTINGS.exclusions.disableRenamingValue;
-      keyInput.value = this.plugin.settings.exclusions.disableRenamingKey;
-      valueInput.value = this.plugin.settings.exclusions.disableRenamingValue;
-      await this.plugin.saveSettings();
+    propertyRestoreButton.addEventListener("click", () => {
+      void (async () => {
+        this.plugin.settings.exclusions.disableRenamingKey =
+          DEFAULT_SETTINGS.exclusions.disableRenamingKey;
+        this.plugin.settings.exclusions.disableRenamingValue =
+          DEFAULT_SETTINGS.exclusions.disableRenamingValue;
+        keyInput.value = this.plugin.settings.exclusions.disableRenamingKey;
+        valueInput.value = this.plugin.settings.exclusions.disableRenamingValue;
+        await this.plugin.saveSettings();
+      })();
     });
     const defaultTextContainer = this.containerEl.createEl("div", {
       cls: "setting-item-description flit-margin-top-5 flit-margin-bottom-20",

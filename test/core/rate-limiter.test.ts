@@ -88,7 +88,7 @@ describe("RateLimiter", () => {
     });
 
     it("should log when label is provided and limit hit", () => {
-      const consoleSpy = vi.spyOn(console, "log");
+      const consoleSpy = vi.spyOn(console, "debug");
 
       // Exhaust limit
       for (let i = 0; i < 5; i++) {
@@ -104,7 +104,7 @@ describe("RateLimiter", () => {
     });
 
     it("should not log when label is not provided", () => {
-      const consoleSpy = vi.spyOn(console, "log");
+      const consoleSpy = vi.spyOn(console, "debug");
 
       // Exhaust limit
       for (let i = 0; i < 6; i++) {
@@ -199,7 +199,7 @@ describe("RateLimiter", () => {
     });
 
     it("should log when label is provided and limit hit", () => {
-      const consoleSpy = vi.spyOn(console, "log");
+      const consoleSpy = vi.spyOn(console, "debug");
 
       // Exhaust limit
       for (let i = 0; i < 5; i++) {
@@ -215,7 +215,7 @@ describe("RateLimiter", () => {
     });
 
     it("should not log when label is not provided", () => {
-      const consoleSpy = vi.spyOn(console, "log");
+      const consoleSpy = vi.spyOn(console, "debug");
 
       // Exhaust limit
       for (let i = 0; i < 6; i++) {

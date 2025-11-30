@@ -214,8 +214,8 @@ export class ContextMenuManager {
         text: menuText.disable,
       });
 
-      menuItem.addEventListener("click", async () => {
-        await this.plugin.toggleTagExclusion(tagName);
+      menuItem.addEventListener("click", () => {
+        void this.plugin.toggleTagExclusion(tagName);
         menuEl.remove();
       });
     }
@@ -232,8 +232,8 @@ export class ContextMenuManager {
         text: menuText.enable,
       });
 
-      menuItem.addEventListener("click", async () => {
-        await this.plugin.toggleTagExclusion(tagName);
+      menuItem.addEventListener("click", () => {
+        void this.plugin.toggleTagExclusion(tagName);
         menuEl.remove();
       });
     }

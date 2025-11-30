@@ -1,29 +1,7 @@
 import { Modal, App, TFile, TFolder, Notice } from "obsidian";
-import { PluginSettings } from "./types";
 import { verboseLog, shouldProcessFile, normalizeTag } from "./utils";
 import { t, getPluralForm, tpSplit } from "./i18n";
-
-interface FirstLineIsTitlePlugin {
-  settings: PluginSettings;
-  app: App;
-  renameEngine?: {
-    processFile(
-      file: TFile,
-      noDelay: boolean,
-      showNotices: boolean,
-      providedContent?: string,
-      isBatchOperation?: boolean,
-      exclusionOverrides?: any,
-    ): Promise<any>;
-  };
-  cacheManager?: {
-    clearReservedPaths(): void;
-  };
-  propertyManager?: {
-    ensurePropertyTypeIsCheckbox(): Promise<void>;
-  };
-  saveSettings(): Promise<void>;
-}
+import { FirstLineIsTitlePlugin } from "./settings/settings-base";
 
 export class RenameAllFilesModal extends Modal {
   plugin: FirstLineIsTitlePlugin;
@@ -204,9 +182,11 @@ export class RenameFolderModal extends Modal {
 
     const folderFiles = this.app.vault
       .getAllLoadedFiles()
-      .filter((f: any) => f instanceof TFile && f.extension === "md")
       .filter(
-        (f: any) =>
+        (f: unknown): f is TFile => f instanceof TFile && f.extension === "md",
+      )
+      .filter(
+        (f: TFile) =>
           f.path.startsWith(this.folder.path + "/") ||
           f.parent?.path === this.folder.path,
       );
@@ -457,9 +437,12 @@ export class RenameMultipleFoldersModal extends Modal {
     this.folders.forEach((folder) => {
       const folderFiles = this.app.vault
         .getAllLoadedFiles()
-        .filter((f: any) => f instanceof TFile && f.extension === "md")
         .filter(
-          (f: any) =>
+          (f: unknown): f is TFile =>
+            f instanceof TFile && f.extension === "md",
+        )
+        .filter(
+          (f: TFile) =>
             f.path.startsWith(folder.path + "/") ||
             f.parent?.path === folder.path,
         );
@@ -1326,7 +1309,7 @@ export class DisableEnableModal extends Modal {
             : undefined;
           await this.app.fileManager.processFrontMatter(
             file,
-            (frontmatter: any) => {
+            (frontmatter: Record<string, unknown>) => {
               if (this.action === "disable") {
                 frontmatter[key] = value;
               } else {

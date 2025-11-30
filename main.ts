@@ -343,7 +343,7 @@ export default class FirstLineIsTitle extends Plugin {
     await this.propertyManager.ensurePropertyTypeIsCheckbox();
 
     // Check if property already exists
-    const hasProperty = await hasDisablePropertyInFile(
+    const hasProperty = hasDisablePropertyInFile(
       activeFile,
       this.app,
       this.settings.exclusions.disableRenamingKey,
@@ -386,7 +386,7 @@ export default class FirstLineIsTitle extends Plugin {
     }
 
     // Check if property exists
-    const hasProperty = await hasDisablePropertyInFile(
+    const hasProperty = hasDisablePropertyInFile(
       activeFile,
       this.app,
       this.settings.exclusions.disableRenamingKey,
@@ -418,16 +418,16 @@ export default class FirstLineIsTitle extends Plugin {
     }
   }
 
-  async addSafeInternalLink(): Promise<void> {
-    return this.linkManager.addSafeInternalLink();
+  addSafeInternalLink(): void {
+    this.linkManager.addSafeInternalLink();
   }
 
-  async addSafeInternalLinkWithCaption(): Promise<void> {
-    return this.linkManager.addSafeInternalLinkWithCaption();
+  addSafeInternalLinkWithCaption(): void {
+    this.linkManager.addSafeInternalLinkWithCaption();
   }
 
-  async addInternalLinkWithCaptionAndCustomTarget(): Promise<void> {
-    return this.linkManager.addInternalLinkWithCaptionAndCustomTarget();
+  addInternalLinkWithCaptionAndCustomTarget(): void {
+    this.linkManager.addInternalLinkWithCaptionAndCustomTarget();
   }
 
   updatePropertyVisibility(): void {

@@ -1,4 +1,10 @@
-import { TFile, MarkdownView, getFrontMatterInfo, parseYaml } from "obsidian";
+import {
+  TFile,
+  MarkdownView,
+  getFrontMatterInfo,
+  parseYaml,
+  Editor,
+} from "obsidian";
 import { PluginSettings } from "../types";
 import {
   verboseLog,
@@ -35,7 +41,7 @@ export class AliasManager {
     file: TFile,
     providedContent?: string,
     targetTitle?: string,
-    editor?: any,
+    editor?: Editor,
   ): Promise<boolean> {
     // Track plugin usage
     this.plugin.trackUsage();
@@ -57,7 +63,7 @@ export class AliasManager {
 
       // Check disable property FIRST - this cannot be overridden by any command
       if (
-        await hasDisablePropertyInFile(
+        hasDisablePropertyInFile(
           file,
           this.app,
           this.settings.exclusions.disableRenamingKey,
@@ -153,11 +159,11 @@ export class AliasManager {
       // Parse frontmatter from fresh editor content instead of stale cache
       // This prevents race conditions where cache hasn't updated yet during YAML edits
       const frontmatterInfo = getFrontMatterInfo(content);
-      let frontmatter: Record<string, any> | null = null;
+      let frontmatter: Record<string, unknown> | null = null;
       if (frontmatterInfo.exists) {
         try {
           frontmatter = parseYaml(frontmatterInfo.frontmatter);
-        } catch (error) {
+        } catch {
           // YAML is malformed (e.g., user is mid-typing) - skip alias update until valid
           verboseLog(
             this.plugin,
@@ -194,9 +200,9 @@ export class AliasManager {
         let existingAliases: string[] = [];
         if (frontmatter && frontmatter[aliasPropertyKey]) {
           if (Array.isArray(frontmatter[aliasPropertyKey])) {
-            existingAliases = frontmatter[aliasPropertyKey];
+            existingAliases = frontmatter[aliasPropertyKey] as string[];
           } else {
-            existingAliases = [frontmatter[aliasPropertyKey]];
+            existingAliases = [frontmatter[aliasPropertyKey] as string];
           }
         }
 
@@ -485,8 +491,10 @@ export class AliasManager {
               }
             } else {
               // New behavior for non-aliases properties
-              const propertyExists =
-                frontmatter.hasOwnProperty(aliasPropertyKey);
+              const propertyExists = Object.prototype.hasOwnProperty.call(
+                frontmatter,
+                aliasPropertyKey,
+              );
 
               if (
                 !propertyExists ||
@@ -762,7 +770,7 @@ export class AliasManager {
    * @param file - File being edited
    * @returns true if editor is in a popover, false if in main workspace
    */
-  public isEditorInPopoverOrCanvas(editor: any, file: TFile): boolean {
+  public isEditorInPopoverOrCanvas(editor: Editor, file: TFile): boolean {
     // If editor is provided, it's from editor-change event
     // Popovers don't trigger editor-change events, so this is always a real editor
     if (editor) {

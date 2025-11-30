@@ -19,16 +19,20 @@ export class PropertiesTab extends SettingsTabBase {
         applyCustomRulesInAliasSetting.settingEl.classList.remove(
           "flit-row-disabled",
         );
-        applyCustomRulesToggle.toggleEl.tabIndex = 0;
-        applyCustomRulesToggle.toggleEl.removeAttribute("aria-disabled");
-        applyCustomRulesToggle.toggleEl.classList.remove("flit-pointer-none");
+        if (applyCustomRulesToggle) {
+          applyCustomRulesToggle.toggleEl.tabIndex = 0;
+          applyCustomRulesToggle.toggleEl.removeAttribute("aria-disabled");
+          applyCustomRulesToggle.toggleEl.classList.remove("flit-pointer-none");
+        }
       } else {
         applyCustomRulesInAliasSetting.settingEl.classList.add(
           "flit-row-disabled",
         );
-        applyCustomRulesToggle.toggleEl.tabIndex = -1;
-        applyCustomRulesToggle.toggleEl.setAttribute("aria-disabled", "true");
-        applyCustomRulesToggle.toggleEl.classList.add("flit-pointer-none");
+        if (applyCustomRulesToggle) {
+          applyCustomRulesToggle.toggleEl.tabIndex = -1;
+          applyCustomRulesToggle.toggleEl.setAttribute("aria-disabled", "true");
+          applyCustomRulesToggle.toggleEl.classList.add("flit-pointer-none");
+        }
         if (this.plugin.settings.markupStripping.applyCustomRulesInAlias) {
           this.plugin.settings.markupStripping.applyCustomRulesInAlias = false;
           await this.plugin.saveSettings();
@@ -44,14 +48,18 @@ export class PropertiesTab extends SettingsTabBase {
         stripMarkupInAliasSetting.settingEl.classList.remove(
           "flit-row-disabled",
         );
-        stripMarkupToggle.toggleEl.tabIndex = 0;
-        stripMarkupToggle.toggleEl.removeAttribute("aria-disabled");
-        stripMarkupToggle.toggleEl.classList.remove("flit-pointer-none");
+        if (stripMarkupToggle) {
+          stripMarkupToggle.toggleEl.tabIndex = 0;
+          stripMarkupToggle.toggleEl.removeAttribute("aria-disabled");
+          stripMarkupToggle.toggleEl.classList.remove("flit-pointer-none");
+        }
       } else {
         stripMarkupInAliasSetting.settingEl.classList.add("flit-row-disabled");
-        stripMarkupToggle.toggleEl.tabIndex = -1;
-        stripMarkupToggle.toggleEl.setAttribute("aria-disabled", "true");
-        stripMarkupToggle.toggleEl.classList.add("flit-pointer-none");
+        if (stripMarkupToggle) {
+          stripMarkupToggle.toggleEl.tabIndex = -1;
+          stripMarkupToggle.toggleEl.setAttribute("aria-disabled", "true");
+          stripMarkupToggle.toggleEl.classList.add("flit-pointer-none");
+        }
         if (this.plugin.settings.markupStripping.stripMarkupInAlias) {
           this.plugin.settings.markupStripping.stripMarkupInAlias = false;
           await this.plugin.saveSettings();
@@ -94,13 +102,13 @@ export class PropertiesTab extends SettingsTabBase {
     const aliasContainer = this.containerEl.createDiv({
       cls: "flit-alias-container",
     });
-    let addAliasConditionalToggle: any;
-    let truncateAliasToggle: any;
-    let applyCustomRulesToggle: any;
-    let stripMarkupToggle: any;
-    let keepEmptyToggle: any;
-    let hideInSidebarToggle: any;
-    let suppressMergeToggle: any;
+    let addAliasConditionalToggle: ToggleComponent | undefined;
+    let truncateAliasToggle: ToggleComponent | undefined;
+    let applyCustomRulesToggle: ToggleComponent | undefined;
+    let stripMarkupToggle: ToggleComponent | undefined;
+    let keepEmptyToggle: ToggleComponent | undefined;
+    let hideInSidebarToggle: ToggleComponent | undefined;
+    let suppressMergeToggle: ToggleComponent | undefined;
 
     const renderAliasSettings = () => {
       this.updateInteractiveState(
@@ -158,7 +166,7 @@ export class PropertiesTab extends SettingsTabBase {
         );
       }
 
-      updateAliasConditionalSettings();
+      void updateAliasConditionalSettings();
     };
 
     const aliasPropertyKeySetting = new Setting(aliasContainer)
@@ -232,26 +240,31 @@ export class PropertiesTab extends SettingsTabBase {
     aliasPropertyKeyTextInput.value =
       this.plugin.settings.aliases.aliasPropertyKey;
 
-    aliasPropertyKeyRestoreButton.addEventListener("click", async () => {
-      this.plugin.settings.aliases.aliasPropertyKey =
-        DEFAULT_SETTINGS.aliases.aliasPropertyKey;
-      aliasPropertyKeyTextInput.value =
-        DEFAULT_SETTINGS.aliases.aliasPropertyKey;
-      this.plugin.debugLog(
-        "aliasPropertyKey",
-        this.plugin.settings.aliases.aliasPropertyKey,
-      );
-      await this.plugin.saveSettings();
+    aliasPropertyKeyRestoreButton.addEventListener("click", () => {
+      void (async () => {
+        this.plugin.settings.aliases.aliasPropertyKey =
+          DEFAULT_SETTINGS.aliases.aliasPropertyKey;
+        aliasPropertyKeyTextInput.value =
+          DEFAULT_SETTINGS.aliases.aliasPropertyKey;
+        this.plugin.debugLog(
+          "aliasPropertyKey",
+          this.plugin.settings.aliases.aliasPropertyKey,
+        );
+        await this.plugin.saveSettings();
+      })();
     });
 
-    aliasPropertyKeyTextInput.addEventListener("input", async (e) => {
-      const value = (e.target as HTMLInputElement).value;
-      this.plugin.settings.aliases.aliasPropertyKey = value.trim() || "aliases";
-      this.plugin.debugLog(
-        "aliasPropertyKey",
-        this.plugin.settings.aliases.aliasPropertyKey,
-      );
-      await this.plugin.saveSettings();
+    aliasPropertyKeyTextInput.addEventListener("input", (e) => {
+      void (async () => {
+        const value = (e.target as HTMLInputElement).value;
+        this.plugin.settings.aliases.aliasPropertyKey =
+          value.trim() || "aliases";
+        this.plugin.debugLog(
+          "aliasPropertyKey",
+          this.plugin.settings.aliases.aliasPropertyKey,
+        );
+        await this.plugin.saveSettings();
+      })();
     });
 
     new Setting(aliasContainer)
@@ -507,7 +520,7 @@ export class PropertiesTab extends SettingsTabBase {
 
     renderAliasSettings();
 
-    updateAliasConditionalSettings();
+    void updateAliasConditionalSettings();
     (
       this.plugin as typeof this.plugin & {
         updateAliasConditionalSettings?: () => Promise<void>;

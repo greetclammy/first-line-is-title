@@ -183,7 +183,7 @@ export class WorkspaceIntegration {
           if (activeFile && activeFile.extension === "md") {
             // Run rename (unless excluded) with no delay and show notices like manual command
             setTimeout(() => {
-              this.plugin.commandRegistrar.executeRenameUnlessExcluded();
+              void this.plugin.commandRegistrar.executeRenameUnlessExcluded();
             }, 100); // Small delay to ensure save is complete
           }
         }
@@ -261,7 +261,7 @@ export class WorkspaceIntegration {
                 break;
               }
             }
-          } catch (error) {
+          } catch {
             verboseLog(plugin, `CREATE: Could not read initial editor content`);
           }
 
@@ -335,7 +335,7 @@ export class WorkspaceIntegration {
                   if (fileHasView) {
                     // Use coordinator's explicit placeCursorAtEnd decision
                     // This respects the decision tree outcomes from Nodes 16-18
-                    plugin.fileOperations.handleCursorPositioning(
+                    void plugin.fileOperations.handleCursorPositioning(
                       file,
                       !actions.shouldInsertTitle,
                       actions.placeCursorAtEnd,
@@ -417,7 +417,9 @@ export class WorkspaceIntegration {
                 plugin,
                 `CREATE: Scheduling rename in ${settings.newNoteDelay}ms: ${file.name}`,
               );
-              const timer = setTimeout(processRename, settings.newNoteDelay);
+              const timer = setTimeout(() => {
+                void processRename();
+              }, settings.newNoteDelay);
               plugin.editorLifecycle.setCreationDelayTimer(file.path, timer);
             }
           } catch (error) {

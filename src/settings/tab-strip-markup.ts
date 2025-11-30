@@ -28,7 +28,7 @@ export class StripMarkupTab extends SettingsTabBase {
 
             await this.plugin.saveSettings();
             updateStripMarkupUI();
-            (
+            void (
               this.plugin as typeof this.plugin & {
                 updateAliasConditionalSettings?: () => Promise<void>;
               }
@@ -144,7 +144,7 @@ export class StripMarkupTab extends SettingsTabBase {
 
       setting.addToggle((toggleControl) => {
         // Custom property added by plugin, not in Obsidian's Toggle interface
-        if ((toggle as any).isCustom) {
+        if ((toggle as { isCustom?: boolean }).isCustom) {
           toggleControl
             .setValue(
               this.plugin.settings.markupStripping[

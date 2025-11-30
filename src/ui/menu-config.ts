@@ -14,9 +14,12 @@ import FirstLineIsTitlePlugin from "../../main";
 
 export interface MenuItemConfig {
   id: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   title: string | ((context: any) => string);
   icon: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   visible: (context: any) => boolean;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   onClick: (context: any) => void | Promise<void>;
 }
 
@@ -37,6 +40,7 @@ export class MenuRenderer {
    * @param config Menu configuration
    * @param context Context object passed to visibility/onClick functions
    */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   render(menu: Menu, config: MenuConfig, context: any): void {
     const visibleItems = config.items.filter((item) => item.visible(context));
 
@@ -64,6 +68,7 @@ export class MenuRenderer {
   /**
    * Check if menu has any visible items
    */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   hasVisibleItems(config: MenuConfig, context: any): boolean {
     return config.items.some((item) => item.visible(context));
   }

@@ -1,4 +1,4 @@
-import { PluginSettingTab, App } from "obsidian";
+import { PluginSettingTab, App, Plugin } from "obsidian";
 import { FirstLineIsTitlePlugin } from "./settings-base";
 import { t, getCurrentLocale } from "../i18n";
 import { TIMING } from "../constants/timing";
@@ -68,7 +68,7 @@ export class FirstLineIsTitleSettings extends PluginSettingTab {
 
   constructor(app: App, plugin: FirstLineIsTitlePlugin) {
     // PluginSettingTab expects Plugin, but we use minimal interface for flexibility
-    super(app, plugin as any);
+    super(app, plugin as unknown as Plugin);
     this.plugin = plugin;
   }
 
@@ -117,10 +117,10 @@ export class FirstLineIsTitleSettings extends PluginSettingTab {
       this.previousTabId = tabInfo.id;
       this.plugin.settings.core.currentSettingsTab = tabInfo.id;
       void this.plugin.saveSettings();
-      this.renderTab(tabInfo.id);
+      void this.renderTab(tabInfo.id);
     };
 
-    for (const [tabKey, tabInfo] of Object.entries(this.TABS)) {
+    for (const [_tabKey, tabInfo] of Object.entries(this.TABS)) {
       const tabEl = tabBar.createEl("div", { cls: "flit-settings-tab" });
       tabEl.setAttribute("data-tab-id", tabInfo.id);
       tabEl.setAttribute("role", "tab");
@@ -130,7 +130,7 @@ export class FirstLineIsTitleSettings extends PluginSettingTab {
       tabEl.setAttribute("tabindex", isActive ? "0" : "-1");
       tabEl.setAttribute("aria-selected", isActive ? "true" : "false");
 
-      const tabNameEl = tabEl.createEl("div", {
+      const _tabNameEl = tabEl.createEl("div", {
         cls: "flit-settings-tab-name",
         text: tabInfo.name,
       });
@@ -141,14 +141,14 @@ export class FirstLineIsTitleSettings extends PluginSettingTab {
 
       // Click handler
       tabEl.addEventListener("click", () => {
-        activateTab(tabEl, tabInfo);
+        void activateTab(tabEl, tabInfo);
       });
 
       // Keyboard handler
       tabEl.addEventListener("keydown", (e) => {
         if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
-          activateTab(tabEl, tabInfo);
+          void activateTab(tabEl, tabInfo);
         } else if (
           e.key === "ArrowRight" ||
           e.key === "ArrowLeft" ||
@@ -156,7 +156,7 @@ export class FirstLineIsTitleSettings extends PluginSettingTab {
           e.key === "ArrowDown"
         ) {
           e.preventDefault();
-          const currentIndex = tabElements.indexOf(tabEl);
+          const _currentIndex = tabElements.indexOf(tabEl);
 
           // Build grid structure by detecting rows based on vertical position
           const rows: HTMLElement[][] = [];
@@ -267,7 +267,7 @@ export class FirstLineIsTitleSettings extends PluginSettingTab {
       cls: "flit-settings-page",
     });
 
-    this.renderTab(this.plugin.settings.core.currentSettingsTab);
+    void this.renderTab(this.plugin.settings.core.currentSettingsTab);
 
     // Remove focus from active tab to prevent outline on initial display
     setTimeout(() => {
@@ -309,10 +309,26 @@ export class FirstLineIsTitleSettings extends PluginSettingTab {
 
     if (tabConfig) {
       const tabInstance = new tabConfig.class(this.plugin, this.settingsPage);
-      await tabInstance.render();
+      const result = tabInstance.render();
+      if (
+        result !== undefined &&
+        typeof result === "object" &&
+        result !== null &&
+        "then" in result
+      ) {
+        await (result as Promise<void>);
+      }
     } else {
       const generalTab = new GeneralTab(this.plugin, this.settingsPage);
-      await generalTab.render();
+      const result = generalTab.render();
+      if (
+        result !== undefined &&
+        typeof result === "object" &&
+        result !== null &&
+        "then" in result
+      ) {
+        await (result as Promise<void>);
+      }
     }
   }
 
@@ -322,7 +338,7 @@ export class FirstLineIsTitleSettings extends PluginSettingTab {
       const hasChanges = deduplicateExclusions(this.plugin.settings);
       if (hasChanges) {
         // Save settings synchronously (hide is not async)
-        this.plugin.saveSettings();
+        void this.plugin.saveSettings();
       }
     }
     super.hide();

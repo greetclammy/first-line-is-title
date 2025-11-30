@@ -1,6 +1,5 @@
 import { TFile, App, Platform, ViewWithFileEditor } from "obsidian";
 import { PluginSettings, OSPreset } from "./types";
-import { UNIVERSAL_FORBIDDEN_CHARS, WINDOWS_ANDROID_CHARS } from "./constants";
 import { t } from "./i18n";
 import { PropertyManager } from "./core/property-manager";
 
@@ -30,7 +29,7 @@ export const normalizePropertyValue = PropertyManager.normalizePropertyValue;
 export function verboseLog(
   plugin: { settings: PluginSettings },
   message: string,
-  data?: any,
+  data?: unknown,
 ) {
   if (plugin.settings.core.verboseLogging) {
     if (data) {
@@ -96,17 +95,17 @@ function isFileOpenInAnyEditor(file: TFile, app: App): boolean {
  * @param isManualCommand - true for manual commands, false for automatic operations
  * @returns {canModify: boolean, reason?: string}
  */
-export async function canModifyFile(
+export function canModifyFile(
   file: TFile,
   app: App,
   disableKey: string,
   disableValue: string,
   isManualCommand: boolean,
   hasActiveEditor?: boolean,
-): Promise<{ canModify: boolean; reason?: string }> {
+): { canModify: boolean; reason?: string } {
   // Check 1: Disable property (ALWAYS-ON SAFEGUARD #4)
   // Fastest check, absolute blocker for all operations
-  if (await hasDisablePropertyInFile(file, app, disableKey, disableValue)) {
+  if (hasDisablePropertyInFile(file, app, disableKey, disableValue)) {
     return { canModify: false, reason: "disable property present" };
   }
 
@@ -142,12 +141,12 @@ export async function canModifyFile(
 // - shouldProcessFile → utils/file-exclusions.ts
 // - isFileExcluded → utils/file-exclusions.ts
 
-export async function hasDisablePropertyInFile(
+export function hasDisablePropertyInFile(
   file: TFile,
   app: App,
   disableKey: string,
   disableValue: string,
-): Promise<boolean> {
+): boolean {
   try {
     // Use Obsidian's metadata cache to read frontmatter (already parsed YAML)
     const metadata = app.metadataCache.getFileCache(file);
@@ -195,7 +194,7 @@ export async function hasDisablePropertyInFile(
 
     // Direct comparison for non-string types
     return normalizedPropertyValue === normalizedDisableValue;
-  } catch (error) {
+  } catch {
     return false;
   }
 }
@@ -769,13 +768,13 @@ export function deepMerge<T>(defaults: T, source: Partial<T>): T {
 
   // Create a deep copy of defaults to avoid mutation
   const result = JSON.parse(JSON.stringify(defaults)) as T;
-  // Use Record for dynamic key access to avoid 'as any'
-  const resultRecord = result as Record<string, any>;
-  const sourceRecord = source as Record<string, any>;
+  // Use Record for dynamic key access
+  const resultRecord = result as Record<string, unknown>;
+  const sourceRecord = source as Record<string, unknown>;
 
   // Merge properties from source
   for (const key in source) {
-    if (!source.hasOwnProperty(key)) continue;
+    if (!Object.prototype.hasOwnProperty.call(source, key)) continue;
 
     const sourceValue = sourceRecord[key];
     const defaultValue = resultRecord[key];

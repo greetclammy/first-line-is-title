@@ -167,8 +167,8 @@ export class CommandRegistrar {
       id: "add-safe-internal-link",
       name: t("commands.addSafeInternalLink"),
       icon: "link",
-      editorCallback: async (editor, view) => {
-        await this.plugin.addSafeInternalLink();
+      editorCallback: (_editor, _view) => {
+        this.plugin.addSafeInternalLink();
       },
     });
   }
@@ -185,8 +185,8 @@ export class CommandRegistrar {
       id: "add-safe-internal-link-with-caption",
       name: t("commands.addSafeInternalLinkWithCaption"),
       icon: "link",
-      editorCallback: async (editor, view) => {
-        await this.plugin.addSafeInternalLinkWithCaption();
+      editorCallback: (_editor, _view) => {
+        this.plugin.addSafeInternalLinkWithCaption();
       },
     });
   }
@@ -206,8 +206,8 @@ export class CommandRegistrar {
       id: "add-internal-link-with-caption-and-custom-target",
       name: t("commands.addInternalLinkWithCaptionAndCustomTarget"),
       icon: "link",
-      editorCallback: async (editor, view) => {
-        await this.plugin.addInternalLinkWithCaptionAndCustomTarget();
+      editorCallback: (_editor, _view) => {
+        this.plugin.addInternalLinkWithCaptionAndCustomTarget();
       },
     });
   }
@@ -352,7 +352,7 @@ export class CommandRegistrar {
         }
 
         // Execute command
-        this.plugin.disableRenamingForNote();
+        void this.plugin.disableRenamingForNote();
         return true;
       },
     });
@@ -390,7 +390,7 @@ export class CommandRegistrar {
         }
 
         // Execute command
-        this.plugin.enableRenamingForNote();
+        void this.plugin.enableRenamingForNote();
         return true;
       },
     });

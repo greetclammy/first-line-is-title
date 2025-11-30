@@ -3,14 +3,7 @@
  * These extend the official API with unofficial/undocumented properties
  */
 
-import {
-  App,
-  Command,
-  WorkspaceLeaf,
-  MetadataCache,
-  TFile,
-  Editor,
-} from "obsidian";
+import { Command, TFile, Editor, Menu, View } from "obsidian";
 
 declare module "obsidian" {
   interface MetadataCache {
@@ -27,6 +20,7 @@ declare module "obsidian" {
     };
     plugins: {
       enabledPlugins: Set<string>;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       getPlugin(id: string): any;
     };
   }

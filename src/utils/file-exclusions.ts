@@ -1,7 +1,7 @@
 import { TFile, App, normalizePath } from "obsidian";
 import { PluginSettings } from "../types";
 import { filterNonEmpty } from "./string-processing";
-import { normalizeTag, stripFrontmatter, fileHasTargetTags } from "./tag-utils";
+import { fileHasTargetTags, normalizeTag } from "./tag-utils";
 
 /**
  * Normalize folder path, preserving root folder "/"
@@ -211,7 +211,7 @@ export function isFileExcluded(
   file: TFile,
   settings: PluginSettings,
   app: App,
-  content?: string,
+  _content?: string,
 ): boolean {
   // Check property exclusions
   if (fileHasExcludedProperties(file, settings, app)) {
