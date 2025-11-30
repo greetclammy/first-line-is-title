@@ -185,7 +185,13 @@ export function tp(keyPath: string, count: number, fallback?: string): string {
   if (typeof message === "string") {
     return message.replace("{{count}}", String(count));
   }
-  return String(message).replace("{{count}}", String(count));
+  // Fallback for non-string message (shouldn't happen with valid translations)
+  const messageStr =
+    typeof message === "object"
+      ? JSON.stringify(message)
+      : // eslint-disable-next-line @typescript-eslint/no-base-to-string -- fallback for unexpected types
+        String(message);
+  return messageStr.replace("{{count}}", String(count));
 }
 
 /**

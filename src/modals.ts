@@ -42,6 +42,7 @@ export class RenameAllFilesModal extends Modal {
     li1.appendText(backupParts[0]);
     li1.createEl("a", {
       text: t("modals.backedUpLinkText"),
+      // eslint-disable-next-line obsidianmd/hardcoded-config-path -- URL, not config path
       href: "https://help.obsidian.md/backup",
     });
     if (backupParts[1]) li1.appendText(backupParts[1]);
@@ -204,6 +205,7 @@ export class RenameFolderModal extends Modal {
     messagePara.appendText(backupParts[0]);
     messagePara.createEl("a", {
       text: t("modals.backedUpLinkText"),
+      // eslint-disable-next-line obsidianmd/hardcoded-config-path -- URL, not config path
       href: "https://help.obsidian.md/backup",
     });
     if (backupParts[1]) messagePara.appendText(backupParts[1]);
@@ -461,6 +463,7 @@ export class RenameMultipleFoldersModal extends Modal {
     messagePara.appendText(backupParts[0]);
     messagePara.createEl("a", {
       text: t("modals.backedUpLinkText"),
+      // eslint-disable-next-line obsidianmd/hardcoded-config-path -- URL, not config path
       href: "https://help.obsidian.md/backup",
     });
     if (backupParts[1]) messagePara.appendText(backupParts[1]);
@@ -746,6 +749,7 @@ export class ProcessTagModal extends Modal {
     messagePara.appendText(backupParts[0]);
     messagePara.createEl("a", {
       text: t("modals.backedUpLinkText"),
+      // eslint-disable-next-line obsidianmd/hardcoded-config-path -- URL, not config path
       href: "https://help.obsidian.md/backup",
     });
     if (backupParts[1]) messagePara.appendText(backupParts[1]);
@@ -1048,6 +1052,7 @@ export class RenameModal extends Modal {
     messagePara.appendText(backupParts[0]);
     messagePara.createEl("a", {
       text: t("modals.backedUpLinkText"),
+      // eslint-disable-next-line obsidianmd/hardcoded-config-path -- URL, not config path
       href: "https://help.obsidian.md/backup",
     });
     if (backupParts[1]) messagePara.appendText(backupParts[1]);
@@ -1254,6 +1259,7 @@ export class DisableEnableModal extends Modal {
     messagePara.appendText(backupParts[0]);
     messagePara.createEl("a", {
       text: t("modals.backedUpLinkText"),
+      // eslint-disable-next-line obsidianmd/hardcoded-config-path -- URL, not config path
       href: "https://help.obsidian.md/backup",
     });
     if (backupParts[1]) messagePara.appendText(backupParts[1]);

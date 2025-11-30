@@ -23,8 +23,9 @@ export {
   isFileExcluded,
 } from "./utils/file-exclusions";
 
-// Re-export from PropertyManager
-export const normalizePropertyValue = PropertyManager.normalizePropertyValue;
+// Re-export from PropertyManager (wrapped to avoid unbound-method warning)
+export const normalizePropertyValue = (value: unknown): unknown =>
+  PropertyManager.normalizePropertyValue(value);
 
 export function verboseLog(
   plugin: { settings: PluginSettings },
