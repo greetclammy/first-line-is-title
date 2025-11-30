@@ -116,7 +116,7 @@ export class SafewordsTab extends SettingsTabBase {
         const rowEl = tableWrapper.createEl("div", {
           cls: "flit-safeword-setting",
         });
-        let deleteButton: any;
+        let deleteButton: HTMLElement;
 
         let updateButtonState: () => void;
 
@@ -205,16 +205,18 @@ export class SafewordsTab extends SettingsTabBase {
         const input = inputContainer.createEl("input", { type: "text" });
         input.placeholder = t("settings.replaceCharacters.emptyPlaceholder");
         input.value = safeword.text;
-        input.addEventListener("input", async (e) => {
-          this.plugin.settings.safewords.safewords[index].text = (
-            e.target as HTMLInputElement
-          ).value;
-          this.plugin.debugLog(
-            `safewords[${index}].text`,
-            this.plugin.settings.safewords.safewords[index].text,
-          );
-          await this.plugin.saveSettings();
-          updateButtonState();
+        input.addEventListener("input", (e) => {
+          void (async () => {
+            this.plugin.settings.safewords.safewords[index].text = (
+              e.target as HTMLInputElement
+            ).value;
+            this.plugin.debugLog(
+              `safewords[${index}].text`,
+              this.plugin.settings.safewords.safewords[index].text,
+            );
+            await this.plugin.saveSettings();
+            updateButtonState();
+          })();
         });
 
         this.addForbiddenCharProtection(input);
@@ -297,13 +299,15 @@ export class SafewordsTab extends SettingsTabBase {
         setIcon(upButton, "chevron-up");
 
         if (index > 0) {
-          upButton.addEventListener("click", async () => {
-            const temp = this.plugin.settings.safewords.safewords[index];
-            this.plugin.settings.safewords.safewords[index] =
-              this.plugin.settings.safewords.safewords[index - 1];
-            this.plugin.settings.safewords.safewords[index - 1] = temp;
-            await this.plugin.saveSettings();
-            renderSafewords();
+          upButton.addEventListener("click", () => {
+            void (async () => {
+              const temp = this.plugin.settings.safewords.safewords[index];
+              this.plugin.settings.safewords.safewords[index] =
+                this.plugin.settings.safewords.safewords[index - 1];
+              this.plugin.settings.safewords.safewords[index - 1] = temp;
+              await this.plugin.saveSettings();
+              renderSafewords();
+            })();
           });
         }
 
@@ -317,13 +321,15 @@ export class SafewordsTab extends SettingsTabBase {
         setIcon(downButton, "chevron-down");
 
         if (index < this.plugin.settings.safewords.safewords.length - 1) {
-          downButton.addEventListener("click", async () => {
-            const temp = this.plugin.settings.safewords.safewords[index];
-            this.plugin.settings.safewords.safewords[index] =
-              this.plugin.settings.safewords.safewords[index + 1];
-            this.plugin.settings.safewords.safewords[index + 1] = temp;
-            await this.plugin.saveSettings();
-            renderSafewords();
+          downButton.addEventListener("click", () => {
+            void (async () => {
+              const temp = this.plugin.settings.safewords.safewords[index];
+              this.plugin.settings.safewords.safewords[index] =
+                this.plugin.settings.safewords.safewords[index + 1];
+              this.plugin.settings.safewords.safewords[index + 1] = temp;
+              await this.plugin.saveSettings();
+              renderSafewords();
+            })();
           });
         }
 
@@ -336,21 +342,23 @@ export class SafewordsTab extends SettingsTabBase {
         });
         setIcon(deleteButton, "x");
 
-        deleteButton.addEventListener("click", async () => {
-          if (this.plugin.settings.safewords.safewords.length === 1) {
-            // If it's the last entry, replace with empty one instead of removing
-            this.plugin.settings.safewords.safewords[0] = {
-              text: "",
-              enabled: true,
-              onlyAtStart: false,
-              onlyWholeLine: false,
-              caseSensitive: false,
-            };
-          } else {
-            this.plugin.settings.safewords.safewords.splice(index, 1);
-          }
-          await this.plugin.saveSettings();
-          renderSafewords();
+        deleteButton.addEventListener("click", () => {
+          void (async () => {
+            if (this.plugin.settings.safewords.safewords.length === 1) {
+              // If it's the last entry, replace with empty one instead of removing
+              this.plugin.settings.safewords.safewords[0] = {
+                text: "",
+                enabled: true,
+                onlyAtStart: false,
+                onlyWholeLine: false,
+                caseSensitive: false,
+              };
+            } else {
+              this.plugin.settings.safewords.safewords.splice(index, 1);
+            }
+            await this.plugin.saveSettings();
+            renderSafewords();
+          })();
         });
 
         updateButtonState = () => {

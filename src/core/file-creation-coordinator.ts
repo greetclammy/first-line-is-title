@@ -59,7 +59,7 @@ export class FileCreationCoordinator {
     this.logDecision("1", "Y");
 
     // Node 2: Is folder excluded?
-    if (await this.isFolderExcluded(file)) {
+    if (this.isFolderExcluded(file)) {
       this.logDecision("2", "Y", "Do nothing (folder excluded)");
       return this.noActions("1Y → 2Y");
     }
@@ -95,7 +95,7 @@ export class FileCreationCoordinator {
         this.logDecision("7", "Y");
 
         // Node 9: Do any Folder fields match current path?
-        if (await this.folderTemplateMatches(file)) {
+        if (this.folderTemplateMatches(file)) {
           this.logDecision("9", "Y");
           // Wait for Templater event (Node 12)
           return await this.handleTemplaterEvent(
@@ -160,7 +160,7 @@ export class FileCreationCoordinator {
     this.logDecision("12", "Y");
 
     // Node 13: Does template have excluded tag/property?
-    if (await this.templateHasExclusions(file)) {
+    if (this.templateHasExclusions(file)) {
       this.logDecision("13", "Y", "Do nothing (template has exclusions)");
       return this.noActions(pathSoFar + " → 12Y → 13Y");
     }
@@ -172,11 +172,11 @@ export class FileCreationCoordinator {
   /**
    * Node 14-18: Process settings hub and determine final actions
    */
-  private async proceedToSettingsHub(
+  private proceedToSettingsHub(
     file: TFile,
     context: FileCreationContext,
     pathSoFar: string,
-  ): Promise<FileCreationActions> {
+  ): FileCreationActions {
     const featuresEnabled = this.isFeatureEnabled();
 
     if (featuresEnabled === "title") {
@@ -279,7 +279,7 @@ export class FileCreationCoordinator {
   /**
    * Node 2: Check if folder is excluded
    */
-  private async isFolderExcluded(file: TFile): Promise<boolean> {
+  private isFolderExcluded(file: TFile): boolean {
     // Obsidian uses "" for root folder, but FLIT stores it as "/"
     const folderPath =
       file.parent?.path === "" ? "/" : file.parent?.path || "/";
@@ -347,30 +347,37 @@ export class FileCreationCoordinator {
    */
   private isTemplaterOn(): boolean {
     // Check if Templater plugin exists in app.plugins
-    const templater = (this.plugin.app as any).plugins?.plugins?.[
-      "templater-obsidian"
-    ];
-    return templater !== undefined;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const templater = (this.plugin.app as any).plugins?.plugins;
+    return (
+      templater !== undefined &&
+      typeof templater === "object" &&
+      "templater-obsidian" in templater
+    );
   }
 
   /**
    * Node 5: Check if Templater's "Trigger on new file creation" is enabled
    */
   private isTemplaterTriggerOn(): boolean {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const templater = (this.plugin.app as any).plugins?.plugins?.[
       "templater-obsidian"
     ];
-    return templater?.settings?.trigger_on_file_creation === true;
+    if (!templater) return false;
+    return templater.settings?.trigger_on_file_creation === true;
   }
 
   /**
    * Node 6: Check if file path matches Templater's template folder location
    */
   private isInTemplateFolder(file: TFile): boolean {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const templater = (this.plugin.app as any).plugins?.plugins?.[
       "templater-obsidian"
     ];
-    const templateFolder = templater?.settings?.templates_folder || "";
+    if (!templater) return false;
+    const templateFolder = templater.settings?.templates_folder || "";
 
     if (!templateFolder || templateFolder === "/") return false;
 
@@ -381,28 +388,42 @@ export class FileCreationCoordinator {
    * Node 7: Check if Templater's "Enable folder templates" is ON
    */
   private isFolderTemplatesEnabled(): boolean {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const templater = (this.plugin.app as any).plugins?.plugins?.[
       "templater-obsidian"
     ];
-    return templater?.settings?.enable_folder_templates === true;
+    if (!templater) return false;
+    return templater.settings?.enable_folder_templates === true;
   }
 
   /**
    * Node 9: Check if any Templater folder template matches current path
    * Uses Templater's walk-up algorithm (deepest match wins)
    */
-  private async folderTemplateMatches(file: TFile): Promise<boolean> {
+  private folderTemplateMatches(file: TFile): boolean {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const templater = (this.plugin.app as any).plugins?.plugins?.[
       "templater-obsidian"
     ];
-    const folderTemplates = templater?.settings?.folder_templates || [];
+    if (!templater) return false;
+    const folderTemplates = templater.settings?.folder_templates;
+    if (!Array.isArray(folderTemplates)) return false;
 
     let folder = file.parent;
     while (folder) {
       const match = folderTemplates.find(
-        (ft: any) => ft.folder === folder!.path,
+        (ft: unknown) =>
+          ft &&
+          typeof ft === "object" &&
+          "folder" in ft &&
+          ft.folder === folder!.path,
       );
-      if (match && match.template) {
+      if (
+        match &&
+        typeof match === "object" &&
+        "template" in match &&
+        match.template
+      ) {
         return true;
       }
       folder = folder.parent;
@@ -415,28 +436,37 @@ export class FileCreationCoordinator {
    * Node 10: Check if Templater's "Enable file regex templates" is ON
    */
   private isFileRegexEnabled(): boolean {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const templater = (this.plugin.app as any).plugins?.plugins?.[
       "templater-obsidian"
     ];
-    return templater?.settings?.enable_file_templates === true;
+    if (!templater) return false;
+    return templater.settings?.enable_file_templates === true;
   }
 
   /**
    * Node 11: Check if any Templater file regex matches current path
    */
   private fileRegexMatches(file: TFile): boolean {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const templater = (this.plugin.app as any).plugins?.plugins?.[
       "templater-obsidian"
     ];
-    const fileTemplates = templater?.settings?.file_templates || [];
+    if (!templater) return false;
+    const fileTemplates = templater.settings?.file_templates;
+    if (!Array.isArray(fileTemplates)) return false;
 
     for (const ft of fileTemplates) {
+      if (!ft || typeof ft !== "object") continue;
       try {
-        const regex = new RegExp(ft.regex);
-        if (regex.test(file.path)) {
+        const regex =
+          "regex" in ft && typeof ft.regex === "string"
+            ? new RegExp(ft.regex)
+            : null;
+        if (regex && regex.test(file.path)) {
           return true;
         }
-      } catch (error) {
+      } catch {
         // Invalid regex - skip
         continue;
       }
@@ -490,10 +520,16 @@ export class FileCreationCoordinator {
       }, remainingTime);
 
       // Listen for Templater event
-      const eventRef = this.plugin.app.workspace.on(
-        "templater:new-note-from-template" as any,
-        (data: any) => {
-          if (data.file?.path === file.path) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const eventRef = (this.plugin.app.workspace as any).on(
+        "templater:new-note-from-template",
+        (data: Record<string, unknown>) => {
+          if (
+            data.file &&
+            typeof data.file === "object" &&
+            "path" in data.file &&
+            data.file.path === file.path
+          ) {
             eventFired = true;
             clearTimeout(timeout);
             this.plugin.app.workspace.offref(eventRef);
@@ -515,7 +551,7 @@ export class FileCreationCoordinator {
   /**
    * Node 13: Check if template itself has excluded tags/properties
    */
-  private async templateHasExclusions(file: TFile): Promise<boolean> {
+  private templateHasExclusions(file: TFile): boolean {
     try {
       const cache = this.plugin.app.metadataCache.getFileCache(file);
       const frontmatter = cache?.frontmatter;
@@ -550,7 +586,9 @@ export class FileCreationCoordinator {
       // Check properties
       if (excludedProps.length > 0 && frontmatter) {
         const allPropKeys = Object.keys(frontmatter);
-        const whitelistedProps = excludedProps.map((p: any) => p.property);
+        const whitelistedProps = excludedProps.map((p: unknown) =>
+          p && typeof p === "object" && "property" in p ? p.property : "",
+        );
         const hasWhitelistedProp = allPropKeys.some((key) =>
           whitelistedProps.includes(key),
         );

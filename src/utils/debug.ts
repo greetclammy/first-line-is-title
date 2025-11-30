@@ -18,7 +18,7 @@ export class DebugUtils {
    * @param settingName The name of the setting that changed
    * @param value The new value of the setting
    */
-  debugLog(settingName: string, value: any): void {
+  debugLog(settingName: string, value: unknown): void {
     if (this.settings.core.verboseLogging) {
       console.debug(
         `Setting changed: ${settingName} = ${JSON.stringify(value)}`,

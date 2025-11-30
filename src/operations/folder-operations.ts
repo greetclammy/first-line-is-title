@@ -1,4 +1,4 @@
-import { Notice, TFile, TFolder, normalizePath } from "obsidian";
+import { App, Notice, TFile, TFolder, normalizePath } from "obsidian";
 import { verboseLog } from "../utils";
 import { PluginSettings } from "../types";
 import { RenameEngine } from "../core/rename-engine";
@@ -6,11 +6,11 @@ import { t } from "../i18n";
 
 export class FolderOperations {
   constructor(
-    private app: any,
+    private app: App,
     public settings: PluginSettings,
     private renameEngine: RenameEngine,
     private saveSettings: () => Promise<void>,
-    private debugLog: (settingName: string, value: any) => void,
+    private debugLog: (settingName: string, value: unknown) => void,
     private processMultipleFiles: (
       files: TFile[],
       action: "rename",
@@ -21,7 +21,7 @@ export class FolderOperations {
     const files = this.app.vault
       .getAllLoadedFiles()
       .filter(
-        (file: any): file is TFile =>
+        (file: unknown): file is TFile =>
           file instanceof TFile && file.extension === "md",
       )
       .filter((file: TFile) => {
@@ -306,9 +306,9 @@ export class FolderOperations {
   ): Promise<void> {
     if (folders.length === 0) return;
 
-    let processed = 0;
-    let skipped = 0;
-    let errors = 0;
+    let _processed = 0;
+    let _skipped = 0;
+    let _errors = 0;
 
     if (action === "rename") {
       const allFiles: TFile[] = [];
@@ -349,16 +349,16 @@ export class FolderOperations {
 
           if (action === "disable" && !isCurrentlyExcluded) {
             await this.toggleFolderExclusion(folder.path, true);
-            processed++;
+            _processed++;
           } else if (action === "enable" && isCurrentlyExcluded) {
             await this.toggleFolderExclusion(folder.path, true);
-            processed++;
+            _processed++;
           } else {
-            skipped++;
+            _skipped++;
           }
-        } catch (error) {
-          console.error(`Error processing folder ${folder.path}:`, error);
-          errors++;
+        } catch (_error) {
+          console.error(`Error processing folder ${folder.path}:`, _error);
+          _errors++;
         }
       }
 

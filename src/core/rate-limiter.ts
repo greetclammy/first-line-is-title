@@ -46,7 +46,7 @@ export class RateLimiter {
     // Check if limit exceeded
     if (data.count >= this.maxOperations) {
       if (label) {
-        console.log(
+        console.debug(
           `Rate limit hit for ${label} - ${data.count} operations in ${now - data.timestamp}ms`,
         );
       }
@@ -74,7 +74,7 @@ export class RateLimiter {
     // Check if limit exceeded
     if (this.globalTracker.count >= this.maxOperations) {
       if (label) {
-        console.log(
+        console.debug(
           `Global rate limit hit - ${this.globalTracker.count} operations in ${now - this.globalTracker.timestamp}ms`,
         );
       }

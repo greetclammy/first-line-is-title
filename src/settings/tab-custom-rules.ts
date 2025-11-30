@@ -1,4 +1,4 @@
-import { Setting, setIcon } from "obsidian";
+import { Setting, setIcon, ToggleComponent } from "obsidian";
 import { SettingsTabBase, FirstLineIsTitlePlugin } from "./settings-base";
 import { t, getCurrentLocale } from "../i18n";
 import { TIMING } from "../constants/timing";
@@ -45,7 +45,7 @@ export class CustomReplacementsTab extends SettingsTabBase {
             await this.plugin.saveSettings();
             updateCustomReplacementUI();
             renderCustomReplacements();
-            (
+            void (
               this.plugin as typeof this.plugin & {
                 updateAliasConditionalSettings?: () => Promise<void>;
               }
@@ -129,11 +129,11 @@ export class CustomReplacementsTab extends SettingsTabBase {
       cls: "flit-custom-replacements-container",
     });
 
-    let processingOrderContainer: HTMLElement;
-    let globalProcessingHeaderSetting: Setting;
-    let markupToggleContainer: HTMLElement;
-    let markupToggleSetting: Setting;
-    let markupToggle: any;
+    let processingOrderContainer: HTMLElement | undefined;
+    let globalProcessingHeaderSetting: Setting | undefined;
+    let markupToggleContainer: HTMLElement | undefined;
+    let markupToggleSetting: Setting | undefined;
+    let markupToggle: ToggleComponent | undefined;
 
     const updateCustomReplacementUI = () => {
       const enabled = this.plugin.settings.customRules.enableCustomReplacements;
@@ -157,7 +157,10 @@ export class CustomReplacementsTab extends SettingsTabBase {
         markupToggleContainer.classList.remove("flit-state-disabled");
         markupToggleContainer.classList.remove("flit-opacity-half");
       }
-      if (markupToggleSetting) {
+      if (
+        markupToggleSetting &&
+        this.plugin.settings.markupStripping.enableStripMarkup
+      ) {
         updateMarkupToggleVisibility();
       }
 
@@ -242,7 +245,7 @@ export class CustomReplacementsTab extends SettingsTabBase {
           const rowEl = tableWrapper.createEl("div", {
             cls: "flit-custom-replacement-setting",
           });
-          let deleteButton: any;
+          let deleteButton: HTMLElement;
 
           let updateButtonState: () => void;
 
@@ -338,34 +341,38 @@ export class CustomReplacementsTab extends SettingsTabBase {
           const input1 = input1Container.createEl("input", { type: "text" });
           input1.placeholder = t("settings.replaceCharacters.emptyPlaceholder");
           input1.value = replacement.searchText;
-          input1.addEventListener("input", async (e) => {
-            this.plugin.settings.customRules.customReplacements[
-              index
-            ].searchText = (e.target as HTMLInputElement).value;
-            this.plugin.debugLog(
-              `customReplacements[${index}].searchText`,
-              this.plugin.settings.customRules.customReplacements[index]
-                .searchText,
-            );
-            await this.plugin.saveSettings();
-            updateButtonState();
+          input1.addEventListener("input", (e) => {
+            void (async () => {
+              this.plugin.settings.customRules.customReplacements[
+                index
+              ].searchText = (e.target as HTMLInputElement).value;
+              this.plugin.debugLog(
+                `customReplacements[${index}].searchText`,
+                this.plugin.settings.customRules.customReplacements[index]
+                  .searchText,
+              );
+              await this.plugin.saveSettings();
+              updateButtonState();
+            })();
           });
 
           const input2Container = rowEl.createDiv({ cls: "flit-text-column" });
           const input2 = input2Container.createEl("input", { type: "text" });
           input2.placeholder = t("settings.replaceCharacters.emptyPlaceholder");
           input2.value = replacement.replaceText;
-          input2.addEventListener("input", async (e) => {
-            this.plugin.settings.customRules.customReplacements[
-              index
-            ].replaceText = (e.target as HTMLInputElement).value;
-            this.plugin.debugLog(
-              `customReplacements[${index}].replaceText`,
-              this.plugin.settings.customRules.customReplacements[index]
-                .replaceText,
-            );
-            await this.plugin.saveSettings();
-            updateButtonState();
+          input2.addEventListener("input", (e) => {
+            void (async () => {
+              this.plugin.settings.customRules.customReplacements[
+                index
+              ].replaceText = (e.target as HTMLInputElement).value;
+              this.plugin.debugLog(
+                `customReplacements[${index}].replaceText`,
+                this.plugin.settings.customRules.customReplacements[index]
+                  .replaceText,
+              );
+              await this.plugin.saveSettings();
+              updateButtonState();
+            })();
           });
 
           this.addForbiddenCharProtection(input2);
@@ -454,15 +461,19 @@ export class CustomReplacementsTab extends SettingsTabBase {
           setIcon(upButton, "chevron-up");
 
           if (index > 0) {
-            upButton.addEventListener("click", async () => {
-              const temp =
-                this.plugin.settings.customRules.customReplacements[index];
-              this.plugin.settings.customRules.customReplacements[index] =
-                this.plugin.settings.customRules.customReplacements[index - 1];
-              this.plugin.settings.customRules.customReplacements[index - 1] =
-                temp;
-              await this.plugin.saveSettings();
-              renderCustomReplacements();
+            upButton.addEventListener("click", () => {
+              void (async () => {
+                const temp =
+                  this.plugin.settings.customRules.customReplacements[index];
+                this.plugin.settings.customRules.customReplacements[index] =
+                  this.plugin.settings.customRules.customReplacements[
+                    index - 1
+                  ];
+                this.plugin.settings.customRules.customReplacements[index - 1] =
+                  temp;
+                await this.plugin.saveSettings();
+                renderCustomReplacements();
+              })();
             });
           }
 
@@ -482,15 +493,19 @@ export class CustomReplacementsTab extends SettingsTabBase {
             index <
             this.plugin.settings.customRules.customReplacements.length - 1
           ) {
-            downButton.addEventListener("click", async () => {
-              const temp =
-                this.plugin.settings.customRules.customReplacements[index];
-              this.plugin.settings.customRules.customReplacements[index] =
-                this.plugin.settings.customRules.customReplacements[index + 1];
-              this.plugin.settings.customRules.customReplacements[index + 1] =
-                temp;
-              await this.plugin.saveSettings();
-              renderCustomReplacements();
+            downButton.addEventListener("click", () => {
+              void (async () => {
+                const temp =
+                  this.plugin.settings.customRules.customReplacements[index];
+                this.plugin.settings.customRules.customReplacements[index] =
+                  this.plugin.settings.customRules.customReplacements[
+                    index + 1
+                  ];
+                this.plugin.settings.customRules.customReplacements[index + 1] =
+                  temp;
+                await this.plugin.saveSettings();
+                renderCustomReplacements();
+              })();
             });
           }
 
@@ -503,26 +518,28 @@ export class CustomReplacementsTab extends SettingsTabBase {
           });
           setIcon(deleteButton, "x");
 
-          deleteButton.addEventListener("click", async () => {
-            if (
-              this.plugin.settings.customRules.customReplacements.length === 1
-            ) {
-              // If it's the last entry, replace with empty one instead of removing
-              this.plugin.settings.customRules.customReplacements[0] = {
-                searchText: "",
-                replaceText: "",
-                enabled: true,
-                onlyAtStart: false,
-                onlyWholeLine: false,
-              };
-            } else {
-              this.plugin.settings.customRules.customReplacements.splice(
-                index,
-                1,
-              );
-            }
-            await this.plugin.saveSettings();
-            renderCustomReplacements();
+          deleteButton.addEventListener("click", () => {
+            void (async () => {
+              if (
+                this.plugin.settings.customRules.customReplacements.length === 1
+              ) {
+                // If it's the last entry, replace with empty one instead of removing
+                this.plugin.settings.customRules.customReplacements[0] = {
+                  searchText: "",
+                  replaceText: "",
+                  enabled: true,
+                  onlyAtStart: false,
+                  onlyWholeLine: false,
+                };
+              } else {
+                this.plugin.settings.customRules.customReplacements.splice(
+                  index,
+                  1,
+                );
+              }
+              await this.plugin.saveSettings();
+              renderCustomReplacements();
+            })();
           });
 
           updateButtonState = () => {
@@ -690,24 +707,24 @@ export class CustomReplacementsTab extends SettingsTabBase {
 
     const updateMarkupToggleVisibility = () => {
       if (this.plugin.settings.markupStripping.enableStripMarkup) {
-        markupToggleContainer.classList.remove("flit-state-disabled");
-        markupToggleContainer.classList.remove("flit-opacity-half");
-        markupToggleContainer.classList.remove("flit-pointer-none");
-        markupToggleSetting.setDisabled(false);
-        if (markupToggle) {
+        markupToggleContainer?.classList.remove("flit-state-disabled");
+        markupToggleContainer?.classList.remove("flit-opacity-half");
+        markupToggleContainer?.classList.remove("flit-pointer-none");
+        markupToggleSetting?.setDisabled(false);
+        if (markupToggle !== undefined) {
           markupToggle.toggleEl.tabIndex = 0;
           markupToggle.toggleEl.removeAttribute("aria-disabled");
           markupToggle.toggleEl.classList.remove("flit-pointer-none");
         }
       } else {
         if (
-          !processingOrderContainer.classList.contains("flit-master-disabled")
+          !processingOrderContainer?.classList.contains("flit-master-disabled")
         ) {
-          markupToggleContainer.classList.add("flit-opacity-half");
+          markupToggleContainer?.classList.add("flit-opacity-half");
         }
-        markupToggleContainer.classList.add("flit-pointer-none");
-        markupToggleSetting.setDisabled(true);
-        if (markupToggle) {
+        markupToggleContainer?.classList.add("flit-pointer-none");
+        markupToggleSetting?.setDisabled(true);
+        if (markupToggle !== undefined) {
           markupToggle.toggleEl.tabIndex = -1;
           markupToggle.toggleEl.setAttribute("aria-disabled", "true");
           markupToggle.toggleEl.classList.add("flit-pointer-none");

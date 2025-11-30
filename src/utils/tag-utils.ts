@@ -24,10 +24,10 @@ export function parseTagsFromYAML(content: string): string[] {
   }
 
   // Parse YAML using Obsidian API
-  let frontmatter: Record<string, any>;
+  let frontmatter: Record<string, unknown>;
   try {
     frontmatter = parseYaml(frontmatterInfo.frontmatter);
-  } catch (error) {
+  } catch {
     return tags;
   }
 

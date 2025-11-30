@@ -8,7 +8,7 @@ const state = (() => {
     availableTranslations: {
       en: enTranslations,
       ru: ruTranslations,
-    } as Record<string, any>,
+    } as Record<string, Record<string, unknown>>,
     translations: enTranslations,
     currentLocale: "en",
   };
@@ -26,11 +26,14 @@ export function initI18n(): void {
 
   // Load translations
   if (state.availableTranslations[state.currentLocale]) {
-    state.translations = state.availableTranslations[state.currentLocale];
+    state.translations =
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      state.availableTranslations[state.currentLocale] as any;
   } else {
     // Fallback to English if locale not available
     state.currentLocale = "en";
-    state.translations = state.availableTranslations["en"];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    state.translations = state.availableTranslations["en"] as any;
   }
 }
 
@@ -59,11 +62,12 @@ export function t(
   }
 
   const keys = keyPath.split(".");
-  let value: any = state.translations;
+  let value: unknown = state.translations;
 
   for (const key of keys) {
-    if (value && typeof value === "object" && key in value) {
-      value = value[key];
+    if (value && typeof value === "object" && key in value && value !== null) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      value = (value as any)[key];
     } else {
       // Key not found, use fallback
       let result = fb || keyPath;
@@ -143,11 +147,12 @@ export function getPluralForm(
  */
 export function tp(keyPath: string, count: number, fallback?: string): string {
   const keys = keyPath.split(".");
-  let value: any = state.translations;
+  let value: unknown = state.translations;
 
   for (const key of keys) {
-    if (value && typeof value === "object" && key in value) {
-      value = value[key];
+    if (value && typeof value === "object" && key in value && value !== null) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      value = (value as any)[key];
     } else {
       return (fallback || keyPath).replace("{{count}}", String(count));
     }
@@ -175,7 +180,9 @@ export function tp(keyPath: string, count: number, fallback?: string): string {
     }
   }
 
-  const message = value[pluralKey] || value["many"] || fallback || keyPath;
+  const message =
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (value as any)[pluralKey] || (value as any)["many"] || fallback || keyPath;
   return typeof message === "string"
     ? message.replace("{{count}}", String(count))
     : message;
@@ -192,11 +199,12 @@ export function tpSplit(
   count: number,
 ): { before: string; noun: string; after: string } {
   const keys = keyPath.split(".");
-  let value: any = state.translations;
+  let value: unknown = state.translations;
 
   for (const key of keys) {
-    if (value && typeof value === "object" && key in value) {
-      value = value[key];
+    if (value && typeof value === "object" && key in value && value !== null) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      value = (value as any)[key];
     } else {
       return { before: keyPath, noun: "", after: "" };
     }
@@ -219,7 +227,8 @@ export function tpSplit(
     }
   }
 
-  const pluralForm = value[pluralKey] || value["many"];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const pluralForm = (value as any)[pluralKey] || (value as any)["many"];
 
   if (pluralForm && typeof pluralForm === "object") {
     return {

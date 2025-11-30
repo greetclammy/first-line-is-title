@@ -61,19 +61,21 @@ export class OtherTab extends SettingsTabBase {
       sliderDiv.appendChild(slider.sliderEl);
     });
 
-    charCountRestoreButton.addEventListener("click", async () => {
-      this.plugin.settings.core.charCount = DEFAULT_SETTINGS.core.charCount;
-      this.plugin.debugLog("charCount", this.plugin.settings.core.charCount);
-      await this.plugin.saveSettings();
+    charCountRestoreButton.addEventListener("click", () => {
+      void (async () => {
+        this.plugin.settings.core.charCount = DEFAULT_SETTINGS.core.charCount;
+        this.plugin.debugLog("charCount", this.plugin.settings.core.charCount);
+        await this.plugin.saveSettings();
 
-      // Update the slider value by triggering a re-render or finding the slider element
-      const sliderInput = sliderDiv.querySelector(
-        'input[type="range"]',
-      ) as HTMLInputElement;
-      if (sliderInput) {
-        sliderInput.value = String(DEFAULT_SETTINGS.core.charCount);
-        sliderInput.dispatchEvent(new Event("input", { bubbles: true }));
-      }
+        // Update the slider value by triggering a re-render or finding the slider element
+        const sliderInput = sliderDiv.querySelector(
+          'input[type="range"]',
+        ) as HTMLInputElement;
+        if (sliderInput) {
+          sliderInput.value = String(DEFAULT_SETTINGS.core.charCount);
+          sliderInput.dispatchEvent(new Event("input", { bubbles: true }));
+        }
+      })();
     });
 
     const notificationSetting = new Setting(this.containerEl)
@@ -177,23 +179,25 @@ export class OtherTab extends SettingsTabBase {
       newNoteDelaySliderDiv.appendChild(slider.sliderEl);
     });
 
-    newNoteDelayRestoreButton.addEventListener("click", async () => {
-      this.plugin.settings.core.newNoteDelay =
-        DEFAULT_SETTINGS.core.newNoteDelay;
-      this.plugin.debugLog(
-        "newNoteDelay",
-        this.plugin.settings.core.newNoteDelay,
-      );
-      await this.plugin.saveSettings();
+    newNoteDelayRestoreButton.addEventListener("click", () => {
+      void (async () => {
+        this.plugin.settings.core.newNoteDelay =
+          DEFAULT_SETTINGS.core.newNoteDelay;
+        this.plugin.debugLog(
+          "newNoteDelay",
+          this.plugin.settings.core.newNoteDelay,
+        );
+        await this.plugin.saveSettings();
 
-      // Update the slider value by triggering a re-render or finding the slider element
-      const sliderInput = newNoteDelaySliderDiv.querySelector(
-        'input[type="range"]',
-      ) as HTMLInputElement;
-      if (sliderInput) {
-        sliderInput.value = String(DEFAULT_SETTINGS.core.newNoteDelay);
-        sliderInput.dispatchEvent(new Event("input", { bubbles: true }));
-      }
+        // Update the slider value by triggering a re-render or finding the slider element
+        const sliderInput = newNoteDelaySliderDiv.querySelector(
+          'input[type="range"]',
+        ) as HTMLInputElement;
+        if (sliderInput) {
+          sliderInput.value = String(DEFAULT_SETTINGS.core.newNoteDelay);
+          sliderInput.dispatchEvent(new Event("input", { bubbles: true }));
+        }
+      })();
     });
 
     const contentReadMethodSetting = new Setting(this.containerEl)
@@ -237,27 +241,31 @@ export class OtherTab extends SettingsTabBase {
     });
     dropdown.value = this.plugin.settings.core.fileReadMethod;
 
-    contentReadRestoreButton.addEventListener("click", async () => {
-      dropdown.value = DEFAULT_SETTINGS.core.fileReadMethod;
-      this.plugin.settings.core.fileReadMethod =
-        DEFAULT_SETTINGS.core.fileReadMethod;
-      this.plugin.debugLog(
-        "fileReadMethod",
-        this.plugin.settings.core.fileReadMethod,
-      );
-      await this.plugin.saveSettings();
-      this.updateAutomaticRenameVisibility();
+    contentReadRestoreButton.addEventListener("click", () => {
+      void (async () => {
+        dropdown.value = DEFAULT_SETTINGS.core.fileReadMethod;
+        this.plugin.settings.core.fileReadMethod =
+          DEFAULT_SETTINGS.core.fileReadMethod;
+        this.plugin.debugLog(
+          "fileReadMethod",
+          this.plugin.settings.core.fileReadMethod,
+        );
+        await this.plugin.saveSettings();
+        this.updateAutomaticRenameVisibility();
+      })();
     });
 
-    dropdown.addEventListener("change", async (e) => {
-      const newMode = (e.target as HTMLSelectElement).value as FileReadMethod;
-      this.plugin.settings.core.fileReadMethod = newMode;
-      this.plugin.debugLog(
-        "fileReadMethod",
-        this.plugin.settings.core.fileReadMethod,
-      );
-      await this.plugin.saveSettings();
-      this.updateAutomaticRenameVisibility();
+    dropdown.addEventListener("change", (e) => {
+      void (async () => {
+        const newMode = (e.target as HTMLSelectElement).value as FileReadMethod;
+        this.plugin.settings.core.fileReadMethod = newMode;
+        this.plugin.debugLog(
+          "fileReadMethod",
+          this.plugin.settings.core.fileReadMethod,
+        );
+        await this.plugin.saveSettings();
+        this.updateAutomaticRenameVisibility();
+      })();
     });
 
     const contentReadSubSettingsContainer =
@@ -308,26 +316,32 @@ export class OtherTab extends SettingsTabBase {
       checkIntervalSliderDiv.appendChild(slider.sliderEl);
     });
 
-    checkIntervalRestoreButton.addEventListener("click", async () => {
-      this.plugin.settings.core.checkInterval =
-        DEFAULT_SETTINGS.core.checkInterval;
-      this.plugin.debugLog(
-        "checkInterval",
-        this.plugin.settings.core.checkInterval,
-      );
-      await this.plugin.saveSettings();
+    checkIntervalRestoreButton.addEventListener("click", () => {
+      void (async () => {
+        this.plugin.settings.core.checkInterval =
+          DEFAULT_SETTINGS.core.checkInterval;
+        this.plugin.debugLog(
+          "checkInterval",
+          this.plugin.settings.core.checkInterval,
+        );
+        await this.plugin.saveSettings();
 
-      // Reinitialize checking system with default interval
-      this.plugin.editorLifecycle?.initializeCheckingSystem();
+        // Reinitialize checking system with default interval
+        (
+          this.plugin.editorLifecycle as {
+            initializeCheckingSystem?: () => void;
+          }
+        )?.initializeCheckingSystem?.();
 
-      // Update the slider value
-      const sliderInput = checkIntervalSliderDiv.querySelector(
-        'input[type="range"]',
-      ) as HTMLInputElement;
-      if (sliderInput) {
-        sliderInput.value = String(DEFAULT_SETTINGS.core.checkInterval);
-        sliderInput.dispatchEvent(new Event("input", { bubbles: true }));
-      }
+        // Update the slider value
+        const sliderInput = checkIntervalSliderDiv.querySelector(
+          'input[type="range"]',
+        ) as HTMLInputElement;
+        if (sliderInput) {
+          sliderInput.value = String(DEFAULT_SETTINGS.core.checkInterval);
+          sliderInput.dispatchEvent(new Event("input", { bubbles: true }));
+        }
+      })();
     });
 
     this.conditionalSettings = [checkIntervalSetting];
@@ -413,7 +427,7 @@ export class OtherTab extends SettingsTabBase {
                   if (typeof content === "string") {
                     try {
                       importedJson = JSON.parse(content);
-                    } catch (error) {
+                    } catch {
                       new Notice(t("notifications.invalidImportFile"));
                       console.error(t("notifications.invalidImportFile"));
                       return;
@@ -462,41 +476,47 @@ export class OtherTab extends SettingsTabBase {
       .addButton((button) =>
         button
           .setButtonText(t("settings.other.manageSettings.export"))
-          .onClick(async () => {
-            const settingsText = JSON.stringify(this.plugin.settings, null, 2);
-            const fileName = "first-line-is-title-settings.json";
+          .onClick(() => {
+            void (async () => {
+              const settingsText = JSON.stringify(
+                this.plugin.settings,
+                null,
+                2,
+              );
+              const fileName = "first-line-is-title-settings.json";
 
-            // Try navigator.share() for mobile (iOS/Android)
-            if (navigator.share && navigator.canShare) {
-              try {
-                const blob = new Blob([settingsText], {
-                  type: "application/json",
-                });
-                const file = new File([blob], fileName, {
-                  type: "application/json",
-                });
-
-                if (navigator.canShare({ files: [file] })) {
-                  await navigator.share({
-                    files: [file],
-                    title: "First Line is Title Settings",
+              // Try navigator.share() for mobile (iOS/Android)
+              if (navigator.share && navigator.canShare) {
+                try {
+                  const blob = new Blob([settingsText], {
+                    type: "application/json",
                   });
-                  return;
-                }
-              } catch (error) {
-                console.error("Share failed:", error);
-                // Fall through to download link
-              }
-            }
+                  const file = new File([blob], fileName, {
+                    type: "application/json",
+                  });
 
-            // Fallback for desktop: download link
-            const exportLink = document.createElement("a");
-            exportLink.setAttrs({
-              download: fileName,
-              href: `data:application/json;charset=utf-8,${encodeURIComponent(settingsText)}`,
-            });
-            exportLink.click();
-            exportLink.remove();
+                  if (navigator.canShare({ files: [file] })) {
+                    await navigator.share({
+                      files: [file],
+                      title: "First Line is Title Settings",
+                    });
+                    return;
+                  }
+                } catch (error) {
+                  console.error("Share failed:", error);
+                  // Fall through to download link
+                }
+              }
+
+              // Fallback for desktop: download link
+              const exportLink = document.createElement("a");
+              exportLink.setAttrs({
+                download: fileName,
+                href: `data:application/json;charset=utf-8,${encodeURIComponent(settingsText)}`,
+              });
+              exportLink.click();
+              exportLink.remove();
+            })();
           }),
       );
 
@@ -507,7 +527,7 @@ export class OtherTab extends SettingsTabBase {
         button
           .setButtonText(t("modals.buttons.clearSettings"))
           .setWarning()
-          .onClick(async () => {
+          .onClick(() => {
             new ClearSettingsModal(this.plugin.app, this.plugin, async () => {
               // Reset all settings to defaults with deep copy
               this.plugin.settings = JSON.parse(

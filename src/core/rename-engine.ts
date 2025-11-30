@@ -267,8 +267,8 @@ export class RenameEngine {
   async processFileImmediate(
     file: TFile,
     content?: string,
-    metadata?: any,
-    editor?: any,
+    metadata?: unknown,
+    editor?: Editor,
   ): Promise<void> {
     if (file.extension !== "md") {
       return;
@@ -334,7 +334,7 @@ export class RenameEngine {
       ignoreProperty?: boolean;
     },
     hasActiveEditor?: boolean,
-    editor?: any,
+    editor?: Editor,
   ): Promise<{ success: boolean; reason?: string }> {
     this.plugin.trackUsage();
     verboseLog(this.plugin, `Processing file: ${file.path}`, { noDelay });
@@ -422,16 +422,25 @@ export class RenameEngine {
           }
 
           // Schedule recheck after short delay to let UI settle
-          setTimeout(async () => {
-            const recheckFile =
-              this.plugin.app.vault.getAbstractFileByPath(newPath);
-            if (recheckFile && recheckFile instanceof TFile) {
-              const view =
-                this.plugin.app.workspace.getActiveViewOfType(MarkdownView);
-              if (view && view.file?.path === recheckFile.path && view.editor) {
-                await this.processEditorChangeOptimal(view.editor, recheckFile);
+          setTimeout(() => {
+            void (async () => {
+              const recheckFile =
+                this.plugin.app.vault.getAbstractFileByPath(newPath);
+              if (recheckFile && recheckFile instanceof TFile) {
+                const view =
+                  this.plugin.app.workspace.getActiveViewOfType(MarkdownView);
+                if (
+                  view &&
+                  view.file?.path === recheckFile.path &&
+                  view.editor
+                ) {
+                  await this.processEditorChangeOptimal(
+                    view.editor,
+                    recheckFile,
+                  );
+                }
               }
-            }
+            })();
           }, TIMING.UI_SETTLE_DELAY_MS);
         } else {
           // File in popover or not in view - preserve flag for modify/metadata handlers
@@ -456,10 +465,10 @@ export class RenameEngine {
       ignoreProperty?: boolean;
     },
     hasActiveEditor?: boolean,
-    editor?: any,
+    editor?: Editor,
   ): Promise<{ success: boolean; reason?: string }> {
     // Central gate: check policy requirements and always-on safeguards
-    const { canModify, reason } = await canModifyFile(
+    const { canModify, reason } = canModifyFile(
       file,
       this.plugin.app,
       this.plugin.settings.exclusions.disableRenamingKey,
@@ -736,7 +745,7 @@ export class RenameEngine {
       let decodedUrl = url;
       try {
         decodedUrl = decodeURIComponent(url);
-      } catch (e) {
+      } catch {
         // Invalid encoding, use original
       }
 

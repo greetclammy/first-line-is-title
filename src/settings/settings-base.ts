@@ -1,4 +1,4 @@
-import { App } from "obsidian";
+import { App, TFile } from "obsidian";
 import { PluginSettings } from "../types";
 import { UNIVERSAL_FORBIDDEN_CHARS, WINDOWS_ANDROID_CHARS } from "../constants";
 import { detectOS } from "../utils";
@@ -7,15 +7,28 @@ export interface FirstLineIsTitlePlugin {
   app: App;
   settings: PluginSettings;
   saveSettings(): Promise<void>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   debugLog(settingName: string, value: any): void;
-  editorLifecycle?: any;
-  renameEngine?: any;
-  propertyManager?: any;
+  editorLifecycle?: { initializeCheckingSystem(): void };
+  renameEngine?: {
+    processFile(
+      file: TFile,
+      noDelay: boolean,
+      showNotices: boolean,
+      providedContent?: string,
+      isBatchOperation?: boolean,
+      exclusionOverrides?: Record<string, boolean>,
+    ): Promise<{ success: boolean; reason?: string }>;
+  };
+  propertyManager?: { ensurePropertyTypeIsCheckbox(): Promise<void> };
   updatePropertyVisibility?: () => void;
   getCurrentTimestamp?: () => string;
   outputAllSettings?: () => void;
   getTodayDateString?: () => string;
   parsePropertyValue?: (value: string) => string | number | boolean;
+  cacheManager?: {
+    clearReservedPaths(): void;
+  };
 }
 
 export abstract class SettingsTabBase {

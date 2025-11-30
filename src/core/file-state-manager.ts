@@ -1,4 +1,4 @@
-import type { TFile } from "obsidian";
+import type {} from "obsidian";
 import FirstLineIsTitlePlugin from "../../main";
 import { TIMING } from "../constants/timing";
 
@@ -40,7 +40,7 @@ export interface FileState {
   operationData?: OperationData;
   isLocked?: boolean;
   pendingAliasRecheck?: boolean;
-  pendingAliasEditor?: any; // Stored editor reference for popover detection
+  pendingAliasEditor?: unknown; // Stored editor reference for popover detection
   lastAliasUpdateSucceeded?: boolean; // Whether last alias update succeeded (true) or was skipped (false)
   isSyncingEditors?: boolean; // True when syncing background editors to prevent spurious rechecks
 
@@ -360,7 +360,7 @@ export class FileStateManager {
    * Mark file for pending alias recheck
    * @param editor - Optional editor reference for popover detection
    */
-  markPendingAliasRecheck(path: string, editor?: any): void {
+  markPendingAliasRecheck(path: string, editor?: unknown): void {
     const state = this.getOrCreateState(path);
     state.pendingAliasRecheck = true;
     if (editor) {
@@ -378,7 +378,7 @@ export class FileStateManager {
   /**
    * Get stored editor reference for pending alias recheck
    */
-  getPendingAliasEditor(path: string): any | undefined {
+  getPendingAliasEditor(path: string): unknown {
     return this.fileStates.get(path)?.pendingAliasEditor;
   }
 

@@ -25,13 +25,13 @@ export class MenuDefinitions {
           id: "tag-put-first-line-in-title",
           title: t("commands.putFirstLineInTitle"),
           icon: "file-pen",
-          visible: (context) => {
+          visible: (_context) => {
             return (
               this.plugin.settings.core.enableTagCommands &&
               this.plugin.settings.core.commandVisibility.tagPutFirstLineInTitle
             );
           },
-          onClick: async (context) => {
+          onClick: (context) => {
             new ProcessTagModal(
               this.plugin.app,
               this.plugin,
@@ -102,14 +102,14 @@ export class MenuDefinitions {
           id: "folder-put-first-line-in-title",
           title: t("commands.putFirstLineInTitle"),
           icon: "folder-pen",
-          visible: (context) => {
+          visible: (_context) => {
             return (
               this.plugin.settings.core.enableFolderCommands &&
               this.plugin.settings.core.commandVisibility
                 .folderPutFirstLineInTitle
             );
           },
-          onClick: async (context) => {
+          onClick: (context) => {
             new RenameFolderModal(
               this.plugin.app,
               this.plugin,
@@ -180,7 +180,7 @@ export class MenuDefinitions {
           id: "file-put-first-line-in-title",
           title: t("commands.putFirstLineInTitle"),
           icon: "file-pen",
-          visible: (context) => {
+          visible: (_context) => {
             return (
               this.plugin.settings.core.enableFileCommands &&
               this.plugin.settings.core.commandVisibility
@@ -193,7 +193,7 @@ export class MenuDefinitions {
               ignoreTag: true,
               ignoreProperty: true,
             };
-            await this.plugin.renameEngine.processFile(
+            await this.plugin.renameEngine?.processFile(
               context.file,
               true,
               true,

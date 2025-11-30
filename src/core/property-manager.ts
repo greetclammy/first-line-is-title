@@ -127,7 +127,7 @@ export class PropertyManager {
     try {
       const content = await this.app.vault.adapter.read(path);
       return JSON.parse(content);
-    } catch (error) {
+    } catch {
       // If file doesn't exist or is invalid, return empty structure
       verboseLog(
         this.plugin,
@@ -158,7 +158,7 @@ export class PropertyManager {
    * Normalize property values to their actual types
    * Converts string representations to boolean, null, or number as appropriate
    */
-  static normalizePropertyValue(value: any): any {
+  static normalizePropertyValue(value: unknown): unknown {
     if (typeof value !== "string") return value;
     if (value === "true") return true;
     if (value === "false") return false;
@@ -172,7 +172,7 @@ export class PropertyManager {
   /**
    * Check if value is boolean (true or false)
    */
-  private isBooleanValue(value: any): boolean {
+  private isBooleanValue(value: unknown): boolean {
     return (
       value === true || value === false || value === "true" || value === "false"
     );
@@ -181,10 +181,10 @@ export class PropertyManager {
   /**
    * Normalize boolean values to actual boolean type
    */
-  private normalizeBooleanValue(value: any): boolean | any {
+  private normalizeBooleanValue(value: unknown): boolean {
     if (value === "true") return true;
     if (value === "false") return false;
-    return value;
+    return value as boolean;
   }
 
   /**

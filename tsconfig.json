@@ -15,5 +15,6 @@
     "esModuleInterop": true,
     "lib": ["DOM", "ES5", "ES6", "ES7", "ES2021"]
   },
-  "include": ["**/*.ts"]
+  "include": ["**/*.ts"],
+  "exclude": ["test/**", "node_modules/**", "vitest.config.ts"]
 }

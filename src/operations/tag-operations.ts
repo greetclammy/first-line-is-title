@@ -1,4 +1,4 @@
-import { Notice, TFile } from "obsidian";
+import { App, Notice, TFile } from "obsidian";
 import { verboseLog } from "../utils";
 import { PluginSettings } from "../types";
 import { RenameEngine } from "../core/rename-engine";
@@ -6,11 +6,11 @@ import { t } from "../i18n";
 
 export class TagOperations {
   constructor(
-    private app: any,
+    private app: App,
     public settings: PluginSettings,
     private renameEngine: RenameEngine,
     private saveSettings: () => Promise<void>,
-    private debugLog: (settingName: string, value: any) => void,
+    private debugLog: (settingName: string, value: unknown) => void,
   ) {}
 
   async putFirstLineInTitleForTag(
@@ -50,42 +50,48 @@ export class TagOperations {
 
       // Check metadata cache tags (includes both frontmatter and body tags)
       if (!hasTag && cache?.tags) {
-        cache.tags.forEach((tagCache: { tag: string; position: any }) => {
-          const cacheTag = tagCache.tag;
-          let tagMatches = false;
+        cache.tags.forEach(
+          (tagCache: {
+            tag: string;
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            position: any;
+          }) => {
+            const cacheTag = tagCache.tag;
+            let tagMatches = false;
 
-          if (omitNestedTags) {
-            // Exact match only
-            tagMatches = cacheTag === tagToFind || cacheTag === `#${tagName}`;
-          } else {
-            // Include nested tags
-            tagMatches =
-              cacheTag === tagToFind ||
-              cacheTag === `#${tagName}` ||
-              cacheTag.startsWith(tagToFind + "/") ||
-              cacheTag.startsWith(`#${tagName}/`);
-          }
+            if (omitNestedTags) {
+              // Exact match only
+              tagMatches = cacheTag === tagToFind || cacheTag === `#${tagName}`;
+            } else {
+              // Include nested tags
+              tagMatches =
+                cacheTag === tagToFind ||
+                cacheTag === `#${tagName}` ||
+                cacheTag.startsWith(tagToFind + "/") ||
+                cacheTag.startsWith(`#${tagName}/`);
+            }
 
-          if (tagMatches) {
-            hasTag = true;
-            if (tagCache.position.start.line > 0) {
-              // If the tag is found after line 0, it's likely in the body
-              // We need to check if there's frontmatter to be more precise
-              if (cache.frontmatterPosition) {
-                // If tag is after frontmatter, it's in body
-                if (
-                  tagCache.position.start.line >
-                  cache.frontmatterPosition.end.line
-                ) {
+            if (tagMatches) {
+              hasTag = true;
+              if (tagCache.position.start.line > 0) {
+                // If the tag is found after line 0, it's likely in the body
+                // We need to check if there's frontmatter to be more precise
+                if (cache.frontmatterPosition) {
+                  // If tag is after frontmatter, it's in body
+                  if (
+                    tagCache.position.start.line >
+                    cache.frontmatterPosition.end.line
+                  ) {
+                    tagFoundInBody = true;
+                  }
+                } else {
+                  // No frontmatter, so any tag after line 0 is in body
                   tagFoundInBody = true;
                 }
-              } else {
-                // No frontmatter, so any tag after line 0 is in body
-                tagFoundInBody = true;
               }
             }
-          }
-        });
+          },
+        );
       }
 
       if (hasTag && omitBodyTags && tagFoundInBody) {

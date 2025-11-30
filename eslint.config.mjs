@@ -1,6 +1,7 @@
 // eslint.config.mjs
 import { fixupPluginRules } from "@eslint/compat";
 import tsparser from "@typescript-eslint/parser";
+import tseslint from "typescript-eslint";
 import obsidianmdPlugin from "eslint-plugin-obsidianmd";
 
 const obsidianmd = {
@@ -18,8 +19,30 @@ export default [
         project: "./tsconfig.json",
       },
     },
-    ...obsidianmd,
+    plugins: {
+      "@typescript-eslint": tseslint.plugin,
+      obsidianmd: fixupPluginRules(obsidianmdPlugin),
+    },
     rules: {
+      // TypeScript strict rules (from Obsidian automated scan)
+      "@typescript-eslint/no-explicit-any": "error",
+      "@typescript-eslint/no-floating-promises": "error",
+      "@typescript-eslint/no-misused-promises": "error",
+      "@typescript-eslint/require-await": "error",
+      "@typescript-eslint/await-thenable": "error",
+      "@typescript-eslint/no-unnecessary-type-assertion": "error",
+      "@typescript-eslint/no-redundant-type-constituents": "error",
+      "@typescript-eslint/no-unused-vars": [
+        "warn",
+        { argsIgnorePattern: "^_", varsIgnorePattern: "^_" },
+      ],
+      "no-prototype-builtins": "error",
+      "no-console": [
+        "error",
+        { allow: ["warn", "error", "debug", "group", "groupEnd"] },
+      ],
+      "no-useless-escape": "error",
+
       // Obsidian plugin guidelines
       "obsidianmd/no-sample-code": "error",
       "obsidianmd/no-static-styles-assignment": "warn",
@@ -28,10 +51,10 @@ export default [
       "obsidianmd/no-plugin-as-component": "error",
       "obsidianmd/no-view-references-in-plugin": "error",
 
-      // Sentence case - already enforced via CLAUDE.md
-      "obsidianmd/ui/sentence-case": "warn",
-      "obsidianmd/ui/sentence-case-json": "warn",
-      "obsidianmd/ui/sentence-case-locale-module": "warn",
+      // Sentence case
+      "obsidianmd/ui/sentence-case": "error",
+      "obsidianmd/ui/sentence-case-json": "error",
+      "obsidianmd/ui/sentence-case-locale-module": "error",
 
       // Commands
       "obsidianmd/commands/no-command-in-command-id": "warn",
@@ -45,6 +68,12 @@ export default [
     },
   },
   {
-    ignores: ["node_modules/**", "main.js", "*.config.mjs"],
+    ignores: [
+      "node_modules/**",
+      "main.js",
+      "*.config.mjs",
+      "test/**",
+      "vitest.config.ts",
+    ],
   },
 ];

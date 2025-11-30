@@ -282,7 +282,7 @@ export class FileOperations {
             this.settings.core.placeCursorAtLineEnd
           ) {
             // Always check exclusions (cursor never moved in excluded notes)
-            const isExcluded = await this.isFileExcludedForCursorPositioning(
+            const isExcluded = this.isFileExcludedForCursorPositioning(
               file,
               currentContent,
             );
@@ -591,11 +591,11 @@ export class FileOperations {
    * Uses real-time content checking for tags if content provided
    * @param skipFolderCheck - If true, ignore folder exclusions (only check tags/properties)
    */
-  async isFileExcludedForCursorPositioning(
+  isFileExcludedForCursorPositioning(
     file: TFile,
     content?: string,
     skipFolderCheck: boolean = false,
-  ): Promise<boolean> {
+  ): boolean {
     const exclusionOverrides = skipFolderCheck
       ? { ignoreFolder: true }
       : undefined;
@@ -619,7 +619,7 @@ export class FileOperations {
       }
     } else {
       if (
-        await hasDisablePropertyInFile(
+        hasDisablePropertyInFile(
           file,
           this.app,
           this.settings.exclusions.disableRenamingKey,
@@ -640,7 +640,7 @@ export class FileOperations {
     const frontmatterInfo = getFrontMatterInfo(content);
     if (!frontmatterInfo.exists) return false;
 
-    let frontmatter: Record<string, any>;
+    let frontmatter: Record<string, unknown>;
     try {
       frontmatter = parseYaml(frontmatterInfo.frontmatter);
     } catch (error) {
@@ -664,7 +664,7 @@ export class FileOperations {
       return val.startsWith("#") ? val.substring(1) : val;
     };
 
-    const checkValue = (key: string, value: any): boolean => {
+    const checkValue = (key: string, value: unknown): boolean => {
       const valueStr = String(value);
 
       if (key === disableKey && valueStr.toLowerCase() === disableValue) {

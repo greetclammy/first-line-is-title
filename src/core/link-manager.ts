@@ -11,7 +11,7 @@ export class LinkManager {
     this.plugin = plugin;
   }
 
-  async addSafeInternalLink(): Promise<void> {
+  addSafeInternalLink(): void {
     // Try to get active editor from any view type (markdown, canvas, etc.)
     const activeEditor = this.plugin.app.workspace.activeEditor?.editor;
     if (!activeEditor) {
@@ -104,7 +104,7 @@ export class LinkManager {
     }
   }
 
-  async addSafeInternalLinkWithCaption(): Promise<void> {
+  addSafeInternalLinkWithCaption(): void {
     // Try to get active editor from any view type (markdown, canvas, etc.)
     const activeEditor = this.plugin.app.workspace.activeEditor?.editor;
     if (!activeEditor) {
@@ -217,7 +217,7 @@ export class LinkManager {
     }
   }
 
-  async addInternalLinkWithCaptionAndCustomTarget(): Promise<void> {
+  addInternalLinkWithCaptionAndCustomTarget(): void {
     // Try to get active editor from any view type (markdown, canvas, etc.)
     const activeEditor = this.plugin.app.workspace.activeEditor?.editor;
     if (!activeEditor) {
