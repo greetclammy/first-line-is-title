@@ -4,14 +4,14 @@ import {
   fileHasExcludedProperties,
   shouldProcessFile,
   isFileExcluded,
-} from "./file-exclusions";
+} from "../../src/utils/file-exclusions";
 import {
   createTestSettings,
   createMockFile,
   createMockApp,
-} from "../test/testUtils";
-import { PluginSettings } from "../types";
-import { TFile, App, TFolder } from "../test/mockObsidian";
+} from "../testUtils";
+import { PluginSettings } from "../../src/types";
+import { TFile, App, TFolder } from "../mockObsidian";
 
 describe("file-exclusions", () => {
   let settings: PluginSettings;

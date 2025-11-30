@@ -6,14 +6,10 @@ import {
   canModifyFile,
   hasDisablePropertyInFile,
   containsSafeword,
-} from "./utils";
-import {
-  createTestSettings,
-  createMockFile,
-  createMockApp,
-} from "./test/testUtils";
-import { PluginSettings } from "./types";
-import { TFile, App, Platform } from "./test/mockObsidian";
+} from "../src/utils";
+import { createTestSettings, createMockFile, createMockApp } from "./testUtils";
+import { PluginSettings } from "../src/types";
+import { TFile, App, Platform } from "./mockObsidian";
 
 describe("utils", () => {
   let settings: PluginSettings;

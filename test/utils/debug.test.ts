@@ -1,11 +1,11 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { DebugUtils } from "./debug";
+import { DebugUtils } from "../../src/utils/debug";
 import {
   createMockApp,
   createTestSettings,
   createMockFile,
-} from "../test/testUtils";
-import { TFile } from "../test/mockObsidian";
+} from "../testUtils";
+import { TFile } from "../mockObsidian";
 
 function createMockPlugin() {
   const app = createMockApp();

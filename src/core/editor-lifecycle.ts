@@ -314,16 +314,18 @@ export class EditorLifecycleManager {
 
         // Only process if the focused file actually changed
         if (currentPath !== this.lastFocusedFile) {
-          this.lastFocusedFile = currentPath;
-
           // Skip files in creation delay - let the delay timer handle them
+          // Check BEFORE updating lastFocusedFile so re-focus after delay works
           if (this.isFileInCreationDelay(currentPath)) {
             verboseLog(
               this.plugin,
               `Skipping focus rename: file in creation delay: ${currentPath}`,
             );
+            // Don't update lastFocusedFile - allows re-trigger when delay expires
             return;
           }
+
+          this.lastFocusedFile = currentPath;
 
           verboseLog(this.plugin, `File focused: ${currentPath}`);
 

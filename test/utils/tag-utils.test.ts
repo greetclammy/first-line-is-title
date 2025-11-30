@@ -4,19 +4,14 @@ import {
   parseTagsFromYAML,
   stripFrontmatter,
   fileHasTargetTags,
-} from "./tag-utils";
+} from "../../src/utils/tag-utils";
 import {
   createTestSettings,
   createMockFile,
   createMockApp,
-} from "../test/testUtils";
-import { PluginSettings } from "../types";
-import {
-  App,
-  TFile,
-  getFrontMatterInfo,
-  parseYaml,
-} from "../test/mockObsidian";
+} from "../testUtils";
+import { PluginSettings } from "../../src/types";
+import { App, TFile, getFrontMatterInfo, parseYaml } from "../mockObsidian";
 
 describe("tag-utils", () => {
   let settings: PluginSettings;
