@@ -6,8 +6,8 @@ import {
   getPluralForm,
   tp,
   tpSplit,
-} from "./i18n";
-import { moment } from "./test/mockObsidian";
+} from "../src/i18n";
+import { moment } from "./mockObsidian";
 
 describe("i18n", () => {
   beforeEach(() => {

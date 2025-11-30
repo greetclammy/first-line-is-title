@@ -1,7 +1,10 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { CacheManager, DEFAULT_CACHE_CONFIG } from "./cache-manager";
-import { createMockApp } from "../test/testUtils";
-import { App, TFile } from "../test/mockObsidian";
+import {
+  CacheManager,
+  DEFAULT_CACHE_CONFIG,
+} from "../../src/core/cache-manager";
+import { createMockApp } from "../testUtils";
+import { App, TFile } from "../mockObsidian";
 
 // Create a minimal mock plugin for CacheManager
 function createMockPlugin() {

@@ -1,11 +1,11 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { RenameEngine } from "./rename-engine";
+import { RenameEngine } from "../../src/core/rename-engine";
 import {
   createMockFile,
   createMockApp,
   createTestSettings,
-} from "../test/testUtils";
-import { TFile, Editor, App } from "../test/mockObsidian";
+} from "../testUtils";
+import { TFile, Editor, App } from "../mockObsidian";
 
 // Mock plugin for RenameEngine
 function createMockPlugin() {

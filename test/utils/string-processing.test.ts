@@ -4,9 +4,9 @@ import {
   processForbiddenChars,
   generateSafeLinkTarget,
   reverseSafeLinkTarget,
-} from "./string-processing";
-import { createTestSettings } from "../test/testUtils";
-import { PluginSettings } from "../types";
+} from "../../src/utils/string-processing";
+import { createTestSettings } from "../testUtils";
+import { PluginSettings } from "../../src/types";
 
 describe("string-processing", () => {
   describe("filterNonEmpty", () => {

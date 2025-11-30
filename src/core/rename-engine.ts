@@ -771,6 +771,53 @@ export class RenameEngine {
       }
     }
 
+    // Check Obsidian's cached links for self-reference (catches mid-edit states
+    // where regex fails on malformed links but cache still has valid link)
+    if (!isSelfReferencing) {
+      const cache = this.plugin.app.metadataCache.getFileCache(file);
+      if (cache?.links) {
+        // Calculate absolute title line number (including frontmatter)
+        const titleLineIndexInStripped = lines.findIndex(
+          (l) => l === titleSourceLine,
+        );
+
+        // Skip if titleSourceLine not found in stripped content
+        if (titleLineIndexInStripped >= 0) {
+          const frontmatterLineCount =
+            cache.frontmatterPosition?.end?.line !== undefined
+              ? cache.frontmatterPosition.end.line + 1
+              : 0;
+          const absoluteTitleLine =
+            frontmatterLineCount + titleLineIndexInStripped;
+
+          // currentName includes .md extension, get basename without it
+          const basenameWithoutExt = currentName.replace(/\.md$/, "");
+
+          for (const link of cache.links) {
+            // Check if link is on title line
+            if (link.position.start.line === absoluteTitleLine) {
+              // Compare resolved link to current file (handles URL-encoded paths)
+              // link.link is the resolved target (e.g., "note" or "folder/note")
+              const linkTarget = link.link.replace(/\.md$/, "");
+              if (
+                linkTarget === basenameWithoutExt ||
+                linkTarget === pathWithoutExt ||
+                link.link === file.path ||
+                link.link === pathWithoutExt
+              ) {
+                isSelfReferencing = true;
+                verboseLog(
+                  this.plugin,
+                  `Found cached self-referencing link in ${file.path}`,
+                );
+                break;
+              }
+            }
+          }
+        }
+      }
+    }
+
     // Apply custom replacements and markup stripping in the correct order
     let newTitle = titleSourceLine;
     verboseLog(

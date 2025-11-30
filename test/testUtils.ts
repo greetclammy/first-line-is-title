@@ -3,8 +3,8 @@
  */
 
 import { TFile, TFolder, App } from "./mockObsidian";
-import { PluginSettings } from "../types";
-import { DEFAULT_SETTINGS } from "../constants";
+import { PluginSettings } from "../src/types";
+import { DEFAULT_SETTINGS } from "../src/constants";
 
 /**
  * Create a mock TFile for testing

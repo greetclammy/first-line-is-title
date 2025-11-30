@@ -1,11 +1,11 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { readFileContent, findEditor } from "./content-reader";
+import { readFileContent, findEditor } from "../../src/utils/content-reader";
 import {
   createMockFile,
   createMockApp,
   createTestSettings,
-} from "../test/testUtils";
-import { TFile, App, Editor, MarkdownView } from "../test/mockObsidian";
+} from "../testUtils";
+import { TFile, App, Editor, MarkdownView } from "../mockObsidian";
 
 // Mock plugin for content reader
 function createMockPlugin(app: App, settings: any) {
