@@ -116,7 +116,7 @@ export class FirstLineIsTitleSettings extends PluginSettingTab {
 
       this.previousTabId = tabInfo.id;
       this.plugin.settings.core.currentSettingsTab = tabInfo.id;
-      this.plugin.saveSettings();
+      void this.plugin.saveSettings();
       this.renderTab(tabInfo.id);
     };
 

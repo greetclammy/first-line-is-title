@@ -84,11 +84,12 @@ export class EventHandlerManager {
         if (!this.plugin.settings.core.enableContextMenus) return;
 
         const markdownFiles = files.filter(
-          (file) => file instanceof TFile && file.extension === "md",
-        ) as TFile[];
+          (file): file is TFile =>
+            file instanceof TFile && file.extension === "md",
+        );
         const folders = files.filter(
-          (file) => file instanceof TFolder,
-        ) as TFolder[];
+          (file): file is TFolder => file instanceof TFolder,
+        );
 
         // If both files and folders are selected, don't show any commands
         if (markdownFiles.length > 0 && folders.length > 0) return;
@@ -207,7 +208,8 @@ export class EventHandlerManager {
     this.plugin.registerDomEvent(document, "contextmenu", (evt) => {
       if (!this.plugin.settings.core.enableContextMenus) return;
 
-      const target = evt.target as HTMLElement;
+      if (!(evt.target instanceof HTMLElement)) return;
+      const target = evt.target;
       const tagInfo = detectTagFromDOM(target);
 
       if (!tagInfo) return;

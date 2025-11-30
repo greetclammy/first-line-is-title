@@ -487,7 +487,7 @@ export class FileOperations {
           },
         });
 
-        await targetView.editor?.focus();
+        targetView.editor?.focus();
 
         let titleLineNumber = 0;
         let titleLineLength = 0;

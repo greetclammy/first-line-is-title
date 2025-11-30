@@ -38,6 +38,7 @@ export const DEFAULT_SETTINGS: PluginSettings = {
       tagStopExcluding: true,
       addSafeInternalLink: true,
       addSafeInternalLinkWithCaption: true,
+      addInternalLinkWithCaptionAndCustomTarget: true,
     },
     vaultSearchContextMenuVisibility: {
       putFirstLineInTitle: true,
@@ -271,6 +272,7 @@ export const DEFAULT_SETTINGS: PluginSettings = {
     stripCommentsEntirely: true,
     stripTemplaterSyntax: true,
     stripTableMarkup: true,
+    stripHorizontalRuleMarkup: true,
     stripInlineMathMarkup: true,
     stripMathBlockMarkup: true,
     detectDiagrams: true,

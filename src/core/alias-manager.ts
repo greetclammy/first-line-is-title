@@ -141,7 +141,6 @@ export class AliasManager {
       // Determine titleSourceLine using shared utility function
       // This may differ from firstNonEmptyLine in special cases (card links, code blocks, tables)
       const titleSourceLine = findTitleSourceLine(
-        firstNonEmptyLine,
         lines,
         this.settings,
         this.plugin,

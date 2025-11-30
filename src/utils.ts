@@ -606,212 +606,152 @@ export function extractTitle(line: string, settings: PluginSettings): string {
 }
 
 /**
- * Finds the title source line from the first non-empty line
- * Handles special cases like card links, code blocks, and markdown tables
+ * Finds the title source line from content lines
+ * Handles special cases like card links, code blocks, markdown tables, HRs, math blocks
  *
- * @param firstNonEmptyLine The first non-empty line (after frontmatter)
  * @param contentLines Array of content lines (without frontmatter)
  * @param settings Plugin settings
  * @param plugin Optional plugin instance for verbose logging
  * @returns The title source line to use for filename
  */
 export function findTitleSourceLine(
-  firstNonEmptyLine: string,
   contentLines: string[],
   settings: PluginSettings,
   plugin?: { settings: PluginSettings },
 ): string {
-  let titleSourceLine = firstNonEmptyLine;
+  // HR pattern: same char (*, -, _) 3+ times with optional regular spaces between
+  const hrPattern =
+    /^ *(?:(\*)(?: *\1){2,}|(-)(?: *\2){2,}|(_)(?: *\3){2,}) *$/;
 
-  // Check for markdown table rows - use "Table" as title if stripTableMarkup is enabled
-  if (settings.markupStripping.stripTableMarkup) {
-    // Valid markdown table requires:
-    // Line 1: Contains | (header row)
-    // Line 2: Separator row (-- | --, min 2 hyphens per column, no escapes)
+  for (let i = 0; i < contentLines.length; i++) {
+    const line = contentLines[i];
+    const trimmedLine = line.trim();
 
-    const hasFirstLinePipe = titleSourceLine.includes("|");
+    // Skip empty lines
+    if (trimmedLine === "") {
+      continue;
+    }
 
-    if (hasFirstLinePipe) {
-      // Find index of firstNonEmptyLine in contentLines
-      let firstNonEmptyIndex = -1;
-      for (let i = 0; i < contentLines.length; i++) {
-        if (contentLines[i].trim() !== "") {
-          firstNonEmptyIndex = i;
-          break;
-        }
-      }
-
-      // Check next line exists
-      if (
-        firstNonEmptyIndex >= 0 &&
-        firstNonEmptyIndex + 1 < contentLines.length
-      ) {
-        const secondLine = contentLines[firstNonEmptyIndex + 1];
-
-        // Reject if separator contains escaped pipes or hyphens (breaks table structure)
-        if (secondLine.includes("\\|") || secondLine.includes("\\-")) {
-          // Not a valid table - escaped characters break separator row
-        } else {
-          // Check if second line is valid separator
-          // Pattern: optional spaces + optional : + min 2 hyphens + optional : + optional spaces
+    // Check for table - use "Table" as title if stripTableMarkup is enabled
+    if (
+      settings.markupStripping.stripTableMarkup &&
+      trimmedLine.includes("|")
+    ) {
+      if (i + 1 < contentLines.length) {
+        const secondLine = contentLines[i + 1];
+        // Reject if separator contains escaped pipes or hyphens
+        if (!secondLine.includes("\\|") && !secondLine.includes("\\-")) {
           const separatorPattern = /^\s*:?-{2,}:?\s*$/;
-
-          // Remove leading/trailing pipes, split by |
           const trimmedSeparator = secondLine
             .trim()
             .replace(/^\|/, "")
             .replace(/\|$/, "");
           const cells = trimmedSeparator.split("|");
-
-          // Each cell must match separator pattern
           const isValidSeparator =
             cells.length >= 1 &&
             cells.every((cell) => separatorPattern.test(cell));
-
           if (isValidSeparator) {
-            titleSourceLine = t("table");
             if (plugin) {
               verboseLog(
                 plugin,
                 `Table detected, using "${t("table")}" as title`,
               );
             }
+            return t("table");
           }
         }
       }
     }
-  }
 
-  // Check for math block markup - use "Math block" as title if stripMathBlockMarkup is enabled
-  if (settings.markupStripping.stripMathBlockMarkup) {
-    // Math block starts with $$ (ignoring leading whitespace)
-    if (titleSourceLine.trim().startsWith("$$")) {
-      // Find index of firstNonEmptyLine in contentLines
-      let firstNonEmptyIndex = -1;
-      for (let i = 0; i < contentLines.length; i++) {
-        if (contentLines[i].trim() !== "") {
-          firstNonEmptyIndex = i;
-          break;
+    // Check for math block delimiter - skip $$ lines to find content after
+    if (
+      settings.markupStripping.stripMathBlockMarkup &&
+      trimmedLine.startsWith("$$")
+    ) {
+      if (plugin) {
+        verboseLog(plugin, `Math block delimiter detected, skipping line`);
+      }
+      continue;
+    }
+
+    // Check for HR - skip if enabled
+    if (
+      settings.markupStripping.stripHorizontalRuleMarkup &&
+      hrPattern.test(line)
+    ) {
+      if (plugin) {
+        verboseLog(plugin, `Horizontal rule detected, skipping line`);
+      }
+      continue;
+    }
+
+    // Check for code fences
+    if (trimmedLine.startsWith("```")) {
+      // Handle mermaid diagrams
+      if (
+        settings.markupStripping.detectDiagrams &&
+        trimmedLine === "```mermaid"
+      ) {
+        if (plugin) {
+          verboseLog(
+            plugin,
+            `Mermaid diagram detected, using "${t("diagram")}" as title`,
+          );
         }
+        return t("diagram");
       }
 
-      // Look for closing $$ in subsequent lines
-      if (firstNonEmptyIndex >= 0) {
-        for (let i = firstNonEmptyIndex + 1; i < contentLines.length; i++) {
-          if (contentLines[i].trim().startsWith("$$")) {
-            titleSourceLine = t("mathBlock");
+      // Handle card links
+      const cardLinkMatch = trimmedLine.match(/^```(embed|cardlink)$/);
+      if (settings.markupStripping.grabTitleFromCardLink && cardLinkMatch) {
+        const maxLinesToCheck = 20;
+        for (
+          let j = i + 1;
+          j < Math.min(contentLines.length, i + maxLinesToCheck);
+          j++
+        ) {
+          const cardLine = contentLines[j].trim();
+          if (cardLine === "") continue;
+          if (cardLine.toLowerCase().startsWith("title:")) {
+            let title = cardLine.substring(cardLine.indexOf(":") + 1).trim();
+            if (
+              (title.startsWith('"') && title.endsWith('"')) ||
+              (title.startsWith("'") && title.endsWith("'"))
+            ) {
+              title = title.substring(1, title.length - 1);
+            }
+            if (plugin) {
+              verboseLog(plugin, `Found ${cardLinkMatch[1]} card link`, {
+                title,
+              });
+            }
+            return title;
+          }
+          if (cardLine.startsWith("```")) {
             if (plugin) {
               verboseLog(
                 plugin,
-                `Math block detected, using "${t("mathBlock")}" as title`,
+                `Card link has no title, using ${t("untitled")}`,
               );
             }
-            break;
+            return t("untitled");
           }
         }
+        return t("untitled");
       }
+
+      // Regular code fence - skip
+      if (plugin) {
+        verboseLog(plugin, `Code fence detected, skipping line`);
+      }
+      continue;
     }
+
+    // This is a valid content line
+    return line;
   }
 
-  // Check for card links if enabled - extract title from card link
-  if (settings.markupStripping.grabTitleFromCardLink) {
-    const cardLinkMatch = titleSourceLine.trim().match(/^```(embed|cardlink)$/);
-    if (cardLinkMatch) {
-      // Found embed or cardlink, parse lines until we find title: or closing ```
-      let foundTitle = false;
-      const maxLinesToCheck = 20;
-      let nonEmptyCount = 0;
-
-      for (let i = 0; i < Math.min(contentLines.length, maxLinesToCheck); i++) {
-        const line = contentLines[i].trim();
-        if (line === "") continue;
-
-        nonEmptyCount++;
-        // Skip first non-empty line (the opening ```embed/```cardlink)
-        if (nonEmptyCount === 1) continue;
-
-        if (nonEmptyCount > 10) break;
-
-        // Look for title: field
-        if (line.toLowerCase().startsWith("title:")) {
-          let title = line.substring(line.indexOf(":") + 1).trim();
-          // Remove surrounding quotes if present
-          if (
-            (title.startsWith('"') && title.endsWith('"')) ||
-            (title.startsWith("'") && title.endsWith("'"))
-          ) {
-            title = title.substring(1, title.length - 1);
-          }
-          titleSourceLine = title;
-          foundTitle = true;
-          if (plugin) {
-            verboseLog(plugin, `Found ${cardLinkMatch[1]} card link`, {
-              title: titleSourceLine,
-            });
-          }
-          break;
-        }
-        // Check for closing ``` before finding title
-        if (line.startsWith("```")) {
-          titleSourceLine = t("untitled");
-          if (plugin) {
-            verboseLog(
-              plugin,
-              `Card link has no title, using ${t("untitled")}`,
-            );
-          }
-          break;
-        }
-      }
-      if (!foundTitle && titleSourceLine !== t("untitled")) {
-        // Reached limit without finding title or closing
-        titleSourceLine = t("untitled");
-      }
-    }
-  }
-
-  // Check for Mermaid diagrams - use "Diagram" as title if detectDiagrams is enabled
-  const trimmedTitleSourceLine = titleSourceLine.trim();
-  if (
-    settings.markupStripping.detectDiagrams &&
-    trimmedTitleSourceLine === "```mermaid"
-  ) {
-    titleSourceLine = t("diagram");
-    if (plugin) {
-      verboseLog(
-        plugin,
-        `Mermaid diagram detected, using "${t("diagram")}" as title`,
-      );
-    }
-    return titleSourceLine;
-  }
-
-  // Check for code blocks - use second line if first line is a code fence
-  if (
-    trimmedTitleSourceLine.startsWith("```") &&
-    !trimmedTitleSourceLine.match(/^```(embed|cardlink)$/)
-  ) {
-    // First line is a code fence (not card link), extract second non-empty line
-    let nonEmptyCount = 0;
-    for (const line of contentLines) {
-      if (line.trim() !== "") {
-        nonEmptyCount++;
-        // Skip first non-empty line (the code fence)
-        if (nonEmptyCount === 2) {
-          titleSourceLine = line;
-          if (plugin) {
-            verboseLog(
-              plugin,
-              `Code block detected, using second line as title source: ${titleSourceLine}`,
-            );
-          }
-          break;
-        }
-      }
-    }
-  }
-
-  return titleSourceLine;
+  return t("untitled");
 }
 
 /**

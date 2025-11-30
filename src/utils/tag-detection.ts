@@ -66,7 +66,7 @@ export function detectTagFromEditor(
   cursorPos: number,
 ): string | null {
   // Find all hashtags in the line
-  const tagRegex = /#[\w\/\-]+/g;
+  const tagRegex = /#[\w/-]+/g;
   let match;
 
   while ((match = tagRegex.exec(line)) !== null) {

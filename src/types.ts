@@ -90,6 +90,7 @@ export interface CoreSettings {
     tagStopExcluding: boolean;
     addSafeInternalLink: boolean;
     addSafeInternalLinkWithCaption: boolean;
+    addInternalLinkWithCaptionAndCustomTarget: boolean;
   };
   vaultSearchContextMenuVisibility: {
     putFirstLineInTitle: boolean;
@@ -235,6 +236,7 @@ export interface MarkupStrippingSettings {
   stripCommentsEntirely: boolean;
   stripTemplaterSyntax: boolean;
   stripTableMarkup: boolean;
+  stripHorizontalRuleMarkup: boolean;
   stripInlineMathMarkup: boolean;
   stripMathBlockMarkup: boolean;
   detectDiagrams: boolean;
