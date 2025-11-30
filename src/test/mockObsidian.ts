@@ -3,7 +3,7 @@
  * This file replaces the 'obsidian' module in tests
  */
 
-import { vi } from 'vitest';
+import { vi } from "vitest";
 
 // Mock TFile class
 export class TFile {
@@ -15,11 +15,15 @@ export class TFile {
   vault: any;
   parent: TFolder | null;
 
-  constructor(path: string = 'test.md') {
+  constructor(path: string = "test.md") {
     this.path = path;
-    this.basename = path.replace(/\.[^/.]+$/, '').split('/').pop() || '';
-    this.extension = path.split('.').pop() || 'md';
-    this.name = path.split('/').pop() || '';
+    this.basename =
+      path
+        .replace(/\.[^/.]+$/, "")
+        .split("/")
+        .pop() || "";
+    this.extension = path.split(".").pop() || "md";
+    this.name = path.split("/").pop() || "";
     this.stat = { mtime: Date.now(), ctime: Date.now(), size: 0 };
     this.vault = null;
     this.parent = null;
@@ -34,16 +38,16 @@ export class TFolder {
   parent: TFolder | null;
   vault: any;
 
-  constructor(path: string = 'test-folder') {
+  constructor(path: string = "test-folder") {
     this.path = path;
-    this.name = path.split('/').pop() || '';
+    this.name = path.split("/").pop() || "";
     this.children = [];
     this.parent = null;
     this.vault = null;
   }
 
   isRoot(): boolean {
-    return this.path === '/';
+    return this.path === "/";
   }
 }
 
@@ -54,17 +58,17 @@ export class Vault {
 
   constructor() {
     this.adapter = {
-      getName: vi.fn().mockReturnValue('mock-vault'),
+      getName: vi.fn().mockReturnValue("mock-vault"),
       exists: vi.fn().mockResolvedValue(true),
-      read: vi.fn().mockResolvedValue(''),
+      read: vi.fn().mockResolvedValue(""),
       write: vi.fn().mockResolvedValue(undefined),
       mkdir: vi.fn().mockResolvedValue(undefined),
     };
-    this.configDir = '.obsidian';
+    this.configDir = ".obsidian";
   }
 
-  read = vi.fn().mockResolvedValue('');
-  cachedRead = vi.fn().mockResolvedValue('');
+  read = vi.fn().mockResolvedValue("");
+  cachedRead = vi.fn().mockResolvedValue("");
   modify = vi.fn().mockResolvedValue(undefined);
   rename = vi.fn().mockResolvedValue(undefined);
   delete = vi.fn().mockResolvedValue(undefined);
@@ -72,7 +76,7 @@ export class Vault {
   create = vi.fn().mockResolvedValue(new TFile());
   copy = vi.fn().mockResolvedValue(new TFile());
   getAbstractFileByPath = vi.fn((path: string) => {
-    if (path.endsWith('.md')) return new TFile(path);
+    if (path.endsWith(".md")) return new TFile(path);
     return new TFolder(path);
   });
   getAllLoadedFiles = vi.fn().mockReturnValue([]);
@@ -177,18 +181,18 @@ export class App {
 
 // Mock Editor class
 export class Editor {
-  getValue = vi.fn().mockReturnValue('');
+  getValue = vi.fn().mockReturnValue("");
   setValue = vi.fn();
-  getLine = vi.fn((line: number) => '');
+  getLine = vi.fn((line: number) => "");
   setLine = vi.fn();
   lineCount = vi.fn().mockReturnValue(0);
   lastLine = vi.fn().mockReturnValue(0);
-  getSelection = vi.fn().mockReturnValue('');
+  getSelection = vi.fn().mockReturnValue("");
   replaceSelection = vi.fn();
   replaceRange = vi.fn();
   getCursor = vi.fn().mockReturnValue({ line: 0, ch: 0 });
   setCursor = vi.fn();
-  getRange = vi.fn().mockReturnValue('');
+  getRange = vi.fn().mockReturnValue("");
   somethingSelected = vi.fn().mockReturnValue(false);
   getDoc = vi.fn();
   refresh = vi.fn();
@@ -206,11 +210,11 @@ export class MarkdownView {
     this.app = app || new App();
     this.file = null;
     this.editor = new Editor();
-    this.containerEl = document.createElement('div');
+    this.containerEl = document.createElement("div");
   }
 
-  getViewType = vi.fn().mockReturnValue('markdown');
-  getDisplayText = vi.fn().mockReturnValue('');
+  getViewType = vi.fn().mockReturnValue("markdown");
+  getDisplayText = vi.fn().mockReturnValue("");
   getState = vi.fn().mockReturnValue({});
   setState = vi.fn();
   getEphemeralState = vi.fn().mockReturnValue({});
@@ -227,9 +231,9 @@ export class Plugin {
   constructor() {
     this.app = new App();
     this.manifest = {
-      id: 'test-plugin',
-      name: 'Test Plugin',
-      version: '1.0.0',
+      id: "test-plugin",
+      name: "Test Plugin",
+      version: "1.0.0",
     };
   }
 
@@ -237,7 +241,7 @@ export class Plugin {
   saveData = vi.fn().mockResolvedValue(undefined);
   addCommand = vi.fn();
   addRibbonIcon = vi.fn();
-  addStatusBarItem = vi.fn(() => document.createElement('div'));
+  addStatusBarItem = vi.fn(() => document.createElement("div"));
   addSettingTab = vi.fn();
   registerEvent = vi.fn();
   registerDomEvent = vi.fn();
@@ -271,10 +275,10 @@ export class Modal {
 
   constructor(app: App) {
     this.app = app;
-    this.containerEl = document.createElement('div');
-    this.modalEl = document.createElement('div');
-    this.titleEl = document.createElement('div');
-    this.contentEl = document.createElement('div');
+    this.containerEl = document.createElement("div");
+    this.modalEl = document.createElement("div");
+    this.titleEl = document.createElement("div");
+    this.contentEl = document.createElement("div");
   }
 
   open = vi.fn();
@@ -292,11 +296,11 @@ export class Setting {
   controlEl: HTMLElement;
 
   constructor(containerEl: HTMLElement) {
-    this.settingEl = document.createElement('div');
-    this.infoEl = document.createElement('div');
-    this.nameEl = document.createElement('div');
-    this.descEl = document.createElement('div');
-    this.controlEl = document.createElement('div');
+    this.settingEl = document.createElement("div");
+    this.infoEl = document.createElement("div");
+    this.nameEl = document.createElement("div");
+    this.descEl = document.createElement("div");
+    this.controlEl = document.createElement("div");
   }
 
   setName = vi.fn().mockReturnThis();
@@ -354,18 +358,18 @@ export class AbstractInputSuggest<T> {
 
 // Mock utility functions
 export const normalizePath = vi.fn((path: string) => {
-  return path.replace(/\\/g, '/').replace(/\/+/g, '/');
+  return path.replace(/\\/g, "/").replace(/\/+/g, "/");
 });
 
 export const setIcon = vi.fn((el: HTMLElement, icon: string) => {
-  el.setAttribute('data-icon', icon);
+  el.setAttribute("data-icon", icon);
 });
 
 export const getFrontMatterInfo = vi.fn(() => {
   // Default: no frontmatter (tests will mock specific return values)
   return {
     exists: false,
-    frontmatter: '',
+    frontmatter: "",
     contentStart: 0,
     lineStart: 0,
   };
@@ -380,15 +384,15 @@ export const parseYaml = vi.fn((yaml: string) => {
 });
 
 export const stringifyYaml = vi.fn((obj: any) => {
-  return '';
+  return "";
 });
 
 // Mock moment (from moment.js)
 export const moment = Object.assign(
   vi.fn((date?: any) => {
     return {
-      format: vi.fn().mockReturnValue('2024-01-01'),
-      fromNow: vi.fn().mockReturnValue('a few seconds ago'),
+      format: vi.fn().mockReturnValue("2024-01-01"),
+      fromNow: vi.fn().mockReturnValue("a few seconds ago"),
       locale: vi.fn().mockReturnThis(),
       isValid: vi.fn().mockReturnValue(true),
     };
@@ -396,7 +400,7 @@ export const moment = Object.assign(
   {
     locale: vi.fn(),
     locales: vi.fn().mockReturnValue([]),
-  }
+  },
 );
 
 // Mock platform detection
@@ -411,13 +415,13 @@ export const Platform = {
 };
 
 // Mock request for web requests
-export const request = vi.fn().mockResolvedValue('');
+export const request = vi.fn().mockResolvedValue("");
 export const requestUrl = vi.fn().mockResolvedValue({
   status: 200,
   headers: {},
   arrayBuffer: new ArrayBuffer(0),
   json: {},
-  text: '',
+  text: "",
 });
 
 // Helper interface for ViewWithFileEditor

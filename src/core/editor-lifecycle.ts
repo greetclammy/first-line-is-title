@@ -1,5 +1,5 @@
 import { TFile, MarkdownView, ViewWithFileEditor } from "obsidian";
-import { verboseLog } from "../utils";
+import { verboseLog, findTitleSourceLine } from "../utils";
 import FirstLineIsTitle from "../../main";
 
 /**
@@ -145,18 +145,18 @@ export class EditorLifecycleManager {
     // Register workspace events to track open editors
     this.plugin.registerEvent(
       this.app.workspace.on("active-leaf-change", () => {
-        this.updateActiveEditorTracking();
+        void this.updateActiveEditorTracking();
       }),
     );
 
     this.plugin.registerEvent(
       this.app.workspace.on("layout-change", () => {
-        this.updateActiveEditorTracking();
+        void this.updateActiveEditorTracking();
       }),
     );
 
     // Initial tracking
-    this.updateActiveEditorTracking();
+    void this.updateActiveEditorTracking();
   }
 
   /**
@@ -316,6 +316,15 @@ export class EditorLifecycleManager {
         if (currentPath !== this.lastFocusedFile) {
           this.lastFocusedFile = currentPath;
 
+          // Skip files in creation delay - let the delay timer handle them
+          if (this.isFileInCreationDelay(currentPath)) {
+            verboseLog(
+              this.plugin,
+              `Skipping focus rename: file in creation delay: ${currentPath}`,
+            );
+            return;
+          }
+
           verboseLog(this.plugin, `File focused: ${currentPath}`);
 
           // Process file with rename-on-focus (async but don't await to avoid blocking)
@@ -379,7 +388,7 @@ export class EditorLifecycleManager {
     }
 
     // TypeScript: tracked is always defined here (either from get() or newly created)
-    const lastFirstLine = tracked!.lastFirstLine;
+    const lastFirstLine = tracked.lastFirstLine;
 
     // If first line hasn't changed, skip throttle
     // Explicit check: if lastFirstLine is defined and matches current, no processing needed
@@ -402,7 +411,7 @@ export class EditorLifecycleManager {
     }
 
     // First line changed - update tracking
-    tracked!.lastFirstLine = currentFirstLine;
+    tracked.lastFirstLine = currentFirstLine;
 
     // Check if timer already running for this file
     if (this.plugin.fileStateManager.hasThrottleTimer(filePath)) {
@@ -503,49 +512,31 @@ export class EditorLifecycleManager {
         firstLineIndex = metadata.frontmatterPosition.end.line + 1;
       }
 
+      // Get lines after frontmatter
+      const contentLines = lines.slice(firstLineIndex);
+
       // Find first non-empty line after frontmatter
-      for (let i = firstLineIndex; i < lines.length; i++) {
-        const line = lines[i];
+      let firstNonEmptyLine = "";
+      for (const line of contentLines) {
         if (line.trim() !== "") {
-          return line;
+          firstNonEmptyLine = line;
+          break;
         }
       }
 
-      return ""; // No non-empty line found
+      if (firstNonEmptyLine === "") {
+        return ""; // No non-empty line found
+      }
+
+      // Use findTitleSourceLine to get effective title line
+      // This handles HRs, code fences, etc. that should be skipped
+      return findTitleSourceLine(
+        contentLines,
+        this.plugin.settings,
+        this.plugin,
+      );
     } catch (error) {
       console.error(`Error extracting first line from ${file.path}:`, error);
-      return "";
-    }
-  }
-
-  /**
-   * Extract first line from file content string
-   */
-  extractFirstLineFromContent(content: string, file: TFile): string {
-    try {
-      const lines = content.split("\n");
-
-      // Skip frontmatter to get actual first line
-      const metadata = this.app.metadataCache.getFileCache(file);
-      let firstLineIndex = 0;
-      if (metadata?.frontmatterPosition) {
-        firstLineIndex = metadata.frontmatterPosition.end.line + 1;
-      }
-
-      // Find first non-empty line after frontmatter
-      for (let i = firstLineIndex; i < lines.length; i++) {
-        const line = lines[i];
-        if (line.trim() !== "") {
-          return line;
-        }
-      }
-
-      return ""; // No non-empty line found
-    } catch (error) {
-      console.error(
-        `Error extracting first line from content for ${file.path}:`,
-        error,
-      );
       return "";
     }
   }

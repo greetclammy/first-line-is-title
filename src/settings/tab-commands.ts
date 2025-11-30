@@ -451,6 +451,36 @@ export class CommandsTab extends SettingsTabBase {
     setIcon(icon7, "link");
     setting7.nameEl.insertBefore(icon7, setting7.nameEl.firstChild);
 
+    const settingCustomTarget = new Setting(commandPaletteContainer)
+      .setName(t("commands.addInternalLinkWithCaptionAndCustomTarget"))
+      .setDesc(t("commands.descriptions.createLinkWithCustomTarget"));
+
+    settingCustomTarget.addToggle((toggle) =>
+      toggle
+        .setValue(
+          this.plugin.settings.core.commandVisibility
+            .addInternalLinkWithCaptionAndCustomTarget,
+        )
+        .onChange(async (value) => {
+          this.plugin.settings.core.commandVisibility.addInternalLinkWithCaptionAndCustomTarget =
+            value;
+          this.plugin.debugLog(
+            "commandVisibility.addInternalLinkWithCaptionAndCustomTarget",
+            value,
+          );
+          await this.plugin.saveSettings();
+        }),
+    );
+
+    const iconCustomTarget = settingCustomTarget.nameEl.createDiv({
+      cls: "setting-item-icon",
+    });
+    setIcon(iconCustomTarget, "link");
+    settingCustomTarget.nameEl.insertBefore(
+      iconCustomTarget,
+      settingCustomTarget.nameEl.firstChild,
+    );
+
     const settingInsertFilename = new Setting(commandPaletteContainer)
       .setName(t("commands.insertFilename"))
       .setDesc("");

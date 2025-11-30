@@ -58,8 +58,8 @@ export default class FirstLineIsTitle extends Plugin {
   private _propertyVisibility?: PropertyVisibility;
   private _linkManager?: LinkManager;
 
-  private _originalDebugEnable?: Function;
-  private _originalDebugDisable?: Function;
+  private _originalDebugEnable?: (namespace?: string) => Promise<void>;
+  private _originalDebugDisable?: (namespace?: string) => Promise<void>;
   private _createdDebugNamespace: boolean = false;
 
   get folderOperations(): FolderOperations {
@@ -135,7 +135,7 @@ export default class FirstLineIsTitle extends Plugin {
   }
 
   // Debug logging helper for setting changes
-  debugLog(settingName: string, value: any): void {
+  debugLog(settingName: string, value: unknown): void {
     if (this.settings.core.verboseLogging) {
       console.debug(
         `Setting changed: ${settingName} = ${JSON.stringify(value)}`,
@@ -179,10 +179,10 @@ export default class FirstLineIsTitle extends Plugin {
 
     console.group("🔧 Settings (non-default values only)");
 
-    const nonDefaults: Record<string, any> = {};
+    const nonDefaults: Record<string, unknown> = {};
 
     // Helper to check deep equality for arrays and objects
-    const isEqual = (a: any, b: any): boolean => {
+    const isEqual = (a: unknown, b: unknown): boolean => {
       if (a === b) return true;
       if (a == null || b == null) return false;
       if (typeof a !== typeof b) return false;
@@ -193,10 +193,12 @@ export default class FirstLineIsTitle extends Plugin {
       }
 
       if (typeof a === "object" && typeof b === "object") {
-        const keysA = Object.keys(a);
-        const keysB = Object.keys(b);
+        const objA = a as Record<string, unknown>;
+        const objB = b as Record<string, unknown>;
+        const keysA = Object.keys(objA);
+        const keysB = Object.keys(objB);
         if (keysA.length !== keysB.length) return false;
-        return keysA.every((key) => isEqual(a[key], b[key]));
+        return keysA.every((key) => isEqual(objA[key], objB[key]));
       }
 
       return false;
@@ -204,7 +206,7 @@ export default class FirstLineIsTitle extends Plugin {
 
     // Compare each setting against defaults
     for (const key in this.settings) {
-      if (!this.settings.hasOwnProperty(key)) continue;
+      if (!Object.prototype.hasOwnProperty.call(this.settings, key)) continue;
       const settingsKey = key as keyof PluginSettings;
       const currentValue = this.settings[settingsKey];
       const defaultValue = DEFAULT_SETTINGS[settingsKey];
@@ -424,6 +426,10 @@ export default class FirstLineIsTitle extends Plugin {
     return this.linkManager.addSafeInternalLinkWithCaption();
   }
 
+  async addInternalLinkWithCaptionAndCustomTarget(): Promise<void> {
+    return this.linkManager.addInternalLinkWithCaptionAndCustomTarget();
+  }
+
   updatePropertyVisibility(): void {
     this.propertyVisibility.updatePropertyVisibility();
   }
@@ -472,7 +478,7 @@ export default class FirstLineIsTitle extends Plugin {
   private showFirstTimeNotice(): void {
     new Notice(t("notifications.firstTimeNotice"), 10000);
     this.settings.core.hasShownFirstTimeNotice = true;
-    this.saveSettings();
+    void this.saveSettings();
   }
 
   private showInactivityNotice(): void {
@@ -482,7 +488,7 @@ export default class FirstLineIsTitle extends Plugin {
   private updateLastUsageDate(today: string): void {
     if (this.settings.core.lastUsageDate !== today) {
       this.settings.core.lastUsageDate = today;
-      this.saveSettings();
+      void this.saveSettings();
     }
   }
 
@@ -571,7 +577,7 @@ export default class FirstLineIsTitle extends Plugin {
     await this.saveSettings();
 
     if (this.settings.core.verboseLogging) {
-      console.log(`Plugin loaded - build ${BUILD_GIT_HASH}`, this.settings);
+      console.debug(`Plugin loaded - build ${BUILD_GIT_HASH}`);
     }
     verboseLog(
       this,
@@ -630,7 +636,7 @@ export default class FirstLineIsTitle extends Plugin {
       this.settings.core.verboseLogging = true;
       this.settings.core.debugEnabledTimestamp = this.getCurrentTimestamp();
       await this.saveSettings();
-      console.log("🐛 Debug mode enabled (will auto-disable after 24 hours)");
+      console.debug("🐛 Debug mode enabled (will auto-disable after 24 hours)");
       this.outputAllSettings();
     };
 
@@ -638,7 +644,7 @@ export default class FirstLineIsTitle extends Plugin {
       this.settings.core.verboseLogging = false;
       this.settings.core.debugEnabledTimestamp = ""; // Clear timestamp
       await this.saveSettings();
-      console.log("Debug mode disabled");
+      console.debug("Debug mode disabled");
     };
 
     // Setup window.FLIT namespace
@@ -666,8 +672,8 @@ export default class FirstLineIsTitle extends Plugin {
       };
     } else {
       // window.DEBUG already exists, extend it
-      this._originalDebugEnable = window.DEBUG.enable;
-      this._originalDebugDisable = window.DEBUG.disable;
+      this._originalDebugEnable = window.DEBUG?.enable;
+      this._originalDebugDisable = window.DEBUG?.disable;
 
       window.DEBUG.enable = async (namespace?: string) => {
         if (namespace === "first-line-is-title" || namespace === "FLIT") {

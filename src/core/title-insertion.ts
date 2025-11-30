@@ -213,7 +213,7 @@ export class TitleInsertion {
       });
 
       // Focus the editor
-      await view.editor?.focus();
+      view.editor?.focus();
 
       // Position cursor - find actual title line using metadata cache
       let titleLineNumber = 0;

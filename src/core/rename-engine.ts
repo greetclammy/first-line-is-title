@@ -252,7 +252,6 @@ export class RenameEngine {
 
     // Use shared utility function to find title source line
     const titleSourceLine = findTitleSourceLine(
-      firstNonEmptyLine,
       contentLines,
       this.plugin.settings,
       this.plugin,
@@ -683,7 +682,6 @@ export class RenameEngine {
     // Determine titleSourceLine using shared utility function
     // This handles special cases like card links, code blocks, and markdown tables
     const titleSourceLine = findTitleSourceLine(
-      firstNonEmptyLine,
       lines,
       this.plugin.settings,
       this.plugin,

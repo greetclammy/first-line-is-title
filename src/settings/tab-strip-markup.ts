@@ -61,6 +61,7 @@ export class StripMarkupTab extends SettingsTabBase {
       { key: "unorderedLists" },
       { key: "orderedLists" },
       { key: "taskLists" },
+      { key: "stripHorizontalRuleMarkup", isCustom: true },
       { key: "code" },
       { key: "codeBlocks" },
       { key: "footnotes" },

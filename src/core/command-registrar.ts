@@ -38,6 +38,7 @@ export class CommandRegistrar {
     this.registerRenameAllFilesCommand();
     this.registerSafeInternalLinkCommand();
     this.registerSafeInternalLinkWithCaptionCommand();
+    this.registerInternalLinkWithCaptionAndCustomTargetCommand();
     this.registerToggleAutomaticRenamingCommand();
     this.registerDisableRenamingCommand();
     this.registerEnableRenamingCommand();
@@ -76,7 +77,7 @@ export class CommandRegistrar {
           ignoreTag: true,
           ignoreProperty: true,
         };
-        this.plugin.renameEngine.processFile(
+        void this.plugin.renameEngine.processFile(
           activeEditor.file,
           true,
           true,
@@ -120,7 +121,7 @@ export class CommandRegistrar {
           this.plugin,
           `Manual rename command triggered for ${activeEditor.file.path} (unless excluded)`,
         );
-        this.plugin.renameEngine.processFile(
+        void this.plugin.renameEngine.processFile(
           activeEditor.file,
           true,
           true,
@@ -186,6 +187,27 @@ export class CommandRegistrar {
       icon: "link",
       editorCallback: async (editor, view) => {
         await this.plugin.addSafeInternalLinkWithCaption();
+      },
+    });
+  }
+
+  /**
+   * Register command: Add internal link with caption and custom target
+   */
+  private registerInternalLinkWithCaptionAndCustomTargetCommand(): void {
+    if (
+      !this.settings.core.commandVisibility
+        .addInternalLinkWithCaptionAndCustomTarget
+    ) {
+      return;
+    }
+
+    this.plugin.addCommand({
+      id: "add-internal-link-with-caption-and-custom-target",
+      name: t("commands.addInternalLinkWithCaptionAndCustomTarget"),
+      icon: "link",
+      editorCallback: async (editor, view) => {
+        await this.plugin.addInternalLinkWithCaptionAndCustomTarget();
       },
     });
   }

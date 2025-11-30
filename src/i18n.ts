@@ -71,7 +71,10 @@ export function t(
       // Replace variables if provided
       if (vars) {
         for (const [varKey, varVal] of Object.entries(vars)) {
-          result = result.replace(new RegExp(`\\{\\{${varKey}\\}\\}`, 'g'), String(varVal));
+          result = result.replace(
+            new RegExp(`\\{\\{${varKey}\\}\\}`, "g"),
+            String(varVal),
+          );
         }
       }
 
@@ -84,7 +87,10 @@ export function t(
   // Replace variables if provided
   if (vars) {
     for (const [key, val] of Object.entries(vars)) {
-      result = result.replace(new RegExp(`\\{\\{${key}\\}\\}`, 'g'), String(val));
+      result = result.replace(
+        new RegExp(`\\{\\{${key}\\}\\}`, "g"),
+        String(val),
+      );
     }
   }
 
