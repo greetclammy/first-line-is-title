@@ -46,10 +46,11 @@ export function parseTagsFromYAML(content: string): string[] {
     for (const tag of tagsValue) {
       tags.push(String(tag));
     }
-  } else {
-    // Handle single tag value
+  } else if (typeof tagsValue === "string" || typeof tagsValue === "number") {
+    // Handle single tag value (string or number)
     tags.push(String(tagsValue));
   }
+  // Ignore objects/other types that can't be meaningfully converted to tag strings
 
   return tags;
 }
