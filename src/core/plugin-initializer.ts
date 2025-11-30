@@ -101,7 +101,7 @@ export class PluginInitializer {
     // Check if Excalidraw plugin is installed and enabled
     const excalidrawPlugin = this.plugin.app.plugins.getPlugin(
       "obsidian-excalidraw-plugin",
-    );
+    ) as { _loaded?: boolean } | null;
     if (excalidrawPlugin && excalidrawPlugin._loaded) {
       // Check if excalidraw-plugin property already exists
       const hasExcalidrawProperty =
@@ -179,8 +179,9 @@ export class PluginInitializer {
     // Check Templater plugin
     if (this.settings.core.verboseLogging)
       console.debug("Checking for Templater community plugin");
-    const templaterPlugin =
-      this.plugin.app.plugins.getPlugin("templater-obsidian");
+    const templaterPlugin = this.plugin.app.plugins.getPlugin(
+      "templater-obsidian",
+    ) as { _loaded?: boolean } | null;
     if (this.settings.core.verboseLogging)
       console.debug(
         "Templater plugin found:",

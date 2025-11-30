@@ -1,4 +1,4 @@
-import { Notice } from "obsidian";
+import { Notice, TFile, TFolder } from "obsidian";
 import { MenuConfig } from "./menu-config";
 import FirstLineIsTitlePlugin from "../../main";
 import { ProcessTagModal, RenameFolderModal } from "../modals";
@@ -10,6 +10,19 @@ import { t } from "../i18n";
  * All context menu configurations defined as data structures.
  * Each menu type has its own configuration with visibility rules and actions.
  */
+
+// Context type interfaces
+interface TagContext {
+  tagName: string;
+}
+
+interface FolderContext {
+  folder: TFolder;
+}
+
+interface FileContext {
+  file: TFile;
+}
 
 export class MenuDefinitions {
   constructor(private plugin: FirstLineIsTitlePlugin) {}
@@ -32,27 +45,30 @@ export class MenuDefinitions {
             );
           },
           onClick: (context) => {
+            const tagContext = context as TagContext;
             new ProcessTagModal(
               this.plugin.app,
               this.plugin,
-              context.tagName,
+              tagContext.tagName,
             ).open();
           },
         },
         {
           id: "tag-disable-renaming",
           title: (context) => {
+            const tagContext = context as TagContext;
             const menuText = this.plugin.contextMenuManager.getTagMenuText(
-              context.tagName,
+              tagContext.tagName,
             );
             return menuText.disable;
           },
           icon: "square-x",
           visible: (context) => {
             if (!this.plugin.settings.core.enableTagCommands) return false;
+            const tagContext = context as TagContext;
             const shouldShowDisable =
               this.plugin.contextMenuManager.shouldShowDisableMenuForTag(
-                context.tagName,
+                tagContext.tagName,
               );
             return (
               shouldShowDisable &&
@@ -60,23 +76,26 @@ export class MenuDefinitions {
             );
           },
           onClick: async (context) => {
-            await this.plugin.toggleTagExclusion(context.tagName);
+            const tagContext = context as TagContext;
+            await this.plugin.toggleTagExclusion(tagContext.tagName);
           },
         },
         {
           id: "tag-enable-renaming",
           title: (context) => {
+            const tagContext = context as TagContext;
             const menuText = this.plugin.contextMenuManager.getTagMenuText(
-              context.tagName,
+              tagContext.tagName,
             );
             return menuText.enable;
           },
           icon: "square-check",
           visible: (context) => {
             if (!this.plugin.settings.core.enableTagCommands) return false;
+            const tagContext = context as TagContext;
             const shouldShowDisable =
               this.plugin.contextMenuManager.shouldShowDisableMenuForTag(
-                context.tagName,
+                tagContext.tagName,
               );
             return (
               !shouldShowDisable &&
@@ -84,7 +103,8 @@ export class MenuDefinitions {
             );
           },
           onClick: async (context) => {
-            await this.plugin.toggleTagExclusion(context.tagName);
+            const tagContext = context as TagContext;
+            await this.plugin.toggleTagExclusion(tagContext.tagName);
           },
         },
       ],
@@ -110,27 +130,30 @@ export class MenuDefinitions {
             );
           },
           onClick: (context) => {
+            const folderContext = context as FolderContext;
             new RenameFolderModal(
               this.plugin.app,
               this.plugin,
-              context.folder,
+              folderContext.folder,
             ).open();
           },
         },
         {
           id: "folder-disable-renaming",
           title: (context) => {
+            const folderContext = context as FolderContext;
             const menuText = this.plugin.contextMenuManager.getFolderMenuText(
-              context.folder.path,
+              folderContext.folder.path,
             );
             return menuText.disable;
           },
           icon: "square-x",
           visible: (context) => {
             if (!this.plugin.settings.core.enableFolderCommands) return false;
+            const folderContext = context as FolderContext;
             const shouldShowDisable =
               this.plugin.contextMenuManager.shouldShowDisableMenuForFolder(
-                context.folder.path,
+                folderContext.folder.path,
               );
             return (
               shouldShowDisable &&
@@ -138,23 +161,26 @@ export class MenuDefinitions {
             );
           },
           onClick: async (context) => {
-            await this.plugin.toggleFolderExclusion(context.folder.path);
+            const folderContext = context as FolderContext;
+            await this.plugin.toggleFolderExclusion(folderContext.folder.path);
           },
         },
         {
           id: "folder-enable-renaming",
           title: (context) => {
+            const folderContext = context as FolderContext;
             const menuText = this.plugin.contextMenuManager.getFolderMenuText(
-              context.folder.path,
+              folderContext.folder.path,
             );
             return menuText.enable;
           },
           icon: "square-check",
           visible: (context) => {
             if (!this.plugin.settings.core.enableFolderCommands) return false;
+            const folderContext = context as FolderContext;
             const shouldShowDisable =
               this.plugin.contextMenuManager.shouldShowDisableMenuForFolder(
-                context.folder.path,
+                folderContext.folder.path,
               );
             return (
               !shouldShowDisable &&
@@ -162,7 +188,8 @@ export class MenuDefinitions {
             );
           },
           onClick: async (context) => {
-            await this.plugin.toggleFolderExclusion(context.folder.path);
+            const folderContext = context as FolderContext;
+            await this.plugin.toggleFolderExclusion(folderContext.folder.path);
           },
         },
       ],
@@ -188,13 +215,14 @@ export class MenuDefinitions {
             );
           },
           onClick: async (context) => {
+            const fileContext = context as FileContext;
             const exclusionOverrides = {
               ignoreFolder: true,
               ignoreTag: true,
               ignoreProperty: true,
             };
             await this.plugin.renameEngine?.processFile(
-              context.file,
+              fileContext.file,
               true,
               true,
               undefined,
@@ -212,8 +240,9 @@ export class MenuDefinitions {
             if (!this.plugin.settings.core.commandVisibility.fileExclude)
               return false;
 
+            const fileContext = context as FileContext;
             const fileCache = this.plugin.app.metadataCache.getFileCache(
-              context.file,
+              fileContext.file,
             );
             if (!fileCache || !fileCache.frontmatter) return true;
 
@@ -230,10 +259,11 @@ export class MenuDefinitions {
             return valueStr !== expectedValue; // Show disable if property doesn't match
           },
           onClick: async (context) => {
+            const fileContext = context as FileContext;
             try {
               await this.plugin.propertyManager.ensurePropertyTypeIsCheckbox();
               await this.plugin.app.fileManager.processFrontMatter(
-                context.file,
+                fileContext.file,
                 (frontmatter) => {
                   frontmatter[
                     this.plugin.settings.exclusions.disableRenamingKey
@@ -244,7 +274,7 @@ export class MenuDefinitions {
               );
               new Notice(
                 t("notifications.disabledRenamingFor", {
-                  filename: context.file.basename,
+                  filename: fileContext.file.basename,
                 }),
               );
             } catch (error) {
@@ -262,8 +292,9 @@ export class MenuDefinitions {
             if (!this.plugin.settings.core.commandVisibility.fileStopExcluding)
               return false;
 
+            const fileContext = context as FileContext;
             const fileCache = this.plugin.app.metadataCache.getFileCache(
-              context.file,
+              fileContext.file,
             );
             if (!fileCache || !fileCache.frontmatter) return false;
 
@@ -280,9 +311,10 @@ export class MenuDefinitions {
             return valueStr === expectedValue; // Show enable if property matches
           },
           onClick: async (context) => {
+            const fileContext = context as FileContext;
             try {
               await this.plugin.app.fileManager.processFrontMatter(
-                context.file,
+                fileContext.file,
                 (frontmatter) => {
                   delete frontmatter[
                     this.plugin.settings.exclusions.disableRenamingKey
@@ -291,7 +323,7 @@ export class MenuDefinitions {
               );
               new Notice(
                 t("notifications.enabledRenamingFor", {
-                  filename: context.file.basename,
+                  filename: fileContext.file.basename,
                 }),
               );
             } catch (error) {

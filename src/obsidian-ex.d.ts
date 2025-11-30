@@ -20,8 +20,7 @@ declare module "obsidian" {
     };
     plugins: {
       enabledPlugins: Set<string>;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      getPlugin(id: string): any;
+      getPlugin(id: string): unknown;
     };
   }
 

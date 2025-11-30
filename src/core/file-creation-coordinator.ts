@@ -1,6 +1,26 @@
-import { TFile, getFrontMatterInfo } from "obsidian";
+import { TFile, getFrontMatterInfo, EventRef } from "obsidian";
 import FirstLineIsTitlePlugin from "../../main";
 import { verboseLog } from "../utils";
+
+/**
+ * Extended App interface with plugin manager access
+ */
+interface AppWithPlugins {
+  plugins?: {
+    plugins?: Record<string, unknown>;
+  };
+}
+
+/**
+ * Extended Workspace interface with custom events
+ */
+interface WorkspaceWithCustomEvents {
+  on(
+    name: "templater:new-note-from-template",
+    callback: (data: Record<string, unknown>) => void,
+  ): EventRef;
+  offref(ref: EventRef): void;
+}
 
 /**
  * Context information for file creation decisions
@@ -347,8 +367,8 @@ export class FileCreationCoordinator {
    */
   private isTemplaterOn(): boolean {
     // Check if Templater plugin exists in app.plugins
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const templater = (this.plugin.app as any).plugins?.plugins;
+    const templater = (this.plugin.app as unknown as AppWithPlugins).plugins
+      ?.plugins;
     return (
       templater !== undefined &&
       typeof templater === "object" &&
@@ -360,24 +380,22 @@ export class FileCreationCoordinator {
    * Node 5: Check if Templater's "Trigger on new file creation" is enabled
    */
   private isTemplaterTriggerOn(): boolean {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const templater = (this.plugin.app as any).plugins?.plugins?.[
-      "templater-obsidian"
-    ];
+    const templater = (this.plugin.app as unknown as AppWithPlugins).plugins
+      ?.plugins?.["templater-obsidian"] as Record<string, unknown> | undefined;
     if (!templater) return false;
-    return templater.settings?.trigger_on_file_creation === true;
+    const settings = templater.settings as Record<string, unknown> | undefined;
+    return settings?.trigger_on_file_creation === true;
   }
 
   /**
    * Node 6: Check if file path matches Templater's template folder location
    */
   private isInTemplateFolder(file: TFile): boolean {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const templater = (this.plugin.app as any).plugins?.plugins?.[
-      "templater-obsidian"
-    ];
+    const templater = (this.plugin.app as unknown as AppWithPlugins).plugins
+      ?.plugins?.["templater-obsidian"] as Record<string, unknown> | undefined;
     if (!templater) return false;
-    const templateFolder = templater.settings?.templates_folder || "";
+    const settings = templater.settings as Record<string, unknown> | undefined;
+    const templateFolder = (settings?.templates_folder as string) || "";
 
     if (!templateFolder || templateFolder === "/") return false;
 
@@ -388,12 +406,11 @@ export class FileCreationCoordinator {
    * Node 7: Check if Templater's "Enable folder templates" is ON
    */
   private isFolderTemplatesEnabled(): boolean {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const templater = (this.plugin.app as any).plugins?.plugins?.[
-      "templater-obsidian"
-    ];
+    const templater = (this.plugin.app as unknown as AppWithPlugins).plugins
+      ?.plugins?.["templater-obsidian"] as Record<string, unknown> | undefined;
     if (!templater) return false;
-    return templater.settings?.enable_folder_templates === true;
+    const settings = templater.settings as Record<string, unknown> | undefined;
+    return settings?.enable_folder_templates === true;
   }
 
   /**
@@ -401,12 +418,11 @@ export class FileCreationCoordinator {
    * Uses Templater's walk-up algorithm (deepest match wins)
    */
   private folderTemplateMatches(file: TFile): boolean {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const templater = (this.plugin.app as any).plugins?.plugins?.[
-      "templater-obsidian"
-    ];
+    const templater = (this.plugin.app as unknown as AppWithPlugins).plugins
+      ?.plugins?.["templater-obsidian"] as Record<string, unknown> | undefined;
     if (!templater) return false;
-    const folderTemplates = templater.settings?.folder_templates;
+    const settings = templater.settings as Record<string, unknown> | undefined;
+    const folderTemplates = settings?.folder_templates;
     if (!Array.isArray(folderTemplates)) return false;
 
     let folder = file.parent;
@@ -436,24 +452,22 @@ export class FileCreationCoordinator {
    * Node 10: Check if Templater's "Enable file regex templates" is ON
    */
   private isFileRegexEnabled(): boolean {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const templater = (this.plugin.app as any).plugins?.plugins?.[
-      "templater-obsidian"
-    ];
+    const templater = (this.plugin.app as unknown as AppWithPlugins).plugins
+      ?.plugins?.["templater-obsidian"] as Record<string, unknown> | undefined;
     if (!templater) return false;
-    return templater.settings?.enable_file_templates === true;
+    const settings = templater.settings as Record<string, unknown> | undefined;
+    return settings?.enable_file_templates === true;
   }
 
   /**
    * Node 11: Check if any Templater file regex matches current path
    */
   private fileRegexMatches(file: TFile): boolean {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const templater = (this.plugin.app as any).plugins?.plugins?.[
-      "templater-obsidian"
-    ];
+    const templater = (this.plugin.app as unknown as AppWithPlugins).plugins
+      ?.plugins?.["templater-obsidian"] as Record<string, unknown> | undefined;
     if (!templater) return false;
-    const fileTemplates = templater.settings?.file_templates;
+    const settings = templater.settings as Record<string, unknown> | undefined;
+    const fileTemplates = settings?.file_templates;
     if (!Array.isArray(fileTemplates)) return false;
 
     for (const ft of fileTemplates) {
@@ -520,8 +534,9 @@ export class FileCreationCoordinator {
       }, remainingTime);
 
       // Listen for Templater event
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const eventRef = (this.plugin.app.workspace as any).on(
+      const eventRef = (
+        this.plugin.app.workspace as unknown as WorkspaceWithCustomEvents
+      ).on(
         "templater:new-note-from-template",
         (data: Record<string, unknown>) => {
           if (

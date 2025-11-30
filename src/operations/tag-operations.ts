@@ -53,8 +53,7 @@ export class TagOperations {
         cache.tags.forEach(
           (tagCache: {
             tag: string;
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            position: any;
+            position: { start: { line: number }; end: { line: number } };
           }) => {
             const cacheTag = tagCache.tag;
             let tagMatches = false;

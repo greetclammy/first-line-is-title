@@ -177,7 +177,7 @@ export default class FirstLineIsTitle extends Plugin {
       return;
     }
 
-    console.group("🔧 Settings (non-default values only)");
+    console.debug("🔧 Settings (non-default values only):");
 
     const nonDefaults: Record<string, unknown> = {};
 
@@ -218,7 +218,6 @@ export default class FirstLineIsTitle extends Plugin {
 
     if (Object.keys(nonDefaults).length === 0) {
       console.debug("All settings are at default values");
-      console.groupEnd();
       return;
     }
 
@@ -237,8 +236,6 @@ export default class FirstLineIsTitle extends Plugin {
         console.debug(`${key}:`, value);
       }
     }
-
-    console.groupEnd();
   }
 
   async insertTitleOnCreation(file: TFile): Promise<void> {
