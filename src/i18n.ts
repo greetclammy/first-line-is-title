@@ -26,14 +26,15 @@ export function initI18n(): void {
 
   // Load translations
   if (state.availableTranslations[state.currentLocale]) {
-    state.translations =
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      state.availableTranslations[state.currentLocale] as any;
+    state.translations = state.availableTranslations[
+      state.currentLocale
+    ] as typeof enTranslations;
   } else {
     // Fallback to English if locale not available
     state.currentLocale = "en";
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    state.translations = state.availableTranslations["en"] as any;
+    state.translations = state.availableTranslations[
+      "en"
+    ] as typeof enTranslations;
   }
 }
 
@@ -66,8 +67,7 @@ export function t(
 
   for (const key of keys) {
     if (value && typeof value === "object" && key in value && value !== null) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      value = (value as any)[key];
+      value = (value as Record<string, unknown>)[key];
     } else {
       // Key not found, use fallback
       let result = fb || keyPath;
@@ -151,8 +151,7 @@ export function tp(keyPath: string, count: number, fallback?: string): string {
 
   for (const key of keys) {
     if (value && typeof value === "object" && key in value && value !== null) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      value = (value as any)[key];
+      value = (value as Record<string, unknown>)[key];
     } else {
       return (fallback || keyPath).replace("{{count}}", String(count));
     }
@@ -180,12 +179,13 @@ export function tp(keyPath: string, count: number, fallback?: string): string {
     }
   }
 
+  const valueRecord = value as Record<string, unknown>;
   const message =
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (value as any)[pluralKey] || (value as any)["many"] || fallback || keyPath;
-  return typeof message === "string"
-    ? message.replace("{{count}}", String(count))
-    : message;
+    valueRecord[pluralKey] || valueRecord["many"] || fallback || keyPath;
+  if (typeof message === "string") {
+    return message.replace("{{count}}", String(count));
+  }
+  return String(message).replace("{{count}}", String(count));
 }
 
 /**
@@ -203,8 +203,7 @@ export function tpSplit(
 
   for (const key of keys) {
     if (value && typeof value === "object" && key in value && value !== null) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      value = (value as any)[key];
+      value = (value as Record<string, unknown>)[key];
     } else {
       return { before: keyPath, noun: "", after: "" };
     }
@@ -227,17 +226,22 @@ export function tpSplit(
     }
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const pluralForm = (value as any)[pluralKey] || (value as any)["many"];
+  const valueRecord = value as Record<string, unknown>;
+  const pluralForm = valueRecord[pluralKey] || valueRecord["many"];
 
   if (pluralForm && typeof pluralForm === "object") {
+    const pf = pluralForm as Record<string, string>;
     return {
-      before: pluralForm.before || "",
-      noun: pluralForm.noun || "",
-      after: pluralForm.after || "",
+      before: pf.before || "",
+      noun: pf.noun || "",
+      after: pf.after || "",
     };
   }
 
   // Fallback for simple string format
-  return { before: pluralForm || keyPath, noun: "", after: "" };
+  return {
+    before: typeof pluralForm === "string" ? pluralForm : keyPath,
+    noun: "",
+    after: "",
+  };
 }

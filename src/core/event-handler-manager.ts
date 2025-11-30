@@ -14,6 +14,18 @@ import { around } from "monkey-around";
 import { detectTagFromDOM, detectTagFromEditor } from "../utils/tag-detection";
 
 /**
+
+/**
+ * Extended Workspace interface with undocumented search results event
+ */
+interface WorkspaceWithSearchEvents {
+  on(
+    name: "search:results-menu",
+    callback: (menu: Menu, leaf: Record<string, unknown>) => void,
+  ): EventRef;
+}
+
+/**
  * Manages all event handler registration for the First Line is Title plugin.
  * Centralizes event handler logic previously scattered in main.ts.
  */
@@ -240,8 +252,7 @@ export class EventHandlerManager {
    */
   private registerSearchResultsMenuHandler(): void {
     this.registerEvent(
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (this.plugin.app.workspace as any).on(
+      (this.plugin.app.workspace as unknown as WorkspaceWithSearchEvents).on(
         "search:results-menu",
         (menu: Menu, leaf: Record<string, unknown>) => {
           if (!this.plugin.settings.core.enableVaultSearchContextMenu) return;

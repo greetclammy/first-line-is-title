@@ -14,13 +14,10 @@ import FirstLineIsTitlePlugin from "../../main";
 
 export interface MenuItemConfig {
   id: string;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  title: string | ((context: any) => string);
+  title: string | ((context: unknown) => string);
   icon: string;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  visible: (context: any) => boolean;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  onClick: (context: any) => void | Promise<void>;
+  visible: (context: unknown) => boolean;
+  onClick: (context: unknown) => void | Promise<void>;
 }
 
 export interface MenuConfig {
@@ -40,8 +37,7 @@ export class MenuRenderer {
    * @param config Menu configuration
    * @param context Context object passed to visibility/onClick functions
    */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  render(menu: Menu, config: MenuConfig, context: any): void {
+  render(menu: Menu, config: MenuConfig, context: unknown): void {
     const visibleItems = config.items.filter((item) => item.visible(context));
 
     if (config.addSeparator && visibleItems.length > 0) {
@@ -68,8 +64,7 @@ export class MenuRenderer {
   /**
    * Check if menu has any visible items
    */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  hasVisibleItems(config: MenuConfig, context: any): boolean {
+  hasVisibleItems(config: MenuConfig, context: unknown): boolean {
     return config.items.some((item) => item.visible(context));
   }
 }

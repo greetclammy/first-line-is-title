@@ -7,8 +7,7 @@ export interface FirstLineIsTitlePlugin {
   app: App;
   settings: PluginSettings;
   saveSettings(): Promise<void>;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  debugLog(settingName: string, value: any): void;
+  debugLog(settingName: string, value: unknown): void;
   editorLifecycle?: { initializeCheckingSystem(): void };
   renameEngine?: {
     processFile(
