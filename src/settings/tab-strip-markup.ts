@@ -24,6 +24,12 @@ export class StripMarkupTab extends SettingsTabBase {
               if (this.plugin.settings.markupStripping.stripMarkupInAlias) {
                 this.plugin.settings.markupStripping.stripMarkupInAlias = false;
               }
+              if (
+                this.plugin.settings.markupStripping
+                  .applyCustomRulesAfterMarkupStripping
+              ) {
+                this.plugin.settings.markupStripping.applyCustomRulesAfterMarkupStripping = false;
+              }
             }
 
             await this.plugin.saveSettings();

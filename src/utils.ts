@@ -293,13 +293,20 @@ export function extractTitle(line: string, settings: PluginSettings): string {
     settings.replaceCharacters.enableForbiddenCharReplacements &&
     settings.replaceCharacters.charReplacements.backslash.enabled;
 
-  if (!backslashReplacementEnabled) {
+  // Check for placeholder collision (extremely rare - user would need to type exact Unicode chars)
+  const hasPlaceholderCollision = line.includes("⸢FLITESC");
+
+  if (!backslashReplacementEnabled && !hasPlaceholderCollision) {
     // Backslash disabled: use as escape character, omit from output
     line = line.replace(/\\(.)/g, (_match, char) => {
-      const placeholder = `__ESCAPED_${escapeCounter++}__`;
+      const placeholder = `⸢FLITESC${escapeCounter++}⸥`;
       escapeMap.set(placeholder, char);
       return placeholder;
     });
+    // Handle trailing backslash (no character after it to escape)
+    if (line.endsWith("\\")) {
+      line = line.slice(0, -1);
+    }
   }
 
   if (
@@ -307,14 +314,15 @@ export function extractTitle(line: string, settings: PluginSettings): string {
     settings.markupStripping.stripCommentsEntirely ||
     settings.markupStripping.omitHtmlTags
   ) {
-    // Helper function to check if text is escaped
+    // Helper function to check if any placeholder overlaps with match range
     const checkEscaped = (match: string, offset: number): boolean => {
       if (backslashReplacementEnabled) return false;
-      // Check if any part of the match contains escape placeholders
       const matchEnd = offset + match.length;
-      for (let i = offset; i < matchEnd; i++) {
-        for (const placeholder of escapeMap.keys()) {
-          if (line.indexOf(placeholder) === i) return true;
+      for (const placeholder of escapeMap.keys()) {
+        const pos = line.indexOf(placeholder);
+        // Check if placeholder overlaps with match range [offset, matchEnd)
+        if (pos !== -1 && pos < matchEnd && pos + placeholder.length > offset) {
+          return true;
         }
       }
       return false;
@@ -580,10 +588,10 @@ export function extractTitle(line: string, settings: PluginSettings): string {
   }
 
   // Restore escaped characters (remove escape, keep character) - only if escaping was used
-  if (!backslashReplacementEnabled) {
-    for (const [placeholder, char] of escapeMap) {
-      line = line.replace(placeholder, char);
-    }
+  if (!backslashReplacementEnabled && escapeMap.size > 0) {
+    // Build regex for efficient single-pass restoration
+    const pattern = new RegExp(Array.from(escapeMap.keys()).join("|"), "g");
+    line = line.replace(pattern, (match) => escapeMap.get(match) ?? match);
   }
 
   // Final check: if line is empty or only whitespace after all processing

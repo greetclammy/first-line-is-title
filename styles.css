@@ -178,20 +178,6 @@
   text-overflow: ellipsis;
 }
 
-.flit-restore-icon {
-  padding: 4px;
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  color: var(--text-muted);
-  display: flex;
-  align-items: center;
-}
-
-.flit-restore-icon:hover {
-  color: var(--text-normal);
-}
-
 .flit-custom-header {
   margin: 0;
 }
@@ -394,15 +380,7 @@ br + .flit-table-container {
   align-items: center;
 }
 
-.flit-nav-button {
-  padding: 4px;
-  background: transparent;
-  border: none;
-  cursor: pointer;
-}
-
-.flit-nav-button.disabled,
-.flit-delete-button.disabled {
+.clickable-icon.disabled {
   cursor: not-allowed;
   opacity: 0.25 !important;
   pointer-events: none !important;
@@ -500,7 +478,6 @@ br + .flit-table-container {
 }
 
 /* Action buttons styling - will be disabled via master disabled class */
-.flit-nav-button,
 .flit-actions-column,
 .flit-button-container {
   /* No forced opacity or pointer-events - allow parent classes to control */
@@ -810,11 +787,11 @@ hr.flit-divider {
   border-top: none !important;
 }
 
-/* Nuclear option: remove ALL borders from any elements that might follow tables */
-.flit-table-container ~ *,
-.flit-table-wrapper ~ *,
-.flit-custom-replacement-setting:last-of-type ~ *,
-.flit-safeword-setting:last-of-type ~ * {
+/* Nuclear option: remove ALL borders from any elements that might follow tables (except headings) */
+.flit-table-container ~ *:not(.setting-item-heading),
+.flit-table-wrapper ~ *:not(.setting-item-heading),
+.flit-custom-replacement-setting:last-of-type ~ *:not(.setting-item-heading),
+.flit-safeword-setting:last-of-type ~ *:not(.setting-item-heading) {
   border-top: none !important;
   border-bottom: none !important;
 }
@@ -939,16 +916,6 @@ hr.flit-divider {
   font-size: 16px !important;
 }
 
-/* Ensure restore button in excluded folder settings has same size as X buttons */
-.flit-excluded-folder-setting .setting-item-control .flit-restore-icon {
-  width: 32px !important;
-  height: 32px !important;
-  min-width: 32px !important;
-  min-height: 32px !important;
-  flex-shrink: 0 !important;
-  font-size: 16px !important;
-}
-
 /* Fix Property disable renaming restore button on mobile */
 .flit-property-control-wrapper {
   display: flex !important;
@@ -962,21 +929,6 @@ hr.flit-divider {
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
-}
-
-.flit-restore-button-container .flit-restore-icon {
-  width: 32px !important;
-  height: 32px !important;
-  min-width: 32px !important;
-  min-height: 32px !important;
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-}
-
-.flit-restore-button-container .flit-restore-icon svg {
-  width: 18px !important;
-  height: 18px !important;
 }
 
 /* Disabled row styling - only apply opacity to non-toggle elements */
@@ -1032,7 +984,9 @@ hr.flit-divider {
 .flit-master-disabled .flit-custom-replacement-setting,
 .flit-master-disabled .flit-safeword-setting,
 .flit-master-disabled br,
-.flit-master-disabled p.setting-item-description {
+.flit-master-disabled p.setting-item-description,
+.flit-master-disabled div.setting-item-description,
+.flit-master-disabled span.setting-item-description {
   opacity: 0.5;
 }
 

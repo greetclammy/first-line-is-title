@@ -38,8 +38,8 @@ export class OtherTab extends SettingsTabBase {
       cls: "flit-char-text-input-container",
     });
 
-    const charCountRestoreButton = charCountContainer.createEl("button", {
-      cls: "clickable-icon flit-restore-icon",
+    const charCountRestoreButton = charCountContainer.createEl("div", {
+      cls: "clickable-icon extra-setting-button",
       attr: { "aria-label": t("ariaLabels.restoreDefault") },
     });
     setIcon(charCountRestoreButton, "rotate-ccw");
@@ -156,8 +156,8 @@ export class OtherTab extends SettingsTabBase {
       cls: "flit-char-text-input-container",
     });
 
-    const newNoteDelayRestoreButton = newNoteDelayContainer.createEl("button", {
-      cls: "clickable-icon flit-restore-icon",
+    const newNoteDelayRestoreButton = newNoteDelayContainer.createEl("div", {
+      cls: "clickable-icon extra-setting-button",
       attr: { "aria-label": t("ariaLabels.restoreDefault") },
     });
     setIcon(newNoteDelayRestoreButton, "rotate-ccw");
@@ -218,9 +218,9 @@ export class OtherTab extends SettingsTabBase {
       cls: "flit-content-read-container flit-display-flex flit-gap-10",
     });
 
-    const contentReadRestoreButton = contentReadContainer.createEl("button", {
+    const contentReadRestoreButton = contentReadContainer.createEl("div", {
       attr: { "aria-label": t("ariaLabels.restoreDefaultContentRead") },
-      cls: "clickable-icon flit-restore-button",
+      cls: "clickable-icon extra-setting-button",
     });
     setIcon(contentReadRestoreButton, "rotate-ccw");
 
@@ -287,13 +287,10 @@ export class OtherTab extends SettingsTabBase {
       cls: "flit-char-text-input-container",
     });
 
-    const checkIntervalRestoreButton = checkIntervalContainer.createEl(
-      "button",
-      {
-        cls: "clickable-icon flit-restore-icon",
-        attr: { "aria-label": t("ariaLabels.restoreDefault") },
-      },
-    );
+    const checkIntervalRestoreButton = checkIntervalContainer.createEl("div", {
+      cls: "clickable-icon extra-setting-button",
+      attr: { "aria-label": t("ariaLabels.restoreDefault") },
+    });
     setIcon(checkIntervalRestoreButton, "rotate-ccw");
 
     const checkIntervalSliderDiv = checkIntervalContainer.createDiv();
