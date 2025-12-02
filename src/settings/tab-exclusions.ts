@@ -802,9 +802,9 @@ export class IncludeExcludeTab extends SettingsTabBase {
       cls: "flit-restore-button-container",
     });
     const propertyRestoreButton = propertyRestoreButtonContainer.createEl(
-      "button",
+      "div",
       {
-        cls: "clickable-icon flit-restore-icon",
+        cls: "clickable-icon extra-setting-button",
         attr: { "aria-label": t("settings.replaceCharacters.restoreDefault") },
       },
     );

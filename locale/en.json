@@ -132,7 +132,7 @@
     "renameInExcludedFolders": "Rename notes in excluded folders",
     "renameWithExcludedTags": "Rename notes with excluded tags",
     "renameWithExcludedProperties": "Rename notes with excluded properties",
-    "renameWithChildTags": "Rename notes with subtags (e.g., #parent/child)",
+    "renameWithChildTags": "Rename notes with subtags (e.g., #tag/subtag)",
     "resetAllSettings": "This will reset all plugin settings to their default values and delete all custom rules. This cannot be undone.",
     "addRemoveProperty": "This will add/remove the key:value property in {{count}} note(s).",
     "disableEnableAddProperty": "This will add the property ",
@@ -289,7 +289,7 @@
         },
         "matchChildTags": {
           "name": "Match subtags",
-          "desc": "For example, also match #parent/child if #parent is listed below."
+          "desc": "For example, also match #tag/subtag if #tag is listed below."
         },
         "exclusionMode": {
           "name": "Exclusion mode",
@@ -408,10 +408,10 @@
     },
     "replaceCharacters": {
       "name": "Replace forbidden characters",
-      "desc": "Replace characters which are not allowed in filenames. Forbidden characters are stripped entirely if disabled.",
+      "desc": "When enabled, replace forbidden characters using the rules below. When disabled, strip them entirely.",
       "allOSes": {
         "title": "All OSes",
-        "desc": "Replace characters that are forbidden in Obsidian filenames on all OSes.",
+        "desc": "Replace characters that are forbidden in Obsidian filenames on every operating system.",
         "note": {
           "part1": "Use ",
           "trimLeft": "Trim left",

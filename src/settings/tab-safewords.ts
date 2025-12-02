@@ -289,8 +289,8 @@ export class SafewordsTab extends SettingsTabBase {
           cls: "flit-actions-column flit-button-container",
         });
 
-        const upButton = buttonContainer.createEl("button", {
-          cls: "clickable-icon flit-nav-button",
+        const upButton = buttonContainer.createEl("div", {
+          cls: "clickable-icon extra-setting-button",
           attr: { "aria-label": t("settings.customRules.moveUp") },
         });
         if (index === 0) {
@@ -311,8 +311,8 @@ export class SafewordsTab extends SettingsTabBase {
           });
         }
 
-        const downButton = buttonContainer.createEl("button", {
-          cls: "clickable-icon flit-nav-button",
+        const downButton = buttonContainer.createEl("div", {
+          cls: "clickable-icon extra-setting-button",
           attr: { "aria-label": t("settings.customRules.moveDown") },
         });
         if (index === this.plugin.settings.safewords.safewords.length - 1) {
@@ -333,12 +333,9 @@ export class SafewordsTab extends SettingsTabBase {
           });
         }
 
-        deleteButton = buttonContainer.createEl("button", {
-          cls: "clickable-icon flit-delete-button",
-          attr: {
-            "aria-label": t("settings.customRules.delete"),
-            type: "button",
-          },
+        deleteButton = buttonContainer.createEl("div", {
+          cls: "clickable-icon extra-setting-button",
+          attr: { "aria-label": t("settings.customRules.delete") },
         });
         setIcon(deleteButton, "x");
 

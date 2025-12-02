@@ -371,8 +371,8 @@ export class ForbiddenCharsTab extends SettingsTabBase {
           cls: "flit-char-text-input-container",
         });
 
-        const restoreButton = inputContainer.createEl("button", {
-          cls: "clickable-icon flit-restore-icon",
+        const restoreButton = inputContainer.createEl("div", {
+          cls: "clickable-icon extra-setting-button",
           attr: {
             "aria-label": t("settings.replaceCharacters.restoreDefault"),
           },
@@ -527,8 +527,6 @@ export class ForbiddenCharsTab extends SettingsTabBase {
           }
         });
 
-      charSettingsContainer.createEl("br");
-
       windowsAndroidTableContainer = charSettingsContainer.createEl("div", {
         cls: "flit-table-container flit-windows-android-table",
       });
@@ -632,8 +630,8 @@ export class ForbiddenCharsTab extends SettingsTabBase {
           cls: "flit-char-text-input-container",
         });
 
-        const restoreButton = inputContainer.createEl("button", {
-          cls: "clickable-icon flit-restore-icon",
+        const restoreButton = inputContainer.createEl("div", {
+          cls: "clickable-icon extra-setting-button",
           attr: {
             "aria-label": t("settings.replaceCharacters.restoreDefault"),
           },

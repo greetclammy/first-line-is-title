@@ -222,9 +222,9 @@ export class PropertiesTab extends SettingsTabBase {
       });
 
     const aliasPropertyKeyRestoreButton = aliasPropertyKeyContainer.createEl(
-      "button",
+      "div",
       {
-        cls: "clickable-icon flit-restore-icon",
+        cls: "clickable-icon extra-setting-button",
         attr: { "aria-label": t("settings.replaceCharacters.restoreDefault") },
       },
     );
