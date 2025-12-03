@@ -309,26 +309,10 @@ export class FirstLineIsTitleSettings extends PluginSettingTab {
 
     if (tabConfig) {
       const tabInstance = new tabConfig.class(this.plugin, this.settingsPage);
-      const result = tabInstance.render();
-      if (
-        result !== undefined &&
-        typeof result === "object" &&
-        result !== null &&
-        "then" in result
-      ) {
-        await (result as Promise<void>);
-      }
+      tabInstance.render();
     } else {
       const generalTab = new GeneralTab(this.plugin, this.settingsPage);
-      const result = generalTab.render();
-      if (
-        result !== undefined &&
-        typeof result === "object" &&
-        result !== null &&
-        "then" in result
-      ) {
-        await (result as Promise<void>);
-      }
+      generalTab.render();
     }
   }
 

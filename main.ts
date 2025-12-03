@@ -177,7 +177,8 @@ export default class FirstLineIsTitle extends Plugin {
       return;
     }
 
-    console.debug("🔧 Settings (non-default values only):");
+    // eslint-disable-next-line no-console -- console.group for visual hierarchy
+    console.group("🔧 Settings (non-default values only)");
 
     const nonDefaults: Record<string, unknown> = {};
 
@@ -218,6 +219,8 @@ export default class FirstLineIsTitle extends Plugin {
 
     if (Object.keys(nonDefaults).length === 0) {
       console.debug("All settings are at default values");
+      // eslint-disable-next-line no-console -- console.groupEnd for visual hierarchy
+      console.groupEnd();
       return;
     }
 
@@ -236,6 +239,9 @@ export default class FirstLineIsTitle extends Plugin {
         console.debug(`${key}:`, value);
       }
     }
+
+    // eslint-disable-next-line no-console -- console.groupEnd for visual hierarchy
+    console.groupEnd();
   }
 
   async insertTitleOnCreation(file: TFile): Promise<void> {
