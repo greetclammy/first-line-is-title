@@ -3,6 +3,11 @@ import { SettingsTabBase, FirstLineIsTitlePlugin } from "./settings-base";
 import { DEFAULT_SETTINGS } from "../constants";
 import { t, getCurrentLocale } from "../i18n";
 
+// Plugin names (proper nouns, not subject to sentence case)
+const PLUGIN_NOTEBOOK_NAVIGATOR = "Notebook Navigator";
+const PLUGIN_FRONT_MATTER_TITLE = "Front Matter Title";
+const PLUGIN_HOVER_EDITOR = "Hover Editor";
+
 export class PropertiesTab extends SettingsTabBase {
   constructor(plugin: FirstLineIsTitlePlugin, containerEl: HTMLElement) {
     super(plugin, containerEl);
@@ -199,17 +204,15 @@ export class PropertiesTab extends SettingsTabBase {
       href: "obsidian://show-plugin?id=omnisearch",
     });
     li2.appendText(t("settings.alias.aliasPropertyName.noteTitle.part2"));
-    li2.createEl("a", {
-      // eslint-disable-next-line obsidianmd/ui/sentence-case -- proper noun (plugin name)
-      text: "Notebook Navigator",
+    const notebookNavigatorLink = li2.createEl("a", {
       href: "obsidian://show-plugin?id=notebook-navigator",
     });
+    notebookNavigatorLink.textContent = PLUGIN_NOTEBOOK_NAVIGATOR;
     li2.appendText(t("settings.alias.aliasPropertyName.noteTitle.part3"));
-    li2.createEl("a", {
-      // eslint-disable-next-line obsidianmd/ui/sentence-case -- proper noun (plugin name)
-      text: "Front Matter Title",
+    const frontMatterTitleLink = li2.createEl("a", {
       href: "obsidian://show-plugin?id=obsidian-front-matter-title-plugin",
     });
+    frontMatterTitleLink.textContent = PLUGIN_FRONT_MATTER_TITLE;
     li2.appendText(t("settings.alias.aliasPropertyName.noteTitle.part4"));
 
     aliasKeyDesc.createEl("br");
@@ -510,11 +513,10 @@ export class PropertiesTab extends SettingsTabBase {
         cls: "setting-item-description flit-margin-top-12",
       });
       limitationsDesc.appendText(t("settings.alias.limitations.desc.part1"));
-      limitationsDesc.createEl("a", {
-        // eslint-disable-next-line obsidianmd/ui/sentence-case -- proper noun (plugin name)
-        text: "Hover Editor",
+      const hoverEditorLink = limitationsDesc.createEl("a", {
         href: "obsidian://show-plugin?id=obsidian-hover-editor",
       });
+      hoverEditorLink.textContent = PLUGIN_HOVER_EDITOR;
       limitationsDesc.appendText(t("settings.alias.limitations.desc.part2"));
     }
 

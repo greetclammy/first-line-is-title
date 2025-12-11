@@ -120,7 +120,7 @@ export class FirstLineIsTitleSettings extends PluginSettingTab {
       void this.renderTab(tabInfo.id);
     };
 
-    for (const [_tabKey, tabInfo] of Object.entries(this.TABS)) {
+    for (const tabInfo of Object.values(this.TABS)) {
       const tabEl = tabBar.createEl("div", { cls: "flit-settings-tab" });
       tabEl.setAttribute("data-tab-id", tabInfo.id);
       tabEl.setAttribute("role", "tab");
@@ -130,7 +130,7 @@ export class FirstLineIsTitleSettings extends PluginSettingTab {
       tabEl.setAttribute("tabindex", isActive ? "0" : "-1");
       tabEl.setAttribute("aria-selected", isActive ? "true" : "false");
 
-      const _tabNameEl = tabEl.createEl("div", {
+      tabEl.createEl("div", {
         cls: "flit-settings-tab-name",
         text: tabInfo.name,
       });
@@ -156,7 +156,6 @@ export class FirstLineIsTitleSettings extends PluginSettingTab {
           e.key === "ArrowDown"
         ) {
           e.preventDefault();
-          const _currentIndex = tabElements.indexOf(tabEl);
 
           // Build grid structure by detecting rows based on vertical position
           const rows: HTMLElement[][] = [];
@@ -300,7 +299,7 @@ export class FirstLineIsTitleSettings extends PluginSettingTab {
     this.containerEl.addEventListener("keydown", handleFirstTab);
   }
 
-  private async renderTab(tabId: string): Promise<void> {
+  private renderTab(tabId: string): void {
     if (!this.settingsPage) return;
 
     this.settingsPage.empty();

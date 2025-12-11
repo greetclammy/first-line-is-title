@@ -306,10 +306,6 @@ export class FolderOperations {
   ): Promise<void> {
     if (folders.length === 0) return;
 
-    let _processed = 0;
-    let _skipped = 0;
-    let _errors = 0;
-
     if (action === "rename") {
       const allFiles: TFile[] = [];
       folders.forEach((folder) => {
@@ -349,16 +345,11 @@ export class FolderOperations {
 
           if (action === "disable" && !isCurrentlyExcluded) {
             await this.toggleFolderExclusion(folder.path, true);
-            _processed++;
           } else if (action === "enable" && isCurrentlyExcluded) {
             await this.toggleFolderExclusion(folder.path, true);
-            _processed++;
-          } else {
-            _skipped++;
           }
-        } catch (_error) {
-          console.error(`Error processing folder ${folder.path}:`, _error);
-          _errors++;
+        } catch (error) {
+          console.error(`Error processing folder ${folder.path}:`, error);
         }
       }
 

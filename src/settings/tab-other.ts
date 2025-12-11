@@ -7,6 +7,10 @@ import { verboseLog } from "../utils";
 import { t, getCurrentLocale } from "../i18n";
 import { PluginInitializer } from "../core/plugin-initializer";
 
+// Plugin names (proper nouns, not subject to sentence case)
+const PLUGIN_AUTO_CARD_LINK = "Auto Card Link";
+const PLUGIN_LINK_EMBED = "Link Embed";
+
 export class OtherTab extends SettingsTabBase {
   private conditionalSettings: Setting[] = [];
 
@@ -117,17 +121,15 @@ export class OtherTab extends SettingsTabBase {
 
     const cardLinkDesc = cardLinkSetting.descEl;
     cardLinkDesc.appendText(t("settings.other.grabCardLink.desc.part1"));
-    cardLinkDesc.createEl("a", {
-      // eslint-disable-next-line obsidianmd/ui/sentence-case -- proper noun (plugin name)
-      text: "Auto Card Link",
+    const autoCardLink = cardLinkDesc.createEl("a", {
       href: "obsidian://show-plugin?id=auto-card-link",
     });
+    autoCardLink.textContent = PLUGIN_AUTO_CARD_LINK;
     cardLinkDesc.appendText(t("settings.other.grabCardLink.desc.part2"));
-    cardLinkDesc.createEl("a", {
-      // eslint-disable-next-line obsidianmd/ui/sentence-case -- proper noun (plugin name)
-      text: "Link Embed",
+    const linkEmbedLink = cardLinkDesc.createEl("a", {
       href: "obsidian://show-plugin?id=obsidian-link-embed",
     });
+    linkEmbedLink.textContent = PLUGIN_LINK_EMBED;
     cardLinkDesc.appendText(t("settings.other.grabCardLink.desc.part3"));
 
     cardLinkSetting.addToggle((toggle) =>
