@@ -1,9 +1,4 @@
-import {
-  Setting,
-  setIcon,
-  TextComponent,
-  ExtraButtonComponent,
-} from "obsidian";
+import { Setting, setIcon, ExtraButtonComponent } from "obsidian";
 import { SettingsTabBase, FirstLineIsTitlePlugin } from "./settings-base";
 import {
   ExclusionStrategy,
@@ -87,7 +82,6 @@ export class IncludeExcludeTab extends SettingsTabBase {
       this.plugin.settings.exclusions.excludedFolders.forEach(
         (folder, index) => {
           const folderSetting = new Setting(folderContainer);
-          let _textInput: TextComponent | undefined;
           let removeButton: ExtraButtonComponent | undefined;
 
           const updateButtonState = () => {
@@ -117,7 +111,6 @@ export class IncludeExcludeTab extends SettingsTabBase {
 
           folderSetting
             .addText((text) => {
-              _textInput = text;
               text
                 .setPlaceholder(t("settings.exclusions.folders.placeholder"))
                 .setValue(folder)
@@ -336,7 +329,6 @@ export class IncludeExcludeTab extends SettingsTabBase {
       tagContainer.empty();
       this.plugin.settings.exclusions.excludedTags.forEach((tag, index) => {
         const tagSetting = new Setting(tagContainer);
-        let _textInput: TextComponent | undefined;
         let removeButton: ExtraButtonComponent | undefined;
 
         const updateButtonState = () => {
@@ -362,7 +354,6 @@ export class IncludeExcludeTab extends SettingsTabBase {
 
         tagSetting
           .addText((text) => {
-            _textInput = text;
             text
               .setPlaceholder(t("settings.exclusions.tags.placeholder"))
               .setValue(tag)
