@@ -31,7 +31,6 @@ interface WorkspaceWithSearchEvents {
  */
 export class EventHandlerManager {
   private plugin: FirstLineIsTitlePlugin;
-  private registeredEvents: EventRef[] = [];
 
   constructor(plugin: FirstLineIsTitlePlugin) {
     this.plugin = plugin;
@@ -40,6 +39,7 @@ export class EventHandlerManager {
   /**
    * Register all event handlers for the plugin.
    * Called during plugin load.
+   * Note: Obsidian automatically manages event cleanup via Plugin.registerEvent().
    */
   registerAllHandlers(): void {
     this.registerFileMenuHandler();
@@ -52,29 +52,10 @@ export class EventHandlerManager {
   }
 
   /**
-   * Unregister all event handlers.
-   * Called during plugin unload.
-   */
-  unregisterAllHandlers(): void {
-    this.registeredEvents.forEach((ref) =>
-      this.plugin.app.workspace.offref(ref),
-    );
-    this.registeredEvents = [];
-  }
-
-  /**
-   * Register a single event and track it for cleanup
-   */
-  private registerEvent(event: EventRef): void {
-    this.plugin.registerEvent(event);
-    this.registeredEvents.push(event);
-  }
-
-  /**
    * File menu handler - single file/folder context menu
    */
   private registerFileMenuHandler(): void {
-    this.registerEvent(
+    this.plugin.registerEvent(
       this.plugin.app.workspace.on("file-menu", (menu, file) => {
         if (!this.plugin.settings.core.enableContextMenus) return;
 
@@ -91,7 +72,7 @@ export class EventHandlerManager {
    * Files menu handler - multiple files/folders selection
    */
   private registerFilesMenuHandler(): void {
-    this.registerEvent(
+    this.plugin.registerEvent(
       this.plugin.app.workspace.on("files-menu", (menu, files) => {
         if (!this.plugin.settings.core.enableContextMenus) return;
 
@@ -195,7 +176,7 @@ export class EventHandlerManager {
    * Uses unified tag detection for hashtags in note body.
    */
   private registerEditorMenuHandler(): void {
-    this.registerEvent(
+    this.plugin.registerEvent(
       this.plugin.app.workspace.on("editor-menu", (menu, editor, view) => {
         if (!this.plugin.settings.core.enableContextMenus) return;
         if (!(view instanceof MarkdownView)) return;
@@ -251,7 +232,7 @@ export class EventHandlerManager {
    * Search results menu handler
    */
   private registerSearchResultsMenuHandler(): void {
-    this.registerEvent(
+    this.plugin.registerEvent(
       (this.plugin.app.workspace as unknown as WorkspaceWithSearchEvents).on(
         "search:results-menu",
         (menu: Menu, leaf: Record<string, unknown>) => {
@@ -357,7 +338,7 @@ export class EventHandlerManager {
    * Editor change handler - processes file changes in real-time
    */
   private registerEditorChangeHandler(): void {
-    this.registerEvent(
+    this.plugin.registerEvent(
       this.plugin.app.workspace.on("editor-change", (editor, info) => {
         if (this.plugin.settings.core.verboseLogging) {
           console.debug(
@@ -425,7 +406,7 @@ export class EventHandlerManager {
    */
   private registerFileSystemHandlers(): void {
     // File rename handler
-    this.registerEvent(
+    this.plugin.registerEvent(
       this.plugin.app.vault.on("rename", (file, oldPath) => {
         if (file instanceof TFile && file.extension === "md") {
           // Update file state
@@ -444,7 +425,7 @@ export class EventHandlerManager {
     );
 
     // File delete handler
-    this.registerEvent(
+    this.plugin.registerEvent(
       this.plugin.app.vault.on("delete", (file) => {
         if (file instanceof TFile) {
           this.plugin.cacheManager?.notifyFileDeleted(file.path);
@@ -455,7 +436,7 @@ export class EventHandlerManager {
     );
 
     // File modify handler
-    this.registerEvent(
+    this.plugin.registerEvent(
       this.plugin.app.vault.on("modify", async (file) => {
         if (!(file instanceof TFile)) return;
         if (file.extension !== "md") return;
@@ -562,7 +543,7 @@ export class EventHandlerManager {
     );
 
     // Metadata change handler
-    this.registerEvent(
+    this.plugin.registerEvent(
       this.plugin.app.metadataCache.on("changed", async (file) => {
         if (!this.plugin.settings.aliases.enableAliases) return;
         if (this.plugin.settings.core.renameNotes !== "automatically") return;

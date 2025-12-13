@@ -190,7 +190,7 @@
       "renameNotes": {
         "name": "Rename notes",
         "desc": "Set how notes should be processed.",
-        "automatically": "Automatically when modified while open",
+        "automatically": "Automatically if open & modified",
         "manually": "Manually with command only"
       },
       "renameOnFocus": {
@@ -342,7 +342,7 @@
         "quickSwitcher": "Use 'aliases' to make the alias searchable in the Quick switcher and link suggester.",
         "multipleProperties": "To populate multiple properties, separate by comma (e.g., 'aliases, title').",
         "noteTitle": {
-          "part1": "This property can be set as note title in ",
+          "part1": "This property can be set as title in plugins like ",
           "part2": ", ",
           "part3": " and ",
           "part4": "."
@@ -408,7 +408,7 @@
     },
     "replaceCharacters": {
       "name": "Replace forbidden characters",
-      "desc": "When enabled, replace forbidden characters using the rules below. When disabled, strip them entirely.",
+      "desc": "Enable to replace forbidden characters using the rules below. Disable to strip them entirely.",
       "allOSes": {
         "title": "All OSes",
         "desc": "Replace characters that are forbidden in Obsidian filenames on every operating system.",

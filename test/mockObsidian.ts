@@ -414,6 +414,9 @@ export const Platform = {
   isAndroidApp: false,
 };
 
+// Mock getLanguage function (added in Obsidian 1.8.0)
+export const getLanguage = vi.fn().mockReturnValue("en");
+
 // Mock request for web requests
 export const request = vi.fn().mockResolvedValue("");
 export const requestUrl = vi.fn().mockResolvedValue({

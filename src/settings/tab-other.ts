@@ -586,11 +586,11 @@ export class OtherTab extends SettingsTabBase {
   private updateAutomaticRenameVisibility(): void {
     if (this.conditionalSettings.length === 0) return;
 
+    // Check interval only applies when using Editor content read method
     const shouldShow =
-      this.plugin.settings.core.renameNotes === "automatically";
+      this.plugin.settings.core.renameNotes === "automatically" &&
+      this.plugin.settings.core.fileReadMethod === "Editor";
 
-    // Check interval should show when renameNotes === "automatically"
-    // It controls throttling for editor-change events, which fire for all content read methods
     this.conditionalSettings.forEach((setting) => {
       if (shouldShow) {
         setting.settingEl.removeClass("flit-display-none");
