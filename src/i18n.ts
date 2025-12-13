@@ -1,4 +1,4 @@
-import { moment } from "obsidian";
+import { getLanguage } from "obsidian";
 import enTranslations from "../locale/en.json";
 import ruTranslations from "../locale/ru.json";
 
@@ -18,8 +18,8 @@ const state = (() => {
  * Initialize i18n system
  */
 export function initI18n(): void {
-  // Get locale from Obsidian using moment.locale() which respects Obsidian's language settings
-  state.currentLocale = moment.locale();
+  // Get locale from Obsidian's API (requires minAppVersion: 1.8.0)
+  state.currentLocale = getLanguage();
 
   // Normalize locale (e.g., 'ru-RU' -> 'ru', 'en-US' -> 'en')
   state.currentLocale = state.currentLocale.split("-")[0].toLowerCase();

@@ -1,4 +1,5 @@
 import { Notice, Plugin, TFile, TFolder } from "obsidian";
+import { around } from "monkey-around";
 import { PluginSettings } from "./src/types";
 import { DEFAULT_SETTINGS } from "./src/constants";
 import { initI18n, t, getCurrentLocale } from "./src/i18n";
@@ -58,8 +59,7 @@ export default class FirstLineIsTitle extends Plugin {
   private _propertyVisibility?: PropertyVisibility;
   private _linkManager?: LinkManager;
 
-  private _originalDebugEnable?: (namespace?: string) => Promise<void>;
-  private _originalDebugDisable?: (namespace?: string) => Promise<void>;
+  private _debugPatchCleanup?: () => void;
   private _createdDebugNamespace: boolean = false;
 
   get folderOperations(): FolderOperations {
@@ -668,25 +668,27 @@ export default class FirstLineIsTitle extends Plugin {
         },
       };
     } else {
-      // window.DEBUG already exists, extend it
-      this._originalDebugEnable = window.DEBUG?.enable;
-      this._originalDebugDisable = window.DEBUG?.disable;
-
-      window.DEBUG.enable = async (namespace?: string) => {
-        if (namespace === "first-line-is-title" || namespace === "FLIT") {
-          await enableDebug();
-        } else if (this._originalDebugEnable) {
-          await this._originalDebugEnable(namespace);
-        }
-      };
-
-      window.DEBUG.disable = async (namespace?: string) => {
-        if (namespace === "first-line-is-title" || namespace === "FLIT") {
-          await disableDebug();
-        } else if (this._originalDebugDisable) {
-          await this._originalDebugDisable(namespace);
-        }
-      };
+      // window.DEBUG already exists - use monkey-around for safe patching
+      this._debugPatchCleanup = around(window.DEBUG, {
+        enable(original) {
+          return async function (namespace?: string) {
+            if (namespace === "first-line-is-title" || namespace === "FLIT") {
+              await enableDebug();
+            } else if (typeof original === "function") {
+              await original.call(this, namespace);
+            }
+          };
+        },
+        disable(original) {
+          return async function (namespace?: string) {
+            if (namespace === "first-line-is-title" || namespace === "FLIT") {
+              await disableDebug();
+            } else if (typeof original === "function") {
+              await original.call(this, namespace);
+            }
+          };
+        },
+      });
     }
   }
 
@@ -730,17 +732,8 @@ export default class FirstLineIsTitle extends Plugin {
     // Restore or cleanup window.DEBUG
     if (this._createdDebugNamespace) {
       delete window.DEBUG;
-    } else if (
-      this._originalDebugEnable &&
-      this._originalDebugDisable &&
-      window.DEBUG
-    ) {
-      window.DEBUG.enable = this._originalDebugEnable as (
-        namespace?: string,
-      ) => Promise<void>;
-      window.DEBUG.disable = this._originalDebugDisable as (
-        namespace?: string,
-      ) => Promise<void>;
+    } else if (this._debugPatchCleanup) {
+      this._debugPatchCleanup();
     }
 
     verboseLog(this, "Plugin unloaded");

@@ -1507,7 +1507,9 @@ hr.flit-divider {
 .flit-feedback-button {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 8px;
+  line-height: 1;
 }
 
 /* Border utilities */

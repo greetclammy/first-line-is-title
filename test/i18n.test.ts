@@ -7,12 +7,12 @@ import {
   tp,
   tpSplit,
 } from "../src/i18n";
-import { moment } from "./mockObsidian";
+import { getLanguage } from "./mockObsidian";
 
 describe("i18n", () => {
   beforeEach(() => {
     // Reset locale to English before each test
-    vi.mocked(moment.locale).mockReturnValue("en");
+    vi.mocked(getLanguage).mockReturnValue("en");
     initI18n();
   });
 
@@ -23,31 +23,31 @@ describe("i18n", () => {
     });
 
     it("should initialize with Russian locale when moment returns ru", () => {
-      vi.mocked(moment.locale).mockReturnValue("ru");
+      vi.mocked(getLanguage).mockReturnValue("ru");
       initI18n();
       expect(getCurrentLocale()).toBe("ru");
     });
 
     it("should normalize locale codes (ru-RU -> ru)", () => {
-      vi.mocked(moment.locale).mockReturnValue("ru-RU");
+      vi.mocked(getLanguage).mockReturnValue("ru-RU");
       initI18n();
       expect(getCurrentLocale()).toBe("ru");
     });
 
     it("should normalize locale codes (en-US -> en)", () => {
-      vi.mocked(moment.locale).mockReturnValue("en-US");
+      vi.mocked(getLanguage).mockReturnValue("en-US");
       initI18n();
       expect(getCurrentLocale()).toBe("en");
     });
 
     it("should fallback to English for unsupported locales", () => {
-      vi.mocked(moment.locale).mockReturnValue("fr-FR");
+      vi.mocked(getLanguage).mockReturnValue("fr-FR");
       initI18n();
       expect(getCurrentLocale()).toBe("en");
     });
 
     it("should lowercase locale codes", () => {
-      vi.mocked(moment.locale).mockReturnValue("EN-US");
+      vi.mocked(getLanguage).mockReturnValue("EN-US");
       initI18n();
       expect(getCurrentLocale()).toBe("en");
     });
@@ -143,7 +143,7 @@ describe("i18n", () => {
     });
 
     it("should return updated locale after reinit", () => {
-      vi.mocked(moment.locale).mockReturnValue("ru");
+      vi.mocked(getLanguage).mockReturnValue("ru");
       initI18n();
       expect(getCurrentLocale()).toBe("ru");
     });
@@ -152,7 +152,7 @@ describe("i18n", () => {
   describe("getPluralForm", () => {
     describe("English locale", () => {
       beforeEach(() => {
-        vi.mocked(moment.locale).mockReturnValue("en");
+        vi.mocked(getLanguage).mockReturnValue("en");
         initI18n();
       });
 
@@ -184,7 +184,7 @@ describe("i18n", () => {
 
     describe("Russian locale", () => {
       beforeEach(() => {
-        vi.mocked(moment.locale).mockReturnValue("ru");
+        vi.mocked(getLanguage).mockReturnValue("ru");
         initI18n();
       });
 
@@ -270,7 +270,7 @@ describe("i18n", () => {
 
   describe("tp (translate plural)", () => {
     beforeEach(() => {
-      vi.mocked(moment.locale).mockReturnValue("en");
+      vi.mocked(getLanguage).mockReturnValue("en");
       initI18n();
     });
 
@@ -306,7 +306,7 @@ describe("i18n", () => {
 
     describe("Russian plural forms", () => {
       beforeEach(() => {
-        vi.mocked(moment.locale).mockReturnValue("ru");
+        vi.mocked(getLanguage).mockReturnValue("ru");
         initI18n();
       });
 
@@ -335,7 +335,7 @@ describe("i18n", () => {
 
   describe("tpSplit", () => {
     beforeEach(() => {
-      vi.mocked(moment.locale).mockReturnValue("en");
+      vi.mocked(getLanguage).mockReturnValue("en");
       initI18n();
     });
 
@@ -363,7 +363,7 @@ describe("i18n", () => {
 
     describe("Russian plural forms", () => {
       beforeEach(() => {
-        vi.mocked(moment.locale).mockReturnValue("ru");
+        vi.mocked(getLanguage).mockReturnValue("ru");
         initI18n();
       });
 
@@ -427,15 +427,15 @@ describe("i18n", () => {
     });
 
     it("should handle Russian locale switching", () => {
-      vi.mocked(moment.locale).mockReturnValue("en");
+      vi.mocked(getLanguage).mockReturnValue("en");
       initI18n();
       expect(getCurrentLocale()).toBe("en");
 
-      vi.mocked(moment.locale).mockReturnValue("ru");
+      vi.mocked(getLanguage).mockReturnValue("ru");
       initI18n();
       expect(getCurrentLocale()).toBe("ru");
 
-      vi.mocked(moment.locale).mockReturnValue("en");
+      vi.mocked(getLanguage).mockReturnValue("en");
       initI18n();
       expect(getCurrentLocale()).toBe("en");
     });
