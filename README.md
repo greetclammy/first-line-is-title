@@ -21,7 +21,7 @@ Automatically set the first line as note title, just like in Apple Notes! Forget
 - Commands to batch rename all notes in folder, all notes with tag, all search results, or entire vault.
 - Insert filename in first line on note creation.
 - Exclude select notes, folders, tags, properties or filenames from renaming, or only enable renaming in some.
-- Convert selection containing characters forbidden in filenames into valid internal link. Preserve original text in link caption.
+- Command to convert selection containing forbidden characters into valid internal link. Preserve original text in link caption.
 
 ## 🔏 File integrity
 
