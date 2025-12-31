@@ -19,7 +19,7 @@
 - Замена символов, запрещенных в именах файлов, на допустимые альтернативы, или их удаление.
 - Удаление Markdown-разметки в именах файлов.
 - Настройка пользовательских правил замены.
-- Автоматическое создание свойства с копией первой строки — делает запрещенные символы доступными для поиска в быстром переключателе или [Omnisearch](https://obsidian.md/plugins?id=omnisearch), а также позволяет использовать в качестве имени файла в [Notebook Navigator](https://obsidian.md/plugins?id=notebook-navigator) или [Front Matter Title](https://obsidian.md/plugins?id=obsidian-front-matter-title-plugin).
+- Автоматическое создание свойства с копией первой строки — делает запрещенные символы доступными для поиска в быстром переключателе, [Quick Switcher++](https://obsidian.md/plugins?id=darlal-switcher-plus) и [Omnisearch](https://obsidian.md/plugins?id=omnisearch), а также позволяет использовать в качестве имени файла в таких плагинах как [Notebook Navigator](https://obsidian.md/plugins?id=notebook-navigator) и [Front Matter Title](https://obsidian.md/plugins?id=obsidian-front-matter-title-plugin).
 - Команды для массового переименования всех заметок в папке, всех заметок с тегом, результатов поиска или всего хранилища.
 - Автоматическая вставка имени файла в первую строку при создании заметки.
 - Исключение отдельных заметок, папок, тегов, свойств или имен файлов из переименования, или включение переименования только для некоторых из них.
