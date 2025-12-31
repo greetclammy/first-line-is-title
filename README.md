@@ -17,7 +17,7 @@ Automatically set the first line as note title, just like in Apple Notes! Forget
 - Replace characters forbidden in filenames with safe alternatives, or omit them entirely.
 - Strip Markdown syntax from filenames.
 - Add custom replacement rules.
-- Automatically populate first line alias property — make forbidden characters searchable in Quick switcher, [Quick Switcher++](https://obsidian.md/plugins?id=darlal-switcher-plus) and [Omnisearch](https://obsidian.md/plugins?id=omnisearch), or set as note title in [Notebook Navigator](https://obsidian.md/plugins?id=notebook-navigator) and [Front Matter Title](https://obsidian.md/plugins?id=obsidian-front-matter-title-plugin).
+- Automatically populate first line alias property — make forbidden characters searchable in Quick switcher, [Quick Switcher++](https://obsidian.md/plugins?id=darlal-switcher-plus) and [Omnisearch](https://obsidian.md/plugins?id=omnisearch), or set as note title in plugins like [Notebook Navigator](https://obsidian.md/plugins?id=notebook-navigator) and [Front Matter Title](https://obsidian.md/plugins?id=obsidian-front-matter-title-plugin).
 - Commands to batch rename all notes in folder, all notes with tag, all search results, or entire vault.
 - Automatically insert filename in first line on note creation.
 - Exclude select notes, folders, tags, properties or filenames from renaming, or only enable renaming in some.
