@@ -2,7 +2,7 @@ English • [Русский](https://github.com/greetclammy/first-line-is-title/
 
 # First Line is Title
 
-Automatically set the first line as note title, just like in Apple Notes! Forget about manual filename entry or nondescript timestamps.
+Automatically set the first line as note title, just like in Apple Notes! Forget about manual file name entry or nondescript timestamps.
 
 ![](https://github.com/user-attachments/assets/eed638e0-f695-4fdd-a0a6-2ace66585d58)
 
@@ -14,13 +14,13 @@ Automatically set the first line as note title, just like in Apple Notes! Forget
 - Rename notes automatically or manually.
 - Move cursor to first line on note creation.
 - Put any first line content in title or headings only.
-- Replace characters forbidden in filenames with safe alternatives, or omit them entirely.
-- Strip Markdown syntax from filenames.
+- Replace characters forbidden in file names with safe alternatives, or omit them entirely.
+- Strip Markdown syntax from file names.
 - Add custom replacement rules.
 - Automatically populate first line alias property — make forbidden characters searchable in Quick switcher, [Quick Switcher++](https://obsidian.md/plugins?id=darlal-switcher-plus) and [Omnisearch](https://obsidian.md/plugins?id=omnisearch), or set as note title in plugins like [Notebook Navigator](https://obsidian.md/plugins?id=notebook-navigator) and [Front Matter Title](https://obsidian.md/plugins?id=obsidian-front-matter-title-plugin).
 - Commands to batch rename all notes in folder, all notes with tag, all search results, or entire vault.
-- Automatically insert filename in first line on note creation.
-- Exclude select notes, folders, tags, properties or filenames from renaming, or only enable renaming in some.
+- Automatically insert file name in first line on note creation.
+- Exclude select notes, folders, tags, properties or file names from renaming, or only enable renaming in some.
 - Command to convert selection containing forbidden characters into valid internal link, with original text preserved in link caption.
 
 ## File integrity
