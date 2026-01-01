@@ -9,7 +9,7 @@ Automatically set the first line as note title, just like in Apple Notes! Forget
 > [!TIP]
 > The plugin is best used with the tab title bar and/or inline title enabled in Obsidian settings > Appearance > Interface.
 
-## Features
+## Key features
 
 - Rename notes automatically or manually.
 - Move cursor to first line on note creation.
