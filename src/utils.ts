@@ -249,17 +249,36 @@ export function containsSafeword(
 export function extractTitle(line: string, settings: PluginSettings): string {
   const originalLine = line;
 
+  // Check if original line is a valid list (0-3 spaces indent, not 4+ which is code block)
+  // Task lists are checked first to prevent overlap with unordered/ordered detection
+  // Per CommonMark: tabs expand to next multiple of 4, so any tab in indent = code block
+  const indentStr = line.match(/^(\s*)/)?.[1] ?? "";
+  const isCodeBlockIndent = indentStr.includes("\t") || indentStr.length >= 4;
+  const isOriginallyTaskList =
+    /^\s*(?:[-+*]|\d+\.) \[.\] /.test(line) && !isCodeBlockIndent;
+  const isOriginallyUnorderedList =
+    !isOriginallyTaskList && /^\s*[-+*] /.test(line) && !isCodeBlockIndent;
+  const isOriginallyOrderedList =
+    !isOriginallyTaskList && /^\s*\d+\. /.test(line) && !isCodeBlockIndent;
+
   // Check if line is only a list marker (before trim removes trailing space)
+  // Uses space character class (not \s) to exclude tabs, which are code blocks per CommonMark
   if (settings.markupStripping.enableStripMarkup) {
     if (
+      settings.markupStripping.stripMarkupSettings.taskLists &&
+      /^ {0,3}(?:[-+*]|\d+\.) \[.\] $/.test(line)
+    ) {
+      return t("untitled");
+    }
+    if (
       settings.markupStripping.stripMarkupSettings.unorderedLists &&
-      /^[-+*] $/.test(line)
+      /^ {0,3}[-+*] $/.test(line)
     ) {
       return t("untitled");
     }
     if (
       settings.markupStripping.stripMarkupSettings.orderedLists &&
-      /^\d+\. $/.test(line)
+      /^ {0,3}\d+\. $/.test(line)
     ) {
       return t("untitled");
     }
@@ -447,11 +466,15 @@ export function extractTitle(line: string, settings: PluginSettings): string {
     }
 
     // Strip callout markup (check before quote to avoid conflicts)
+    // Uses callback to explicitly handle empty content case
     if (
       settings.markupStripping.enableStripMarkup &&
       settings.markupStripping.stripMarkupSettings.callouts
     ) {
-      line = line.replace(/^>\s*\[![^\]]+\]\s*(.*)$/gm, "$1");
+      line = line.replace(
+        /^>\s*\[![^\]]+\][-+]?(?:\s+(.*))?$/,
+        (_, content) => content ?? "",
+      );
     }
 
     // Strip quote markup
@@ -459,31 +482,31 @@ export function extractTitle(line: string, settings: PluginSettings): string {
       settings.markupStripping.enableStripMarkup &&
       settings.markupStripping.stripMarkupSettings.quote
     ) {
-      line = line.replace(/^>\s*(.*)$/gm, "$1");
+      line = line.replace(/^>\s*(.*)$/, "$1");
     }
 
-    // Strip task list markup BEFORE list markup
+    // Strip task list markup BEFORE list markup (only if original line was a valid task list)
     if (
-      settings.markupStripping.enableStripMarkup &&
+      isOriginallyTaskList &&
       settings.markupStripping.stripMarkupSettings.taskLists
     ) {
-      line = line.replace(/^(?:[-+*]|\d+\.) \[.\] /gm, "");
+      line = line.replace(/^(?:[-+*]|\d+\.) \[.\] /, "");
     }
 
-    // Strip unordered list markup
+    // Strip unordered list markup (only if original line started as unordered list, not task list)
     if (
-      settings.markupStripping.enableStripMarkup &&
+      isOriginallyUnorderedList &&
       settings.markupStripping.stripMarkupSettings.unorderedLists
     ) {
-      line = line.replace(/^[-+*] /gm, "");
+      line = line.replace(/^[-+*] /, "");
     }
 
-    // Strip ordered list markup
+    // Strip ordered list markup (only if original line started as ordered list, not task list)
     if (
-      settings.markupStripping.enableStripMarkup &&
+      isOriginallyOrderedList &&
       settings.markupStripping.stripMarkupSettings.orderedLists
     ) {
-      line = line.replace(/^\d+\. /gm, "");
+      line = line.replace(/^\d+\. /, "");
     }
 
     if (

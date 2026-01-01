@@ -28,6 +28,12 @@ export class AliasManager {
     return this.plugin.settings;
   }
 
+  /**
+   * Parse comma-separated alias property keys from settings.
+   * Called multiple times per operation but not cached since:
+   * - Property string is typically short ("aliases")
+   * - Caching adds complexity without measurable benefit
+   */
   private getAliasPropertyKeys(): string[] {
     const aliasPropertyKey =
       this.settings.aliases.aliasPropertyKey || "aliases";
@@ -257,7 +263,9 @@ export class AliasManager {
     content: string,
   ): Promise<void> {
     try {
-      // Check if file still exists before processing
+      // Validate file exists and get fresh reference from vault.
+      // We also re-validate before each processFrontMatter call to guard against
+      // file deletion during activeView.save().
       const currentFile = this.app.vault.getAbstractFileByPath(file.path);
       if (!currentFile || !(currentFile instanceof TFile)) {
         verboseLog(
@@ -266,7 +274,6 @@ export class AliasManager {
         );
         return;
       }
-
       file = currentFile;
 
       const firstNonEmptyLine = originalFirstNonEmptyLine;
@@ -302,23 +309,29 @@ export class AliasManager {
         }
       }
 
-      // Process alias WITHOUT forbidden char replacements
+      // Process alias WITHOUT forbidden char replacements.
+      // Use try/finally to guarantee settings restoration even if extractTitle throws.
       const originalCharReplacementSetting =
         this.settings.replaceCharacters.enableForbiddenCharReplacements;
       const originalStripMarkupSetting =
         this.settings.markupStripping.enableStripMarkup;
 
-      this.settings.replaceCharacters.enableForbiddenCharReplacements = false;
-      if (!this.settings.markupStripping.stripMarkupInAlias) {
-        this.settings.markupStripping.enableStripMarkup = false;
+      let aliasToAdd: string;
+      try {
+        this.settings.replaceCharacters.enableForbiddenCharReplacements = false;
+        if (!this.settings.markupStripping.stripMarkupInAlias) {
+          this.settings.markupStripping.enableStripMarkup = false;
+        }
+        aliasToAdd = extractTitle(aliasProcessedLine, this.settings);
+      } finally {
+        this.settings.replaceCharacters.enableForbiddenCharReplacements =
+          originalCharReplacementSetting;
+        this.settings.markupStripping.enableStripMarkup =
+          originalStripMarkupSetting;
       }
-
-      let aliasToAdd = extractTitle(aliasProcessedLine, this.settings);
-
-      this.settings.replaceCharacters.enableForbiddenCharReplacements =
-        originalCharReplacementSetting;
-      this.settings.markupStripping.enableStripMarkup =
-        originalStripMarkupSetting;
+      // Re-check alias-matches-filename after custom rules are applied.
+      // The caller (updateAliasIfNeeded) checks this at line 182, but custom replacement
+      // rules (lines 276-303) can modify the alias value differently, so we must verify again.
       const targetTitle = newTitle.trim();
       const aliasMatchesFilename = aliasToAdd.trim() === targetTitle;
       const shouldAddAlias =
@@ -343,17 +356,25 @@ export class AliasManager {
         }
       }
 
-      // If the alias is empty or only whitespace, remove the plugin alias instead
-      if (!aliasToAdd || aliasToAdd.trim() === "") {
+      // If the alias is empty, only whitespace, or just an ellipsis (from extreme truncation),
+      // remove the plugin alias instead - these provide no meaningful value.
+      if (
+        !aliasToAdd ||
+        aliasToAdd.trim() === "" ||
+        aliasToAdd.trim() === "…"
+      ) {
         verboseLog(
           this.plugin,
-          `Removing plugin alias - no non-empty content found`,
+          `Removing plugin alias - no meaningful content found`,
         );
         await this.removePluginAliasesFromFile(file);
         return;
       }
 
-      // Prevent "Untitled" or "Untitled n" aliases UNLESS first line is literally that
+      // Prevent "Untitled" or "Untitled n" aliases UNLESS first line is literally that.
+      // Pattern matches: "Untitled", "Untitled 2", "Untitled 10", etc.
+      // Pattern excludes: "Untitled 0", "Untitled 01" (via [1-9]) to match Obsidian's
+      // auto-numbering which starts at 2 for duplicates.
       const untitledWord = t("untitled").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
       const untitledPattern = new RegExp(`^${untitledWord}(\\s+[1-9]\\d*)?$`);
       if (untitledPattern.test(aliasToAdd.trim())) {
@@ -388,8 +409,7 @@ export class AliasManager {
       const hasFrontmatter = lines.length > 0 && lines[0].trim() === "---";
 
       if (!hasFrontmatter) {
-        // Race condition mitigation: Get current file reference right before processFrontMatter
-        // File could be renamed/deleted between initial check and this point
+        // Re-validate: file could be renamed/deleted during save() above
         const currentFileForFrontmatter = this.app.vault.getAbstractFileByPath(
           file.path,
         );
@@ -429,8 +449,7 @@ export class AliasManager {
         return;
       }
 
-      // Race condition mitigation: Get current file reference right before processFrontMatter
-      // File could be renamed/deleted between initial check and this point
+      // Re-validate: file could be renamed/deleted during save() above
       const currentFileForUpdate = this.app.vault.getAbstractFileByPath(
         file.path,
       );
@@ -442,7 +461,7 @@ export class AliasManager {
         return;
       }
 
-      // File has frontmatter, use processFrontMatter to update aliases
+      // File has frontmatter - update aliases
       const aliasPropertyKeys = this.getAliasPropertyKeys();
       await this.app.fileManager.processFrontMatter(
         currentFileForUpdate,
@@ -584,12 +603,11 @@ export class AliasManager {
     }
   }
 
-  async removePluginAliasesFromFile(
-    file: TFile,
-    forceCompleteRemoval: boolean = false,
-  ): Promise<void> {
+  async removePluginAliasesFromFile(file: TFile): Promise<void> {
     try {
-      // Check if file still exists before processing
+      // Validate file exists and get fresh reference from vault.
+      // We check twice: once here and once before processFrontMatter.
+      // The second check guards against file deletion during activeView.save().
       const currentFile = this.app.vault.getAbstractFileByPath(file.path);
       if (!currentFile || !(currentFile instanceof TFile)) {
         verboseLog(
@@ -598,8 +616,6 @@ export class AliasManager {
         );
         return;
       }
-
-      // Update our file reference to the current one from vault
       file = currentFile;
 
       // Save any unsaved changes before modifying frontmatter
@@ -608,8 +624,7 @@ export class AliasManager {
         await activeView.save();
       }
 
-      // Race condition mitigation: Get current file reference right before processFrontMatter
-      // File could be renamed/deleted between initial check and this point
+      // Re-validate: file could be renamed/deleted during save() above
       const currentFileForRemoval = this.app.vault.getAbstractFileByPath(
         file.path,
       );
@@ -650,10 +665,7 @@ export class AliasManager {
 
               // Update or remove the property based on remaining values
               if (filteredValues.length === 0) {
-                if (
-                  forceCompleteRemoval ||
-                  !this.settings.aliases.keepEmptyAliasProperty
-                ) {
+                if (!this.settings.aliases.keepEmptyAliasProperty) {
                   // Delete empty property completely
                   delete frontmatter[aliasPropertyKey];
                 } else {

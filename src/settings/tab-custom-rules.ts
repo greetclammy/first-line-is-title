@@ -53,14 +53,10 @@ export class CustomReplacementsTab extends SettingsTabBase {
           });
       });
     mainToggle.settingEl.addClass("flit-margin-bottom-12");
+    mainToggle.settingEl.addClass("flit-heading-with-desc");
 
-    new SettingGroup(this.containerEl).addClass("flit-custom-rules-group");
-    const customRulesContainer = this.containerEl.querySelector<HTMLElement>(
-      ".flit-custom-rules-group .setting-items",
-    ) as HTMLElement;
-
-    const customBulletListEl = customRulesContainer.createEl("div", {
-      cls: "setting-item-description flit-margin-top-0",
+    const customBulletListEl = this.containerEl.createEl("div", {
+      cls: "setting-item-description flit-margin-top-15 flit-margin-bottom-15",
     });
 
     const updateCustomDescriptionContent = () => {
@@ -125,6 +121,15 @@ export class CustomReplacementsTab extends SettingsTabBase {
     };
 
     updateCustomDescriptionContent();
+
+    new SettingGroup(this.containerEl).addClass("flit-custom-rules-group");
+    const customRulesContainer = this.containerEl.querySelector<HTMLElement>(
+      ".flit-custom-rules-group .setting-items",
+    );
+    if (!customRulesContainer) {
+      console.error("FLIT: Failed to find custom-rules settings container");
+      return;
+    }
 
     const customReplacementsContainer = customRulesContainer.createDiv({
       cls: "flit-custom-replacements-container",

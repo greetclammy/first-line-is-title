@@ -11,6 +11,7 @@ export class CommandsTab extends SettingsTabBase {
     const ribbonToggle = new Setting(this.containerEl)
       .setName(t("settings.commands.ribbon.title"))
       .setDesc(t("settings.commands.ribbon.desc"))
+      .setHeading()
       .addToggle((toggle) => {
         toggle
           .setValue(this.plugin.settings.core.enableRibbon)
@@ -157,6 +158,7 @@ export class CommandsTab extends SettingsTabBase {
     const paletteToggle = new Setting(this.containerEl)
       .setName(t("settings.commands.palette.title"))
       .setDesc(t("settings.commands.palette.desc"))
+      .setHeading()
       .addToggle((toggle) => {
         toggle
           .setValue(this.plugin.settings.core.enableCommandPalette)
@@ -535,6 +537,7 @@ export class CommandsTab extends SettingsTabBase {
     const fileToggle = new Setting(this.containerEl)
       .setName(t("settings.commands.file.title"))
       .setDesc(t("settings.commands.file.desc"))
+      .setHeading()
       .addToggle((toggle) => {
         toggle
           .setValue(this.plugin.settings.core.enableFileCommands)
@@ -635,6 +638,7 @@ export class CommandsTab extends SettingsTabBase {
     const folderToggle = new Setting(this.containerEl)
       .setName(t("settings.commands.folder.title"))
       .setDesc(t("settings.commands.folder.desc"))
+      .setHeading()
       .addToggle((toggle) => {
         toggle
           .setValue(this.plugin.settings.core.enableFolderCommands)
@@ -739,6 +743,7 @@ export class CommandsTab extends SettingsTabBase {
     const tagToggle = new Setting(this.containerEl)
       .setName(t("settings.commands.tag.title"))
       .setDesc(t("settings.commands.tag.desc"))
+      .setHeading()
       .addToggle((toggle) => {
         toggle
           .setValue(this.plugin.settings.core.enableTagCommands)
@@ -839,6 +844,7 @@ export class CommandsTab extends SettingsTabBase {
     const searchToggle = new Setting(this.containerEl)
       .setName(t("settings.commands.search.title"))
       .setDesc(t("settings.commands.search.desc"))
+      .setHeading()
       .addToggle((toggle) => {
         toggle
           .setValue(this.plugin.settings.core.enableVaultSearchContextMenu)
