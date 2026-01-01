@@ -273,7 +273,7 @@ export class GeneralTab extends SettingsTabBase {
     });
     button.addEventListener("click", () => {
       window.open(
-        "https://github.com/greetclammy/first-line-is-title?tab=readme-ov-file#%EF%B8%8F-support",
+        "https://github.com/greetclammy/first-line-is-title/issues",
         "_blank",
       );
     });
