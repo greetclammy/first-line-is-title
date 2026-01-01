@@ -114,7 +114,6 @@ export class ForbiddenCharsTab extends SettingsTabBase {
             ).updateGeneralConditionalSettings?.();
           });
       });
-    mainToggle.settingEl.addClass("flit-heading-no-border");
 
     const charSettingsContainer = this.containerEl.createDiv({
       cls: "flit-char-settings-container",

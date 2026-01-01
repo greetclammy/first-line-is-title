@@ -1,4 +1,5 @@
-import { Setting, setIcon } from "obsidian";
+/* eslint-disable @typescript-eslint/no-misused-promises */
+import { Setting, SettingGroup, setIcon } from "obsidian";
 import { SettingsTabBase, FirstLineIsTitlePlugin } from "./settings-base";
 import { RenameAllFilesModal } from "../modals";
 import { t, getCurrentLocale } from "../i18n";
@@ -9,8 +10,17 @@ export class GeneralTab extends SettingsTabBase {
   }
 
   render(): void {
-    let renameOnFocusContainer: HTMLElement;
+    // Declare variables for settings that need references
+    let renameNotesSetting: Setting;
+    let moveCursorSetting: Setting;
+    let insertTitleSetting: Setting;
 
+    // Sub-settings containers
+    let renameOnFocusContainer: HTMLElement;
+    let cursorOptionsContainer: HTMLElement;
+    let insertTitleOptionsContainer: HTMLElement;
+
+    // Visibility update functions
     const updateAutomaticRenameVisibility = () => {
       if (this.plugin.settings.core.renameNotes === "automatically") {
         renameOnFocusContainer.show();
@@ -19,120 +29,6 @@ export class GeneralTab extends SettingsTabBase {
       }
     };
 
-    // 1. rename notes
-    new Setting(this.containerEl)
-      .setName(t("settings.general.renameNotes.name"))
-      .setDesc(t("settings.general.renameNotes.desc"))
-      .addDropdown((dropdown) =>
-        dropdown
-          .addOption(
-            "automatically",
-            t("settings.general.renameNotes.automatically"),
-          )
-          .addOption("manually", t("settings.general.renameNotes.manually"))
-          .setValue(this.plugin.settings.core.renameNotes)
-          .onChange(async (value) => {
-            this.plugin.settings.core.renameNotes = value as
-              | "automatically"
-              | "manually";
-            this.plugin.debugLog("renameNotes", value);
-            await this.plugin.saveSettings();
-            updateAutomaticRenameVisibility();
-          }),
-      );
-
-    // Create shared container for automatic rename sub-options
-    const automaticRenameContainer =
-      this.containerEl.createDiv("flit-sub-settings");
-
-    // Create sub-option for rename on focus
-    new Setting(automaticRenameContainer)
-      .setName(t("settings.general.renameOnFocus.name"))
-      .setDesc(t("settings.general.renameOnFocus.desc"))
-      .addToggle((toggle) =>
-        toggle
-          .setValue(this.plugin.settings.core.renameOnFocus)
-          .onChange(async (value) => {
-            this.plugin.settings.core.renameOnFocus = value;
-            this.plugin.debugLog("renameOnFocus", value);
-            await this.plugin.saveSettings();
-          }),
-      );
-
-    // Alias container for visibility updates
-    renameOnFocusContainer = automaticRenameContainer;
-
-    // Set initial visibility
-    updateAutomaticRenameVisibility();
-
-    // Only rename if heading
-    new Setting(this.containerEl)
-      .setName(t("settings.general.onlyRenameIfHeading.name"))
-      .setDesc(t("settings.general.onlyRenameIfHeading.desc"))
-      .addToggle((toggle) =>
-        toggle
-          .setValue(this.plugin.settings.core.onlyRenameIfHeading)
-          .onChange(async (value) => {
-            this.plugin.settings.core.onlyRenameIfHeading = value;
-            this.plugin.debugLog("onlyRenameIfHeading", value);
-            await this.plugin.saveSettings();
-          }),
-      );
-
-    // Title case
-    new Setting(this.containerEl)
-      .setName(t("settings.general.titleCase.name"))
-      .setDesc(t("settings.general.titleCase.desc"))
-      .addDropdown((dropdown) =>
-        dropdown
-          .addOption("preserve", t("settings.general.titleCase.preserve"))
-          .addOption("uppercase", t("settings.general.titleCase.uppercase"))
-          .addOption("lowercase", t("settings.general.titleCase.lowercase"))
-          .setValue(this.plugin.settings.core.titleCase)
-          .onChange(async (value) => {
-            this.plugin.settings.core.titleCase = value as
-              | "preserve"
-              | "uppercase"
-              | "lowercase";
-            this.plugin.debugLog("titleCase", value);
-            await this.plugin.saveSettings();
-          }),
-      );
-
-    // Move cursor to first line
-    new Setting(this.containerEl)
-      .setName(t("settings.general.moveCursorToFirstLine.name"))
-      .setDesc(t("settings.general.moveCursorToFirstLine.desc"))
-      .addToggle((toggle) =>
-        toggle
-          .setValue(this.plugin.settings.core.moveCursorToFirstLine)
-          .onChange(async (value) => {
-            this.plugin.settings.core.moveCursorToFirstLine = value;
-            this.plugin.debugLog("moveCursorToFirstLine", value);
-            await this.plugin.saveSettings();
-            updateCursorOptionsVisibility();
-          }),
-      );
-
-    // Create cursor options sub-container
-    const cursorOptionsContainer =
-      this.containerEl.createDiv("flit-sub-settings");
-
-    // Place cursor at line end
-    new Setting(cursorOptionsContainer)
-      .setName(t("settings.general.placeCursorAtLineEnd.name"))
-      .setDesc(t("settings.general.placeCursorAtLineEnd.desc"))
-      .addToggle((toggle) =>
-        toggle
-          .setValue(this.plugin.settings.core.placeCursorAtLineEnd)
-          .onChange(async (value) => {
-            this.plugin.settings.core.placeCursorAtLineEnd = value;
-            this.plugin.debugLog("placeCursorAtLineEnd", value);
-            await this.plugin.saveSettings();
-          }),
-      );
-
-    // Define cursor options visibility function
     const updateCursorOptionsVisibility = () => {
       if (this.plugin.settings.core.moveCursorToFirstLine) {
         cursorOptionsContainer.show();
@@ -141,16 +37,138 @@ export class GeneralTab extends SettingsTabBase {
       }
     };
 
-    // Set initial visibility for cursor options
-    updateCursorOptionsVisibility();
+    const updateInsertTitleOptionsVisibility = () => {
+      if (this.plugin.settings.core.insertTitleOnCreation) {
+        insertTitleOptionsContainer.show();
+      } else {
+        insertTitleOptionsContainer.hide();
+      }
+    };
 
-    // Insert title in first line on note creation
-    const insertTitleSetting = new Setting(this.containerEl)
-      .setName(t("settings.general.insertTitleOnCreation.name"))
-      .setDesc("");
+    // General settings using SettingGroup
+    new SettingGroup(this.containerEl)
+      .addClass("flit-general-group")
+      // 1. Rename notes
+      .addSetting((s) => {
+        renameNotesSetting = s;
+        s.setName(t("settings.general.renameNotes.name"))
+          .setDesc(t("settings.general.renameNotes.desc"))
+          .addDropdown((dropdown) =>
+            dropdown
+              .addOption(
+                "automatically",
+                t("settings.general.renameNotes.automatically"),
+              )
+              .addOption("manually", t("settings.general.renameNotes.manually"))
+              .setValue(this.plugin.settings.core.renameNotes)
+              .onChange(async (value) => {
+                this.plugin.settings.core.renameNotes = value as
+                  | "automatically"
+                  | "manually";
+                this.plugin.debugLog("renameNotes", value);
+                await this.plugin.saveSettings();
+                updateAutomaticRenameVisibility();
+              }),
+          );
+      })
+      // 2. Only rename if heading
+      .addSetting((s) =>
+        s
+          .setName(t("settings.general.onlyRenameIfHeading.name"))
+          .setDesc(t("settings.general.onlyRenameIfHeading.desc"))
+          .addToggle((toggle) =>
+            toggle
+              .setValue(this.plugin.settings.core.onlyRenameIfHeading)
+              .onChange(async (value) => {
+                this.plugin.settings.core.onlyRenameIfHeading = value;
+                this.plugin.debugLog("onlyRenameIfHeading", value);
+                await this.plugin.saveSettings();
+              }),
+          ),
+      )
+      // 3. Title case
+      .addSetting((s) =>
+        s
+          .setName(t("settings.general.titleCase.name"))
+          .setDesc(t("settings.general.titleCase.desc"))
+          .addDropdown((dropdown) =>
+            dropdown
+              .addOption("preserve", t("settings.general.titleCase.preserve"))
+              .addOption("uppercase", t("settings.general.titleCase.uppercase"))
+              .addOption("lowercase", t("settings.general.titleCase.lowercase"))
+              .setValue(this.plugin.settings.core.titleCase)
+              .onChange(async (value) => {
+                this.plugin.settings.core.titleCase = value as
+                  | "preserve"
+                  | "uppercase"
+                  | "lowercase";
+                this.plugin.debugLog("titleCase", value);
+                await this.plugin.saveSettings();
+              }),
+          ),
+      )
+      // 4. Move cursor to first line
+      .addSetting((s) => {
+        moveCursorSetting = s;
+        s.setName(t("settings.general.moveCursorToFirstLine.name"))
+          .setDesc(t("settings.general.moveCursorToFirstLine.desc"))
+          .addToggle((toggle) =>
+            toggle
+              .setValue(this.plugin.settings.core.moveCursorToFirstLine)
+              .onChange(async (value) => {
+                this.plugin.settings.core.moveCursorToFirstLine = value;
+                this.plugin.debugLog("moveCursorToFirstLine", value);
+                await this.plugin.saveSettings();
+                updateCursorOptionsVisibility();
+              }),
+          );
+      })
+      // 5. Insert title in first line on note creation
+      .addSetting((s) => {
+        insertTitleSetting = s;
+        s.setName(t("settings.general.insertTitleOnCreation.name")).addToggle(
+          (toggle) =>
+            toggle
+              .setValue(this.plugin.settings.core.insertTitleOnCreation)
+              .onChange(async (value) => {
+                this.plugin.settings.core.insertTitleOnCreation = value;
+                this.plugin.debugLog("insertTitleOnCreation", value);
+                await this.plugin.saveSettings();
+                updateInsertTitleOptionsVisibility();
+              }),
+        );
+      })
+      // 6. Rename on save
+      .addSetting((s) =>
+        s
+          .setName(t("settings.general.renameOnSave.name"))
+          .setDesc(t("settings.general.renameOnSave.desc"))
+          .addToggle((toggle) =>
+            toggle
+              .setValue(this.plugin.settings.core.renameOnSave)
+              .onChange(async (value) => {
+                this.plugin.settings.core.renameOnSave = value;
+                this.plugin.debugLog("renameOnSave", value);
+                await this.plugin.saveSettings();
+              }),
+          ),
+      )
+      // 7. Rename all notes
+      .addSetting((s) =>
+        s
+          .setName(t("settings.general.renameAllNotes.name"))
+          .setDesc(t("settings.general.renameAllNotes.desc"))
+          .addButton((button) =>
+            button
+              .setButtonText(t("settings.general.renameAllNotes.button"))
+              .onClick(() => {
+                new RenameAllFilesModal(this.plugin.app, this.plugin).open();
+              }),
+          ),
+      );
 
-    // Create styled description
-    const insertTitleDesc = insertTitleSetting.descEl;
+    // Add styled description for insertTitleSetting
+    const insertTitleDesc = insertTitleSetting!.descEl;
     insertTitleDesc.appendText(
       t("settings.general.insertTitleOnCreation.desc.part1"),
     );
@@ -167,27 +185,61 @@ export class GeneralTab extends SettingsTabBase {
       t("settings.general.insertTitleOnCreation.desc.part2"),
     );
 
-    insertTitleSetting.addToggle((toggle) =>
-      toggle
-        .setValue(this.plugin.settings.core.insertTitleOnCreation)
-        .onChange(async (value) => {
-          this.plugin.settings.core.insertTitleOnCreation = value;
-          this.plugin.debugLog("insertTitleOnCreation", value);
-          await this.plugin.saveSettings();
-          updateInsertTitleOptionsVisibility();
-        }),
+    // Get the setting-items container for sub-settings
+    const settingItems = this.containerEl.querySelector(
+      ".flit-general-group .setting-items",
     );
 
-    // Create insert title options sub-container
-    const insertTitleOptionsContainer =
-      this.containerEl.createDiv("flit-sub-settings");
+    // Create sub-settings containers inside setting-items
+    // Position them after their parent settings
+    renameOnFocusContainer = (settingItems ?? this.containerEl).createDiv(
+      "flit-sub-settings",
+    );
+    renameNotesSetting!.settingEl.after(renameOnFocusContainer);
 
-    // Convert character replacements
+    cursorOptionsContainer = (settingItems ?? this.containerEl).createDiv(
+      "flit-sub-settings",
+    );
+    moveCursorSetting!.settingEl.after(cursorOptionsContainer);
+
+    insertTitleOptionsContainer = (settingItems ?? this.containerEl).createDiv(
+      "flit-sub-settings",
+    );
+    insertTitleSetting!.settingEl.after(insertTitleOptionsContainer);
+
+    // Sub-setting: Rename on focus
+    new Setting(renameOnFocusContainer)
+      .setName(t("settings.general.renameOnFocus.name"))
+      .setDesc(t("settings.general.renameOnFocus.desc"))
+      .addToggle((toggle) =>
+        toggle
+          .setValue(this.plugin.settings.core.renameOnFocus)
+          .onChange(async (value) => {
+            this.plugin.settings.core.renameOnFocus = value;
+            this.plugin.debugLog("renameOnFocus", value);
+            await this.plugin.saveSettings();
+          }),
+      );
+
+    // Sub-setting: Place cursor at line end
+    new Setting(cursorOptionsContainer)
+      .setName(t("settings.general.placeCursorAtLineEnd.name"))
+      .setDesc(t("settings.general.placeCursorAtLineEnd.desc"))
+      .addToggle((toggle) =>
+        toggle
+          .setValue(this.plugin.settings.core.placeCursorAtLineEnd)
+          .onChange(async (value) => {
+            this.plugin.settings.core.placeCursorAtLineEnd = value;
+            this.plugin.debugLog("placeCursorAtLineEnd", value);
+            await this.plugin.saveSettings();
+          }),
+      );
+
+    // Sub-setting: Convert character replacements
     const convertCharsSetting = new Setting(insertTitleOptionsContainer)
       .setName(t("settings.general.convertReplacementCharactersInTitle.name"))
       .setDesc("");
 
-    // Create styled description
     const convertCharsDesc = convertCharsSetting.descEl;
     convertCharsDesc.appendText(
       t("settings.general.convertReplacementCharactersInTitle.desc.part1"),
@@ -211,7 +263,7 @@ export class GeneralTab extends SettingsTabBase {
         }),
     );
 
-    // Format as heading
+    // Sub-setting: Format as heading
     new Setting(insertTitleOptionsContainer)
       .setName(t("settings.general.formatAsHeading.name"))
       .setDesc(t("settings.general.formatAsHeading.desc"))
@@ -225,43 +277,10 @@ export class GeneralTab extends SettingsTabBase {
           }),
       );
 
-    // Define insert title options visibility function
-    const updateInsertTitleOptionsVisibility = () => {
-      if (this.plugin.settings.core.insertTitleOnCreation) {
-        insertTitleOptionsContainer.show();
-      } else {
-        insertTitleOptionsContainer.hide();
-      }
-    };
-
-    // Set initial visibility for insert title options
+    // Set initial visibility for all sub-settings
+    updateAutomaticRenameVisibility();
+    updateCursorOptionsVisibility();
     updateInsertTitleOptionsVisibility();
-
-    // Rename on save
-    new Setting(this.containerEl)
-      .setName(t("settings.general.renameOnSave.name"))
-      .setDesc(t("settings.general.renameOnSave.desc"))
-      .addToggle((toggle) =>
-        toggle
-          .setValue(this.plugin.settings.core.renameOnSave)
-          .onChange(async (value) => {
-            this.plugin.settings.core.renameOnSave = value;
-            this.plugin.debugLog("renameOnSave", value);
-            await this.plugin.saveSettings();
-          }),
-      );
-
-    // Rename all notes (moved to end)
-    new Setting(this.containerEl)
-      .setName(t("settings.general.renameAllNotes.name"))
-      .setDesc(t("settings.general.renameAllNotes.desc"))
-      .addButton((button) =>
-        button
-          .setButtonText(t("settings.general.renameAllNotes.button"))
-          .onClick(() => {
-            new RenameAllFilesModal(this.plugin.app, this.plugin).open();
-          }),
-      );
 
     // Feedback button (commander-style)
     const feedbackContainer = this.containerEl.createEl("div", {

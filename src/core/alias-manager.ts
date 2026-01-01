@@ -366,11 +366,12 @@ export class AliasManager {
           // - Empty headings: `#`, `##`, etc.
           // - Empty list markers: `- `, `* `, `1. `, etc.
           // - Template syntax: `<%*`, `<% tp.file.cursor() %>`, etc.
-          // Skip alias addition entirely (don't add, don't remove)
+          // Remove any stale plugin aliases since there's no valid content
           verboseLog(
             this.plugin,
-            `Skipping alias addition - extracted title is "Untitled" from markup: ${originalFirstLineTrimmed}`,
+            `Removing stale aliases - extracted title is "Untitled" from markup: ${originalFirstLineTrimmed}`,
           );
+          await this.removePluginAliasesFromFile(file);
           return;
         }
       }

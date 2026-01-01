@@ -1,4 +1,4 @@
-import { Setting, setIcon } from "obsidian";
+import { Setting, SettingGroup, setIcon } from "obsidian";
 import { SettingsTabBase, FirstLineIsTitlePlugin } from "./settings-base";
 import { t, getCurrentLocale } from "../i18n";
 
@@ -8,10 +8,9 @@ export class CommandsTab extends SettingsTabBase {
   }
 
   render(): void {
-    new Setting(this.containerEl)
+    const ribbonToggle = new Setting(this.containerEl)
       .setName(t("settings.commands.ribbon.title"))
       .setDesc(t("settings.commands.ribbon.desc"))
-      .setHeading()
       .addToggle((toggle) => {
         toggle
           .setValue(this.plugin.settings.core.enableRibbon)
@@ -22,8 +21,12 @@ export class CommandsTab extends SettingsTabBase {
             updateRibbonUI();
           });
       });
+    ribbonToggle.settingEl.addClass("flit-master-toggle");
 
-    const ribbonContainer = this.containerEl.createDiv();
+    new SettingGroup(this.containerEl).addClass("flit-ribbon-group");
+    const ribbonContainer = this.containerEl.querySelector<HTMLElement>(
+      ".flit-ribbon-group .setting-items",
+    ) as HTMLElement;
 
     const updateRibbonUI = () => {
       if (this.plugin.settings.core.enableRibbon) {
@@ -150,10 +153,10 @@ export class CommandsTab extends SettingsTabBase {
     );
 
     updateRibbonUI();
-    new Setting(this.containerEl)
+
+    const paletteToggle = new Setting(this.containerEl)
       .setName(t("settings.commands.palette.title"))
       .setDesc(t("settings.commands.palette.desc"))
-      .setHeading()
       .addToggle((toggle) => {
         toggle
           .setValue(this.plugin.settings.core.enableCommandPalette)
@@ -164,9 +167,12 @@ export class CommandsTab extends SettingsTabBase {
             updateCommandPaletteUI();
           });
       });
+    paletteToggle.settingEl.addClass("flit-master-toggle");
 
-    const commandPaletteContainer = this.containerEl.createDiv();
-    commandPaletteContainer.addClass("flit-master-disable-target");
+    new SettingGroup(this.containerEl).addClass("flit-palette-group");
+    const commandPaletteContainer = this.containerEl.querySelector<HTMLElement>(
+      ".flit-palette-group .setting-items",
+    ) as HTMLElement;
 
     const updateCommandPaletteUI = () => {
       if (this.plugin.settings.core.enableCommandPalette) {
@@ -525,10 +531,10 @@ export class CommandsTab extends SettingsTabBase {
     );
 
     updateCommandPaletteUI();
-    new Setting(this.containerEl)
+
+    const fileToggle = new Setting(this.containerEl)
       .setName(t("settings.commands.file.title"))
       .setDesc(t("settings.commands.file.desc"))
-      .setHeading()
       .addToggle((toggle) => {
         toggle
           .setValue(this.plugin.settings.core.enableFileCommands)
@@ -539,9 +545,12 @@ export class CommandsTab extends SettingsTabBase {
             updateFileUI();
           });
       });
+    fileToggle.settingEl.addClass("flit-master-toggle");
 
-    const fileContainer = this.containerEl.createDiv();
-    fileContainer.addClass("flit-master-disable-target");
+    new SettingGroup(this.containerEl).addClass("flit-file-group");
+    const fileContainer = this.containerEl.querySelector<HTMLElement>(
+      ".flit-file-group .setting-items",
+    ) as HTMLElement;
 
     const updateFileUI = () => {
       if (this.plugin.settings.core.enableFileCommands) {
@@ -623,10 +632,9 @@ export class CommandsTab extends SettingsTabBase {
       fileEnableSetting.nameEl.firstChild,
     );
 
-    new Setting(this.containerEl)
+    const folderToggle = new Setting(this.containerEl)
       .setName(t("settings.commands.folder.title"))
       .setDesc(t("settings.commands.folder.desc"))
-      .setHeading()
       .addToggle((toggle) => {
         toggle
           .setValue(this.plugin.settings.core.enableFolderCommands)
@@ -637,9 +645,12 @@ export class CommandsTab extends SettingsTabBase {
             updateFolderUI();
           });
       });
+    folderToggle.settingEl.addClass("flit-master-toggle");
 
-    const folderContainer = this.containerEl.createDiv();
-    folderContainer.addClass("flit-master-disable-target");
+    new SettingGroup(this.containerEl).addClass("flit-folder-group");
+    const folderContainer = this.containerEl.querySelector<HTMLElement>(
+      ".flit-folder-group .setting-items",
+    ) as HTMLElement;
 
     const updateFolderUI = () => {
       if (this.plugin.settings.core.enableFolderCommands) {
@@ -725,10 +736,9 @@ export class CommandsTab extends SettingsTabBase {
       folderEnableSetting.nameEl.firstChild,
     );
 
-    new Setting(this.containerEl)
+    const tagToggle = new Setting(this.containerEl)
       .setName(t("settings.commands.tag.title"))
       .setDesc(t("settings.commands.tag.desc"))
-      .setHeading()
       .addToggle((toggle) => {
         toggle
           .setValue(this.plugin.settings.core.enableTagCommands)
@@ -739,9 +749,12 @@ export class CommandsTab extends SettingsTabBase {
             updateTagUI();
           });
       });
+    tagToggle.settingEl.addClass("flit-master-toggle");
 
-    const tagContainer = this.containerEl.createDiv();
-    tagContainer.addClass("flit-master-disable-target");
+    new SettingGroup(this.containerEl).addClass("flit-tag-group");
+    const tagContainer = this.containerEl.querySelector<HTMLElement>(
+      ".flit-tag-group .setting-items",
+    ) as HTMLElement;
 
     const updateTagUI = () => {
       if (this.plugin.settings.core.enableTagCommands) {
@@ -823,10 +836,9 @@ export class CommandsTab extends SettingsTabBase {
       tagEnableSetting.nameEl.firstChild,
     );
 
-    new Setting(this.containerEl)
+    const searchToggle = new Setting(this.containerEl)
       .setName(t("settings.commands.search.title"))
       .setDesc(t("settings.commands.search.desc"))
-      .setHeading()
       .addToggle((toggle) => {
         toggle
           .setValue(this.plugin.settings.core.enableVaultSearchContextMenu)
@@ -837,11 +849,12 @@ export class CommandsTab extends SettingsTabBase {
             updateVaultSearchUI();
           });
       });
+    searchToggle.settingEl.addClass("flit-master-toggle");
 
-    const vaultSearchContainer = this.containerEl.createDiv({
-      cls: "flit-vault-search-container",
-    });
-    vaultSearchContainer.addClass("flit-master-disable-target");
+    new SettingGroup(this.containerEl).addClass("flit-search-group");
+    const vaultSearchContainer = this.containerEl.querySelector<HTMLElement>(
+      ".flit-search-group .setting-items",
+    ) as HTMLElement;
 
     const updateVaultSearchUI = () => {
       if (this.plugin.settings.core.enableVaultSearchContextMenu) {

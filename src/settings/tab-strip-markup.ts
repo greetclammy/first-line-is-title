@@ -1,4 +1,4 @@
-import { Setting } from "obsidian";
+import { Setting, SettingGroup } from "obsidian";
 import { SettingsTabBase, FirstLineIsTitlePlugin } from "./settings-base";
 import { t, getCurrentLocale } from "../i18n";
 
@@ -8,10 +8,10 @@ export class StripMarkupTab extends SettingsTabBase {
   }
 
   render(): void {
-    const mainToggle = new Setting(this.containerEl)
+    // Main toggle (not part of group)
+    const mainToggleSetting = new Setting(this.containerEl)
       .setName(t("settings.stripMarkup.name"))
       .setDesc(t("settings.stripMarkup.desc"))
-      .setHeading()
       .addToggle((toggle) => {
         toggle
           .setValue(this.plugin.settings.markupStripping.enableStripMarkup)
@@ -19,7 +19,6 @@ export class StripMarkupTab extends SettingsTabBase {
             this.plugin.settings.markupStripping.enableStripMarkup = value;
             this.plugin.debugLog("enableStripMarkup", value);
 
-            // Auto-toggle OFF dependent settings when disabling
             if (!value) {
               if (this.plugin.settings.markupStripping.stripMarkupInAlias) {
                 this.plugin.settings.markupStripping.stripMarkupInAlias = false;
@@ -41,11 +40,16 @@ export class StripMarkupTab extends SettingsTabBase {
             ).updateAliasConditionalSettings?.();
           });
       });
-    mainToggle.settingEl.addClass("flit-heading-no-border");
 
-    const stripMarkupContainer = this.containerEl.createDiv({
-      cls: "flit-strip-markup-container",
-    });
+    // Style the main toggle as a heading
+    mainToggleSetting.settingEl.addClass("flit-master-toggle");
+
+    new SettingGroup(this.containerEl).addClass("flit-strip-markup-group");
+
+    // Get the setting-items container
+    const stripMarkupContainer = this.containerEl.querySelector<HTMLElement>(
+      ".flit-strip-markup-group .setting-items",
+    ) as HTMLElement;
 
     const updateStripMarkupUI = () => {
       this.updateInteractiveState(
