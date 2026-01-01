@@ -41,7 +41,7 @@ export default defineConfig([
       "main.js",
       "*.config.mjs",
       "version-bump.mjs",
-      "test/**",
+      "tests/**",
       "vitest.config.ts",
     ],
   },

@@ -1001,25 +1001,26 @@ export class ClearSettingsModal extends Modal {
     this.setTitle(t("modals.caution"));
     contentEl.createEl("p", {
       text: t("modals.resetAllSettings"),
+      cls: "mod-warning",
     });
 
     const buttonContainer = contentEl.createDiv({
       cls: "modal-button-container flit-modal-button-container",
     });
 
-    const cancelButton = buttonContainer.createEl("button", {
-      text: t("modals.buttons.cancel"),
-    });
-    cancelButton.onclick = () => this.close();
-
     const clearButton = buttonContainer.createEl("button", {
-      text: t("settings.other.clearSettings.modalButton"),
+      text: t("modals.buttons.clear"),
     });
     clearButton.addClass("mod-warning");
     clearButton.onclick = async () => {
       this.close();
       await this.onConfirm();
     };
+
+    const cancelButton = buttonContainer.createEl("button", {
+      text: t("modals.buttons.cancel"),
+    });
+    cancelButton.onclick = () => this.close();
   }
 
   onClose() {

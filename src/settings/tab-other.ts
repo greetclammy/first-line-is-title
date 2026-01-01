@@ -260,7 +260,7 @@ export class OtherTab extends SettingsTabBase {
           .setDesc(t("settings.other.clearSettings.desc"))
           .addButton((button) => {
             button
-              .setButtonText(t("modals.buttons.clearSettings"))
+              .setButtonText(t("modals.buttons.clear"))
               .setWarning()
               .onClick(() => {
                 new ClearSettingsModal(

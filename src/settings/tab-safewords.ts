@@ -9,7 +9,7 @@ export class SafewordsTab extends SettingsTabBase {
   }
 
   render(): void {
-    const mainToggle = new Setting(this.containerEl)
+    new Setting(this.containerEl)
       .setName(t("settings.safewords.enableSafewords.name"))
       .setDesc(t("settings.safewords.enableSafewords.desc"))
       .setHeading()
@@ -37,7 +37,11 @@ export class SafewordsTab extends SettingsTabBase {
     new SettingGroup(this.containerEl).addClass("flit-safewords-group");
     const safewordsContainer = this.containerEl.querySelector<HTMLElement>(
       ".flit-safewords-group .setting-items",
-    ) as HTMLElement;
+    );
+    if (!safewordsContainer) {
+      console.error("FLIT: Failed to find safewords settings container");
+      return;
+    }
 
     const updateSafewordsUI = () => {
       // Update master disable state for entire section

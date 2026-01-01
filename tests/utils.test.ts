@@ -6,6 +6,7 @@ import {
   canModifyFile,
   hasDisablePropertyInFile,
   containsSafeword,
+  extractTitle,
 } from "../src/utils";
 import { createTestSettings, createMockFile, createMockApp } from "./testUtils";
 import { PluginSettings } from "../src/types";
@@ -488,6 +489,210 @@ describe("utils", () => {
       settings.safewords.safewords[0].text = "  draft  ";
 
       expect(containsSafeword("  draft  .md", settings)).toBe(true);
+    });
+  });
+
+  describe("extractTitle", () => {
+    beforeEach(() => {
+      // Enable all markup stripping by default for tests
+      settings.markupStripping.enableStripMarkup = true;
+      settings.markupStripping.stripMarkupSettings.callouts = true;
+      settings.markupStripping.stripMarkupSettings.quote = true;
+      settings.markupStripping.stripMarkupSettings.taskLists = true;
+      settings.markupStripping.stripMarkupSettings.unorderedLists = true;
+      settings.markupStripping.stripMarkupSettings.orderedLists = true;
+    });
+
+    describe("callout markup stripping", () => {
+      it("should strip callout and return title", () => {
+        expect(extractTitle("> [!note] My Title", settings)).toBe("My Title");
+      });
+
+      it("should handle folded callout with no title", () => {
+        expect(extractTitle("> [!note]-", settings)).toBe("Untitled");
+      });
+
+      it("should handle expanded callout with no title", () => {
+        expect(extractTitle("> [!note]+", settings)).toBe("Untitled");
+      });
+
+      it("should handle callout with trailing space only", () => {
+        expect(extractTitle("> [!note]+ ", settings)).toBe("Untitled");
+      });
+
+      it("should handle folded callout with title", () => {
+        expect(extractTitle("> [!note]- My Title", settings)).toBe("My Title");
+      });
+
+      it("should handle expanded callout with title", () => {
+        expect(extractTitle("> [!note]+ My Title", settings)).toBe("My Title");
+      });
+
+      it("should preserve dash in callout title content", () => {
+        expect(extractTitle("> [!note] - hello", settings)).toBe("- hello");
+      });
+
+      it("should preserve plus in callout title content", () => {
+        expect(extractTitle("> [!note] + hello", settings)).toBe("+ hello");
+      });
+
+      it("should handle callout with no fold indicator and no title", () => {
+        expect(extractTitle("> [!warning]", settings)).toBe("Untitled");
+      });
+    });
+
+    describe("task list context awareness", () => {
+      it("should strip task list when enabled", () => {
+        expect(extractTitle("- [x] My Task", settings)).toBe("My Task");
+      });
+
+      it("should NOT strip task list marker when only unordered list stripping enabled", () => {
+        settings.markupStripping.stripMarkupSettings.taskLists = false;
+        settings.markupStripping.stripMarkupSettings.unorderedLists = true;
+
+        // Task list should NOT have its marker stripped as unordered list
+        expect(extractTitle("- [x] My Task", settings)).toBe("- [x] My Task");
+      });
+
+      it("should NOT strip ordered task list marker when only ordered list stripping enabled", () => {
+        settings.markupStripping.stripMarkupSettings.taskLists = false;
+        settings.markupStripping.stripMarkupSettings.orderedLists = true;
+
+        // Task list should NOT have its marker stripped as ordered list
+        expect(extractTitle("1. [x] My Task", settings)).toBe("1. [x] My Task");
+      });
+
+      it("should strip task list checkbox for ordered task list", () => {
+        expect(extractTitle("1. [x] My Task", settings)).toBe("My Task");
+      });
+
+      it("should handle empty task list marker", () => {
+        expect(extractTitle("- [ ] ", settings)).toBe("Untitled");
+      });
+
+      it("should handle indented empty task list marker", () => {
+        expect(extractTitle("  - [x] ", settings)).toBe("Untitled");
+      });
+    });
+
+    describe("unordered list context awareness", () => {
+      it("should strip unordered list marker", () => {
+        expect(extractTitle("- My Item", settings)).toBe("My Item");
+      });
+
+      it("should handle indented empty unordered list marker (0-3 spaces)", () => {
+        expect(extractTitle("  - ", settings)).toBe("Untitled");
+      });
+
+      it("should handle 3-space indented empty list marker", () => {
+        expect(extractTitle("   - ", settings)).toBe("Untitled");
+      });
+
+      it("should NOT strip list marker with 4+ spaces (code block)", () => {
+        // 4 spaces = code block per CommonMark spec
+        expect(extractTitle("    - item", settings)).toBe("- item");
+      });
+
+      it("should NOT strip list-like content after callout stripping", () => {
+        // Original line is callout, not list - should preserve dash in title
+        expect(extractTitle("> [!info] - hello there", settings)).toBe(
+          "- hello there",
+        );
+      });
+
+      it("should NOT strip list-like content after quote stripping", () => {
+        // After quote stripped, "- hello" remains but shouldn't be stripped as list
+        // because original line was a quote, not a list
+        settings.markupStripping.stripMarkupSettings.callouts = false;
+        expect(extractTitle("> - hello there", settings)).toBe("- hello there");
+      });
+    });
+
+    describe("ordered list context awareness", () => {
+      it("should strip ordered list marker", () => {
+        expect(extractTitle("1. My Item", settings)).toBe("My Item");
+      });
+
+      it("should handle indented empty ordered list marker", () => {
+        expect(extractTitle("  1. ", settings)).toBe("Untitled");
+      });
+
+      it("should NOT strip ordered list marker with 4+ spaces (code block)", () => {
+        expect(extractTitle("    1. item", settings)).toBe("1. item");
+      });
+
+      it("should NOT strip ordered list-like content after callout stripping", () => {
+        expect(extractTitle("> [!info] 1. hello", settings)).toBe("1. hello");
+      });
+    });
+
+    describe("quote markup stripping", () => {
+      it("should strip quote markup", () => {
+        settings.markupStripping.stripMarkupSettings.callouts = false;
+        expect(extractTitle("> My Quote", settings)).toBe("My Quote");
+      });
+
+      it("should handle empty quote", () => {
+        settings.markupStripping.stripMarkupSettings.callouts = false;
+        expect(extractTitle("> ", settings)).toBe("Untitled");
+      });
+    });
+
+    describe("indentation and code block detection", () => {
+      it("should treat 0-space indent as valid list", () => {
+        expect(extractTitle("- item", settings)).toBe("item");
+      });
+
+      it("should treat 1-space indent as valid list", () => {
+        expect(extractTitle(" - item", settings)).toBe("item");
+      });
+
+      it("should treat 2-space indent as valid list", () => {
+        expect(extractTitle("  - item", settings)).toBe("item");
+      });
+
+      it("should treat 3-space indent as valid list", () => {
+        expect(extractTitle("   - item", settings)).toBe("item");
+      });
+
+      it("should treat 4-space indent as code block (no strip)", () => {
+        expect(extractTitle("    - item", settings)).toBe("- item");
+      });
+
+      it("should treat 5+ space indent as code block (no strip)", () => {
+        expect(extractTitle("     - item", settings)).toBe("- item");
+      });
+
+      it("should treat tab indent as code block (no strip)", () => {
+        // Tab expands to column 4 per CommonMark, so it's a code block
+        expect(extractTitle("\t- item", settings)).toBe("- item");
+      });
+
+      it("should treat space+tab indent as code block (no strip)", () => {
+        // Space (col 1) + tab (expands to col 4) = 4 visual spaces = code block
+        expect(extractTitle(" \t- item", settings)).toBe("- item");
+      });
+
+      it("should treat tab-indented task list as code block (no strip)", () => {
+        expect(extractTitle("\t- [x] task", settings)).toBe("- [x] task");
+      });
+
+      it("should treat tab-indented ordered list as code block (no strip)", () => {
+        expect(extractTitle("\t1. item", settings)).toBe("1. item");
+      });
+
+      it("should treat tab-indented empty unordered marker as code block (no Untitled)", () => {
+        // Tab = code block, so "\t- " should become "-" not "Untitled"
+        expect(extractTitle("\t- ", settings)).toBe("-");
+      });
+
+      it("should treat tab-indented empty task marker as code block (no Untitled)", () => {
+        expect(extractTitle("\t- [ ] ", settings)).toBe("- [ ]");
+      });
+
+      it("should treat tab-indented empty ordered marker as code block (no Untitled)", () => {
+        expect(extractTitle("\t1. ", settings)).toBe("1.");
+      });
     });
   });
 });
