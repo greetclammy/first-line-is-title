@@ -55,4 +55,4 @@ Note: to get updates for _First Line is Title_, you will have to check for and i
 ## Support
 
 - Please [open an issue](https://github.com/greetclammy/dynamic-views/issues) if you run into any problems. 
-- Feature requests considered but not prioritized. Further development focused on stability. PRs welcome.
+- Feature requests considered but not prioritized; further development focused on stability. PRs welcome.
