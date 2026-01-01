@@ -10,9 +10,167 @@ import { DEFAULT_SETTINGS } from "../constants";
 import { t, getCurrentLocale } from "../i18n";
 import { TIMING } from "../constants/timing";
 
+interface StringExclusionListConfig {
+  container: HTMLElement;
+  getItems: () => string[];
+  setItems: (items: string[]) => void;
+  placeholder: string;
+  addButtonText: string;
+  debugLabel: string;
+  createSuggest?: (
+    input: HTMLInputElement,
+    onSelect: (value: string) => void,
+    otherItems: string[],
+  ) => void;
+}
+
 export class IncludeExcludeTab extends SettingsTabBase {
   constructor(plugin: FirstLineIsTitlePlugin, containerEl: HTMLElement) {
     super(plugin, containerEl);
+  }
+
+  private renderStringExclusionList(config: StringExclusionListConfig): void {
+    const renderList = () => {
+      config.container.empty();
+      const items = config.getItems();
+
+      // Ensure at least one entry exists (matches properties section behavior)
+      if (items.length === 0) {
+        items.push("");
+        config.setItems(items);
+      }
+
+      items.forEach((item, index) => {
+        const setting = new Setting(config.container);
+        let removeButton: ExtraButtonComponent | undefined;
+
+        const updateButtonState = () => {
+          const currentItems = config.getItems();
+          const isLastEmptyEntry =
+            currentItems.length === 1 && currentItems[0].trim() === "";
+
+          if (removeButton) {
+            if (isLastEmptyEntry) {
+              removeButton.setDisabled(true);
+              removeButton.extraSettingsEl.classList.add("flit-state-disabled");
+              removeButton.extraSettingsEl.removeAttribute("aria-label");
+            } else {
+              removeButton.setDisabled(false);
+              removeButton.extraSettingsEl.classList.remove(
+                "flit-state-disabled",
+              );
+              removeButton.extraSettingsEl.classList.add("flit-state-enabled");
+              removeButton.setTooltip(t("ariaLabels.remove"));
+            }
+          }
+        };
+
+        setting
+          .addText((text) => {
+            text
+              .setPlaceholder(config.placeholder)
+              .setValue(item)
+              .onChange(async (value) => {
+                const currentItems = config.getItems();
+                currentItems[index] = value;
+                config.setItems(currentItems);
+                this.plugin.debugLog(config.debugLabel, currentItems);
+                await this.plugin.saveSettings();
+                updateButtonState();
+              });
+            text.inputEl.classList.add("flit-width-100");
+
+            if (config.createSuggest) {
+              try {
+                // Use fresh data for exclusion list
+                const otherItems = config
+                  .getItems()
+                  .filter((_, i) => i !== index);
+                config.createSuggest(
+                  text.inputEl,
+                  (selectedValue: string) => {
+                    void (async () => {
+                      const currentItems = config.getItems();
+                      currentItems[index] = selectedValue;
+                      config.setItems(currentItems);
+                      this.plugin.debugLog(config.debugLabel, currentItems);
+                      await this.plugin.saveSettings();
+                      updateButtonState();
+                    })();
+                  },
+                  otherItems,
+                );
+              } catch (error) {
+                console.error("Failed to create suggest:", error);
+              }
+            }
+          })
+          .addExtraButton((button) => {
+            removeButton = button;
+            button.setIcon("x");
+
+            button.onClick(async () => {
+              const currentItems = config.getItems();
+              const isLastEmptyEntry =
+                currentItems.length === 1 && currentItems[0].trim() === "";
+
+              if (!isLastEmptyEntry) {
+                currentItems.splice(index, 1);
+                if (currentItems.length === 0) {
+                  currentItems.push("");
+                }
+                config.setItems(currentItems);
+                await this.plugin.saveSettings();
+                renderList();
+              }
+            });
+
+            updateButtonState();
+          });
+
+        setting.settingEl.addClass("flit-exclusion-item-setting");
+      });
+
+      const addButtonSetting = new Setting(config.container).addButton(
+        (button) => {
+          button.setButtonText(config.addButtonText).onClick(async () => {
+            const currentItems = config.getItems();
+            const isBottomEntryEmpty =
+              currentItems.length > 0 &&
+              currentItems[currentItems.length - 1].trim() === "";
+
+            if (isBottomEntryEmpty) {
+              const textInputs =
+                config.container.querySelectorAll('input[type="text"]');
+              if (textInputs.length > 0) {
+                const lastInput = textInputs[
+                  textInputs.length - 1
+                ] as HTMLInputElement;
+                lastInput.focus();
+              }
+            } else {
+              currentItems.push("");
+              config.setItems(currentItems);
+              await this.plugin.saveSettings();
+              renderList();
+              setTimeout(() => {
+                const textInputs =
+                  config.container.querySelectorAll('input[type="text"]');
+                if (textInputs.length > 0) {
+                  const lastInput = textInputs[
+                    textInputs.length - 1
+                  ] as HTMLInputElement;
+                  lastInput.focus();
+                }
+              }, TIMING.NEXT_TICK_MS);
+            }
+          });
+        },
+      );
+      addButtonSetting.settingEl.addClass("flit-add-folder-button");
+    };
+
+    renderList();
   }
 
   render(): void {
@@ -26,22 +184,27 @@ export class IncludeExcludeTab extends SettingsTabBase {
       cls: "setting-item-description",
     });
     importantNote.appendText(t("settings.exclusions.note"));
-    importantNote.classList.add("flit-margin-bottom-15");
 
-    new Setting(this.containerEl)
+    const foldersHeading = new Setting(this.containerEl)
       .setName(t("settings.exclusions.folders.title"))
       .setDesc(t("settings.exclusions.folders.desc"))
       .setHeading();
+    foldersHeading.settingEl.addClass("flit-heading-with-desc");
+    foldersHeading.settingEl.addClass("flit-first-section-heading");
+
+    this.containerEl.createEl("p", {
+      cls: "setting-item-description flit-margin-top-15 flit-margin-bottom-15",
+      text: t("settings.exclusions.folders.renamedWarning"),
+    });
 
     new SettingGroup(this.containerEl).addClass("flit-folders-group");
     const foldersContainer = this.containerEl.querySelector<HTMLElement>(
       ".flit-folders-group .setting-items",
-    ) as HTMLElement;
-
-    foldersContainer.createEl("p", {
-      cls: "setting-item-description flit-margin-bottom-15",
-      text: t("settings.exclusions.folders.renamedWarning"),
-    });
+    );
+    if (!foldersContainer) {
+      console.error("FLIT: Failed to find folders-group settings container");
+      return;
+    }
 
     new Setting(foldersContainer)
       .setName(t("settings.exclusions.folders.matchSubfolders.name"))
@@ -79,171 +242,28 @@ export class IncludeExcludeTab extends SettingsTabBase {
 
     const folderContainer = foldersContainer.createDiv();
 
-    const renderExcludedFolders = () => {
-      folderContainer.empty();
-      this.plugin.settings.exclusions.excludedFolders.forEach(
-        (folder, index) => {
-          const folderSetting = new Setting(folderContainer);
-          let removeButton: ExtraButtonComponent | undefined;
+    this.renderStringExclusionList({
+      container: folderContainer,
+      getItems: () => this.plugin.settings.exclusions.excludedFolders,
+      setItems: (items) => {
+        this.plugin.settings.exclusions.excludedFolders = items;
+      },
+      placeholder: t("settings.exclusions.folders.placeholder"),
+      addButtonText: t("settings.exclusions.folders.addButton"),
+      debugLabel: "excludedFolders",
+      createSuggest: (input, onSelect, otherItems) => {
+        new FolderSuggest(this.plugin.app, input, onSelect, otherItems);
+      },
+    });
 
-          const updateButtonState = () => {
-            const isLastEmptyEntry =
-              this.plugin.settings.exclusions.excludedFolders.length === 1 &&
-              this.plugin.settings.exclusions.excludedFolders[0].trim() === "";
-
-            if (removeButton) {
-              if (isLastEmptyEntry) {
-                removeButton.setDisabled(true);
-                removeButton.extraSettingsEl.classList.add(
-                  "flit-state-disabled",
-                );
-                removeButton.extraSettingsEl.removeAttribute("aria-label");
-              } else {
-                removeButton.setDisabled(false);
-                removeButton.extraSettingsEl.classList.remove(
-                  "flit-state-disabled",
-                );
-                removeButton.extraSettingsEl.classList.add(
-                  "flit-state-enabled",
-                );
-                removeButton.setTooltip(t("ariaLabels.remove"));
-              }
-            }
-          };
-
-          folderSetting
-            .addText((text) => {
-              text
-                .setPlaceholder(t("settings.exclusions.folders.placeholder"))
-                .setValue(folder)
-                .onChange(async (value) => {
-                  this.plugin.settings.exclusions.excludedFolders[index] =
-                    value;
-                  this.plugin.debugLog(
-                    "excludedFolders",
-                    this.plugin.settings.exclusions.excludedFolders,
-                  );
-                  await this.plugin.saveSettings();
-                  updateButtonState();
-                });
-              text.inputEl.classList.add("flit-width-100");
-
-              try {
-                // Get all exclusions except the current one being edited
-                const otherExclusions =
-                  this.plugin.settings.exclusions.excludedFolders.filter(
-                    (_, i) => i !== index,
-                  );
-                new FolderSuggest(
-                  this.plugin.app,
-                  text.inputEl,
-                  (selectedPath: string) => {
-                    void (async () => {
-                      this.plugin.settings.exclusions.excludedFolders[index] =
-                        selectedPath;
-                      this.plugin.debugLog(
-                        "excludedFolders",
-                        this.plugin.settings.exclusions.excludedFolders,
-                      );
-                      await this.plugin.saveSettings();
-                      updateButtonState();
-                    })();
-                  },
-                  otherExclusions,
-                );
-              } catch (error) {
-                console.error("Failed to create FolderSuggest:", error);
-              }
-            })
-            .addExtraButton((button) => {
-              removeButton = button;
-              button.setIcon("x");
-
-              button.onClick(async () => {
-                const isLastEmptyEntry =
-                  this.plugin.settings.exclusions.excludedFolders.length ===
-                    1 &&
-                  this.plugin.settings.exclusions.excludedFolders[0].trim() ===
-                    "";
-
-                if (!isLastEmptyEntry) {
-                  this.plugin.settings.exclusions.excludedFolders.splice(
-                    index,
-                    1,
-                  );
-                  if (
-                    this.plugin.settings.exclusions.excludedFolders.length === 0
-                  ) {
-                    this.plugin.settings.exclusions.excludedFolders.push("");
-                  }
-
-                  await this.plugin.saveSettings();
-                  renderExcludedFolders();
-                }
-              });
-
-              updateButtonState();
-            });
-
-          folderSetting.settingEl.addClass("flit-excluded-folder-setting");
-        },
-      );
-
-      const addButtonSetting = new Setting(folderContainer).addButton(
-        (button) => {
-          button
-            .setButtonText(t("settings.exclusions.folders.addButton"))
-            .onClick(async () => {
-              const isBottomEntryEmpty =
-                this.plugin.settings.exclusions.excludedFolders.length > 0 &&
-                this.plugin.settings.exclusions.excludedFolders[
-                  this.plugin.settings.exclusions.excludedFolders.length - 1
-                ].trim() === "";
-
-              if (isBottomEntryEmpty) {
-                const textInputs =
-                  folderContainer.querySelectorAll('input[type="text"]');
-                if (textInputs.length > 0) {
-                  const lastInput = textInputs[
-                    textInputs.length - 1
-                  ] as HTMLInputElement;
-                  lastInput.focus();
-                }
-              } else {
-                this.plugin.settings.exclusions.excludedFolders.push("");
-                await this.plugin.saveSettings();
-                renderExcludedFolders();
-                setTimeout(() => {
-                  const textInputs =
-                    folderContainer.querySelectorAll('input[type="text"]');
-                  if (textInputs.length > 0) {
-                    const lastInput = textInputs[
-                      textInputs.length - 1
-                    ] as HTMLInputElement;
-                    lastInput.focus();
-                  }
-                }, TIMING.NEXT_TICK_MS);
-              }
-            });
-        },
-      );
-      addButtonSetting.settingEl.addClass("flit-add-folder-button");
-    };
-
-    renderExcludedFolders();
-
-    new Setting(this.containerEl)
+    const tagsHeading = new Setting(this.containerEl)
       .setName(t("settings.exclusions.tags.title"))
       .setDesc(t("settings.exclusions.tags.desc"))
       .setHeading();
+    tagsHeading.settingEl.addClass("flit-heading-with-desc");
 
-    new SettingGroup(this.containerEl).addClass("flit-tags-group");
-    const tagsContainer = this.containerEl.querySelector<HTMLElement>(
-      ".flit-tags-group .setting-items",
-    ) as HTMLElement;
-
-    const tagNotes = tagsContainer.createEl("div", {
-      cls: "setting-item-description flit-margin-bottom-15",
+    const tagNotes = this.containerEl.createEl("div", {
+      cls: "setting-item-description flit-margin-top-15 flit-margin-bottom-15",
     });
 
     const tagUl = tagNotes.createEl("ul", {
@@ -267,6 +287,15 @@ export class IncludeExcludeTab extends SettingsTabBase {
 
     const tagLi2 = tagUl.createEl("li");
     tagLi2.appendText(t("settings.exclusions.tags.tagWranglerWarning"));
+
+    new SettingGroup(this.containerEl).addClass("flit-tags-group");
+    const tagsContainer = this.containerEl.querySelector<HTMLElement>(
+      ".flit-tags-group .setting-items",
+    );
+    if (!tagsContainer) {
+      console.error("FLIT: Failed to find tags-group settings container");
+      return;
+    }
 
     new Setting(tagsContainer)
       .setName(t("settings.exclusions.tags.matchTags.name"))
@@ -329,157 +358,28 @@ export class IncludeExcludeTab extends SettingsTabBase {
 
     const tagContainer = tagsContainer.createDiv();
 
-    const renderExcludedTags = () => {
-      tagContainer.empty();
-      this.plugin.settings.exclusions.excludedTags.forEach((tag, index) => {
-        const tagSetting = new Setting(tagContainer);
-        let removeButton: ExtraButtonComponent | undefined;
+    this.renderStringExclusionList({
+      container: tagContainer,
+      getItems: () => this.plugin.settings.exclusions.excludedTags,
+      setItems: (items) => {
+        this.plugin.settings.exclusions.excludedTags = items;
+      },
+      placeholder: t("settings.exclusions.tags.placeholder"),
+      addButtonText: t("settings.exclusions.tags.addButton"),
+      debugLabel: "excludedTags",
+      createSuggest: (input, onSelect, otherItems) => {
+        new TagSuggest(this.plugin.app, input, onSelect, otherItems);
+      },
+    });
 
-        const updateButtonState = () => {
-          const isLastEmptyEntry =
-            this.plugin.settings.exclusions.excludedTags.length === 1 &&
-            this.plugin.settings.exclusions.excludedTags[0].trim() === "";
-
-          if (removeButton) {
-            if (isLastEmptyEntry) {
-              removeButton.setDisabled(true);
-              removeButton.extraSettingsEl.classList.add("flit-state-disabled");
-              removeButton.extraSettingsEl.removeAttribute("aria-label");
-            } else {
-              removeButton.setDisabled(false);
-              removeButton.extraSettingsEl.classList.remove(
-                "flit-state-disabled",
-              );
-              removeButton.extraSettingsEl.classList.add("flit-state-enabled");
-              removeButton.setTooltip(t("ariaLabels.remove"));
-            }
-          }
-        };
-
-        tagSetting
-          .addText((text) => {
-            text
-              .setPlaceholder(t("settings.exclusions.tags.placeholder"))
-              .setValue(tag)
-              .onChange(async (value) => {
-                this.plugin.settings.exclusions.excludedTags[index] = value;
-                this.plugin.debugLog(
-                  "excludedTags",
-                  this.plugin.settings.exclusions.excludedTags,
-                );
-                await this.plugin.saveSettings();
-                updateButtonState();
-              });
-            text.inputEl.classList.add("flit-width-100");
-
-            try {
-              // Get all exclusions except the current one being edited
-              const otherExclusions =
-                this.plugin.settings.exclusions.excludedTags.filter(
-                  (_, i) => i !== index,
-                );
-              new TagSuggest(
-                this.plugin.app,
-                text.inputEl,
-                (selectedTag: string) => {
-                  void (async () => {
-                    this.plugin.settings.exclusions.excludedTags[index] =
-                      selectedTag;
-                    this.plugin.debugLog(
-                      "excludedTags",
-                      this.plugin.settings.exclusions.excludedTags,
-                    );
-                    await this.plugin.saveSettings();
-                    updateButtonState();
-                  })();
-                },
-                otherExclusions,
-              );
-            } catch (error) {
-              console.error("Failed to create TagSuggest:", error);
-            }
-          })
-          .addExtraButton((button) => {
-            removeButton = button;
-            button.setIcon("x");
-
-            button.onClick(async () => {
-              const isLastEmptyEntry =
-                this.plugin.settings.exclusions.excludedTags.length === 1 &&
-                this.plugin.settings.exclusions.excludedTags[0].trim() === "";
-
-              if (!isLastEmptyEntry) {
-                this.plugin.settings.exclusions.excludedTags.splice(index, 1);
-                if (this.plugin.settings.exclusions.excludedTags.length === 0) {
-                  this.plugin.settings.exclusions.excludedTags.push("");
-                }
-
-                await this.plugin.saveSettings();
-                renderExcludedTags();
-              }
-            });
-
-            updateButtonState();
-          });
-
-        tagSetting.settingEl.addClass("flit-excluded-folder-setting");
-      });
-
-      const addTagButtonSetting = new Setting(tagContainer).addButton(
-        (button) => {
-          button
-            .setButtonText(t("settings.exclusions.tags.addButton"))
-            .onClick(async () => {
-              const isBottomEntryEmpty =
-                this.plugin.settings.exclusions.excludedTags.length > 0 &&
-                this.plugin.settings.exclusions.excludedTags[
-                  this.plugin.settings.exclusions.excludedTags.length - 1
-                ].trim() === "";
-
-              if (isBottomEntryEmpty) {
-                const textInputs =
-                  tagContainer.querySelectorAll('input[type="text"]');
-                if (textInputs.length > 0) {
-                  const lastInput = textInputs[
-                    textInputs.length - 1
-                  ] as HTMLInputElement;
-                  lastInput.focus();
-                }
-              } else {
-                this.plugin.settings.exclusions.excludedTags.push("");
-                await this.plugin.saveSettings();
-                renderExcludedTags();
-                setTimeout(() => {
-                  const textInputs =
-                    tagContainer.querySelectorAll('input[type="text"]');
-                  if (textInputs.length > 0) {
-                    const lastInput = textInputs[
-                      textInputs.length - 1
-                    ] as HTMLInputElement;
-                    lastInput.focus();
-                  }
-                }, TIMING.NEXT_TICK_MS);
-              }
-            });
-        },
-      );
-      addTagButtonSetting.settingEl.addClass("flit-add-folder-button");
-    };
-
-    renderExcludedTags();
-
-    new Setting(this.containerEl)
+    const propertiesHeading = new Setting(this.containerEl)
       .setName(t("settings.exclusions.properties.title"))
       .setDesc(t("settings.exclusions.properties.desc"))
       .setHeading();
+    propertiesHeading.settingEl.addClass("flit-heading-with-desc");
 
-    new SettingGroup(this.containerEl).addClass("flit-properties-group");
-    const propertiesContainer = this.containerEl.querySelector<HTMLElement>(
-      ".flit-properties-group .setting-items",
-    ) as HTMLElement;
-
-    const propertyNotes = propertiesContainer.createEl("div", {
-      cls: "setting-item-description flit-margin-bottom-15",
+    const propertyNotes = this.containerEl.createEl("div", {
+      cls: "setting-item-description flit-margin-top-15 flit-margin-bottom-15",
     });
 
     const ul = propertyNotes.createEl("ul", {
@@ -527,6 +427,15 @@ export class IncludeExcludeTab extends SettingsTabBase {
     ul.createEl("li", {
       text: t("settings.exclusions.properties.renamedWarning"),
     });
+
+    new SettingGroup(this.containerEl).addClass("flit-properties-group");
+    const propertiesContainer = this.containerEl.querySelector<HTMLElement>(
+      ".flit-properties-group .setting-items",
+    );
+    if (!propertiesContainer) {
+      console.error("FLIT: Failed to find properties-group settings container");
+      return;
+    }
 
     new Setting(propertiesContainer)
       .setName(t("settings.exclusions.properties.exclusionMode.name"))
@@ -594,11 +503,8 @@ export class IncludeExcludeTab extends SettingsTabBase {
             }
           };
           const propertyInputContainer = propertySetting.controlEl.createDiv({
-            cls: "flit-property-container",
+            cls: "flit-property-container flit-display-flex flit-gap-10 flit-align-items-center",
           });
-          propertyInputContainer.classList.add("flit-display-flex");
-          propertyInputContainer.classList.add("flit-gap-10");
-          propertyInputContainer.classList.add("flit-align-items-center");
 
           keyInput = propertyInputContainer.createEl("input", {
             type: "text",
@@ -631,7 +537,7 @@ export class IncludeExcludeTab extends SettingsTabBase {
                 e.stopPropagation();
                 setTimeout(() => {
                   valueInput.focus();
-                }, 0);
+                }, TIMING.NEXT_TICK_MS);
               }
             },
             true,
@@ -645,7 +551,7 @@ export class IncludeExcludeTab extends SettingsTabBase {
                 e.stopPropagation();
                 setTimeout(() => {
                   keyInput.focus();
-                }, 0);
+                }, TIMING.NEXT_TICK_MS);
               }
             },
             true,
@@ -703,7 +609,7 @@ export class IncludeExcludeTab extends SettingsTabBase {
             updateButtonState();
           });
 
-          propertySetting.settingEl.addClass("flit-excluded-folder-setting");
+          propertySetting.settingEl.addClass("flit-exclusion-item-setting");
         },
       );
 
@@ -762,15 +668,14 @@ export class IncludeExcludeTab extends SettingsTabBase {
       .setName(t("settings.exclusions.disableProperty.title"))
       .setDesc("")
       .setHeading();
+    propertyDisableSetting.settingEl.addClass("flit-heading-with-desc");
 
     const propertyDesc = propertyDisableSetting.descEl;
     propertyDesc.appendText(t("settings.exclusions.disableProperty.desc"));
 
     const propertyDisableNotes = this.containerEl.createEl("div", {
-      cls: "setting-item-description",
+      cls: "setting-item-description flit-margin-top-15 flit-margin-bottom-15",
     });
-    propertyDisableNotes.classList.add("flit-margin-top-15");
-    propertyDisableNotes.classList.add("flit-margin-bottom-15");
 
     const disableUl = propertyDisableNotes.createEl("ul", {
       cls: "flit-margin-0 flit-padding-left-20",
@@ -787,9 +692,20 @@ export class IncludeExcludeTab extends SettingsTabBase {
       text: t("settings.exclusions.disableProperty.updateWarning"),
     });
 
-    const propertyInputSetting = new Setting(this.containerEl);
-    propertyInputSetting.settingEl.addClass("flit-excluded-folder-setting");
-    propertyInputSetting.settingEl.classList.add("flit-border-top-none");
+    new SettingGroup(this.containerEl).addClass("flit-disable-property-group");
+    const disablePropertyContainer =
+      this.containerEl.querySelector<HTMLElement>(
+        ".flit-disable-property-group .setting-items",
+      );
+    if (!disablePropertyContainer) {
+      console.error(
+        "FLIT: Failed to find disable-property-group settings container",
+      );
+      return;
+    }
+
+    const propertyInputSetting = new Setting(disablePropertyContainer);
+    propertyInputSetting.settingEl.addClass("flit-exclusion-item-setting");
 
     const propertyControlWrapper = propertyInputSetting.controlEl.createDiv({
       cls: "flit-property-control-wrapper",
@@ -839,7 +755,7 @@ export class IncludeExcludeTab extends SettingsTabBase {
           e.stopPropagation();
           setTimeout(() => {
             valueInput.focus();
-          }, 0);
+          }, TIMING.NEXT_TICK_MS);
         }
       },
       true,
@@ -853,7 +769,7 @@ export class IncludeExcludeTab extends SettingsTabBase {
           e.stopPropagation();
           setTimeout(() => {
             keyInput.focus();
-          }, 0);
+          }, TIMING.NEXT_TICK_MS);
         }
       },
       true,
@@ -887,13 +803,11 @@ export class IncludeExcludeTab extends SettingsTabBase {
         await this.plugin.saveSettings();
       })();
     });
-    const defaultTextContainer = this.containerEl.createEl("div", {
-      cls: "setting-item-description flit-margin-top-5 flit-margin-bottom-20",
+    const defaultTextContainer = disablePropertyContainer.createEl("div", {
+      cls: "setting-item-description flit-margin-top-5",
     });
     defaultTextContainer.createEl("small").createEl("strong", {
       text: t("settings.exclusions.disableProperty.default"),
     });
-
-    propertyDisableSetting.settingEl.classList.add("flit-margin-bottom-20");
   }
 }

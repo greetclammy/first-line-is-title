@@ -8,10 +8,17 @@ export class StripMarkupTab extends SettingsTabBase {
   }
 
   render(): void {
+    // Capture reference for use in typeof expressions after control flow narrowing
+    const markupStrippingSettings = this.plugin.settings.markupStripping;
+    type MarkupStrippingKeys = keyof typeof markupStrippingSettings;
+    type StripMarkupSettingsKeys =
+      keyof typeof markupStrippingSettings.stripMarkupSettings;
+
     // Main toggle (not part of group)
     const mainToggleSetting = new Setting(this.containerEl)
       .setName(t("settings.stripMarkup.name"))
       .setDesc(t("settings.stripMarkup.desc"))
+      .setHeading()
       .addToggle((toggle) => {
         toggle
           .setValue(this.plugin.settings.markupStripping.enableStripMarkup)
@@ -49,7 +56,11 @@ export class StripMarkupTab extends SettingsTabBase {
     // Get the setting-items container
     const stripMarkupContainer = this.containerEl.querySelector<HTMLElement>(
       ".flit-strip-markup-group .setting-items",
-    ) as HTMLElement;
+    );
+    if (!stripMarkupContainer) {
+      console.error("FLIT: Failed to find strip-markup settings container");
+      return;
+    }
 
     const updateStripMarkupUI = () => {
       this.updateInteractiveState(
@@ -158,12 +169,12 @@ export class StripMarkupTab extends SettingsTabBase {
           toggleControl
             .setValue(
               this.plugin.settings.markupStripping[
-                toggle.key as keyof typeof this.plugin.settings.markupStripping
+                toggle.key as MarkupStrippingKeys
               ] as boolean,
             )
             .onChange(async (value) => {
               (this.plugin.settings.markupStripping[
-                toggle.key as keyof typeof this.plugin.settings.markupStripping
+                toggle.key as MarkupStrippingKeys
               ] as boolean) = value;
               this.plugin.debugLog(toggle.key, value);
               await this.plugin.saveSettings();
@@ -172,12 +183,12 @@ export class StripMarkupTab extends SettingsTabBase {
           toggleControl
             .setValue(
               this.plugin.settings.markupStripping.stripMarkupSettings[
-                toggle.key as keyof typeof this.plugin.settings.markupStripping.stripMarkupSettings
+                toggle.key as StripMarkupSettingsKeys
               ],
             )
             .onChange(async (value) => {
               this.plugin.settings.markupStripping.stripMarkupSettings[
-                toggle.key as keyof typeof this.plugin.settings.markupStripping.stripMarkupSettings
+                toggle.key as StripMarkupSettingsKeys
               ] = value;
               this.plugin.debugLog(`stripMarkupSettings.${toggle.key}`, value);
               await this.plugin.saveSettings();

@@ -106,7 +106,6 @@
   gap: 8px;
   width: fit-content;
   min-width: 750px;
-  background-color: var(--background-primary);
 }
 
 .flit-char-replacement-header {
@@ -463,14 +462,14 @@ br + .flit-table-container {
 /* Delete button inherits from clickable-icon, no additional styling needed */
 
 /* Maximize excluded folder text input width */
-.flit-excluded-folder-setting {
+.flit-exclusion-item-setting {
   display: flex !important;
   align-items: center !important;
 }
-.flit-excluded-folder-setting .setting-item-info {
+.flit-exclusion-item-setting .setting-item-info {
   display: none !important;
 }
-.flit-excluded-folder-setting .setting-item-control {
+.flit-exclusion-item-setting .setting-item-control {
   flex: 1 !important;
   max-width: none !important;
 }
@@ -610,14 +609,6 @@ br + .flit-table-container {
   width: 100%;
   min-width: var(--flit-tab-min-width);
   box-sizing: border-box;
-}
-
-.flit-settings-tab-name {
-  white-space: normal;
-  text-align: center;
-  line-height: 1.2;
-  word-break: break-word;
-  font-size: 0.85em;
 }
 
 /* Use container queries if supported, fallback to media queries */
@@ -865,21 +856,21 @@ hr.flit-divider {
 }
 
 /* Ensure consistent X button positioning and sizing across all sections */
-.flit-excluded-folder-setting .setting-item-control {
+.flit-exclusion-item-setting .setting-item-control {
   display: flex !important;
   align-items: center !important;
   gap: 8px !important;
   width: 100% !important;
 }
 
-.flit-excluded-folder-setting .setting-item-control input {
+.flit-exclusion-item-setting .setting-item-control input {
   flex: 1 !important;
   min-width: 0 !important;
   /* Add margin to prevent focus outline clipping */
   margin: 2px !important;
 }
 
-.flit-excluded-folder-setting .setting-item-control .clickable-icon {
+.flit-exclusion-item-setting .setting-item-control .clickable-icon {
   flex-shrink: 0 !important;
   width: 32px !important;
   height: 32px !important;
@@ -1039,6 +1030,14 @@ hr.flit-divider {
   box-shadow: inset 0 0 0 1px var(--background-modifier-border);
 }
 
+.flit-settings-page .setting-group-heading {
+  border-bottom: none;
+}
+
+.flit-master-toggle {
+  background: none !important;
+}
+
 /* Processing order container spacing */
 .flit-processing-order-container {
   margin-top: 1em;
@@ -1068,27 +1067,6 @@ hr.flit-divider {
 }*/
 
 /* ==========================================================================
-   Command Palette Icons
-   ========================================================================== */
-
-/* Dynamic command palette icons injected via JavaScript */
-.flit-command-icon {
-  display: inline-flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  width: 16px !important;
-  height: 16px !important;
-  margin-right: 8px !important;
-  color: var(--text-muted) !important;
-  flex-shrink: 0 !important;
-}
-
-.flit-command-icon svg {
-  width: 16px !important;
-  height: 16px !important;
-}
-
-/* ==========================================================================
    Colon Separator
    ========================================================================== */
 
@@ -1098,25 +1076,40 @@ hr.flit-divider {
 }
 
 /* ==========================================================================
-   Sub-Settings Indentation (notebook-navigator approach)
+   Sub-Settings Indentation
    ========================================================================== */
 
-/* Simple sub-settings container styling - copied from notebook-navigator */
+/* Remove bottom padding from toggle when sub-items hidden */
+.setting-items
+  > .setting-item:has(+ .flit-sub-settings):has(
+    .checkbox-container:not(.is-enabled)
+  ) {
+  padding-bottom: 0;
+}
+
+/* Indented sub-settings */
 .flit-sub-settings {
   margin-inline-start: 20px;
   padding-left: 1em;
   position: relative;
 }
 
-/* Create shortened indentation line */
 .flit-sub-settings::before {
   content: "";
   position: absolute;
   left: 0;
   top: 0;
-  bottom: 10px;
+  bottom: 0;
   width: 1px;
   background-color: var(--background-modifier-border);
+}
+
+.flit-sub-settings:has(+ .setting-item) {
+  padding-bottom: var(--size-4-4);
+}
+
+.flit-sub-settings:has(+ .setting-item)::before {
+  bottom: var(--size-4-4);
 }
 
 /* Double-indented settings (for nested sub-settings) */
@@ -1551,6 +1544,14 @@ hr.flit-divider {
   margin-top: 0.75em;
   padding-bottom: 12px;
   margin-bottom: 12px;
+}
+
+.flit-settings-page .flit-heading-with-desc.setting-item-heading {
+  padding-bottom: 0;
+}
+
+.flit-settings-page .flit-first-section-heading.setting-item-heading {
+  margin-top: var(--size-4-6);
 }
 
 /* Property container - used in exclusions tab */

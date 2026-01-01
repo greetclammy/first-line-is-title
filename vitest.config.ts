@@ -5,7 +5,7 @@ export default defineConfig({
   test: {
     globals: true,
     environment: "node",
-    include: ["test/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}"],
+    include: ["tests/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}"],
     coverage: {
       provider: "v8",
       reporter: ["text", "json", "html"],
@@ -18,11 +18,11 @@ export default defineConfig({
         "**/mockObsidian.ts",
       ],
     },
-    setupFiles: ["./test/setup.ts"],
+    setupFiles: ["./tests/setup.ts"],
   },
   resolve: {
     alias: {
-      obsidian: resolve(__dirname, "./test/mockObsidian.ts"),
+      obsidian: resolve(__dirname, "./tests/mockObsidian.ts"),
     },
   },
 });

@@ -10,6 +10,7 @@ import { DEFAULT_SETTINGS } from "../constants";
 import { t, getCurrentLocale } from "../i18n";
 
 // Plugin names (proper nouns, not subject to sentence case)
+const PLUGIN_QUICK_SWITCHER_PLUS = "Quick Switcher++";
 const PLUGIN_NOTEBOOK_NAVIGATOR = "Notebook Navigator";
 const PLUGIN_FRONT_MATTER_TITLE = "Front Matter Title";
 const PLUGIN_HOVER_EDITOR = "Hover Editor";
@@ -84,6 +85,7 @@ export class PropertiesTab extends SettingsTabBase {
     const mainToggle = new Setting(this.containerEl)
       .setName(t("settings.alias.addAlias.name"))
       .setDesc(t("settings.alias.addAlias.desc"))
+      .setHeading()
       .addToggle((toggle) =>
         toggle
           .setValue(this.plugin.settings.aliases.enableAliases)
@@ -205,21 +207,26 @@ export class PropertiesTab extends SettingsTabBase {
 
     const li2 = ul.createEl("li");
     li2.appendText(t("settings.alias.aliasPropertyName.noteTitle.part1"));
+    const quickSwitcherPlusLink = li2.createEl("a", {
+      href: "obsidian://show-plugin?id=darlal-switcher-plus",
+    });
+    quickSwitcherPlusLink.textContent = PLUGIN_QUICK_SWITCHER_PLUS;
+    li2.appendText(t("settings.alias.aliasPropertyName.noteTitle.part2"));
     li2.createEl("a", {
       text: "Omnisearch",
       href: "obsidian://show-plugin?id=omnisearch",
     });
-    li2.appendText(t("settings.alias.aliasPropertyName.noteTitle.part2"));
+    li2.appendText(t("settings.alias.aliasPropertyName.noteTitle.part3"));
     const notebookNavigatorLink = li2.createEl("a", {
       href: "obsidian://show-plugin?id=notebook-navigator",
     });
     notebookNavigatorLink.textContent = PLUGIN_NOTEBOOK_NAVIGATOR;
-    li2.appendText(t("settings.alias.aliasPropertyName.noteTitle.part3"));
+    li2.appendText(t("settings.alias.aliasPropertyName.noteTitle.part4"));
     const frontMatterTitleLink = li2.createEl("a", {
       href: "obsidian://show-plugin?id=obsidian-front-matter-title-plugin",
     });
     frontMatterTitleLink.textContent = PLUGIN_FRONT_MATTER_TITLE;
-    li2.appendText(t("settings.alias.aliasPropertyName.noteTitle.part4"));
+    li2.appendText(t("settings.alias.aliasPropertyName.noteTitle.part5"));
 
     aliasKeyDesc.createEl("br");
     aliasKeyDesc.createEl("small").createEl("strong", {
@@ -511,14 +518,13 @@ export class PropertiesTab extends SettingsTabBase {
     renderAliasSettings();
 
     if (!Platform.isMobile) {
-      new SettingGroup(this.containerEl)
-        .setHeading(t("settings.alias.limitations.title"))
-        .addClass("flit-notice-group");
-      const limitationsContainer = this.containerEl.querySelector<HTMLElement>(
-        ".flit-notice-group .setting-items",
-      ) as HTMLElement;
-      const limitationsDesc = limitationsContainer.createEl("p", {
-        cls: "setting-item-description flit-margin-top-0",
+      const limitationsHeading = new Setting(this.containerEl)
+        .setName(t("settings.alias.limitations.title"))
+        .setHeading();
+      limitationsHeading.settingEl.addClass("flit-heading-with-desc");
+
+      const limitationsDesc = this.containerEl.createEl("p", {
+        cls: "setting-item-description flit-margin-top-15 flit-margin-bottom-15",
       });
       limitationsDesc.appendText(t("settings.alias.limitations.desc.part1"));
       const hoverEditorLink = limitationsDesc.createEl("a", {

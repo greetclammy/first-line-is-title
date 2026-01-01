@@ -1,4 +1,4 @@
-import { TFile, MarkdownView, setIcon, ViewWithFileEditor } from "obsidian";
+import { TFile, MarkdownView, ViewWithFileEditor } from "obsidian";
 import { around } from "monkey-around";
 import { verboseLog } from "../utils";
 import { RenameAllFilesModal } from "../modals";
@@ -22,7 +22,6 @@ import { FileCreationCoordinator } from "./file-creation-coordinator";
  */
 export class WorkspaceIntegration {
   private plugin: FirstLineIsTitle;
-  private commandPaletteObserver?: MutationObserver;
   private saveCommandPatchCleanup?: () => void;
   private fileCreationCoordinator: FileCreationCoordinator;
 
@@ -49,71 +48,6 @@ export class WorkspaceIntegration {
 
   get renameEngine() {
     return this.plugin.renameEngine;
-  }
-
-  /**
-   * Setup custom icons in command palette
-   */
-  setupCommandPaletteIcons(): void {
-    // Create a map of command names to their icons
-    const commandIcons = new Map([
-      ["Put first line in title", "file-pen"],
-      ["Put first line in title (unless excluded)", "file-pen"],
-      ["Put first line in title in all notes", "files"],
-      ["Disable renaming for note", "square-x"],
-      ["Enable renaming for note", "square-check"],
-    ]);
-
-    // Observer to watch for command palette suggestions
-    const observer = new MutationObserver((mutations) => {
-      mutations.forEach((mutation) => {
-        mutation.addedNodes.forEach((node) => {
-          if (node instanceof HTMLElement) {
-            // Look for suggestion items in the command palette
-            const suggestionItems = node.querySelectorAll(
-              '.suggestion-item, [class*="suggestion"]',
-            );
-
-            suggestionItems.forEach((item) => {
-              if (item instanceof HTMLElement) {
-                const titleElement = item.querySelector(
-                  '.suggestion-title, [class*="title"]',
-                );
-                if (titleElement) {
-                  const commandName = titleElement.textContent?.trim();
-                  if (commandName && commandIcons.has(commandName)) {
-                    // Check if icon already exists
-                    if (!item.querySelector(".flit-command-icon")) {
-                      const iconName = commandIcons.get(commandName);
-                      if (!iconName) return;
-
-                      // Create icon element
-                      const iconElement = document.createElement("div");
-                      iconElement.classList.add("flit-command-icon");
-
-                      // Use Obsidian's setIcon function to add the icon
-                      setIcon(iconElement, iconName);
-
-                      // Insert icon at the beginning of the suggestion item
-                      item.insertBefore(iconElement, item.firstChild);
-                    }
-                  }
-                }
-              }
-            });
-          }
-        });
-      });
-    });
-
-    // Start observing the document for changes
-    observer.observe(document.body, {
-      childList: true,
-      subtree: true,
-    });
-
-    // Store the observer for cleanup
-    this.commandPaletteObserver = observer;
   }
 
   /**
@@ -450,18 +384,5 @@ export class WorkspaceIntegration {
     if (this.saveCommandPatchCleanup) {
       this.saveCommandPatchCleanup();
     }
-
-    // Clean up command palette observer
-    if (this.commandPaletteObserver) {
-      this.commandPaletteObserver.disconnect();
-      this.commandPaletteObserver = undefined;
-    }
-  }
-
-  /**
-   * Get command palette observer (for external access)
-   */
-  getCommandPaletteObserver(): MutationObserver | undefined {
-    return this.commandPaletteObserver;
   }
 }

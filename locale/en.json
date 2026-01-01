@@ -103,7 +103,6 @@
     "notRenamedNoHeading": "Note not renamed due to no heading in first line: {{filename}}",
     "notRenamedExcluded": "Note not renamed due to being excluded: {{filename}}",
     "safewordPreventedRename": "Safeword prevented rename of: {{filename}}",
-    "renamingDisabledForNote": "To rename this note, remove property to disable renaming.",
     "noNotesFoundInFolder": "No notes found in: {{folder}}",
     "disabledRenamingInFolder": "Disabled renaming in: {{folder}}",
     "enabledRenamingInFolder": "Enabled renaming in: {{folder}}",
@@ -163,7 +162,7 @@
     "buttons": {
       "cancel": "Cancel",
       "rename": "Rename",
-      "clearSettings": "Clear",
+      "clear": "Clear",
       "disable": "Disable",
       "enable": "Enable",
       "add": "Add"
@@ -344,8 +343,9 @@
         "noteTitle": {
           "part1": "This property can be set as title in plugins like ",
           "part2": ", ",
-          "part3": " and ",
-          "part4": "."
+          "part3": ", ",
+          "part4": " and ",
+          "part5": "."
         },
         "default": "Default: aliases"
       },

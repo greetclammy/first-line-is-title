@@ -244,11 +244,21 @@ export class GeneralTab extends SettingsTabBase {
     convertCharsDesc.appendText(
       t("settings.general.convertReplacementCharactersInTitle.desc.part1"),
     );
-    convertCharsDesc.createEl("em", {
-      text: t(
-        "settings.general.convertReplacementCharactersInTitle.desc.replaceCharacters",
-      ),
-    });
+    if (getCurrentLocale() === "ru") {
+      convertCharsDesc.appendText(
+        "«" +
+          t(
+            "settings.general.convertReplacementCharactersInTitle.desc.replaceCharacters",
+          ) +
+          "»",
+      );
+    } else {
+      convertCharsDesc.createEl("em", {
+        text: t(
+          "settings.general.convertReplacementCharactersInTitle.desc.replaceCharacters",
+        ),
+      });
+    }
     convertCharsDesc.appendText(
       t("settings.general.convertReplacementCharactersInTitle.desc.part2"),
     );
