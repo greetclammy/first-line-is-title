@@ -1,4 +1,4 @@
-import { Setting, setIcon } from "obsidian";
+import { Setting, SettingGroup, setIcon } from "obsidian";
 import { SettingsTabBase, FirstLineIsTitlePlugin } from "./settings-base";
 import { t } from "../i18n";
 import { TIMING } from "../constants/timing";
@@ -33,11 +33,11 @@ export class SafewordsTab extends SettingsTabBase {
             renderSafewords();
           });
       });
-    mainToggle.settingEl.addClass("flit-heading-no-border");
 
-    const safewordsContainer = this.containerEl.createDiv({
-      cls: "flit-safewords-container",
-    });
+    new SettingGroup(this.containerEl).addClass("flit-safewords-group");
+    const safewordsContainer = this.containerEl.querySelector<HTMLElement>(
+      ".flit-safewords-group .setting-items",
+    ) as HTMLElement;
 
     const updateSafewordsUI = () => {
       // Update master disable state for entire section
