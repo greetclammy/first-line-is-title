@@ -1,4 +1,10 @@
-import { Setting, setIcon, ToggleComponent, Platform } from "obsidian";
+import {
+  Setting,
+  SettingGroup,
+  setIcon,
+  ToggleComponent,
+  Platform,
+} from "obsidian";
 import { SettingsTabBase, FirstLineIsTitlePlugin } from "./settings-base";
 import { DEFAULT_SETTINGS } from "../constants";
 import { t, getCurrentLocale } from "../i18n";
@@ -78,7 +84,6 @@ export class PropertiesTab extends SettingsTabBase {
     const mainToggle = new Setting(this.containerEl)
       .setName(t("settings.alias.addAlias.name"))
       .setDesc(t("settings.alias.addAlias.desc"))
-      .setHeading()
       .addToggle((toggle) =>
         toggle
           .setValue(this.plugin.settings.aliases.enableAliases)
@@ -102,11 +107,12 @@ export class PropertiesTab extends SettingsTabBase {
             renderAliasSettings();
           }),
       );
-    mainToggle.settingEl.addClass("flit-heading-no-border");
+    mainToggle.settingEl.addClass("flit-master-toggle");
 
-    const aliasContainer = this.containerEl.createDiv({
-      cls: "flit-alias-container",
-    });
+    new SettingGroup(this.containerEl).addClass("flit-alias-group");
+    const aliasContainer = this.containerEl.querySelector<HTMLElement>(
+      ".flit-alias-group .setting-items",
+    ) as HTMLElement;
     let addAliasConditionalToggle: ToggleComponent | undefined;
     let truncateAliasToggle: ToggleComponent | undefined;
     let applyCustomRulesToggle: ToggleComponent | undefined;
@@ -502,15 +508,17 @@ export class PropertiesTab extends SettingsTabBase {
           });
       });
 
-    if (!Platform.isMobile) {
-      new Setting(aliasContainer)
-        .setName(t("settings.alias.limitations.title"))
-        .setDesc("")
-        .setHeading();
+    renderAliasSettings();
 
-      const limitationsContainer = aliasContainer.createDiv();
+    if (!Platform.isMobile) {
+      new SettingGroup(this.containerEl)
+        .setHeading(t("settings.alias.limitations.title"))
+        .addClass("flit-notice-group");
+      const limitationsContainer = this.containerEl.querySelector<HTMLElement>(
+        ".flit-notice-group .setting-items",
+      ) as HTMLElement;
       const limitationsDesc = limitationsContainer.createEl("p", {
-        cls: "setting-item-description flit-margin-top-12",
+        cls: "setting-item-description flit-margin-top-0",
       });
       limitationsDesc.appendText(t("settings.alias.limitations.desc.part1"));
       const hoverEditorLink = limitationsDesc.createEl("a", {
@@ -519,8 +527,6 @@ export class PropertiesTab extends SettingsTabBase {
       hoverEditorLink.textContent = PLUGIN_HOVER_EDITOR;
       limitationsDesc.appendText(t("settings.alias.limitations.desc.part2"));
     }
-
-    renderAliasSettings();
 
     void updateAliasConditionalSettings();
     (

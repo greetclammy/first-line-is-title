@@ -1,4 +1,4 @@
-import { Setting, setIcon, ExtraButtonComponent } from "obsidian";
+import { Setting, SettingGroup, setIcon, ExtraButtonComponent } from "obsidian";
 import { SettingsTabBase, FirstLineIsTitlePlugin } from "./settings-base";
 import {
   ExclusionStrategy,
@@ -33,14 +33,17 @@ export class IncludeExcludeTab extends SettingsTabBase {
       .setDesc(t("settings.exclusions.folders.desc"))
       .setHeading();
 
-    const folderNote = this.containerEl.createEl("p", {
-      cls: "setting-item-description",
-    });
-    folderNote.classList.add("flit-margin-top-15");
-    folderNote.classList.add("flit-margin-bottom-15");
-    folderNote.textContent = t("settings.exclusions.folders.renamedWarning");
+    new SettingGroup(this.containerEl).addClass("flit-folders-group");
+    const foldersContainer = this.containerEl.querySelector<HTMLElement>(
+      ".flit-folders-group .setting-items",
+    ) as HTMLElement;
 
-    const subfolderSetting = new Setting(this.containerEl)
+    foldersContainer.createEl("p", {
+      cls: "setting-item-description flit-margin-bottom-15",
+      text: t("settings.exclusions.folders.renamedWarning"),
+    });
+
+    new Setting(foldersContainer)
       .setName(t("settings.exclusions.folders.matchSubfolders.name"))
       .setDesc(t("settings.exclusions.folders.matchSubfolders.desc"))
       .addToggle((toggle) =>
@@ -52,9 +55,8 @@ export class IncludeExcludeTab extends SettingsTabBase {
             await this.plugin.saveSettings();
           }),
       );
-    subfolderSetting.settingEl.classList.add("flit-border-top-none");
 
-    new Setting(this.containerEl)
+    new Setting(foldersContainer)
       .setName(t("settings.exclusions.folders.exclusionMode.name"))
       .setDesc(t("settings.exclusions.folders.exclusionMode.desc"))
       .addDropdown((dropdown) =>
@@ -75,7 +77,7 @@ export class IncludeExcludeTab extends SettingsTabBase {
           }),
       );
 
-    const folderContainer = this.containerEl.createDiv();
+    const folderContainer = foldersContainer.createDiv();
 
     const renderExcludedFolders = () => {
       folderContainer.empty();
@@ -235,11 +237,14 @@ export class IncludeExcludeTab extends SettingsTabBase {
       .setDesc(t("settings.exclusions.tags.desc"))
       .setHeading();
 
-    const tagNotes = this.containerEl.createEl("div", {
-      cls: "setting-item-description",
+    new SettingGroup(this.containerEl).addClass("flit-tags-group");
+    const tagsContainer = this.containerEl.querySelector<HTMLElement>(
+      ".flit-tags-group .setting-items",
+    ) as HTMLElement;
+
+    const tagNotes = tagsContainer.createEl("div", {
+      cls: "setting-item-description flit-margin-bottom-15",
     });
-    tagNotes.classList.add("flit-margin-top-15");
-    tagNotes.classList.add("flit-margin-bottom-15");
 
     const tagUl = tagNotes.createEl("ul", {
       cls: "flit-margin-0 flit-padding-left-20",
@@ -263,7 +268,7 @@ export class IncludeExcludeTab extends SettingsTabBase {
     const tagLi2 = tagUl.createEl("li");
     tagLi2.appendText(t("settings.exclusions.tags.tagWranglerWarning"));
 
-    const tagMatchingSetting = new Setting(this.containerEl)
+    new Setting(tagsContainer)
       .setName(t("settings.exclusions.tags.matchTags.name"))
       .setDesc(t("settings.exclusions.tags.matchTags.desc"))
       .addDropdown((dropdown) =>
@@ -287,9 +292,8 @@ export class IncludeExcludeTab extends SettingsTabBase {
             await this.plugin.saveSettings();
           }),
       );
-    tagMatchingSetting.settingEl.classList.add("flit-border-top-none");
 
-    new Setting(this.containerEl)
+    new Setting(tagsContainer)
       .setName(t("settings.exclusions.tags.matchChildTags.name"))
       .setDesc(t("settings.exclusions.tags.matchChildTags.desc"))
       .addToggle((toggle) =>
@@ -302,7 +306,7 @@ export class IncludeExcludeTab extends SettingsTabBase {
           }),
       );
 
-    new Setting(this.containerEl)
+    new Setting(tagsContainer)
       .setName(t("settings.exclusions.tags.exclusionMode.name"))
       .setDesc(t("settings.exclusions.tags.exclusionMode.desc"))
       .addDropdown((dropdown) =>
@@ -323,7 +327,7 @@ export class IncludeExcludeTab extends SettingsTabBase {
           }),
       );
 
-    const tagContainer = this.containerEl.createDiv();
+    const tagContainer = tagsContainer.createDiv();
 
     const renderExcludedTags = () => {
       tagContainer.empty();
@@ -469,11 +473,14 @@ export class IncludeExcludeTab extends SettingsTabBase {
       .setDesc(t("settings.exclusions.properties.desc"))
       .setHeading();
 
-    const propertyNotes = this.containerEl.createEl("div", {
-      cls: "setting-item-description",
+    new SettingGroup(this.containerEl).addClass("flit-properties-group");
+    const propertiesContainer = this.containerEl.querySelector<HTMLElement>(
+      ".flit-properties-group .setting-items",
+    ) as HTMLElement;
+
+    const propertyNotes = propertiesContainer.createEl("div", {
+      cls: "setting-item-description flit-margin-bottom-15",
     });
-    propertyNotes.classList.add("flit-margin-top-15");
-    propertyNotes.classList.add("flit-margin-bottom-15");
 
     const ul = propertyNotes.createEl("ul", {
       cls: "flit-margin-0 flit-padding-left-20",
@@ -521,7 +528,7 @@ export class IncludeExcludeTab extends SettingsTabBase {
       text: t("settings.exclusions.properties.renamedWarning"),
     });
 
-    const propertyModeSetting = new Setting(this.containerEl)
+    new Setting(propertiesContainer)
       .setName(t("settings.exclusions.properties.exclusionMode.name"))
       .setDesc(t("settings.exclusions.properties.exclusionMode.desc"))
       .addDropdown((dropdown) =>
@@ -541,9 +548,8 @@ export class IncludeExcludeTab extends SettingsTabBase {
             await this.plugin.saveSettings();
           }),
       );
-    propertyModeSetting.settingEl.classList.add("flit-border-top-none");
 
-    const propertyContainer = this.containerEl.createDiv();
+    const propertyContainer = propertiesContainer.createDiv();
 
     const renderExcludedProperties = () => {
       propertyContainer.empty();

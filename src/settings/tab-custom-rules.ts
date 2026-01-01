@@ -1,4 +1,4 @@
-import { Setting, setIcon, ToggleComponent } from "obsidian";
+import { Setting, SettingGroup, setIcon, ToggleComponent } from "obsidian";
 import { SettingsTabBase, FirstLineIsTitlePlugin } from "./settings-base";
 import { t, getCurrentLocale } from "../i18n";
 import { TIMING } from "../constants/timing";
@@ -52,13 +52,15 @@ export class CustomReplacementsTab extends SettingsTabBase {
             ).updateAliasConditionalSettings?.();
           });
       });
-    mainToggle.settingEl.addClass(
-      "flit-heading-no-border",
-      "flit-margin-bottom-12",
-    );
+    mainToggle.settingEl.addClass("flit-margin-bottom-12");
 
-    const customBulletListEl = this.containerEl.createEl("div", {
-      cls: "setting-item-description flit-margin-top-12",
+    new SettingGroup(this.containerEl).addClass("flit-custom-rules-group");
+    const customRulesContainer = this.containerEl.querySelector<HTMLElement>(
+      ".flit-custom-rules-group .setting-items",
+    ) as HTMLElement;
+
+    const customBulletListEl = customRulesContainer.createEl("div", {
+      cls: "setting-item-description flit-margin-top-0",
     });
 
     const updateCustomDescriptionContent = () => {
@@ -123,14 +125,12 @@ export class CustomReplacementsTab extends SettingsTabBase {
     };
 
     updateCustomDescriptionContent();
-    this.containerEl.createEl("br");
 
-    const customReplacementsContainer = this.containerEl.createDiv({
+    const customReplacementsContainer = customRulesContainer.createDiv({
       cls: "flit-custom-replacements-container",
     });
 
     let processingOrderContainer: HTMLElement | undefined;
-    let globalProcessingHeaderSetting: Setting | undefined;
     let markupToggleContainer: HTMLElement | undefined;
     let markupToggleSetting: Setting | undefined;
     let markupToggle: ToggleComponent | undefined;
@@ -141,16 +141,10 @@ export class CustomReplacementsTab extends SettingsTabBase {
       this.updateInteractiveState(customReplacementsContainer, enabled);
       if (processingOrderContainer) {
         this.updateInteractiveState(processingOrderContainer, enabled);
-      }
-      if (globalProcessingHeaderSetting) {
         if (enabled) {
-          globalProcessingHeaderSetting.settingEl.classList.remove(
-            "flit-master-disabled",
-          );
+          processingOrderContainer.classList.remove("flit-master-disabled");
         } else {
-          globalProcessingHeaderSetting.settingEl.classList.add(
-            "flit-master-disabled",
-          );
+          processingOrderContainer.classList.add("flit-master-disabled");
         }
       }
       if (markupToggleContainer) {
@@ -654,19 +648,66 @@ export class CustomReplacementsTab extends SettingsTabBase {
 
     this.containerEl.createEl("br");
 
-    globalProcessingHeaderSetting = new Setting(this.containerEl)
-      .setName(t("settings.customRules.processingOrder.title"))
-      .setDesc("")
-      .setHeading();
+    // Processing order section using SettingGroup
+    let applyAfterForbiddenSetting: Setting;
 
-    processingOrderContainer = this.containerEl.createDiv({
-      cls: "flit-processing-order-container",
-    });
-    const applyAfterForbiddenSetting = new Setting(processingOrderContainer)
-      .setName(t("settings.customRules.processingOrder.applyAfterForbidden"))
-      .setDesc("");
+    const processingOrderGroup = new SettingGroup(this.containerEl)
+      .setHeading(t("settings.customRules.processingOrder.title"))
+      .addSetting((s) => {
+        applyAfterForbiddenSetting = s;
+        s.setName(
+          t("settings.customRules.processingOrder.applyAfterForbidden"),
+        ).addToggle((toggle) =>
+          toggle
+            .setValue(
+              this.plugin.settings.customRules
+                .applyCustomRulesAfterForbiddenChars,
+            )
+            .onChange(async (value) => {
+              this.plugin.settings.customRules.applyCustomRulesAfterForbiddenChars =
+                value;
+              this.plugin.debugLog(
+                "applyCustomRulesAfterForbiddenChars",
+                value,
+              );
+              await this.plugin.saveSettings();
+            }),
+        );
+      })
+      .addSetting((s) => {
+        markupToggleSetting = s;
+        s.setName(
+          t("settings.customRules.processingOrder.applyAfterMarkup"),
+        ).addToggle((toggle) => {
+          markupToggle = toggle;
+          toggle
+            .setValue(
+              this.plugin.settings.markupStripping
+                .applyCustomRulesAfterMarkupStripping,
+            )
+            .onChange(async (value) => {
+              this.plugin.settings.markupStripping.applyCustomRulesAfterMarkupStripping =
+                value;
+              this.plugin.debugLog(
+                "applyCustomRulesAfterMarkupStripping",
+                value,
+              );
+              await this.plugin.saveSettings();
+            });
 
-    const applyAfterForbiddenDesc = applyAfterForbiddenSetting.descEl;
+          if (!this.plugin.settings.markupStripping.enableStripMarkup) {
+            toggle.toggleEl.tabIndex = -1;
+            toggle.toggleEl.setAttribute("aria-disabled", "true");
+            toggle.toggleEl.classList.add("flit-pointer-none");
+          }
+        });
+      });
+
+    // Get the container element for the processing order group
+    processingOrderContainer = processingOrderGroup.settingEl;
+
+    // Add styled descriptions after settings are created
+    const applyAfterForbiddenDesc = applyAfterForbiddenSetting!.descEl;
     applyAfterForbiddenDesc.appendText(
       t("settings.customRules.processingOrder.asSetInReplace.part1"),
     );
@@ -689,18 +730,32 @@ export class CustomReplacementsTab extends SettingsTabBase {
       t("settings.customRules.processingOrder.asSetInReplace.part2"),
     );
 
-    applyAfterForbiddenSetting.addToggle((toggle) =>
-      toggle
-        .setValue(
-          this.plugin.settings.customRules.applyCustomRulesAfterForbiddenChars,
-        )
-        .onChange(async (value) => {
-          this.plugin.settings.customRules.applyCustomRulesAfterForbiddenChars =
-            value;
-          this.plugin.debugLog("applyCustomRulesAfterForbiddenChars", value);
-          await this.plugin.saveSettings();
-        }),
+    const applyAfterMarkupDesc = markupToggleSetting!.descEl;
+    applyAfterMarkupDesc.appendText(
+      t("settings.customRules.processingOrder.asSetInStrip.part1"),
     );
+    if (getCurrentLocale() === "ru") {
+      applyAfterMarkupDesc.appendText(
+        "«" +
+          t("settings.customRules.processingOrder.asSetInStrip.stripMarkup") +
+          "»",
+      );
+    } else {
+      applyAfterMarkupDesc.createEl("em", {
+        text: t(
+          "settings.customRules.processingOrder.asSetInStrip.stripMarkup",
+        ),
+      });
+    }
+    applyAfterMarkupDesc.appendText(
+      t("settings.customRules.processingOrder.asSetInStrip.part2"),
+    );
+
+    markupToggleContainer = markupToggleSetting!.settingEl;
+
+    if (!this.plugin.settings.markupStripping.enableStripMarkup) {
+      markupToggleContainer.classList.add("flit-row-disabled");
+    }
 
     const updateMarkupToggleVisibility = () => {
       if (this.plugin.settings.markupStripping.enableStripMarkup) {
@@ -728,58 +783,6 @@ export class CustomReplacementsTab extends SettingsTabBase {
         }
       }
     };
-
-    markupToggleSetting = new Setting(processingOrderContainer)
-      .setName(t("settings.customRules.processingOrder.applyAfterMarkup"))
-      .setDesc("");
-
-    const applyAfterMarkupDesc = markupToggleSetting.descEl;
-    applyAfterMarkupDesc.appendText(
-      t("settings.customRules.processingOrder.asSetInStrip.part1"),
-    );
-    if (getCurrentLocale() === "ru") {
-      applyAfterMarkupDesc.appendText(
-        "«" +
-          t("settings.customRules.processingOrder.asSetInStrip.stripMarkup") +
-          "»",
-      );
-    } else {
-      applyAfterMarkupDesc.createEl("em", {
-        text: t(
-          "settings.customRules.processingOrder.asSetInStrip.stripMarkup",
-        ),
-      });
-    }
-    applyAfterMarkupDesc.appendText(
-      t("settings.customRules.processingOrder.asSetInStrip.part2"),
-    );
-
-    markupToggleSetting.addToggle((toggle) => {
-      markupToggle = toggle;
-      toggle
-        .setValue(
-          this.plugin.settings.markupStripping
-            .applyCustomRulesAfterMarkupStripping,
-        )
-        .onChange(async (value) => {
-          this.plugin.settings.markupStripping.applyCustomRulesAfterMarkupStripping =
-            value;
-          this.plugin.debugLog("applyCustomRulesAfterMarkupStripping", value);
-          await this.plugin.saveSettings();
-        });
-
-      if (!this.plugin.settings.markupStripping.enableStripMarkup) {
-        toggle.toggleEl.tabIndex = -1;
-        toggle.toggleEl.setAttribute("aria-disabled", "true");
-        toggle.toggleEl.classList.add("flit-pointer-none");
-      }
-    });
-
-    markupToggleContainer = markupToggleSetting.settingEl;
-
-    if (!this.plugin.settings.markupStripping.enableStripMarkup) {
-      markupToggleContainer.classList.add("flit-row-disabled");
-    }
 
     updateMarkupToggleVisibility();
 

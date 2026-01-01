@@ -270,7 +270,6 @@ br + .flit-table-container {
   gap: 8px;
   width: fit-content;
   min-width: 746px;
-  background-color: var(--background-primary);
 }
 
 .flit-custom-replacement-header .flit-toggle-column:first-of-type,
@@ -297,7 +296,6 @@ br + .flit-table-container {
   gap: 8px;
   width: fit-content;
   min-width: 746px;
-  background-color: var(--background-primary);
 }
 
 .flit-custom-replacement-setting .flit-toggle-column:first-of-type,
@@ -766,12 +764,13 @@ hr.flit-divider {
   margin-bottom: 0 !important;
 }
 
-/* Remove borders from add buttons and their containers */
+.flit-add-folder-button,
 .flit-add-replacement-button,
 .flit-add-safeword-button {
   border-top: none !important;
   border-bottom: none !important;
   margin-top: 10px !important;
+  background: none !important;
   /* Keep buttons fixed to viewport width, don't let them scroll */
   width: 100%;
   max-width: 100%;
@@ -832,15 +831,8 @@ hr.flit-divider {
   box-sizing: border-box;
 }
 
-/* Master toggle styling */
 .flit-master-toggle {
   border-top: none !important;
-  border-bottom: 1px solid var(--background-modifier-border) !important;
-}
-
-/* Ensure no double borders from Obsidian's default setting-item styling */
-.flit-master-toggle.setting-item {
-  border-bottom: 1px solid var(--background-modifier-border) !important;
 }
 
 /* Section header styling (like master toggle but can be greyed out) */
@@ -1018,6 +1010,33 @@ hr.flit-divider {
 .flit-master-disabled .setting-item.flit-row-disabled .setting-item-description,
 .flit-master-disabled .setting-item.flit-row-disabled .setting-item-control {
   opacity: 1 !important; /* Reset to 1 so parent's 0.5 is the final opacity */
+}
+
+.flit-settings-page .setting-group-heading {
+  border-bottom: none;
+}
+
+.flit-master-toggle {
+  background: none !important;
+}
+
+.flit-notice-group .setting-item-description {
+  padding-top: 0;
+}
+
+.flit-notice-group .setting-item-description:first-child {
+  margin-top: 0;
+}
+
+.flit-notice-group .setting-item-description:last-child {
+  margin-bottom: 0;
+}
+
+.flit-notice-group .setting-items {
+  margin-bottom: 0;
+  background-color: transparent;
+  border: none;
+  box-shadow: inset 0 0 0 1px var(--background-modifier-border);
 }
 
 /* Processing order container spacing */
@@ -1528,19 +1547,10 @@ hr.flit-divider {
   pointer-events: auto;
 }
 
-/* Section heading styles - override Obsidian's default 30px margin and add divider */
 .flit-settings-page .setting-item-heading {
   margin-top: 0.75em;
-  border-bottom: 1px solid var(--background-modifier-border);
   padding-bottom: 12px;
   margin-bottom: 12px;
-}
-
-/* Remove border from main toggle headings at top of tabs */
-.flit-settings-page .setting-item-heading.flit-heading-no-border {
-  border-bottom: none;
-  padding-bottom: 0;
-  margin-bottom: 24px;
 }
 
 /* Property container - used in exclusions tab */

@@ -3,9 +3,16 @@
  * These extend the official API with unofficial/undocumented properties
  */
 
-import { Command, TFile, Editor, Menu, View } from "obsidian";
+import { Command, TFile, Editor, Menu, View, Setting } from "obsidian";
 
 declare module "obsidian" {
+  export class SettingGroup {
+    settingEl: HTMLElement;
+    constructor(containerEl: HTMLElement);
+    setHeading(text: string | DocumentFragment): this;
+    addClass(cls: string): this;
+    addSetting(cb: (setting: Setting) => void): this;
+  }
   interface MetadataCache {
     /**
      * Get all tags in the vault (undocumented)

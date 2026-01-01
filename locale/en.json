@@ -19,7 +19,7 @@
     "addSafeInternalLink": "Add safe internal link",
     "addSafeInternalLinkWithCaption": "Add safe internal link with caption",
     "addInternalLinkWithCaptionAndCustomTarget": "Add internal link with caption and custom target",
-    "insertFilename": "Insert filename at cursor position",
+    "insertFilename": "Insert file name at cursor position",
     "putFirstLineInTitleNFolders": {
       "many": "Put first line in title ({{count}} folders)"
     },
@@ -64,7 +64,7 @@
         "part2": ", and with original text in caption."
       },
       "createLinkWithCustomTarget": "Create internal link with selected text in caption. Set link path manually.",
-      "insertFilename": "Insert current filename at cursor position. Convert forbidden character replacements back to their original forms, as set in *Replace characters*.",
+      "insertFilename": "Insert current file name at cursor position. Convert forbidden character replacements back to their original forms, as set in *Replace characters*.",
       "renameNoteEvenExcluded": "Rename note, even if in excluded folder or with excluded tag.",
       "excludeNote": "Exclude note from renaming.",
       "stopExcludingNote": "Stop excluding note from renaming.",
@@ -223,7 +223,7 @@
       "insertTitleOnCreation": {
         "name": "Insert title in first line on note creation",
         "desc": {
-          "part1": "Place the filename in the first line when creating a new empty note (unless ",
+          "part1": "Place the file name in the first line when creating a new empty note (unless ",
           "untitled": "Untitled",
           "part2": ")."
         }
@@ -351,7 +351,7 @@
       },
       "onlyAddIfDiffers": {
         "name": "Only add alias if first line differs from title",
-        "desc": "For example, if the filename was truncated, or some characters have been omitted or replaced."
+        "desc": "For example, if the file name was truncated, or some characters have been omitted or replaced."
       },
       "truncateAlias": {
         "name": "Truncate alias",
@@ -411,18 +411,18 @@
       "desc": "Enable to replace forbidden characters using the rules below. Disable to strip them entirely.",
       "allOSes": {
         "title": "All OSes",
-        "desc": "Replace characters that are forbidden in Obsidian filenames on every operating system.",
+        "desc": "Replace characters that are forbidden in Obsidian file names on every operating system.",
         "note": {
-          "part1": "Use ",
+          "part1": "Enable ",
           "trimLeft": "Trim left",
-          "part2": " to remove preceding whitespace in filename. Use ",
+          "part2": " to strip spaces before the character in file name. Enable ",
           "trimRight": "Trim right",
-          "part3": " to remove whitespace that follows."
+          "part3": " to remove spaces after the character."
         }
       },
       "windowsAndroid": {
         "title": "Windows/Android",
-        "desc": "Replace characters that are forbidden in Obsidian filenames on Windows and Android only."
+        "desc": "Replace characters that are forbidden in Obsidian file names on Windows and Android only."
       },
       "headers": {
         "enable": "Enable",
@@ -441,7 +441,7 @@
         "forwardSlash": "Forward slash /",
         "colon": "Colon :",
         "dot": "Dot .",
-        "dotNote": "Note: the dot is forbidden at filename start only.",
+        "dotNote": "Note: the dot is forbidden at file name start only.",
         "asterisk": "Asterisk *",
         "quote": "Quote \"",
         "lessThan": "Less than <",
@@ -453,7 +453,7 @@
     },
     "customRules": {
       "name": "Enable custom rules",
-      "desc": "Apply custom text replacements to filename.",
+      "desc": "Apply custom text replacements to file name.",
       "rulesAppliedSequentially": "Rules are applied sequentially from top to bottom.",
       "whitespacePreserved": "Whitespace preserved.",
       "leaveBlank": {
@@ -466,7 +466,7 @@
         "replaceWith": "Replace with",
         "part2": " is blank and ",
         "textToReplace": "Text to replace",
-        "part3": " matches the whole line, the filename becomes ",
+        "part3": " matches the whole line, the file name becomes ",
         "untitled": "Untitled",
         "part4": "."
       },
@@ -499,7 +499,7 @@
     },
     "stripMarkup": {
       "name": "Strip markup",
-      "desc": "Omit markup syntax in filename when renaming.",
+      "desc": "Omit markup syntax in file name when renaming.",
       "headings": {
         "name": "Strip heading markup",
         "desc": {
@@ -765,7 +765,7 @@
     "other": {
       "charCount": {
         "name": "Character count",
-        "desc": "The maximum number of characters to put in filename.",
+        "desc": "The maximum number of characters to put in file name.",
         "default": "Default: 100"
       },
       "notificationMode": {
@@ -784,7 +784,7 @@
         "desc": {
           "part1": "If a note starts with a card link created with ",
           "part2": " or ",
-          "part3": ", the card link title will be put in filename."
+          "part3": ", the card link title will be put in file name."
         }
       },
       "newNoteDelay": {
@@ -813,6 +813,9 @@
         "name": "Output full file content in console",
         "desc": "Log the complete content of files (including YAML frontmatter) whenever they are modified."
       },
+      "configuration": {
+        "title": "Configuration"
+      },
       "manageSettings": {
         "name": "Manage settings",
         "desc": "Back up plugin settings to a file or restore from backup.",
@@ -828,14 +831,14 @@
     "safewords": {
       "enableSafewords": {
         "name": "Enable safewords",
-        "desc": "Don't rename notes if the filename contains a text string specified below."
+        "desc": "Don't rename notes if the file name contains a text string specified below."
       },
       "addButton": "Add safeword",
       "headers": {
         "enable": "Enable",
         "safeword": "Safeword",
-        "onlyMatchStart": "Only match filename start",
-        "onlyMatchWhole": "Only match whole filename",
+        "onlyMatchStart": "Only match file name start",
+        "onlyMatchWhole": "Only match whole file name",
         "caseSensitive": "Case-sensitive"
       }
     }
