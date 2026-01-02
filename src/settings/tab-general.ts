@@ -1,5 +1,4 @@
-/* eslint-disable @typescript-eslint/no-misused-promises */
-import { Setting, SettingGroup, setIcon } from "obsidian";
+import { Setting, SettingGroup, setIcon, Notice } from "obsidian";
 import { SettingsTabBase, FirstLineIsTitlePlugin } from "./settings-base";
 import { RenameAllFilesModal } from "../modals";
 import { t, getCurrentLocale } from "../i18n";
@@ -61,35 +60,45 @@ export class GeneralTab extends SettingsTabBase {
               )
               .addOption("manually", t("settings.general.renameNotes.manually"))
               .setValue(this.plugin.settings.core.renameNotes)
-              .onChange(async (value) => {
-                this.plugin.settings.core.renameNotes = value as
-                  | "automatically"
-                  | "manually";
-                this.plugin.debugLog("renameNotes", value);
-                await this.plugin.saveSettings();
-                updateAutomaticRenameVisibility();
+              .onChange((value) => {
+                void (async () => {
+                  this.plugin.settings.core.renameNotes = value as
+                    | "automatically"
+                    | "manually";
+                  this.plugin.debugLog("renameNotes", value);
+                  try {
+                    await this.plugin.saveSettings();
+                  } catch {
+                    new Notice(t("settings.errors.saveFailed"));
+                  }
+                  updateAutomaticRenameVisibility();
+                })();
               }),
           );
       })
       // 2. Only rename if heading
-      .addSetting((s) =>
-        s
-          .setName(t("settings.general.onlyRenameIfHeading.name"))
+      .addSetting((s) => {
+        s.setName(t("settings.general.onlyRenameIfHeading.name"))
           .setDesc(t("settings.general.onlyRenameIfHeading.desc"))
           .addToggle((toggle) =>
             toggle
               .setValue(this.plugin.settings.core.onlyRenameIfHeading)
-              .onChange(async (value) => {
-                this.plugin.settings.core.onlyRenameIfHeading = value;
-                this.plugin.debugLog("onlyRenameIfHeading", value);
-                await this.plugin.saveSettings();
+              .onChange((value) => {
+                void (async () => {
+                  this.plugin.settings.core.onlyRenameIfHeading = value;
+                  this.plugin.debugLog("onlyRenameIfHeading", value);
+                  try {
+                    await this.plugin.saveSettings();
+                  } catch {
+                    new Notice(t("settings.errors.saveFailed"));
+                  }
+                })();
               }),
-          ),
-      )
+          );
+      })
       // 3. Title case
-      .addSetting((s) =>
-        s
-          .setName(t("settings.general.titleCase.name"))
+      .addSetting((s) => {
+        s.setName(t("settings.general.titleCase.name"))
           .setDesc(t("settings.general.titleCase.desc"))
           .addDropdown((dropdown) =>
             dropdown
@@ -97,16 +106,22 @@ export class GeneralTab extends SettingsTabBase {
               .addOption("uppercase", t("settings.general.titleCase.uppercase"))
               .addOption("lowercase", t("settings.general.titleCase.lowercase"))
               .setValue(this.plugin.settings.core.titleCase)
-              .onChange(async (value) => {
-                this.plugin.settings.core.titleCase = value as
-                  | "preserve"
-                  | "uppercase"
-                  | "lowercase";
-                this.plugin.debugLog("titleCase", value);
-                await this.plugin.saveSettings();
+              .onChange((value) => {
+                void (async () => {
+                  this.plugin.settings.core.titleCase = value as
+                    | "preserve"
+                    | "uppercase"
+                    | "lowercase";
+                  this.plugin.debugLog("titleCase", value);
+                  try {
+                    await this.plugin.saveSettings();
+                  } catch {
+                    new Notice(t("settings.errors.saveFailed"));
+                  }
+                })();
               }),
-          ),
-      )
+          );
+      })
       // 4. Move cursor to first line
       .addSetting((s) => {
         moveCursorSetting = s;
@@ -115,11 +130,17 @@ export class GeneralTab extends SettingsTabBase {
           .addToggle((toggle) =>
             toggle
               .setValue(this.plugin.settings.core.moveCursorToFirstLine)
-              .onChange(async (value) => {
-                this.plugin.settings.core.moveCursorToFirstLine = value;
-                this.plugin.debugLog("moveCursorToFirstLine", value);
-                await this.plugin.saveSettings();
-                updateCursorOptionsVisibility();
+              .onChange((value) => {
+                void (async () => {
+                  this.plugin.settings.core.moveCursorToFirstLine = value;
+                  this.plugin.debugLog("moveCursorToFirstLine", value);
+                  try {
+                    await this.plugin.saveSettings();
+                  } catch {
+                    new Notice(t("settings.errors.saveFailed"));
+                  }
+                  updateCursorOptionsVisibility();
+                })();
               }),
           );
       })
@@ -130,33 +151,43 @@ export class GeneralTab extends SettingsTabBase {
           (toggle) =>
             toggle
               .setValue(this.plugin.settings.core.insertTitleOnCreation)
-              .onChange(async (value) => {
-                this.plugin.settings.core.insertTitleOnCreation = value;
-                this.plugin.debugLog("insertTitleOnCreation", value);
-                await this.plugin.saveSettings();
-                updateInsertTitleOptionsVisibility();
+              .onChange((value) => {
+                void (async () => {
+                  this.plugin.settings.core.insertTitleOnCreation = value;
+                  this.plugin.debugLog("insertTitleOnCreation", value);
+                  try {
+                    await this.plugin.saveSettings();
+                  } catch {
+                    new Notice(t("settings.errors.saveFailed"));
+                  }
+                  updateInsertTitleOptionsVisibility();
+                })();
               }),
         );
       })
       // 6. Rename on save
-      .addSetting((s) =>
-        s
-          .setName(t("settings.general.renameOnSave.name"))
+      .addSetting((s) => {
+        s.setName(t("settings.general.renameOnSave.name"))
           .setDesc(t("settings.general.renameOnSave.desc"))
           .addToggle((toggle) =>
             toggle
               .setValue(this.plugin.settings.core.renameOnSave)
-              .onChange(async (value) => {
-                this.plugin.settings.core.renameOnSave = value;
-                this.plugin.debugLog("renameOnSave", value);
-                await this.plugin.saveSettings();
+              .onChange((value) => {
+                void (async () => {
+                  this.plugin.settings.core.renameOnSave = value;
+                  this.plugin.debugLog("renameOnSave", value);
+                  try {
+                    await this.plugin.saveSettings();
+                  } catch {
+                    new Notice(t("settings.errors.saveFailed"));
+                  }
+                })();
               }),
-          ),
-      )
+          );
+      })
       // 7. Rename all notes
-      .addSetting((s) =>
-        s
-          .setName(t("settings.general.renameAllNotes.name"))
+      .addSetting((s) => {
+        s.setName(t("settings.general.renameAllNotes.name"))
           .setDesc(t("settings.general.renameAllNotes.desc"))
           .addButton((button) =>
             button
@@ -164,8 +195,8 @@ export class GeneralTab extends SettingsTabBase {
               .onClick(() => {
                 new RenameAllFilesModal(this.plugin.app, this.plugin).open();
               }),
-          ),
-      );
+          );
+      });
 
     // Add styled description for insertTitleSetting
     const insertTitleDesc = insertTitleSetting!.descEl;
@@ -214,10 +245,16 @@ export class GeneralTab extends SettingsTabBase {
       .addToggle((toggle) =>
         toggle
           .setValue(this.plugin.settings.core.renameOnFocus)
-          .onChange(async (value) => {
-            this.plugin.settings.core.renameOnFocus = value;
-            this.plugin.debugLog("renameOnFocus", value);
-            await this.plugin.saveSettings();
+          .onChange((value) => {
+            void (async () => {
+              this.plugin.settings.core.renameOnFocus = value;
+              this.plugin.debugLog("renameOnFocus", value);
+              try {
+                await this.plugin.saveSettings();
+              } catch {
+                new Notice(t("settings.errors.saveFailed"));
+              }
+            })();
           }),
       );
 
@@ -228,10 +265,16 @@ export class GeneralTab extends SettingsTabBase {
       .addToggle((toggle) =>
         toggle
           .setValue(this.plugin.settings.core.placeCursorAtLineEnd)
-          .onChange(async (value) => {
-            this.plugin.settings.core.placeCursorAtLineEnd = value;
-            this.plugin.debugLog("placeCursorAtLineEnd", value);
-            await this.plugin.saveSettings();
+          .onChange((value) => {
+            void (async () => {
+              this.plugin.settings.core.placeCursorAtLineEnd = value;
+              this.plugin.debugLog("placeCursorAtLineEnd", value);
+              try {
+                await this.plugin.saveSettings();
+              } catch {
+                new Notice(t("settings.errors.saveFailed"));
+              }
+            })();
           }),
       );
 
@@ -266,10 +309,17 @@ export class GeneralTab extends SettingsTabBase {
     convertCharsSetting.addToggle((toggle) =>
       toggle
         .setValue(this.plugin.settings.core.convertReplacementCharactersInTitle)
-        .onChange(async (value) => {
-          this.plugin.settings.core.convertReplacementCharactersInTitle = value;
-          this.plugin.debugLog("convertReplacementCharactersInTitle", value);
-          await this.plugin.saveSettings();
+        .onChange((value) => {
+          void (async () => {
+            this.plugin.settings.core.convertReplacementCharactersInTitle =
+              value;
+            this.plugin.debugLog("convertReplacementCharactersInTitle", value);
+            try {
+              await this.plugin.saveSettings();
+            } catch {
+              new Notice(t("settings.errors.saveFailed"));
+            }
+          })();
         }),
     );
 
@@ -280,10 +330,16 @@ export class GeneralTab extends SettingsTabBase {
       .addToggle((toggle) =>
         toggle
           .setValue(this.plugin.settings.markupStripping.addHeadingToTitle)
-          .onChange(async (value) => {
-            this.plugin.settings.markupStripping.addHeadingToTitle = value;
-            this.plugin.debugLog("addHeadingToTitle", value);
-            await this.plugin.saveSettings();
+          .onChange((value) => {
+            void (async () => {
+              this.plugin.settings.markupStripping.addHeadingToTitle = value;
+              this.plugin.debugLog("addHeadingToTitle", value);
+              try {
+                await this.plugin.saveSettings();
+              } catch {
+                new Notice(t("settings.errors.saveFailed"));
+              }
+            })();
           }),
       );
 

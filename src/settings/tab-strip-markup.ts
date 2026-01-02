@@ -1,5 +1,6 @@
-import { Setting, SettingGroup } from "obsidian";
+import { Setting, SettingGroup, Notice } from "obsidian";
 import { SettingsTabBase, FirstLineIsTitlePlugin } from "./settings-base";
+import { MarkupStrippingSettings } from "../types";
 import { t, getCurrentLocale } from "../i18n";
 
 export class StripMarkupTab extends SettingsTabBase {
@@ -8,11 +9,9 @@ export class StripMarkupTab extends SettingsTabBase {
   }
 
   render(): void {
-    // Capture reference for use in typeof expressions after control flow narrowing
-    const markupStrippingSettings = this.plugin.settings.markupStripping;
-    type MarkupStrippingKeys = keyof typeof markupStrippingSettings;
+    type MarkupStrippingKeys = keyof MarkupStrippingSettings;
     type StripMarkupSettingsKeys =
-      keyof typeof markupStrippingSettings.stripMarkupSettings;
+      keyof MarkupStrippingSettings["stripMarkupSettings"];
 
     // Main toggle (not part of group)
     const mainToggleSetting = new Setting(this.containerEl)
@@ -38,7 +37,11 @@ export class StripMarkupTab extends SettingsTabBase {
               }
             }
 
-            await this.plugin.saveSettings();
+            try {
+              await this.plugin.saveSettings();
+            } catch {
+              new Notice(t("settings.errors.saveFailed"));
+            }
             updateStripMarkupUI();
             void (
               this.plugin as typeof this.plugin & {
@@ -177,7 +180,11 @@ export class StripMarkupTab extends SettingsTabBase {
                 toggle.key as MarkupStrippingKeys
               ] as boolean) = value;
               this.plugin.debugLog(toggle.key, value);
-              await this.plugin.saveSettings();
+              try {
+                await this.plugin.saveSettings();
+              } catch {
+                new Notice(t("settings.errors.saveFailed"));
+              }
             });
         } else {
           toggleControl
@@ -191,7 +198,11 @@ export class StripMarkupTab extends SettingsTabBase {
                 toggle.key as StripMarkupSettingsKeys
               ] = value;
               this.plugin.debugLog(`stripMarkupSettings.${toggle.key}`, value);
-              await this.plugin.saveSettings();
+              try {
+                await this.plugin.saveSettings();
+              } catch {
+                new Notice(t("settings.errors.saveFailed"));
+              }
               if (toggle.key === "comments") {
                 updateStripCommentsEntirelyVisibility();
               }
@@ -214,7 +225,11 @@ export class StripMarkupTab extends SettingsTabBase {
                 this.plugin.settings.markupStripping.stripCommentsEntirely =
                   value;
                 this.plugin.debugLog("stripCommentsEntirely", value);
-                await this.plugin.saveSettings();
+                try {
+                  await this.plugin.saveSettings();
+                } catch {
+                  new Notice(t("settings.errors.saveFailed"));
+                }
               }),
           );
 
@@ -275,7 +290,11 @@ export class StripMarkupTab extends SettingsTabBase {
             .onChange(async (value) => {
               this.plugin.settings.markupStripping.detectDiagrams = value;
               this.plugin.debugLog("detectDiagrams", value);
-              await this.plugin.saveSettings();
+              try {
+                await this.plugin.saveSettings();
+              } catch {
+                new Notice(t("settings.errors.saveFailed"));
+              }
             }),
         );
 
@@ -308,7 +327,11 @@ export class StripMarkupTab extends SettingsTabBase {
         .onChange(async (value) => {
           this.plugin.settings.markupStripping.stripTemplaterSyntax = value;
           this.plugin.debugLog("stripTemplaterSyntax", value);
-          await this.plugin.saveSettings();
+          try {
+            await this.plugin.saveSettings();
+          } catch {
+            new Notice(t("settings.errors.saveFailed"));
+          }
         }),
     );
 

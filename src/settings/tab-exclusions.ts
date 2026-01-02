@@ -1,4 +1,10 @@
-import { Setting, SettingGroup, setIcon, ExtraButtonComponent } from "obsidian";
+import {
+  Setting,
+  SettingGroup,
+  setIcon,
+  ExtraButtonComponent,
+  Notice,
+} from "obsidian";
 import { SettingsTabBase, FirstLineIsTitlePlugin } from "./settings-base";
 import {
   ExclusionStrategy,
@@ -75,7 +81,11 @@ export class IncludeExcludeTab extends SettingsTabBase {
                 currentItems[index] = value;
                 config.setItems(currentItems);
                 this.plugin.debugLog(config.debugLabel, currentItems);
-                await this.plugin.saveSettings();
+                try {
+                  await this.plugin.saveSettings();
+                } catch {
+                  new Notice(t("settings.errors.saveFailed"));
+                }
                 updateButtonState();
               });
             text.inputEl.classList.add("flit-width-100");
@@ -94,7 +104,11 @@ export class IncludeExcludeTab extends SettingsTabBase {
                       currentItems[index] = selectedValue;
                       config.setItems(currentItems);
                       this.plugin.debugLog(config.debugLabel, currentItems);
-                      await this.plugin.saveSettings();
+                      try {
+                        await this.plugin.saveSettings();
+                      } catch {
+                        new Notice(t("settings.errors.saveFailed"));
+                      }
                       updateButtonState();
                     })();
                   },
@@ -120,7 +134,11 @@ export class IncludeExcludeTab extends SettingsTabBase {
                   currentItems.push("");
                 }
                 config.setItems(currentItems);
-                await this.plugin.saveSettings();
+                try {
+                  await this.plugin.saveSettings();
+                } catch {
+                  new Notice(t("settings.errors.saveFailed"));
+                }
                 renderList();
               }
             });
@@ -151,7 +169,11 @@ export class IncludeExcludeTab extends SettingsTabBase {
             } else {
               currentItems.push("");
               config.setItems(currentItems);
-              await this.plugin.saveSettings();
+              try {
+                await this.plugin.saveSettings();
+              } catch {
+                new Notice(t("settings.errors.saveFailed"));
+              }
               renderList();
               setTimeout(() => {
                 const textInputs =
@@ -215,7 +237,11 @@ export class IncludeExcludeTab extends SettingsTabBase {
           .onChange(async (value) => {
             this.plugin.settings.exclusions.excludeSubfolders = value;
             this.plugin.debugLog("excludeSubfolders", value);
-            await this.plugin.saveSettings();
+            try {
+              await this.plugin.saveSettings();
+            } catch {
+              new Notice(t("settings.errors.saveFailed"));
+            }
           }),
       );
 
@@ -236,7 +262,11 @@ export class IncludeExcludeTab extends SettingsTabBase {
           .onChange(async (value: ExclusionStrategy) => {
             this.plugin.settings.exclusions.folderScopeStrategy = value;
             this.plugin.debugLog("folderScopeStrategy", value);
-            await this.plugin.saveSettings();
+            try {
+              await this.plugin.saveSettings();
+            } catch {
+              new Notice(t("settings.errors.saveFailed"));
+            }
           }),
       );
 
@@ -318,7 +348,11 @@ export class IncludeExcludeTab extends SettingsTabBase {
           .onChange(async (value: TagMatchingMode) => {
             this.plugin.settings.exclusions.tagMatchingMode = value;
             this.plugin.debugLog("tagMatchingMode", value);
-            await this.plugin.saveSettings();
+            try {
+              await this.plugin.saveSettings();
+            } catch {
+              new Notice(t("settings.errors.saveFailed"));
+            }
           }),
       );
 
@@ -331,7 +365,11 @@ export class IncludeExcludeTab extends SettingsTabBase {
           .onChange(async (value) => {
             this.plugin.settings.exclusions.excludeChildTags = value;
             this.plugin.debugLog("excludeChildTags", value);
-            await this.plugin.saveSettings();
+            try {
+              await this.plugin.saveSettings();
+            } catch {
+              new Notice(t("settings.errors.saveFailed"));
+            }
           }),
       );
 
@@ -352,7 +390,11 @@ export class IncludeExcludeTab extends SettingsTabBase {
           .onChange(async (value: TagPropertyExclusionStrategy) => {
             this.plugin.settings.exclusions.tagScopeStrategy = value;
             this.plugin.debugLog("tagScopeStrategy", value);
-            await this.plugin.saveSettings();
+            try {
+              await this.plugin.saveSettings();
+            } catch {
+              new Notice(t("settings.errors.saveFailed"));
+            }
           }),
       );
 
@@ -454,7 +496,11 @@ export class IncludeExcludeTab extends SettingsTabBase {
           .onChange(async (value: TagPropertyExclusionStrategy) => {
             this.plugin.settings.exclusions.propertyScopeStrategy = value;
             this.plugin.debugLog("propertyScopeStrategy", value);
-            await this.plugin.saveSettings();
+            try {
+              await this.plugin.saveSettings();
+            } catch {
+              new Notice(t("settings.errors.saveFailed"));
+            }
           }),
       );
 
@@ -565,7 +611,11 @@ export class IncludeExcludeTab extends SettingsTabBase {
                 "excludedProperties",
                 this.plugin.settings.exclusions.excludedProperties,
               );
-              await this.plugin.saveSettings();
+              try {
+                await this.plugin.saveSettings();
+              } catch {
+                new Notice(t("settings.errors.saveFailed"));
+              }
               updateButtonState();
             })();
           });
@@ -578,7 +628,11 @@ export class IncludeExcludeTab extends SettingsTabBase {
                 "excludedProperties",
                 this.plugin.settings.exclusions.excludedProperties,
               );
-              await this.plugin.saveSettings();
+              try {
+                await this.plugin.saveSettings();
+              } catch {
+                new Notice(t("settings.errors.saveFailed"));
+              }
               updateButtonState();
             })();
           });
@@ -602,7 +656,11 @@ export class IncludeExcludeTab extends SettingsTabBase {
                 );
               }
 
-              await this.plugin.saveSettings();
+              try {
+                await this.plugin.saveSettings();
+              } catch {
+                new Notice(t("settings.errors.saveFailed"));
+              }
               renderExcludedProperties();
             });
 
@@ -642,7 +700,11 @@ export class IncludeExcludeTab extends SettingsTabBase {
                   key: "",
                   value: "",
                 });
-                await this.plugin.saveSettings();
+                try {
+                  await this.plugin.saveSettings();
+                } catch {
+                  new Notice(t("settings.errors.saveFailed"));
+                }
                 renderExcludedProperties();
                 setTimeout(() => {
                   const keyInputs = propertyContainer.querySelectorAll(
@@ -779,7 +841,11 @@ export class IncludeExcludeTab extends SettingsTabBase {
         this.plugin.settings.exclusions.disableRenamingKey = (
           e.target as HTMLInputElement
         ).value;
-        await this.plugin.saveSettings();
+        try {
+          await this.plugin.saveSettings();
+        } catch {
+          new Notice(t("settings.errors.saveFailed"));
+        }
       })();
     });
 
@@ -788,7 +854,11 @@ export class IncludeExcludeTab extends SettingsTabBase {
         this.plugin.settings.exclusions.disableRenamingValue = (
           e.target as HTMLInputElement
         ).value;
-        await this.plugin.saveSettings();
+        try {
+          await this.plugin.saveSettings();
+        } catch {
+          new Notice(t("settings.errors.saveFailed"));
+        }
       })();
     });
 
@@ -800,7 +870,11 @@ export class IncludeExcludeTab extends SettingsTabBase {
           DEFAULT_SETTINGS.exclusions.disableRenamingValue;
         keyInput.value = this.plugin.settings.exclusions.disableRenamingKey;
         valueInput.value = this.plugin.settings.exclusions.disableRenamingValue;
-        await this.plugin.saveSettings();
+        try {
+          await this.plugin.saveSettings();
+        } catch {
+          new Notice(t("settings.errors.saveFailed"));
+        }
       })();
     });
     const defaultTextContainer = disablePropertyContainer.createEl("div", {

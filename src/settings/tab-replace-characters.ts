@@ -1,4 +1,10 @@
-import { Setting, SettingGroup, setIcon, ToggleComponent } from "obsidian";
+import {
+  Setting,
+  SettingGroup,
+  setIcon,
+  ToggleComponent,
+  Notice,
+} from "obsidian";
 import { SettingsTabBase, FirstLineIsTitlePlugin } from "./settings-base";
 import { detectOS } from "../utils";
 import { DEFAULT_SETTINGS } from "../constants";
@@ -49,7 +55,11 @@ export class ForbiddenCharsTab extends SettingsTabBase {
               `charReplacements.${String(key)}.enabled`,
               value,
             );
-            await this.plugin.saveSettings();
+            try {
+              await this.plugin.saveSettings();
+            } catch {
+              new Notice(t("settings.errors.saveFailed"));
+            }
             updateRowAppearance();
           });
         toggle.toggleEl.classList.add("flit-margin-0");
@@ -103,7 +113,11 @@ export class ForbiddenCharsTab extends SettingsTabBase {
             DEFAULT_SETTINGS.replaceCharacters.charReplacements[
               key
             ].replacement;
-          await this.plugin.saveSettings();
+          try {
+            await this.plugin.saveSettings();
+          } catch {
+            new Notice(t("settings.errors.saveFailed"));
+          }
         })();
       });
 
@@ -126,7 +140,11 @@ export class ForbiddenCharsTab extends SettingsTabBase {
             this.plugin.settings.replaceCharacters.charReplacements[key]
               .replacement,
           );
-          await this.plugin.saveSettings();
+          try {
+            await this.plugin.saveSettings();
+          } catch {
+            new Notice(t("settings.errors.saveFailed"));
+          }
         })();
       });
 
@@ -155,7 +173,11 @@ export class ForbiddenCharsTab extends SettingsTabBase {
               `charReplacements.${String(key)}.trimLeft`,
               value,
             );
-            await this.plugin.saveSettings();
+            try {
+              await this.plugin.saveSettings();
+            } catch {
+              new Notice(t("settings.errors.saveFailed"));
+            }
           });
         toggle.toggleEl.classList.add("flit-margin-0");
         trimLeftContainer.appendChild(toggle.toggleEl);
@@ -181,7 +203,11 @@ export class ForbiddenCharsTab extends SettingsTabBase {
               `charReplacements.${String(key)}.trimRight`,
               value,
             );
-            await this.plugin.saveSettings();
+            try {
+              await this.plugin.saveSettings();
+            } catch {
+              new Notice(t("settings.errors.saveFailed"));
+            }
           });
         toggle.toggleEl.classList.add("flit-margin-0");
         trimRightContainer.appendChild(toggle.toggleEl);
@@ -296,7 +322,11 @@ export class ForbiddenCharsTab extends SettingsTabBase {
               }
             }
 
-            await this.plugin.saveSettings();
+            try {
+              await this.plugin.saveSettings();
+            } catch {
+              new Notice(t("settings.errors.saveFailed"));
+            }
             updateCharacterSettings(); // Rebuilds everything including UI state
             if (windowsAndroidToggleComponent !== undefined) {
               windowsAndroidToggleComponent.setDisabled(!value);
@@ -531,13 +561,21 @@ export class ForbiddenCharsTab extends SettingsTabBase {
                   ].enabled = true;
                 });
                 this.plugin.settings.core.hasEnabledWindowsAndroid = true;
-                await this.plugin.saveSettings();
+                try {
+                  await this.plugin.saveSettings();
+                } catch {
+                  new Notice(t("settings.errors.saveFailed"));
+                }
                 updateCharacterSettings();
                 updateWindowsAndroidUI();
                 return;
               }
 
-              await this.plugin.saveSettings();
+              try {
+                await this.plugin.saveSettings();
+              } catch {
+                new Notice(t("settings.errors.saveFailed"));
+              }
               updateWindowsAndroidUI();
             });
 

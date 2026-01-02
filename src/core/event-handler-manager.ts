@@ -475,10 +475,14 @@ export class EventHandlerManager {
           this.plugin.settings.aliases.enableAliases &&
           this.plugin.settings.core.renameNotes === "automatically"
         ) {
+          console.debug(
+            `[TEST] vault.on('modify') alias check for: ${file.path}`,
+          );
           // Check if only frontmatter changed - skip alias update to preserve YAML formatting
           const currentContent = await this.plugin.app.vault.read(file);
           const previousContent =
             this.plugin.fileStateManager.getLastEditorContent(file.path);
+          console.debug(`[TEST] previousContent exists: ${!!previousContent}`);
 
           if (previousContent) {
             const currentFrontmatterInfo = getFrontMatterInfo(currentContent);
@@ -495,16 +499,16 @@ export class EventHandlerManager {
             // If last update was skipped (e.g., popover/canvas), retry now
             const lastUpdateSucceeded =
               this.plugin.fileStateManager.getLastAliasUpdateStatus(file.path);
-            if (
+            const bodyUnchanged =
               currentContentAfterFrontmatter ===
-                previousContentAfterFrontmatter &&
-              lastUpdateSucceeded
-            ) {
-              if (this.plugin.settings.core.verboseLogging) {
-                console.debug(
-                  `Skipping alias update - only frontmatter edited: ${file.path}`,
-                );
-              }
+              previousContentAfterFrontmatter;
+            console.debug(
+              `[TEST] bodyUnchanged: ${bodyUnchanged}, lastUpdateSucceeded: ${lastUpdateSucceeded}`,
+            );
+            if (bodyUnchanged && lastUpdateSucceeded) {
+              console.debug(
+                `[TEST] SKIPPING - body unchanged + last succeeded`,
+              );
               // Don't update lastEditorContent here - let the editor handler do it
               return;
             }
@@ -512,23 +516,17 @@ export class EventHandlerManager {
             // No previous state - cannot determine if edit is YAML-only
             // Skip to prevent processing files on first open with no actual edits
             // If user made edits, editor-change handler will have set previousContent
-            if (this.plugin.settings.core.verboseLogging) {
-              console.debug(
-                `Skipping alias update - no previous state to compare: ${file.path}`,
-              );
-            }
+            console.debug(`[TEST] SKIPPING - no previous state`);
             return;
           }
 
           // Skip if file has pending metadata update from processFrontMatter
           if (this.plugin.pendingMetadataUpdates.has(file.path)) {
-            verboseLog(
-              this.plugin,
-              `Skipping alias update - pending metadata write: ${file.path}`,
-            );
+            console.debug(`[TEST] SKIPPING - pending metadata write`);
             return;
           }
 
+          console.debug(`[TEST] PROCEEDING with alias update`);
           const aliasUpdateSucceeded =
             await this.plugin.aliasManager.updateAliasIfNeeded(
               file,

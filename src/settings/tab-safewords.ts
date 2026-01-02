@@ -1,4 +1,4 @@
-import { Setting, SettingGroup, setIcon } from "obsidian";
+import { Setting, SettingGroup, setIcon, Notice } from "obsidian";
 import { SettingsTabBase, FirstLineIsTitlePlugin } from "./settings-base";
 import { t } from "../i18n";
 import { TIMING } from "../constants/timing";
@@ -28,7 +28,11 @@ export class SafewordsTab extends SettingsTabBase {
               this.plugin.settings.core.hasEnabledSafewords = true;
             }
 
-            await this.plugin.saveSettings();
+            try {
+              await this.plugin.saveSettings();
+            } catch {
+              new Notice(t("settings.errors.saveFailed"));
+            }
             updateSafewordsUI();
             renderSafewords();
           });
@@ -133,7 +137,11 @@ export class SafewordsTab extends SettingsTabBase {
           toggle.setValue(safeword.enabled).onChange(async (value) => {
             this.plugin.settings.safewords.safewords[index].enabled = value;
             this.plugin.debugLog(`safewords[${index}].enabled`, value);
-            await this.plugin.saveSettings();
+            try {
+              await this.plugin.saveSettings();
+            } catch {
+              new Notice(t("settings.errors.saveFailed"));
+            }
             // Update row styling based on enabled state
             updateRowAppearance();
           });
@@ -218,7 +226,11 @@ export class SafewordsTab extends SettingsTabBase {
               `safewords[${index}].text`,
               this.plugin.settings.safewords.safewords[index].text,
             );
-            await this.plugin.saveSettings();
+            try {
+              await this.plugin.saveSettings();
+            } catch {
+              new Notice(t("settings.errors.saveFailed"));
+            }
             updateButtonState();
           })();
         });
@@ -237,7 +249,11 @@ export class SafewordsTab extends SettingsTabBase {
               this.plugin.settings.safewords.safewords[index].onlyWholeLine =
                 false;
             }
-            await this.plugin.saveSettings();
+            try {
+              await this.plugin.saveSettings();
+            } catch {
+              new Notice(t("settings.errors.saveFailed"));
+            }
             renderSafewords();
           });
           toggle.toggleEl.classList.add("flit-margin-0");
@@ -262,7 +278,11 @@ export class SafewordsTab extends SettingsTabBase {
               this.plugin.settings.safewords.safewords[index].onlyAtStart =
                 false;
             }
-            await this.plugin.saveSettings();
+            try {
+              await this.plugin.saveSettings();
+            } catch {
+              new Notice(t("settings.errors.saveFailed"));
+            }
             renderSafewords();
           });
           toggle.toggleEl.classList.add("flit-margin-0");
@@ -283,7 +303,11 @@ export class SafewordsTab extends SettingsTabBase {
             this.plugin.settings.safewords.safewords[index].caseSensitive =
               value;
             this.plugin.debugLog(`safewords[${index}].caseSensitive`, value);
-            await this.plugin.saveSettings();
+            try {
+              await this.plugin.saveSettings();
+            } catch {
+              new Notice(t("settings.errors.saveFailed"));
+            }
           });
           toggle.toggleEl.classList.add("flit-margin-0");
           caseToggleContainer.appendChild(toggle.toggleEl);
@@ -309,7 +333,11 @@ export class SafewordsTab extends SettingsTabBase {
               this.plugin.settings.safewords.safewords[index] =
                 this.plugin.settings.safewords.safewords[index - 1];
               this.plugin.settings.safewords.safewords[index - 1] = temp;
-              await this.plugin.saveSettings();
+              try {
+                await this.plugin.saveSettings();
+              } catch {
+                new Notice(t("settings.errors.saveFailed"));
+              }
               renderSafewords();
             })();
           });
@@ -331,7 +359,11 @@ export class SafewordsTab extends SettingsTabBase {
               this.plugin.settings.safewords.safewords[index] =
                 this.plugin.settings.safewords.safewords[index + 1];
               this.plugin.settings.safewords.safewords[index + 1] = temp;
-              await this.plugin.saveSettings();
+              try {
+                await this.plugin.saveSettings();
+              } catch {
+                new Notice(t("settings.errors.saveFailed"));
+              }
               renderSafewords();
             })();
           });
@@ -357,7 +389,11 @@ export class SafewordsTab extends SettingsTabBase {
             } else {
               this.plugin.settings.safewords.safewords.splice(index, 1);
             }
-            await this.plugin.saveSettings();
+            try {
+              await this.plugin.saveSettings();
+            } catch {
+              new Notice(t("settings.errors.saveFailed"));
+            }
             renderSafewords();
           })();
         });
@@ -414,7 +450,11 @@ export class SafewordsTab extends SettingsTabBase {
                 if (!lastEntry.enabled) {
                   this.plugin.settings.safewords.safewords[lastIndex].enabled =
                     true;
-                  await this.plugin.saveSettings();
+                  try {
+                    await this.plugin.saveSettings();
+                  } catch {
+                    new Notice(t("settings.errors.saveFailed"));
+                  }
                   renderSafewords();
                   // Focus after re-render
                   setTimeout(() => {
@@ -447,7 +487,11 @@ export class SafewordsTab extends SettingsTabBase {
                 enabled: true,
                 caseSensitive: false,
               });
-              await this.plugin.saveSettings();
+              try {
+                await this.plugin.saveSettings();
+              } catch {
+                new Notice(t("settings.errors.saveFailed"));
+              }
               renderSafewords();
 
               // Focus the newly created safeword input after DOM updates

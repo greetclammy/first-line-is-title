@@ -994,6 +994,7 @@ export class RenameEngine {
         this.plugin,
         `No rename needed for ${file.path} - already has correct name`,
       );
+      /* TEST: disabled for save-only alias updates
       if (this.plugin.settings.aliases.enableAliases) {
         const aliasUpdateSucceeded =
           await this.plugin.aliasManager.updateAliasIfNeeded(
@@ -1007,6 +1008,7 @@ export class RenameEngine {
           aliasUpdateSucceeded,
         );
       }
+      */
       if (showNotices && !isBatchOperation) {
         const finalFileName =
           newPath.replace(/\.md$/, "").split("/").pop() || newTitle;
@@ -1071,6 +1073,7 @@ export class RenameEngine {
             this.plugin,
             `No rename needed for ${file.path} - already has correct name with counter`,
           );
+          /* TEST: disabled for save-only alias updates
           if (this.plugin.settings.aliases.enableAliases) {
             const aliasUpdateSucceeded =
               await this.plugin.aliasManager.updateAliasIfNeeded(
@@ -1084,6 +1087,7 @@ export class RenameEngine {
               aliasUpdateSucceeded,
             );
           }
+          */
           if (showNotices && !isBatchOperation) {
             // Extract actual final filename from newPath (includes counter)
             const finalFileName =
@@ -1158,6 +1162,7 @@ export class RenameEngine {
     if (noDelay) {
       cacheManager?.reservePath(newPath);
     }
+    /* TEST: disabled for save-only alias updates
     if (this.plugin.settings.aliases.enableAliases) {
       const aliasUpdateSucceeded =
         await this.plugin.aliasManager.updateAliasIfNeeded(
@@ -1171,6 +1176,7 @@ export class RenameEngine {
         aliasUpdateSucceeded,
       );
     }
+    */
 
     try {
       const oldPath = file.path;

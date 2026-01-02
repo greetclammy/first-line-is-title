@@ -1,4 +1,4 @@
-import { PluginSettingTab, App, Plugin } from "obsidian";
+import { PluginSettingTab, App, Plugin, Notice } from "obsidian";
 import { FirstLineIsTitlePlugin } from "./settings-base";
 import { t, getCurrentLocale } from "../i18n";
 import { TIMING } from "../constants/timing";
@@ -19,6 +19,8 @@ export class FirstLineIsTitleSettings extends PluginSettingTab {
   plugin: FirstLineIsTitlePlugin;
   private settingsPage: HTMLDivElement | null = null;
   private previousTabId: string | null = null;
+  private abortController: AbortController | null = null;
+  private cachedTabRows: HTMLElement[][] = [];
 
   private get TABS() {
     return {
@@ -73,6 +75,13 @@ export class FirstLineIsTitleSettings extends PluginSettingTab {
   }
 
   display(): void {
+    // Clean up previous listeners before rebuilding
+    if (this.abortController) {
+      this.abortController.abort();
+    }
+    this.abortController = new AbortController();
+    const signal = this.abortController.signal;
+
     this.containerEl.empty();
 
     // Initialize previousTabId to current tab
@@ -99,7 +108,11 @@ export class FirstLineIsTitleSettings extends PluginSettingTab {
       if (this.previousTabId === "include-exclude") {
         const hasChanges = deduplicateExclusions(this.plugin.settings);
         if (hasChanges) {
-          await this.plugin.saveSettings();
+          try {
+            await this.plugin.saveSettings();
+          } catch {
+            new Notice(t("settings.errors.saveFailed"));
+          }
         }
       }
 
@@ -116,7 +129,11 @@ export class FirstLineIsTitleSettings extends PluginSettingTab {
 
       this.previousTabId = tabInfo.id;
       this.plugin.settings.core.currentSettingsTab = tabInfo.id;
-      void this.plugin.saveSettings();
+      try {
+        await this.plugin.saveSettings();
+      } catch {
+        new Notice(t("settings.errors.saveFailed"));
+      }
       void this.renderTab(tabInfo.id);
     };
 
@@ -140,127 +157,148 @@ export class FirstLineIsTitleSettings extends PluginSettingTab {
       }
 
       // Click handler
-      tabEl.addEventListener("click", () => {
-        void activateTab(tabEl, tabInfo);
-      });
+      tabEl.addEventListener(
+        "click",
+        () => {
+          void activateTab(tabEl, tabInfo);
+        },
+        { signal },
+      );
 
       // Keyboard handler
-      tabEl.addEventListener("keydown", (e) => {
-        if (e.key === "Enter" || e.key === " ") {
-          e.preventDefault();
-          void activateTab(tabEl, tabInfo);
-        } else if (
-          e.key === "ArrowRight" ||
-          e.key === "ArrowLeft" ||
-          e.key === "ArrowUp" ||
-          e.key === "ArrowDown"
-        ) {
-          e.preventDefault();
+      tabEl.addEventListener(
+        "keydown",
+        (e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            void activateTab(tabEl, tabInfo);
+          } else if (
+            e.key === "ArrowRight" ||
+            e.key === "ArrowLeft" ||
+            e.key === "ArrowUp" ||
+            e.key === "ArrowDown"
+          ) {
+            e.preventDefault();
 
-          // Build grid structure by detecting rows based on vertical position
-          const rows: HTMLElement[][] = [];
-          let currentRow: HTMLElement[] = [];
-          let lastTop = -1;
+            // Use cached row structure
+            const rows = this.cachedTabRows;
 
-          tabElements.forEach((tab) => {
-            const rect = tab.getBoundingClientRect();
-            if (lastTop === -1 || Math.abs(rect.top - lastTop) < 5) {
-              // Same row (within 5px tolerance)
-              currentRow.push(tab);
-              lastTop = rect.top;
-            } else {
-              // New row
-              if (currentRow.length > 0) {
-                rows.push(currentRow);
+            // Guard: if cache not ready, fall back to linear navigation
+            if (rows.length === 0) {
+              const currentIndex = tabElements.indexOf(tabEl);
+              let nextIndex = currentIndex;
+              if (e.key === "ArrowRight" || e.key === "ArrowDown") {
+                nextIndex = (currentIndex + 1) % tabElements.length;
+              } else {
+                nextIndex =
+                  (currentIndex - 1 + tabElements.length) % tabElements.length;
               }
-              currentRow = [tab];
-              lastTop = rect.top;
+              tabElements[nextIndex].focus();
+              return;
             }
-          });
-          if (currentRow.length > 0) {
-            rows.push(currentRow);
-          }
 
-          // Find current position in grid
-          let currentRowIndex = 0;
-          let currentColIndex = 0;
-          for (let r = 0; r < rows.length; r++) {
-            const colIndex = rows[r].indexOf(tabEl);
-            if (colIndex !== -1) {
-              currentRowIndex = r;
-              currentColIndex = colIndex;
-              break;
+            // Find current position in grid
+            let currentRowIndex = 0;
+            let currentColIndex = 0;
+            for (let r = 0; r < rows.length; r++) {
+              const colIndex = rows[r].indexOf(tabEl);
+              if (colIndex !== -1) {
+                currentRowIndex = r;
+                currentColIndex = colIndex;
+                break;
+              }
             }
-          }
 
-          let nextTab: HTMLElement | null = null;
+            let nextTab: HTMLElement | null = null;
 
-          if (e.key === "ArrowRight") {
-            const nextCol = currentColIndex + 1;
-            if (nextCol < rows[currentRowIndex].length) {
-              nextTab = rows[currentRowIndex][nextCol];
-            } else {
-              // Wrap to next row, first column
-              const nextRow = (currentRowIndex + 1) % rows.length;
-              nextTab = rows[nextRow][0];
+            if (e.key === "ArrowRight") {
+              const nextCol = currentColIndex + 1;
+              if (nextCol < rows[currentRowIndex].length) {
+                nextTab = rows[currentRowIndex][nextCol];
+              } else {
+                // Wrap to next row, first column
+                const nextRow = (currentRowIndex + 1) % rows.length;
+                nextTab = rows[nextRow][0];
+              }
+            } else if (e.key === "ArrowLeft") {
+              const prevCol = currentColIndex - 1;
+              if (prevCol >= 0) {
+                nextTab = rows[currentRowIndex][prevCol];
+              } else {
+                // Wrap to previous row, last column
+                const prevRow =
+                  (currentRowIndex - 1 + rows.length) % rows.length;
+                nextTab = rows[prevRow][rows[prevRow].length - 1];
+              }
+            } else if (e.key === "ArrowDown") {
+              const nextRow = currentRowIndex + 1;
+              if (nextRow < rows.length) {
+                // Stay in same column if possible, otherwise go to last column of next row
+                const targetCol = Math.min(
+                  currentColIndex,
+                  rows[nextRow].length - 1,
+                );
+                nextTab = rows[nextRow][targetCol];
+              } else {
+                // Wrap to first row
+                const targetCol = Math.min(currentColIndex, rows[0].length - 1);
+                nextTab = rows[0][targetCol];
+              }
+            } else if (e.key === "ArrowUp") {
+              const prevRow = currentRowIndex - 1;
+              if (prevRow >= 0) {
+                // Stay in same column if possible, otherwise go to last column of previous row
+                const targetCol = Math.min(
+                  currentColIndex,
+                  rows[prevRow].length - 1,
+                );
+                nextTab = rows[prevRow][targetCol];
+              } else {
+                // Wrap to last row
+                const lastRow = rows.length - 1;
+                const targetCol = Math.min(
+                  currentColIndex,
+                  rows[lastRow].length - 1,
+                );
+                nextTab = rows[lastRow][targetCol];
+              }
             }
-          } else if (e.key === "ArrowLeft") {
-            const prevCol = currentColIndex - 1;
-            if (prevCol >= 0) {
-              nextTab = rows[currentRowIndex][prevCol];
-            } else {
-              // Wrap to previous row, last column
-              const prevRow = (currentRowIndex - 1 + rows.length) % rows.length;
-              nextTab = rows[prevRow][rows[prevRow].length - 1];
-            }
-          } else if (e.key === "ArrowDown") {
-            const nextRow = currentRowIndex + 1;
-            if (nextRow < rows.length) {
-              // Stay in same column if possible, otherwise go to last column of next row
-              const targetCol = Math.min(
-                currentColIndex,
-                rows[nextRow].length - 1,
-              );
-              nextTab = rows[nextRow][targetCol];
-            } else {
-              // Wrap to first row
-              const targetCol = Math.min(currentColIndex, rows[0].length - 1);
-              nextTab = rows[0][targetCol];
-            }
-          } else if (e.key === "ArrowUp") {
-            const prevRow = currentRowIndex - 1;
-            if (prevRow >= 0) {
-              // Stay in same column if possible, otherwise go to last column of previous row
-              const targetCol = Math.min(
-                currentColIndex,
-                rows[prevRow].length - 1,
-              );
-              nextTab = rows[prevRow][targetCol];
-            } else {
-              // Wrap to last row
-              const lastRow = rows.length - 1;
-              const targetCol = Math.min(
-                currentColIndex,
-                rows[lastRow].length - 1,
-              );
-              nextTab = rows[lastRow][targetCol];
-            }
-          }
 
-          if (nextTab) {
-            nextTab.focus();
+            if (nextTab) {
+              nextTab.focus();
+            }
+          } else if (e.key === "Home") {
+            e.preventDefault();
+            tabElements[0].focus();
+          } else if (e.key === "End") {
+            e.preventDefault();
+            tabElements[tabElements.length - 1].focus();
           }
-        } else if (e.key === "Home") {
-          e.preventDefault();
-          tabElements[0].focus();
-        } else if (e.key === "End") {
-          e.preventDefault();
-          tabElements[tabElements.length - 1].focus();
-        }
-      });
+        },
+        { signal },
+      );
 
       tabElements.push(tabEl);
     }
+
+    // Cache tab row structure after all tabs are created and rendered
+    // Use requestAnimationFrame to ensure layout is complete
+    requestAnimationFrame(() => {
+      this.cachedTabRows = this.computeTabRows(tabElements);
+    });
+
+    // Recalculate tab rows on window resize (debounced)
+    let resizeTimeout: ReturnType<typeof setTimeout>;
+    window.addEventListener(
+      "resize",
+      () => {
+        clearTimeout(resizeTimeout);
+        resizeTimeout = setTimeout(() => {
+          this.cachedTabRows = this.computeTabRows(tabElements);
+        }, 150);
+      },
+      { signal },
+    );
 
     this.settingsPage = this.containerEl.createDiv({
       cls: "flit-settings-page",
@@ -296,7 +334,38 @@ export class FirstLineIsTitleSettings extends PluginSettingTab {
         }
       }
     };
-    this.containerEl.addEventListener("keydown", handleFirstTab);
+    this.containerEl.addEventListener("keydown", handleFirstTab, { signal });
+  }
+
+  /**
+   * Compute tab row structure based on vertical position.
+   * Groups tabs into rows by detecting y-position changes.
+   */
+  private computeTabRows(tabElements: HTMLElement[]): HTMLElement[][] {
+    const rows: HTMLElement[][] = [];
+    let currentRow: HTMLElement[] = [];
+    let lastTop = -1;
+
+    tabElements.forEach((tab) => {
+      const rect = tab.getBoundingClientRect();
+      if (lastTop === -1 || Math.abs(rect.top - lastTop) < 5) {
+        // Same row (within 5px tolerance)
+        currentRow.push(tab);
+        lastTop = rect.top;
+      } else {
+        // New row
+        if (currentRow.length > 0) {
+          rows.push(currentRow);
+        }
+        currentRow = [tab];
+        lastTop = rect.top;
+      }
+    });
+    if (currentRow.length > 0) {
+      rows.push(currentRow);
+    }
+
+    return rows;
   }
 
   private renderTab(tabId: string): void {
@@ -316,12 +385,21 @@ export class FirstLineIsTitleSettings extends PluginSettingTab {
   }
 
   hide(): void {
+    // Clean up event listeners
+    if (this.abortController) {
+      this.abortController.abort();
+      this.abortController = null;
+    }
+    this.cachedTabRows = [];
+
     // If closing settings while on Exclusions tab, deduplicate
     if (this.previousTabId === "include-exclude") {
       const hasChanges = deduplicateExclusions(this.plugin.settings);
       if (hasChanges) {
-        // Save settings synchronously (hide is not async)
-        void this.plugin.saveSettings();
+        // Save settings (hide is not async, but we handle errors)
+        this.plugin.saveSettings().catch(() => {
+          new Notice(t("settings.errors.saveFailed"));
+        });
       }
     }
     super.hide();

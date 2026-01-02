@@ -1,4 +1,4 @@
-import { Setting, SettingGroup, setIcon } from "obsidian";
+import { Setting, SettingGroup, setIcon, Notice } from "obsidian";
 import { SettingsTabBase, FirstLineIsTitlePlugin } from "./settings-base";
 import { t, getCurrentLocale } from "../i18n";
 
@@ -18,7 +18,11 @@ export class CommandsTab extends SettingsTabBase {
           .onChange(async (value) => {
             this.plugin.settings.core.enableRibbon = value;
             this.plugin.debugLog("enableRibbon", value);
-            await this.plugin.saveSettings();
+            try {
+              await this.plugin.saveSettings();
+            } catch {
+              new Notice(t("settings.errors.saveFailed"));
+            }
             updateRibbonUI();
           });
       });
@@ -49,7 +53,11 @@ export class CommandsTab extends SettingsTabBase {
             this.plugin.settings.core.ribbonVisibility.renameCurrentFile =
               value;
             this.plugin.debugLog("ribbonVisibility.renameCurrentFile", value);
-            await this.plugin.saveSettings();
+            try {
+              await this.plugin.saveSettings();
+            } catch {
+              new Notice(t("settings.errors.saveFailed"));
+            }
           });
       });
     const ribbonCurrentIcon = ribbonCurrentSetting.nameEl.createDiv({
@@ -70,7 +78,11 @@ export class CommandsTab extends SettingsTabBase {
           .onChange(async (value) => {
             this.plugin.settings.core.ribbonVisibility.renameAllNotes = value;
             this.plugin.debugLog("ribbonVisibility.renameAllNotes", value);
-            await this.plugin.saveSettings();
+            try {
+              await this.plugin.saveSettings();
+            } catch {
+              new Notice(t("settings.errors.saveFailed"));
+            }
           });
       });
     const ribbonBulkIcon = ribbonBulkSetting.nameEl.createDiv({
@@ -141,7 +153,11 @@ export class CommandsTab extends SettingsTabBase {
             "ribbonVisibility.toggleAutomaticRenaming",
             value,
           );
-          await this.plugin.saveSettings();
+          try {
+            await this.plugin.saveSettings();
+          } catch {
+            new Notice(t("settings.errors.saveFailed"));
+          }
         });
     });
     const ribbonToggleIcon = ribbonToggleSetting.nameEl.createDiv({
@@ -165,7 +181,11 @@ export class CommandsTab extends SettingsTabBase {
           .onChange(async (value) => {
             this.plugin.settings.core.enableCommandPalette = value;
             this.plugin.debugLog("enableCommandPalette", value);
-            await this.plugin.saveSettings();
+            try {
+              await this.plugin.saveSettings();
+            } catch {
+              new Notice(t("settings.errors.saveFailed"));
+            }
             updateCommandPaletteUI();
           });
       });
@@ -200,7 +220,11 @@ export class CommandsTab extends SettingsTabBase {
               "commandPaletteVisibility.renameCurrentFile",
               value,
             );
-            await this.plugin.saveSettings();
+            try {
+              await this.plugin.saveSettings();
+            } catch {
+              new Notice(t("settings.errors.saveFailed"));
+            }
           }),
       );
 
@@ -224,7 +248,11 @@ export class CommandsTab extends SettingsTabBase {
               "commandPaletteVisibility.renameCurrentFileUnlessExcluded",
               value,
             );
-            await this.plugin.saveSettings();
+            try {
+              await this.plugin.saveSettings();
+            } catch {
+              new Notice(t("settings.errors.saveFailed"));
+            }
           }),
       );
 
@@ -247,7 +275,11 @@ export class CommandsTab extends SettingsTabBase {
               "commandPaletteVisibility.renameAllFiles",
               value,
             );
-            await this.plugin.saveSettings();
+            try {
+              await this.plugin.saveSettings();
+            } catch {
+              new Notice(t("settings.errors.saveFailed"));
+            }
           }),
       );
 
@@ -315,7 +347,11 @@ export class CommandsTab extends SettingsTabBase {
             "commandPaletteVisibility.toggleAutomaticRenaming",
             value,
           );
-          await this.plugin.saveSettings();
+          try {
+            await this.plugin.saveSettings();
+          } catch {
+            new Notice(t("settings.errors.saveFailed"));
+          }
         }),
     );
 
@@ -338,7 +374,11 @@ export class CommandsTab extends SettingsTabBase {
               "commandPaletteVisibility.disableRenaming",
               value,
             );
-            await this.plugin.saveSettings();
+            try {
+              await this.plugin.saveSettings();
+            } catch {
+              new Notice(t("settings.errors.saveFailed"));
+            }
           }),
       );
 
@@ -361,7 +401,11 @@ export class CommandsTab extends SettingsTabBase {
               "commandPaletteVisibility.enableRenaming",
               value,
             );
-            await this.plugin.saveSettings();
+            try {
+              await this.plugin.saveSettings();
+            } catch {
+              new Notice(t("settings.errors.saveFailed"));
+            }
           }),
       );
 
@@ -405,7 +449,11 @@ export class CommandsTab extends SettingsTabBase {
           this.plugin.settings.core.commandVisibility.addSafeInternalLink =
             value;
           this.plugin.debugLog("commandVisibility.addSafeInternalLink", value);
-          await this.plugin.saveSettings();
+          try {
+            await this.plugin.saveSettings();
+          } catch {
+            new Notice(t("settings.errors.saveFailed"));
+          }
         }),
     );
 
@@ -451,7 +499,11 @@ export class CommandsTab extends SettingsTabBase {
             "commandVisibility.addSafeInternalLinkWithCaption",
             value,
           );
-          await this.plugin.saveSettings();
+          try {
+            await this.plugin.saveSettings();
+          } catch {
+            new Notice(t("settings.errors.saveFailed"));
+          }
         }),
     );
 
@@ -476,7 +528,11 @@ export class CommandsTab extends SettingsTabBase {
             "commandVisibility.addInternalLinkWithCaptionAndCustomTarget",
             value,
           );
-          await this.plugin.saveSettings();
+          try {
+            await this.plugin.saveSettings();
+          } catch {
+            new Notice(t("settings.errors.saveFailed"));
+          }
         }),
     );
 
@@ -519,7 +575,11 @@ export class CommandsTab extends SettingsTabBase {
             "commandPaletteVisibility.insertFilename",
             value,
           );
-          await this.plugin.saveSettings();
+          try {
+            await this.plugin.saveSettings();
+          } catch {
+            new Notice(t("settings.errors.saveFailed"));
+          }
         }),
     );
 
@@ -544,7 +604,11 @@ export class CommandsTab extends SettingsTabBase {
           .onChange(async (value) => {
             this.plugin.settings.core.enableFileCommands = value;
             this.plugin.debugLog("enableFileCommands", value);
-            await this.plugin.saveSettings();
+            try {
+              await this.plugin.saveSettings();
+            } catch {
+              new Notice(t("settings.errors.saveFailed"));
+            }
             updateFileUI();
           });
       });
@@ -578,7 +642,11 @@ export class CommandsTab extends SettingsTabBase {
               "commandVisibility.filePutFirstLineInTitle",
               value,
             );
-            await this.plugin.saveSettings();
+            try {
+              await this.plugin.saveSettings();
+            } catch {
+              new Notice(t("settings.errors.saveFailed"));
+            }
           }),
       );
     const fileIcon = filePutFirstLineSetting.nameEl.createDiv({
@@ -599,7 +667,11 @@ export class CommandsTab extends SettingsTabBase {
           .onChange(async (value) => {
             this.plugin.settings.core.commandVisibility.fileExclude = value;
             this.plugin.debugLog("commandVisibility.fileExclude", value);
-            await this.plugin.saveSettings();
+            try {
+              await this.plugin.saveSettings();
+            } catch {
+              new Notice(t("settings.errors.saveFailed"));
+            }
           }),
       );
     const fileDisableIcon = fileDisableSetting.nameEl.createDiv({
@@ -623,7 +695,11 @@ export class CommandsTab extends SettingsTabBase {
             this.plugin.settings.core.commandVisibility.fileStopExcluding =
               value;
             this.plugin.debugLog("commandVisibility.fileStopExcluding", value);
-            await this.plugin.saveSettings();
+            try {
+              await this.plugin.saveSettings();
+            } catch {
+              new Notice(t("settings.errors.saveFailed"));
+            }
           }),
       );
     const fileEnableIcon = fileEnableSetting.nameEl.createDiv({
@@ -645,7 +721,11 @@ export class CommandsTab extends SettingsTabBase {
           .onChange(async (value) => {
             this.plugin.settings.core.enableFolderCommands = value;
             this.plugin.debugLog("enableFolderCommands", value);
-            await this.plugin.saveSettings();
+            try {
+              await this.plugin.saveSettings();
+            } catch {
+              new Notice(t("settings.errors.saveFailed"));
+            }
             updateFolderUI();
           });
       });
@@ -680,7 +760,11 @@ export class CommandsTab extends SettingsTabBase {
               "commandVisibility.folderPutFirstLineInTitle",
               value,
             );
-            await this.plugin.saveSettings();
+            try {
+              await this.plugin.saveSettings();
+            } catch {
+              new Notice(t("settings.errors.saveFailed"));
+            }
           }),
       );
     const folderIcon = folderPutFirstLineSetting.nameEl.createDiv({
@@ -701,7 +785,11 @@ export class CommandsTab extends SettingsTabBase {
           .onChange(async (value) => {
             this.plugin.settings.core.commandVisibility.folderExclude = value;
             this.plugin.debugLog("commandVisibility.folderExclude", value);
-            await this.plugin.saveSettings();
+            try {
+              await this.plugin.saveSettings();
+            } catch {
+              new Notice(t("settings.errors.saveFailed"));
+            }
           }),
       );
     const folderDisableIcon = folderDisableSetting.nameEl.createDiv({
@@ -728,7 +816,11 @@ export class CommandsTab extends SettingsTabBase {
               "commandVisibility.folderStopExcluding",
               value,
             );
-            await this.plugin.saveSettings();
+            try {
+              await this.plugin.saveSettings();
+            } catch {
+              new Notice(t("settings.errors.saveFailed"));
+            }
           }),
       );
     const folderEnableIcon = folderEnableSetting.nameEl.createDiv({
@@ -750,7 +842,11 @@ export class CommandsTab extends SettingsTabBase {
           .onChange(async (value) => {
             this.plugin.settings.core.enableTagCommands = value;
             this.plugin.debugLog("enableTagCommands", value);
-            await this.plugin.saveSettings();
+            try {
+              await this.plugin.saveSettings();
+            } catch {
+              new Notice(t("settings.errors.saveFailed"));
+            }
             updateTagUI();
           });
       });
@@ -784,7 +880,11 @@ export class CommandsTab extends SettingsTabBase {
               "commandVisibility.tagPutFirstLineInTitle",
               value,
             );
-            await this.plugin.saveSettings();
+            try {
+              await this.plugin.saveSettings();
+            } catch {
+              new Notice(t("settings.errors.saveFailed"));
+            }
           }),
       );
     const tagIcon = tagPutFirstLineSetting.nameEl.createDiv({
@@ -805,7 +905,11 @@ export class CommandsTab extends SettingsTabBase {
           .onChange(async (value) => {
             this.plugin.settings.core.commandVisibility.tagExclude = value;
             this.plugin.debugLog("commandVisibility.tagExclude", value);
-            await this.plugin.saveSettings();
+            try {
+              await this.plugin.saveSettings();
+            } catch {
+              new Notice(t("settings.errors.saveFailed"));
+            }
           }),
       );
     const tagDisableIcon = tagDisableSetting.nameEl.createDiv({
@@ -829,7 +933,11 @@ export class CommandsTab extends SettingsTabBase {
             this.plugin.settings.core.commandVisibility.tagStopExcluding =
               value;
             this.plugin.debugLog("commandVisibility.tagStopExcluding", value);
-            await this.plugin.saveSettings();
+            try {
+              await this.plugin.saveSettings();
+            } catch {
+              new Notice(t("settings.errors.saveFailed"));
+            }
           }),
       );
     const tagEnableIcon = tagEnableSetting.nameEl.createDiv({
@@ -851,7 +959,11 @@ export class CommandsTab extends SettingsTabBase {
           .onChange(async (value) => {
             this.plugin.settings.core.enableVaultSearchContextMenu = value;
             this.plugin.debugLog("enableVaultSearchContextMenu", value);
-            await this.plugin.saveSettings();
+            try {
+              await this.plugin.saveSettings();
+            } catch {
+              new Notice(t("settings.errors.saveFailed"));
+            }
             updateVaultSearchUI();
           });
       });
@@ -886,7 +998,11 @@ export class CommandsTab extends SettingsTabBase {
               "vaultSearchContextMenuVisibility.putFirstLineInTitle",
               value,
             );
-            await this.plugin.saveSettings();
+            try {
+              await this.plugin.saveSettings();
+            } catch {
+              new Notice(t("settings.errors.saveFailed"));
+            }
           }),
       );
     const vaultSearchIcon = vaultSearchPutFirstLineSetting.nameEl.createDiv({
@@ -913,7 +1029,11 @@ export class CommandsTab extends SettingsTabBase {
               "vaultSearchContextMenuVisibility.disable",
               value,
             );
-            await this.plugin.saveSettings();
+            try {
+              await this.plugin.saveSettings();
+            } catch {
+              new Notice(t("settings.errors.saveFailed"));
+            }
           }),
       );
     const vaultSearchDisableIcon = vaultSearchDisableSetting.nameEl.createDiv({
@@ -940,7 +1060,11 @@ export class CommandsTab extends SettingsTabBase {
               "vaultSearchContextMenuVisibility.enable",
               value,
             );
-            await this.plugin.saveSettings();
+            try {
+              await this.plugin.saveSettings();
+            } catch {
+              new Notice(t("settings.errors.saveFailed"));
+            }
           }),
       );
     const vaultSearchEnableIcon = vaultSearchEnableSetting.nameEl.createDiv({

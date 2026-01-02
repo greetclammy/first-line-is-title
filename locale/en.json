@@ -841,6 +841,9 @@
         "onlyMatchWhole": "Only match whole file name",
         "caseSensitive": "Case-sensitive"
       }
+    },
+    "errors": {
+      "saveFailed": "Failed to save settings."
     }
   }
 }

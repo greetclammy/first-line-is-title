@@ -1,4 +1,10 @@
-import { Setting, SettingGroup, setIcon, ToggleComponent } from "obsidian";
+import {
+  Setting,
+  SettingGroup,
+  setIcon,
+  ToggleComponent,
+  Notice,
+} from "obsidian";
 import { SettingsTabBase, FirstLineIsTitlePlugin } from "./settings-base";
 import { t, getCurrentLocale } from "../i18n";
 import { TIMING } from "../constants/timing";
@@ -42,7 +48,11 @@ export class CustomReplacementsTab extends SettingsTabBase {
               }
             }
 
-            await this.plugin.saveSettings();
+            try {
+              await this.plugin.saveSettings();
+            } catch {
+              new Notice(t("settings.errors.saveFailed"));
+            }
             updateCustomReplacementUI();
             renderCustomReplacements();
             void (
@@ -270,7 +280,11 @@ export class CustomReplacementsTab extends SettingsTabBase {
                   `customReplacements[${index}].enabled`,
                   value,
                 );
-                await this.plugin.saveSettings();
+                try {
+                  await this.plugin.saveSettings();
+                } catch {
+                  new Notice(t("settings.errors.saveFailed"));
+                }
                 updateRowAppearance();
               });
             toggle.toggleEl.classList.add("flit-margin-0");
@@ -350,7 +364,11 @@ export class CustomReplacementsTab extends SettingsTabBase {
                 this.plugin.settings.customRules.customReplacements[index]
                   .searchText,
               );
-              await this.plugin.saveSettings();
+              try {
+                await this.plugin.saveSettings();
+              } catch {
+                new Notice(t("settings.errors.saveFailed"));
+              }
               updateButtonState();
             })();
           });
@@ -369,7 +387,11 @@ export class CustomReplacementsTab extends SettingsTabBase {
                 this.plugin.settings.customRules.customReplacements[index]
                   .replaceText,
               );
-              await this.plugin.saveSettings();
+              try {
+                await this.plugin.saveSettings();
+              } catch {
+                new Notice(t("settings.errors.saveFailed"));
+              }
               updateButtonState();
             })();
           });
@@ -400,7 +422,11 @@ export class CustomReplacementsTab extends SettingsTabBase {
                     index
                   ].onlyWholeLine = false;
                 }
-                await this.plugin.saveSettings();
+                try {
+                  await this.plugin.saveSettings();
+                } catch {
+                  new Notice(t("settings.errors.saveFailed"));
+                }
                 renderCustomReplacements();
               });
             toggle.toggleEl.classList.add("flit-margin-0");
@@ -435,7 +461,11 @@ export class CustomReplacementsTab extends SettingsTabBase {
                     index
                   ].onlyAtStart = false;
                 }
-                await this.plugin.saveSettings();
+                try {
+                  await this.plugin.saveSettings();
+                } catch {
+                  new Notice(t("settings.errors.saveFailed"));
+                }
                 renderCustomReplacements();
               });
             toggle.toggleEl.classList.add("flit-margin-0");
@@ -470,7 +500,11 @@ export class CustomReplacementsTab extends SettingsTabBase {
                   ];
                 this.plugin.settings.customRules.customReplacements[index - 1] =
                   temp;
-                await this.plugin.saveSettings();
+                try {
+                  await this.plugin.saveSettings();
+                } catch {
+                  new Notice(t("settings.errors.saveFailed"));
+                }
                 renderCustomReplacements();
               })();
             });
@@ -502,7 +536,11 @@ export class CustomReplacementsTab extends SettingsTabBase {
                   ];
                 this.plugin.settings.customRules.customReplacements[index + 1] =
                   temp;
-                await this.plugin.saveSettings();
+                try {
+                  await this.plugin.saveSettings();
+                } catch {
+                  new Notice(t("settings.errors.saveFailed"));
+                }
                 renderCustomReplacements();
               })();
             });
@@ -533,7 +571,11 @@ export class CustomReplacementsTab extends SettingsTabBase {
                   1,
                 );
               }
-              await this.plugin.saveSettings();
+              try {
+                await this.plugin.saveSettings();
+              } catch {
+                new Notice(t("settings.errors.saveFailed"));
+              }
               renderCustomReplacements();
             })();
           });
@@ -597,7 +639,11 @@ export class CustomReplacementsTab extends SettingsTabBase {
                 this.plugin.settings.customRules.customReplacements[
                   lastIndex
                 ].enabled = true;
-                await this.plugin.saveSettings();
+                try {
+                  await this.plugin.saveSettings();
+                } catch {
+                  new Notice(t("settings.errors.saveFailed"));
+                }
                 renderCustomReplacements();
                 setTimeout(() => {
                   const textInputs =
@@ -630,7 +676,11 @@ export class CustomReplacementsTab extends SettingsTabBase {
               onlyWholeLine: false,
               enabled: true,
             });
-            await this.plugin.saveSettings();
+            try {
+              await this.plugin.saveSettings();
+            } catch {
+              new Notice(t("settings.errors.saveFailed"));
+            }
             renderCustomReplacements();
 
             setTimeout(() => {
@@ -675,7 +725,11 @@ export class CustomReplacementsTab extends SettingsTabBase {
                 "applyCustomRulesAfterForbiddenChars",
                 value,
               );
-              await this.plugin.saveSettings();
+              try {
+                await this.plugin.saveSettings();
+              } catch {
+                new Notice(t("settings.errors.saveFailed"));
+              }
             }),
         );
       })
@@ -697,7 +751,11 @@ export class CustomReplacementsTab extends SettingsTabBase {
                 "applyCustomRulesAfterMarkupStripping",
                 value,
               );
-              await this.plugin.saveSettings();
+              try {
+                await this.plugin.saveSettings();
+              } catch {
+                new Notice(t("settings.errors.saveFailed"));
+              }
             });
 
           if (!this.plugin.settings.markupStripping.enableStripMarkup) {

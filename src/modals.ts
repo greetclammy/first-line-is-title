@@ -14,6 +14,7 @@ const OBSIDIAN_BACKUP_DOCS_URL = `https://${OBSIDIAN_HELP_DOMAIN}/backup`;
 
 export class RenameAllFilesModal extends Modal {
   plugin: FirstLineIsTitlePlugin;
+  private keydownHandler?: (e: KeyboardEvent) => void;
 
   constructor(app: App, plugin: FirstLineIsTitlePlugin) {
     super(app);
@@ -61,19 +62,28 @@ export class RenameAllFilesModal extends Modal {
       cls: "modal-button-container flit-modal-button-container",
     });
 
+    const renameButton = buttonContainer.createEl("button", {
+      text: t("modals.buttons.rename"),
+    });
+    renameButton.addClass("mod-cta");
+    renameButton.onclick = () => {
+      this.close();
+      void this.renameAllFiles();
+    };
+
     const cancelButton = buttonContainer.createEl("button", {
       text: t("modals.buttons.cancel"),
     });
     cancelButton.onclick = () => this.close();
 
-    const renameButton = buttonContainer.createEl("button", {
-      text: t("modals.buttons.rename"),
-    });
-    renameButton.addClass("mod-cta");
-    renameButton.onclick = async () => {
-      this.close();
-      await this.renameAllFiles();
+    this.keydownHandler = (e: KeyboardEvent) => {
+      if (e.key === "Enter" && document.activeElement?.tagName !== "A") {
+        e.preventDefault();
+        this.close();
+        void this.renameAllFiles();
+      }
     };
+    contentEl.addEventListener("keydown", this.keydownHandler);
   }
 
   async renameAllFiles() {
@@ -169,6 +179,9 @@ export class RenameAllFilesModal extends Modal {
 
   onClose() {
     const { contentEl } = this;
+    if (this.keydownHandler) {
+      contentEl.removeEventListener("keydown", this.keydownHandler);
+    }
     contentEl.empty();
   }
 }
@@ -282,11 +295,6 @@ export class RenameFolderModal extends Modal {
       cls: "modal-button-container flit-modal-button-container",
     });
 
-    const cancelButton = buttonContainer.createEl("button", {
-      text: t("modals.buttons.cancel"),
-    });
-    cancelButton.onclick = () => this.close();
-
     const renameButton = buttonContainer.createEl("button", {
       text: t("modals.buttons.rename"),
     });
@@ -310,6 +318,11 @@ export class RenameFolderModal extends Modal {
         excludedPropsCheckbox.checked,
       );
     };
+
+    const cancelButton = buttonContainer.createEl("button", {
+      text: t("modals.buttons.cancel"),
+    });
+    cancelButton.onclick = () => this.close();
   }
 
   async renameFolderFiles(
@@ -537,11 +550,6 @@ export class RenameMultipleFoldersModal extends Modal {
       cls: "modal-button-container flit-modal-button-container",
     });
 
-    const cancelButton = buttonContainer.createEl("button", {
-      text: t("modals.buttons.cancel"),
-    });
-    cancelButton.onclick = () => this.close();
-
     const renameButton = buttonContainer.createEl("button", {
       text: t("modals.buttons.rename"),
     });
@@ -565,6 +573,11 @@ export class RenameMultipleFoldersModal extends Modal {
         excludedPropsCheckbox.checked,
       );
     };
+
+    const cancelButton = buttonContainer.createEl("button", {
+      text: t("modals.buttons.cancel"),
+    });
+    cancelButton.onclick = () => this.close();
   }
 
   async renameMultipleFolders(
@@ -825,11 +838,6 @@ export class ProcessTagModal extends Modal {
       cls: "modal-button-container flit-modal-button-container",
     });
 
-    const cancelButton = buttonContainer.createEl("button", {
-      text: t("modals.buttons.cancel"),
-    });
-    cancelButton.onclick = () => this.close();
-
     const renameButton = buttonContainer.createEl("button", {
       text: t("modals.buttons.rename"),
     });
@@ -854,6 +862,11 @@ export class ProcessTagModal extends Modal {
         excludedPropsCheckbox.checked,
       );
     };
+
+    const cancelButton = buttonContainer.createEl("button", {
+      text: t("modals.buttons.cancel"),
+    });
+    cancelButton.onclick = () => this.close();
   }
 
   async processTagFiles(
@@ -1114,11 +1127,6 @@ export class RenameModal extends Modal {
       cls: "modal-button-container flit-modal-button-container",
     });
 
-    const cancelButton = buttonContainer.createEl("button", {
-      text: t("modals.buttons.cancel"),
-    });
-    cancelButton.onclick = () => this.close();
-
     const renameButton = buttonContainer.createEl("button", {
       text: t("modals.buttons.rename"),
     });
@@ -1140,6 +1148,11 @@ export class RenameModal extends Modal {
         excludedPropsCheckbox.checked,
       );
     };
+
+    const cancelButton = buttonContainer.createEl("button", {
+      text: t("modals.buttons.cancel"),
+    });
+    cancelButton.onclick = () => this.close();
   }
 
   async renameFiles(
@@ -1272,11 +1285,6 @@ export class DisableEnableModal extends Modal {
       cls: "modal-button-container flit-modal-button-container",
     });
 
-    const cancelButton = buttonContainer.createEl("button", {
-      text: t("modals.buttons.cancel"),
-    });
-    cancelButton.onclick = () => this.close();
-
     const actionButton = buttonContainer.createEl("button", {
       text:
         this.action === "disable"
@@ -1284,10 +1292,15 @@ export class DisableEnableModal extends Modal {
           : t("modals.buttons.enable"),
     });
     actionButton.addClass("mod-cta");
-    actionButton.onclick = async () => {
+    actionButton.onclick = () => {
       this.close();
-      await this.processFiles();
+      void this.processFiles();
     };
+
+    const cancelButton = buttonContainer.createEl("button", {
+      text: t("modals.buttons.cancel"),
+    });
+    cancelButton.onclick = () => this.close();
   }
 
   async processFiles() {
@@ -1360,6 +1373,7 @@ export class InternalLinkModal extends Modal {
   plugin: FirstLineIsTitlePlugin;
   onSubmit: (linkTarget: string, linkCaption?: string) => void;
   withCaption: boolean;
+  private enterKeyHandler?: (e: KeyboardEvent) => void;
 
   constructor(
     app: App,
@@ -1395,16 +1409,6 @@ export class InternalLinkModal extends Modal {
       cls: "modal-button-container flit-modal-button-container",
     });
 
-    const addButton = buttonContainer.createEl("button", {
-      text: t("modals.buttons.add"),
-    });
-    addButton.addClass("mod-cta");
-
-    const cancelButton = buttonContainer.createEl("button", {
-      text: t("modals.buttons.cancel"),
-    });
-    cancelButton.onclick = () => this.close();
-
     const handleSubmit = () => {
       const inputText = textInput.value.trim();
       if (inputText) {
@@ -1413,27 +1417,30 @@ export class InternalLinkModal extends Modal {
       }
     };
 
+    const addButton = buttonContainer.createEl("button", {
+      text: t("modals.buttons.add"),
+    });
+    addButton.addClass("mod-cta");
     addButton.onclick = handleSubmit;
 
+    const cancelButton = buttonContainer.createEl("button", {
+      text: t("modals.buttons.cancel"),
+    });
+    cancelButton.onclick = () => this.close();
+
     // Handle Enter key
-    textInput.addEventListener("keydown", (e) => {
+    this.enterKeyHandler = (e: KeyboardEvent) => {
       if (e.key === "Enter") {
         e.preventDefault();
         handleSubmit();
       }
-    });
-
-    // Handle Escape key
-    contentEl.addEventListener("keydown", (e) => {
-      if (e.key === "Escape") {
-        e.preventDefault();
-        this.close();
-      }
-    });
+    };
+    textInput.addEventListener("keydown", this.enterKeyHandler);
   }
 
   onClose() {
     const { contentEl } = this;
+    // Note: textInput is a child of contentEl, so its listener is removed when contentEl.empty() is called
     contentEl.empty();
   }
 }

@@ -4,6 +4,7 @@ import {
   setIcon,
   ToggleComponent,
   Platform,
+  Notice,
 } from "obsidian";
 import { SettingsTabBase, FirstLineIsTitlePlugin } from "./settings-base";
 import { DEFAULT_SETTINGS } from "../constants";
@@ -47,7 +48,11 @@ export class PropertiesTab extends SettingsTabBase {
         }
         if (this.plugin.settings.markupStripping.applyCustomRulesInAlias) {
           this.plugin.settings.markupStripping.applyCustomRulesInAlias = false;
-          await this.plugin.saveSettings();
+          try {
+            await this.plugin.saveSettings();
+          } catch {
+            new Notice(t("settings.errors.saveFailed"));
+          }
           (
             applyCustomRulesInAliasSetting.components[0] as ToggleComponent
           ).setValue(false);
@@ -74,7 +79,11 @@ export class PropertiesTab extends SettingsTabBase {
         }
         if (this.plugin.settings.markupStripping.stripMarkupInAlias) {
           this.plugin.settings.markupStripping.stripMarkupInAlias = false;
-          await this.plugin.saveSettings();
+          try {
+            await this.plugin.saveSettings();
+          } catch {
+            new Notice(t("settings.errors.saveFailed"));
+          }
           (stripMarkupInAliasSetting.components[0] as ToggleComponent).setValue(
             false,
           );
@@ -105,7 +114,11 @@ export class PropertiesTab extends SettingsTabBase {
               this.plugin.settings.core.hasEnabledAliases = true;
             }
 
-            await this.plugin.saveSettings();
+            try {
+              await this.plugin.saveSettings();
+            } catch {
+              new Notice(t("settings.errors.saveFailed"));
+            }
             renderAliasSettings();
           }),
       );
@@ -266,7 +279,11 @@ export class PropertiesTab extends SettingsTabBase {
           "aliasPropertyKey",
           this.plugin.settings.aliases.aliasPropertyKey,
         );
-        await this.plugin.saveSettings();
+        try {
+          await this.plugin.saveSettings();
+        } catch {
+          new Notice(t("settings.errors.saveFailed"));
+        }
       })();
     });
 
@@ -279,7 +296,11 @@ export class PropertiesTab extends SettingsTabBase {
           "aliasPropertyKey",
           this.plugin.settings.aliases.aliasPropertyKey,
         );
-        await this.plugin.saveSettings();
+        try {
+          await this.plugin.saveSettings();
+        } catch {
+          new Notice(t("settings.errors.saveFailed"));
+        }
       })();
     });
 
@@ -297,7 +318,11 @@ export class PropertiesTab extends SettingsTabBase {
           .onChange(async (value) => {
             this.plugin.settings.aliases.addAliasOnlyIfFirstLineDiffers = value;
             this.plugin.debugLog("addAliasOnlyIfFirstLineDiffers", value);
-            await this.plugin.saveSettings();
+            try {
+              await this.plugin.saveSettings();
+            } catch {
+              new Notice(t("settings.errors.saveFailed"));
+            }
           });
       });
 
@@ -339,7 +364,11 @@ export class PropertiesTab extends SettingsTabBase {
         .onChange(async (value) => {
           this.plugin.settings.aliases.truncateAlias = value;
           this.plugin.debugLog("truncateAlias", value);
-          await this.plugin.saveSettings();
+          try {
+            await this.plugin.saveSettings();
+          } catch {
+            new Notice(t("settings.errors.saveFailed"));
+          }
         });
     });
 
@@ -372,7 +401,11 @@ export class PropertiesTab extends SettingsTabBase {
         .onChange(async (value) => {
           this.plugin.settings.markupStripping.applyCustomRulesInAlias = value;
           this.plugin.debugLog("applyCustomRulesInAlias", value);
-          await this.plugin.saveSettings();
+          try {
+            await this.plugin.saveSettings();
+          } catch {
+            new Notice(t("settings.errors.saveFailed"));
+          }
         });
 
       if (!this.plugin.settings.customRules.enableCustomReplacements) {
@@ -411,7 +444,11 @@ export class PropertiesTab extends SettingsTabBase {
         .onChange(async (value) => {
           this.plugin.settings.markupStripping.stripMarkupInAlias = value;
           this.plugin.debugLog("stripMarkupInAlias", value);
-          await this.plugin.saveSettings();
+          try {
+            await this.plugin.saveSettings();
+          } catch {
+            new Notice(t("settings.errors.saveFailed"));
+          }
         });
 
       if (!this.plugin.settings.markupStripping.enableStripMarkup) {
@@ -435,7 +472,11 @@ export class PropertiesTab extends SettingsTabBase {
           .onChange(async (value) => {
             this.plugin.settings.aliases.keepEmptyAliasProperty = value;
             this.plugin.debugLog("keepEmptyAliasProperty", value);
-            await this.plugin.saveSettings();
+            try {
+              await this.plugin.saveSettings();
+            } catch {
+              new Notice(t("settings.errors.saveFailed"));
+            }
           });
       });
 
@@ -457,7 +498,11 @@ export class PropertiesTab extends SettingsTabBase {
               | "when_empty"
               | "always";
             this.plugin.debugLog("hideAliasProperty", value);
-            await this.plugin.saveSettings();
+            try {
+              await this.plugin.saveSettings();
+            } catch {
+              new Notice(t("settings.errors.saveFailed"));
+            }
             this.updatePropertyVisibility();
             if (value === "when_empty" || value === "always") {
               hideInSidebarSetting.settingEl.removeClass("flit-display-none");
@@ -484,7 +529,11 @@ export class PropertiesTab extends SettingsTabBase {
           .onChange(async (value) => {
             this.plugin.settings.aliases.hideAliasInSidebar = value;
             this.plugin.debugLog("hideAliasInSidebar", value);
-            await this.plugin.saveSettings();
+            try {
+              await this.plugin.saveSettings();
+            } catch {
+              new Notice(t("settings.errors.saveFailed"));
+            }
             this.updatePropertyVisibility();
           });
       });
@@ -511,7 +560,11 @@ export class PropertiesTab extends SettingsTabBase {
           .onChange(async (value) => {
             this.plugin.settings.core.suppressMergeNotifications = value;
             this.plugin.debugLog("suppressMergeNotifications", value);
-            await this.plugin.saveSettings();
+            try {
+              await this.plugin.saveSettings();
+            } catch {
+              new Notice(t("settings.errors.saveFailed"));
+            }
           });
       });
 
