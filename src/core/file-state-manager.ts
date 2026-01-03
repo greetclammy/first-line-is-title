@@ -1,15 +1,7 @@
 import type {} from "obsidian";
 import FirstLineIsTitlePlugin from "../../main";
 import { TIMING } from "../constants/timing";
-
-/**
- * Title region cache for a file
- */
-export interface TitleRegionCache {
-  firstNonEmptyLine: string;
-  titleSourceLine: string;
-  lastUpdated: number;
-}
+import { TitleRegionCache } from "../types";
 
 /**
  * Operation tracking data for a file
@@ -32,6 +24,9 @@ export interface FileState {
 
   // Content tracking
   lastEditorContent?: string;
+  lastEditorContentTimestamp?: number; // When editor content was last set (for staleness detection)
+  lastSavedContent?: string; // Content after last save (for modify handler comparison)
+  lastSavedContentTimestamp?: number;
   titleRegionCache?: TitleRegionCache;
   lastSelfRefNotice?: number; // timestamp
   lastSafewordNotice?: number; // timestamp
@@ -39,9 +34,11 @@ export interface FileState {
   // Operation tracking
   operationData?: OperationData;
   isLocked?: boolean;
+  lockTimestamp?: number; // When lock was acquired (for stale lock cleanup)
   pendingAliasRecheck?: boolean;
   pendingAliasEditor?: unknown; // Stored editor reference for popover detection
   lastAliasUpdateSucceeded?: boolean; // Whether last alias update succeeded (true) or was skipped (false)
+  lastAliasUpdateTimestamp?: number; // When the alias update status was set (for staleness detection)
   isSyncingEditors?: boolean; // True when syncing background editors to prevent spurious rechecks
 
   // Rename tracking - prevents processing stale content after rename
@@ -160,11 +157,12 @@ export class FileStateManager {
   // ============================================================================
 
   /**
-   * Set last editor content
+   * Set last editor content with timestamp
    */
   setLastEditorContent(path: string, content: string): void {
     const state = this.getOrCreateState(path);
     state.lastEditorContent = content;
+    state.lastEditorContentTimestamp = Date.now();
   }
 
   /**
@@ -181,15 +179,84 @@ export class FileStateManager {
     const state = this.fileStates.get(path);
     if (state) {
       delete state.lastEditorContent;
+      delete state.lastEditorContentTimestamp;
     }
   }
 
   /**
-   * Set last alias update status
+   * Check if last editor content is stale (older than specified TTL).
+   *
+   * Staleness thresholds are intentionally layered:
+   * - 5 minutes (default): Content considered stale for comparison purposes
+   * - 10 minutes: Content actually deleted from memory in runMaintenance()
+   *
+   * @param path - File path
+   * @param maxAgeMs - Maximum age in milliseconds (default: 5 minutes)
+   * @returns true if content is stale or doesn't exist
+   */
+  isEditorContentStale(
+    path: string,
+    maxAgeMs: number = 5 * 60 * 1000,
+  ): boolean {
+    const state = this.fileStates.get(path);
+    if (!state?.lastEditorContentTimestamp) return true;
+    return Date.now() - state.lastEditorContentTimestamp > maxAgeMs;
+  }
+
+  /**
+   * Set last saved content with timestamp (for modify handler comparison)
+   */
+  setLastSavedContent(path: string, content: string): void {
+    const state = this.getOrCreateState(path);
+    state.lastSavedContent = content;
+    state.lastSavedContentTimestamp = Date.now();
+  }
+
+  /**
+   * Get last saved content
+   */
+  getLastSavedContent(path: string): string | undefined {
+    return this.fileStates.get(path)?.lastSavedContent;
+  }
+
+  /**
+   * Delete last saved content (for cleanup on file rename/delete)
+   */
+  deleteLastSavedContent(path: string): void {
+    const state = this.fileStates.get(path);
+    if (state) {
+      delete state.lastSavedContent;
+      delete state.lastSavedContentTimestamp;
+    }
+  }
+
+  /**
+   * Check if last saved content is stale (older than specified TTL).
+   *
+   * Staleness thresholds are intentionally layered:
+   * - 5 minutes (default): Content considered stale for comparison purposes
+   * - 10 minutes: Content actually deleted from memory in runMaintenance()
+   *
+   * This allows graceful degradation where stale content still exists
+   * but is treated as unreliable for frontmatter-only detection.
+   *
+   * @param path - File path
+   * @param maxAgeMs - Maximum age in milliseconds (default: 5 minutes)
+   * @returns true if content is stale or doesn't exist
+   */
+  isSavedContentStale(path: string, maxAgeMs: number = 5 * 60 * 1000): boolean {
+    const state = this.fileStates.get(path);
+    if (!state?.lastSavedContentTimestamp) return true;
+    return Date.now() - state.lastSavedContentTimestamp > maxAgeMs;
+  }
+
+  /**
+   * Set last alias update status with timestamp
    */
   setLastAliasUpdateStatus(path: string, succeeded: boolean): void {
     const state = this.getOrCreateState(path);
     state.lastAliasUpdateSucceeded = succeeded;
+    state.lastAliasUpdateTimestamp = Date.now();
   }
 
   /**
@@ -197,6 +264,18 @@ export class FileStateManager {
    */
   getLastAliasUpdateStatus(path: string): boolean | undefined {
     return this.fileStates.get(path)?.lastAliasUpdateSucceeded;
+  }
+
+  /**
+   * Check if last alias update status is stale (older than specified TTL)
+   * @param path - File path
+   * @param maxAgeMs - Maximum age in milliseconds (default: 5 minutes)
+   * @returns true if status is stale or doesn't exist
+   */
+  isAliasStatusStale(path: string, maxAgeMs: number = 5 * 60 * 1000): boolean {
+    const state = this.fileStates.get(path);
+    if (!state?.lastAliasUpdateTimestamp) return true;
+    return Date.now() - state.lastAliasUpdateTimestamp > maxAgeMs;
   }
 
   /**
@@ -327,6 +406,7 @@ export class FileStateManager {
       return false;
     }
     state.isLocked = true;
+    state.lockTimestamp = Date.now();
     return true;
   }
 
@@ -337,6 +417,7 @@ export class FileStateManager {
     const state = this.fileStates.get(path);
     if (state) {
       state.isLocked = false;
+      delete state.lockTimestamp;
     }
   }
 
@@ -546,6 +627,59 @@ export class FileStateManager {
         }
       }
 
+      // Clean up stale locks (prevents deadlock if lock was never released)
+      if (state.isLocked && state.lockTimestamp) {
+        const age = now - state.lockTimestamp;
+        if (age > TIMING.FILE_LOCK_STALE_THRESHOLD_MS) {
+          state.isLocked = false;
+          delete state.lockTimestamp;
+        }
+      }
+
+      // Clean up stale lastEditorContent (prevents memory leak from large notes)
+      // Cleanup after 10 minutes (staleThreshold) - staleness check uses 5 min default
+      if (state.lastEditorContentTimestamp) {
+        const age = now - state.lastEditorContentTimestamp;
+        if (age > staleThreshold) {
+          delete state.lastEditorContent;
+          delete state.lastEditorContentTimestamp;
+        }
+      }
+
+      // Clean up stale lastSavedContent (prevents memory leak from large notes)
+      // Cleanup after 10 minutes (staleThreshold) - staleness check uses 5 min default
+      if (state.lastSavedContentTimestamp) {
+        const age = now - state.lastSavedContentTimestamp;
+        if (age > staleThreshold) {
+          delete state.lastSavedContent;
+          delete state.lastSavedContentTimestamp;
+        }
+      }
+
+      // Clean up stale lastAliasUpdateStatus (prevents stale status affecting logic)
+      // Cleanup after 5 minutes - status is only relevant shortly after update
+      if (state.lastAliasUpdateTimestamp) {
+        const age = now - state.lastAliasUpdateTimestamp;
+        if (age > 5 * 60 * 1000) {
+          delete state.lastAliasUpdateSucceeded;
+          delete state.lastAliasUpdateTimestamp;
+        }
+      }
+
+      // Clean up stale self-ref and safeword notice timestamps
+      if (state.lastSelfRefNotice) {
+        const age = now - state.lastSelfRefNotice;
+        if (age > staleThreshold) {
+          delete state.lastSelfRefNotice;
+        }
+      }
+      if (state.lastSafewordNotice) {
+        const age = now - state.lastSafewordNotice;
+        if (age > staleThreshold) {
+          delete state.lastSafewordNotice;
+        }
+      }
+
       // Remove completely empty state entries (only has path field)
       const stateKeys = Object.keys(state).filter(
         (k) => k !== "path" && state[k as keyof FileState] !== undefined,
@@ -562,6 +696,7 @@ export class FileStateManager {
   dispose(): void {
     for (const state of this.fileStates.values()) {
       if (state.creationDelayTimer) clearTimeout(state.creationDelayTimer);
+      if (state.throttleTimer) clearTimeout(state.throttleTimer);
     }
     this.fileStates.clear();
   }

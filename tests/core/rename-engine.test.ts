@@ -24,14 +24,79 @@ function createMockPlugin() {
       hasPendingAliasRecheck: vi.fn().mockReturnValue(false),
     },
     fileStateManager: {
+      // Content tracking
       isEditorSyncing: vi.fn().mockReturnValue(false),
-      getLastEditorContent: vi.fn().mockReturnValue(null),
+      getLastEditorContent: vi.fn().mockReturnValue(undefined),
       setLastEditorContent: vi.fn(),
-      getTitleRegionCache: vi.fn().mockReturnValue(null),
+      deleteLastEditorContent: vi.fn(),
+      isEditorContentStale: vi.fn().mockReturnValue(false),
+      getLastSavedContent: vi.fn().mockReturnValue(undefined),
+      setLastSavedContent: vi.fn(),
+      deleteLastSavedContent: vi.fn(),
+      isSavedContentStale: vi.fn().mockReturnValue(false),
+      // Title region cache
+      getTitleRegionCache: vi.fn().mockReturnValue(undefined),
       setTitleRegionCache: vi.fn(),
+      deleteTitleRegionCache: vi.fn(),
       clearAllTitleRegionCaches: vi.fn(),
+      updateTitleRegionCacheKey: vi.fn(),
+      // Fresh read flag
       needsFreshRead: vi.fn().mockReturnValue(false),
+      markNeedsFreshRead: vi.fn(),
       clearNeedsFreshRead: vi.fn(),
+      // Alias update status
+      setLastAliasUpdateStatus: vi.fn(),
+      getLastAliasUpdateStatus: vi.fn().mockReturnValue(undefined),
+      isAliasStatusStale: vi.fn().mockReturnValue(true),
+      // File lifecycle
+      notifyFileRenamed: vi.fn(),
+      notifyFileDeleted: vi.fn(),
+      markRecentlyRenamed: vi.fn(),
+      wasRecentlyRenamed: vi.fn().mockReturnValue(false),
+      // Editor syncing
+      markEditorSyncing: vi.fn(),
+      clearEditorSyncing: vi.fn(),
+      // Pending alias recheck
+      markPendingAliasRecheck: vi.fn(),
+      hasPendingAliasRecheck: vi.fn().mockReturnValue(false),
+      getPendingAliasEditor: vi.fn().mockReturnValue(undefined),
+      clearPendingAliasRecheck: vi.fn(),
+      getFilesWithPendingAliasRecheck: vi.fn().mockReturnValue([]),
+      // Lifecycle timers
+      setCreationDelayTimer: vi.fn(),
+      clearCreationDelayTimer: vi.fn(),
+      isFileInCreationDelay: vi.fn().mockReturnValue(false),
+      setThrottleTimer: vi.fn(),
+      clearThrottleTimer: vi.fn(),
+      hasThrottleTimer: vi.fn().mockReturnValue(false),
+      clearAllThrottleTimers: vi.fn(),
+      // Locking
+      acquireLock: vi.fn().mockReturnValue(true),
+      releaseLock: vi.fn(),
+      isLocked: vi.fn().mockReturnValue(false),
+      clearAllLocks: vi.fn(),
+      // Notice rate limiting
+      setLastSelfRefNotice: vi.fn(),
+      canShowSelfRefNotice: vi.fn().mockReturnValue(true),
+      setLastSafewordNotice: vi.fn(),
+      canShowSafewordNotice: vi.fn().mockReturnValue(true),
+      // Operation tracking
+      getOperationData: vi.fn().mockReturnValue(undefined),
+      setOperationData: vi.fn(),
+      updateOperationCount: vi.fn(),
+      // Maintenance
+      runMaintenance: vi.fn(),
+      dispose: vi.fn(),
+      // State access
+      getState: vi.fn().mockReturnValue(undefined),
+    },
+    eventHandlerManager: {
+      isAliasUpdatePending: vi.fn().mockReturnValue(false),
+      markAliasUpdatePending: vi.fn(),
+      clearAliasUpdatePending: vi.fn(),
+    },
+    aliasManager: {
+      updateAliasIfNeeded: vi.fn().mockResolvedValue(false),
     },
   } as any;
 }

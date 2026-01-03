@@ -12,15 +12,10 @@
    Modal Styles
    ========================================================================== */
 
-.flit-modal-heading {
-  text-align: center;
-}
-
 .flit-modal-heading-left {
   text-align: left;
 }
 
-.flit-modal-heading .modal-title,
 .flit-modal-heading-left .modal-title {
   text-align: center;
   margin-top: 10px;
@@ -63,29 +58,12 @@
    Character Replacement Section
    ========================================================================== */
 
-.flit-char-header {
-  margin: 0;
-}
-
 .flit-char-settings-container {
   display: block;
 }
 
 .flit-char-settings-container.hidden {
   display: none;
-}
-
-/* Style setting names to look like headings for section toggles */
-.flit-header-setting .setting-item-name {
-  font-size: 1.4em;
-  font-weight: 600;
-  color: var(--text-normal);
-  margin: 0;
-}
-
-.flit-header-setting .setting-item-description {
-  margin-top: 5px;
-  font-size: 0.9em;
 }
 
 .flit-char-replacement-section-header {
@@ -127,7 +105,6 @@
 }
 
 .flit-char-replacement-header {
-  border-bottom: 1px solid var(--background-modifier-border);
   font-weight: bold;
   font-size: 0.9em;
   padding-top: 9px;
@@ -139,8 +116,6 @@
 
 .flit-char-replacement-setting:last-of-type {
   border-bottom: none;
-  width: fit-content;
-  min-width: 750px;
 }
 
 .flit-char-replacement-setting.disabled {
@@ -196,10 +171,6 @@
   box-sizing: border-box;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-
-.flit-custom-header {
-  margin: 0;
 }
 
 /* ==========================================================================
@@ -335,8 +306,6 @@ br + .flit-table-container {
 .flit-custom-replacement-setting:last-of-type,
 .flit-safeword-setting:last-of-type {
   border-bottom: none;
-  width: fit-content;
-  min-width: 746px;
 }
 
 .flit-custom-replacement-setting.hidden,
@@ -451,54 +420,36 @@ br + .flit-table-container {
   align-items: stretch;
 }
 
-/* Remove all container-level disabled styling */
-.flit-custom-replacements-container.disabled,
-.flit-safewords-container.disabled {
-  /* Remove all styling - containers should never be styled as disabled */
-}
-
-/* ==========================================================================
-   Alias Container - Dropdown Overflow
-   REQUIRES !important: Override Obsidian's default overflow:hidden on settings
-   ========================================================================== */
-
-.flit-alias-container {
-  overflow: visible !important;
-}
-
-.flit-alias-container .setting-item {
-  overflow: visible !important;
-}
-
-.flit-alias-container .setting-item-control {
-  overflow: visible !important;
-}
+/* Note: Container-level .disabled styling is intentionally omitted.
+   Row-level disabled styling is handled by .flit-row-disabled and .flit-master-disabled classes. */
 
 /* ==========================================================================
    Master Disabled State Styling
    ========================================================================== */
 
 /* Apply disabled styling to section elements when master toggle OFF */
-.master-disabled .flit-custom-replacement-header,
-.master-disabled .flit-safeword-header,
-.master-disabled .flit-add-replacement-button,
-.master-disabled .flit-add-safeword-button {
+.flit-master-disabled .flit-custom-replacement-header,
+.flit-master-disabled .flit-safeword-header,
+.flit-master-disabled .flit-add-replacement-button,
+.flit-master-disabled .flit-add-safeword-button {
   opacity: 0.5;
 }
 
 /* Gray out individual row content (but not the row container itself) */
-.master-disabled .flit-custom-replacement-setting > *:not(.flit-actions-column),
-.master-disabled .flit-safeword-setting > *:not(.flit-actions-column) {
+.flit-master-disabled
+  .flit-custom-replacement-setting
+  > *:not(.flit-actions-column),
+.flit-master-disabled .flit-safeword-setting > *:not(.flit-actions-column) {
   opacity: 0.5;
 }
 
 /* Keep action buttons visible - REQUIRES !important for state override */
-.master-disabled .flit-actions-column {
+.flit-master-disabled .flit-actions-column {
   opacity: 1 !important;
 }
 
-/* Reset row-disabled opacity when inside master-disabled to prevent stacking */
-.master-disabled .flit-row-disabled > * {
+/* Reset row-disabled opacity when inside flit-master-disabled to prevent stacking */
+.flit-master-disabled .flit-row-disabled > * {
   opacity: 1 !important;
 }
 
@@ -535,56 +486,6 @@ br + .flit-table-container {
   flex-shrink: 0 !important;
   width: 32px !important;
   height: 32px !important;
-}
-
-/* ==========================================================================
-   Master Toggle Header Containers
-   REQUIRES !important: Ensure master toggles are never greyed out by themes
-   ========================================================================== */
-
-.flit-custom-header-container .checkbox-container,
-.flit-char-header-container .checkbox-container,
-.flit-custom-header-container .mod-toggle,
-.flit-char-header-container .mod-toggle,
-.flit-custom-header-container input[type="checkbox"],
-.flit-char-header-container input[type="checkbox"],
-.flit-custom-header-container [role="switch"],
-.flit-char-header-container [role="switch"] {
-  opacity: 1 !important;
-  pointer-events: auto !important;
-  display: block !important;
-  visibility: visible !important;
-  background: transparent !important;
-  border: none !important;
-  box-shadow: none !important;
-}
-
-/* Fix the visual artifact in toggle */
-.flit-custom-header-container,
-.flit-char-header-container {
-  position: relative !important;
-}
-
-.flit-custom-header-container .setting-item,
-.flit-char-header-container .setting-item {
-  border: none !important;
-  padding: 0 !important;
-  background: none !important;
-}
-
-/* Force visibility on all toggle elements in header containers */
-.flit-custom-header-container *,
-.flit-char-header-container * {
-  opacity: inherit !important;
-}
-
-/* Specifically target toggle container elements */
-.flit-custom-header-container > *:last-child,
-.flit-char-header-container > *:last-child {
-  opacity: 1 !important;
-  pointer-events: auto !important;
-  display: block !important;
-  visibility: visible !important;
 }
 
 /* ==========================================================================
@@ -710,13 +611,6 @@ br + .flit-table-container {
   color: var(--text-on-accent) !important;
 }
 
-@media screen and (max-width: 768px) {
-  .flit-settings-tab.flit-settings-tab-active {
-    background-color: var(--color-accent) !important;
-    color: var(--text-on-accent) !important;
-  }
-}
-
 .flit-settings-tab-name {
   font-weight: bold;
   text-align: center;
@@ -734,6 +628,8 @@ br + .flit-table-container {
   width: 100%;
   max-width: 100%;
   box-sizing: border-box;
+  overflow-x: visible !important;
+  position: relative;
 }
 
 /* ==========================================================================
@@ -837,10 +733,6 @@ hr.flit-divider {
 
 .flit-section-header {
   border-top: none;
-  border-bottom: 1px solid var(--background-modifier-border);
-}
-
-.flit-section-header.setting-item {
   border-bottom: 1px solid var(--background-modifier-border);
 }
 
@@ -1063,14 +955,6 @@ hr.flit-divider {
    Sub-Settings Indentation
    ========================================================================== */
 
-/* Remove bottom padding from toggle when sub-items hidden */
-.setting-items
-  > .setting-item:has(+ .flit-sub-settings):has(
-    .checkbox-container:not(.is-enabled)
-  ) {
-  padding-bottom: 0;
-}
-
 .flit-sub-settings {
   margin-inline-start: 20px;
   padding-left: 1em;
@@ -1087,29 +971,22 @@ hr.flit-divider {
   background-color: var(--background-modifier-border);
 }
 
-.flit-sub-settings:has(+ .setting-item) {
-  padding-bottom: var(--size-4-4);
+.flit-sub-settings:has(.setting-item:not(.flit-display-none)):has(
+    + .setting-item
+  ) {
+  padding-bottom: var(--size-4-4, 16px);
 }
 
-.flit-sub-settings:has(+ .setting-item)::before {
-  bottom: var(--size-4-4);
+.flit-sub-settings:has(.setting-item:not(.flit-display-none)):has(
+    + .setting-item
+  )::before {
+  bottom: var(--size-4-4, 16px);
 }
 
-/* Double-indented settings (for nested sub-settings) */
-.flit-double-indent {
-  position: relative;
-  margin-inline-start: 20px;
-  padding-left: 1em;
-}
-
-.flit-double-indent::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 10px;
-  width: 2px;
-  background-color: var(--background-modifier-border);
+/* Remove bottom padding from last setting when its sub-items are hidden */
+.setting-items
+  > .setting-item:has(+ .flit-sub-settings.flit-display-none:last-child) {
+  padding-bottom: 0;
 }
 
 /* ==========================================================================
@@ -1118,7 +995,6 @@ hr.flit-divider {
    to allow dropdown menus to extend past container boundaries
    ========================================================================== */
 
-.flit-double-indent .setting-item-control,
 .flit-sub-settings .setting-item-control {
   overflow: visible !important;
 }
@@ -1175,15 +1051,9 @@ hr.flit-divider {
   overflow-x: visible !important;
 }
 
-.flit-settings-page {
-  overflow-x: visible !important;
-  position: relative;
-}
-
 /* Comprehensive dropdown clipping fix */
 .mod-settings .flit-settings-page,
-.mod-settings .flit-sub-settings,
-.mod-settings .flit-double-indent {
+.mod-settings .flit-sub-settings {
   overflow-x: visible !important;
 }
 
@@ -1192,8 +1062,7 @@ hr.flit-divider {
 }
 
 /* Ensure dropdowns have proper z-index */
-.flit-sub-settings select,
-.flit-double-indent select {
+.flit-sub-settings select {
   position: relative;
   z-index: 1000;
 }
@@ -1279,28 +1148,6 @@ hr.flit-divider {
 }
 
 /* ==========================================================================
-   Progress Bar (Batch Operations)
-   ========================================================================== */
-
-.flit-progress-container {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 4px 0;
-}
-
-.flit-progress-message {
-  font-size: 0.95em;
-  color: var(--text-normal);
-  text-align: center;
-}
-
-.flit-progress-bar-wrapper {
-  width: 100%;
-  min-width: 200px;
-}
-
-/* ==========================================================================
    Property Visibility Classes
    REQUIRES !important: Override any inline display styles
    ========================================================================== */
@@ -1349,6 +1196,11 @@ hr.flit-divider {
 /* ==========================================================================
    Utility Classes
    ========================================================================== */
+
+/* Hidden utility class for visibility control */
+.flit-hidden {
+  display: none;
+}
 
 /* Display utilities */
 .flit-display-flex {
@@ -1498,4 +1350,9 @@ hr.flit-divider {
 
 .flit-settings-page .flit-first-section-heading.setting-item-heading {
   margin-top: var(--size-4-6);
+}
+
+/* Add margin between heading info and toggle control (vanilla Obsidian default) */
+.flit-settings-page .setting-item-heading > .setting-item-info {
+  margin-inline-end: var(--size-4-4);
 }

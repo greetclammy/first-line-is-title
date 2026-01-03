@@ -479,7 +479,7 @@ export default class FirstLineIsTitle extends Plugin {
   }
 
   private showInactivityNotice(): void {
-    new Notice(t("notifications.firstTimeNotice"), 10000);
+    new Notice(t("notifications.inactivityNotice"), 10000);
   }
 
   private updateLastUsageDate(today: string): void {
@@ -593,17 +593,12 @@ export default class FirstLineIsTitle extends Plugin {
     this.commandRegistrar.registerCommands();
 
     // Defer ribbon icon registration until workspace layout is ready
-    if (this.settings.core.enableRibbon) {
-      this.app.workspace.onLayoutReady(() => {
-        this.workspaceIntegration.registerRibbonIcons();
-      });
-    }
+    this.app.workspace.onLayoutReady(() => {
+      this.workspaceIntegration.registerRibbonIcons();
+    });
 
     // Register all event handlers
     this.eventHandlerManager.registerAllHandlers();
-
-    // Setup notification suppression to hide external modification notices
-    this.propertyManager.setupNotificationSuppression();
 
     // Setup cursor positioning for new notes
     this.workspaceIntegration.setupCursorPositioning();
@@ -709,10 +704,6 @@ export default class FirstLineIsTitle extends Plugin {
       this.workspaceIntegration.cleanup();
     }
 
-    if (this.propertyManager) {
-      this.propertyManager.cleanupNotificationSuppression();
-    }
-
     // Cleanup lazy-loaded managers only if they were instantiated
     if (this._propertyVisibility) {
       this._propertyVisibility.cleanup();
@@ -720,10 +711,6 @@ export default class FirstLineIsTitle extends Plugin {
 
     if (this.fileOperations) {
       this.fileOperations.cleanup();
-    }
-
-    if (this.cacheManager) {
-      this.cacheManager.clearAllLocks();
     }
 
     // Cleanup console API

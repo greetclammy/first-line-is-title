@@ -197,6 +197,7 @@ describe("AliasManager", () => {
         "First Line",
         "filename",
         "content",
+        "First Line",
       );
 
       expect(plugin.app.fileManager.processFrontMatter).not.toHaveBeenCalled();
@@ -215,7 +216,13 @@ describe("AliasManager", () => {
         },
       );
 
-      await aliasManager.addAliasToFile(file, title, "filename", content);
+      await aliasManager.addAliasToFile(
+        file,
+        title,
+        "filename",
+        content,
+        title,
+      );
 
       const zwsp = "\u200B";
       expect(capturedFrontmatter.aliases).toEqual([`${zwsp}${title}${zwsp}`]);
@@ -237,7 +244,13 @@ describe("AliasManager", () => {
         },
       );
 
-      await aliasManager.addAliasToFile(file, longTitle, "filename", content);
+      await aliasManager.addAliasToFile(
+        file,
+        longTitle,
+        "filename",
+        content,
+        longTitle,
+      );
 
       const zwsp = "\u200B";
       const expectedTruncated = longTitle.slice(0, 9).trimEnd() + "…";
@@ -255,7 +268,13 @@ describe("AliasManager", () => {
         "removePluginAliasesFromFile",
       );
 
-      await aliasManager.addAliasToFile(file, "Title", "filename", "content");
+      await aliasManager.addAliasToFile(
+        file,
+        "Title",
+        "filename",
+        "content",
+        "Title",
+      );
 
       expect(removeAliasesSpy).toHaveBeenCalledWith(file);
     });
@@ -266,7 +285,13 @@ describe("AliasManager", () => {
         "removePluginAliasesFromFile",
       );
 
-      await aliasManager.addAliasToFile(file, "#", "filename", "# \nContent");
+      await aliasManager.addAliasToFile(
+        file,
+        "#",
+        "filename",
+        "# \nContent",
+        "# ",
+      );
 
       expect(removeAliasesSpy).toHaveBeenCalledWith(file);
     });
@@ -277,7 +302,13 @@ describe("AliasManager", () => {
         "removePluginAliasesFromFile",
       );
 
-      await aliasManager.addAliasToFile(file, "   ", "filename", "content");
+      await aliasManager.addAliasToFile(
+        file,
+        "   ",
+        "filename",
+        "content",
+        "   ",
+      );
 
       expect(removeAliasesSpy).toHaveBeenCalledWith(file);
     });
@@ -307,7 +338,13 @@ describe("AliasManager", () => {
         },
       );
 
-      await aliasManager.addAliasToFile(file, title, "filename", content);
+      await aliasManager.addAliasToFile(
+        file,
+        title,
+        "filename",
+        content,
+        title,
+      );
 
       const zwsp = "\u200B";
       expect(capturedFrontmatter.aliases[0]).toContain("DONE: Fix this");
@@ -338,7 +375,13 @@ describe("AliasManager", () => {
         },
       );
 
-      await aliasManager.addAliasToFile(file, title, "filename", content);
+      await aliasManager.addAliasToFile(
+        file,
+        title,
+        "filename",
+        content,
+        title,
+      );
 
       expect(capturedFrontmatter.aliases[0]).toContain("REPLACED Task name");
     });
@@ -361,7 +404,13 @@ describe("AliasManager", () => {
         },
       );
 
-      await aliasManager.addAliasToFile(file, title, "filename", content);
+      await aliasManager.addAliasToFile(
+        file,
+        title,
+        "filename",
+        content,
+        title,
+      );
 
       expect(capturedFrontmatter.aliases).toHaveLength(2);
       expect(capturedFrontmatter.aliases).toContain("User Added Alias");
@@ -385,13 +434,18 @@ describe("AliasManager", () => {
         },
       );
 
-      await aliasManager.addAliasToFile(file, title, "filename", content);
+      await aliasManager.addAliasToFile(
+        file,
+        title,
+        "filename",
+        content,
+        title,
+      );
 
       const zwsp = "\u200B";
-      // 'aliases' should be array
+      // Both 'aliases' and 'aka' (custom property) should be arrays for consistency
       expect(capturedFrontmatter.aliases).toEqual([`${zwsp}${title}${zwsp}`]);
-      // 'aka' (custom property) should be inline string
-      expect(capturedFrontmatter.aka).toBe(`${zwsp}${title}${zwsp}`);
+      expect(capturedFrontmatter.aka).toEqual([`${zwsp}${title}${zwsp}`]);
     });
 
     it("should allow 'Untitled' alias when first line is literally 'Untitled'", async () => {
@@ -407,7 +461,13 @@ describe("AliasManager", () => {
         },
       );
 
-      await aliasManager.addAliasToFile(file, title, "filename", content);
+      await aliasManager.addAliasToFile(
+        file,
+        title,
+        "filename",
+        content,
+        title,
+      );
 
       const zwsp = "\u200B";
       expect(capturedFrontmatter.aliases).toEqual([`${zwsp}${title}${zwsp}`]);
@@ -423,7 +483,13 @@ describe("AliasManager", () => {
 
       // Should not throw
       await expect(
-        aliasManager.addAliasToFile(file, "Title", "filename", "Title\nBody"),
+        aliasManager.addAliasToFile(
+          file,
+          "Title",
+          "filename",
+          "Title\nBody",
+          "Title",
+        ),
       ).resolves.not.toThrow();
     });
 
@@ -440,6 +506,7 @@ describe("AliasManager", () => {
         "Title",
         "filename",
         "Title\nBody",
+        "Title",
       );
 
       expect(consoleErrorSpy).toHaveBeenCalled();
@@ -459,6 +526,7 @@ describe("AliasManager", () => {
         "Title",
         "filename",
         "Title\nBody",
+        "Title",
       );
 
       expect(mockView.save).toHaveBeenCalled();
@@ -474,7 +542,13 @@ describe("AliasManager", () => {
         "removePluginAliasesFromFile",
       );
 
-      await aliasManager.addAliasToFile(file, title, "filename", content);
+      await aliasManager.addAliasToFile(
+        file,
+        title,
+        "filename",
+        content,
+        title,
+      );
 
       expect(removeAliasesSpy).toHaveBeenCalledWith(file);
     });
@@ -490,9 +564,82 @@ describe("AliasManager", () => {
         },
       );
 
-      await aliasManager.addAliasToFile(file, title, "filename", content);
+      await aliasManager.addAliasToFile(
+        file,
+        title,
+        "filename",
+        content,
+        title,
+      );
 
       expect(plugin.pendingMetadataUpdates.has(file.path)).toBe(true);
+    });
+
+    // Tests for firstNonEmptyLine parameter edge cases (Issue #22)
+    it("should remove aliases when Untitled extracted from heading markup", async () => {
+      // First line is "# Untitled" (heading), titleSourceLine after stripping is "Untitled"
+      // Should NOT add alias because original line "# Untitled" is not literally "Untitled"
+      // The "#" prefix means markup processing produced "Untitled", not the user
+
+      const removeAliasesSpy = vi.spyOn(
+        aliasManager,
+        "removePluginAliasesFromFile",
+      );
+
+      await aliasManager.addAliasToFile(
+        file,
+        "Untitled", // titleSourceLine (after processing)
+        "filename",
+        "# Untitled\nBody", // content
+        "# Untitled", // firstNonEmptyLine (before processing - has # prefix)
+      );
+
+      // Should remove aliases because "# Untitled" doesn't literally match "Untitled" pattern
+      expect(removeAliasesSpy).toHaveBeenCalledWith(file);
+    });
+
+    it("should remove aliases when Untitled extracted from template syntax", async () => {
+      // First line is template code, but after processing results in "Untitled"
+      // Should NOT add alias since original wasn't literally "Untitled"
+
+      const removeAliasesSpy = vi.spyOn(
+        aliasManager,
+        "removePluginAliasesFromFile",
+      );
+
+      await aliasManager.addAliasToFile(
+        file,
+        "Untitled", // titleSourceLine (result after processing empty template)
+        "filename",
+        "<%* template code %>\nBody", // content
+        "<%* template code %>", // firstNonEmptyLine (template syntax)
+      );
+
+      expect(removeAliasesSpy).toHaveBeenCalledWith(file);
+    });
+
+    it("should handle card link where firstNonEmptyLine differs from titleSourceLine", async () => {
+      // First line is markdown link, titleSourceLine is extracted link text
+
+      let capturedFrontmatter: any;
+      plugin.app.fileManager.processFrontMatter = vi.fn(
+        async (_file: TFile, callback: (fm: any) => void) => {
+          const fm: Record<string, any> = {};
+          callback(fm);
+          capturedFrontmatter = fm;
+        },
+      );
+
+      await aliasManager.addAliasToFile(
+        file,
+        "Link Title", // titleSourceLine (extracted from link)
+        "filename",
+        "[Link Title](https://example.com)\nBody", // content
+        "[Link Title](https://example.com)", // firstNonEmptyLine
+      );
+
+      const zwsp = "\u200B";
+      expect(capturedFrontmatter.aliases).toEqual([`${zwsp}Link Title${zwsp}`]);
     });
   });
 
@@ -614,7 +761,7 @@ describe("AliasManager", () => {
       expect(capturedFrontmatter.aka).toBeNull(); // keepEmptyAliasProperty is true
     });
 
-    it("should convert single-value array to string for non-aliases properties", async () => {
+    it("should keep array format for non-aliases properties after removal", async () => {
       plugin.settings.aliases.aliasPropertyKey = "aka";
       const zwsp = "\u200B";
 
@@ -631,8 +778,8 @@ describe("AliasManager", () => {
 
       await aliasManager.removePluginAliasesFromFile(file);
 
-      // Should convert to single string for custom property
-      expect(capturedFrontmatter.aka).toBe("User Value");
+      // Should keep array format for consistency
+      expect(capturedFrontmatter.aka).toEqual(["User Value"]);
     });
 
     it("should filter out empty strings", async () => {
@@ -781,6 +928,7 @@ describe("AliasManager", () => {
         "Title",
         file.basename,
         "Title\nBody",
+        "Title",
       );
 
       expect(capturedFrontmatter.aliases).toBeDefined();
@@ -804,6 +952,7 @@ describe("AliasManager", () => {
         veryLongTitle,
         "filename",
         veryLongTitle + "\nBody",
+        veryLongTitle,
       );
 
       const zwsp = "\u200B";
@@ -827,6 +976,7 @@ describe("AliasManager", () => {
         title,
         "filename",
         title + "\nBody",
+        title,
       );
 
       const zwsp = "\u200B";
@@ -846,6 +996,7 @@ describe("AliasManager", () => {
         "Title",
         "filename",
         "Title\nBody",
+        "Title",
       );
 
       // Should not call processFrontMatter after detecting file deletion
@@ -867,9 +1018,9 @@ describe("AliasManager", () => {
 
       // Simulate concurrent calls
       await Promise.all([
-        aliasManager.addAliasToFile(file, title, "filename", content),
-        aliasManager.addAliasToFile(file, title, "filename", content),
-        aliasManager.addAliasToFile(file, title, "filename", content),
+        aliasManager.addAliasToFile(file, title, "filename", content, title),
+        aliasManager.addAliasToFile(file, title, "filename", content, title),
+        aliasManager.addAliasToFile(file, title, "filename", content, title),
       ]);
 
       expect(callCount).toBe(3); // All should complete
@@ -892,6 +1043,7 @@ describe("AliasManager", () => {
         "Title",
         "filename",
         "Title\nBody",
+        "Title",
       );
 
       // Should fall back to 'aliases'

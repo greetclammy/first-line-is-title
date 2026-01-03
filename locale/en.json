@@ -96,8 +96,10 @@
     "settingsImported": "Settings have been imported successfully.",
     "invalidImportFile": "Invalid settings file. Please select a valid JSON file.",
     "firstTimeNotice": "Please open First Line is Title settings to set your preferences. Ensure your files are regularly backed up.",
+    "inactivityNotice": "First Line is Title is still active. Ensure your settings and file backups are up to date.",
     "disabledRenamingForNNotes": "Disabled renaming for {{count}} notes.",
     "enabledRenamingForNNotes": "Enabled renaming for {{count}} notes.",
+    "renameEngineNotInitialized": "Rename engine not initialized. Please restart Obsidian.",
     "renamedTo": "Renamed to: {{filename}}",
     "notRenamedSelfReference": "Note not renamed due to self-referential link in first line: {{filename}}",
     "notRenamedNoHeading": "Note not renamed due to no heading in first line: {{filename}}",
@@ -360,7 +362,7 @@
           "charCount": "Character count",
           "part2": " value in ",
           "other": "Other",
-          "part3": "."
+          "part3": " settings."
         }
       },
       "applyCustomRules": {
@@ -394,16 +396,13 @@
         "name": "Hide in sidebar",
         "desc": "Also hide the property in the properties sidebar."
       },
-      "hideMergeNotifications": {
-        "name": "Hide merge notifications",
-        "desc": "Suppress notifications about files being modified externally and merged automatically."
-      },
       "limitations": {
         "title": "Limitations",
-        "desc": {
+        "bullet1": {
           "part1": "First line alias will not update when editing in page preview or Canvas. Using ",
           "part2": " is recommended."
-        }
+        },
+        "bullet2": "Due to Obsidian bug, 'modified externally' notifications may occasionally appear when updating alias."
       }
     },
     "replaceCharacters": {
@@ -737,14 +736,6 @@
       }
     },
     "commands": {
-      "ribbon": {
-        "title": "Ribbon commands",
-        "desc": "Enable commands in the ribbon menu. Reload plugin or Obsidian to apply."
-      },
-      "palette": {
-        "title": "Command palette commands",
-        "desc": "Enable commands in the Command palette (Ctrl/Cmd-P on desktop by default). Reload plugin or Obsidian to apply."
-      },
       "file": {
         "title": "File commands",
         "desc": "Enable commands in the file context menu."

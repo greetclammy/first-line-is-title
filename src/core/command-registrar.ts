@@ -12,7 +12,7 @@ import { t } from "../i18n";
  * Responsibilities:
  * - Register rename commands (current file, unless excluded, all files)
  * - Register link commands (safe internal link, with caption)
- * - Handle conditional registration based on settings
+ * - Register toggle and utility commands
  */
 export class CommandRegistrar {
   constructor(private plugin: FirstLineIsTitle) {}
@@ -26,13 +26,9 @@ export class CommandRegistrar {
   }
 
   /**
-   * Register all command palette commands based on settings
+   * Register all command palette commands
    */
   registerCommands(): void {
-    if (!this.settings.core.enableCommandPalette) {
-      return;
-    }
-
     this.registerRenameCurrentFileCommand();
     this.registerRenameCurrentFileUnlessExcludedCommand();
     this.registerRenameAllFilesCommand();
@@ -50,10 +46,6 @@ export class CommandRegistrar {
    * Note: This command ignores folder/tag/property exclusions but ALWAYS respects disable property
    */
   private registerRenameCurrentFileCommand(): void {
-    if (!this.settings.core.commandPaletteVisibility.renameCurrentFile) {
-      return;
-    }
-
     this.plugin.addCommand({
       id: "rename-current-file",
       name: t("commands.putFirstLineInTitle"),
@@ -96,13 +88,6 @@ export class CommandRegistrar {
    * Register command: Put first line in title (unless excluded)
    */
   private registerRenameCurrentFileUnlessExcludedCommand(): void {
-    if (
-      !this.settings.core.commandPaletteVisibility
-        .renameCurrentFileUnlessExcluded
-    ) {
-      return;
-    }
-
     this.plugin.addCommand({
       id: "rename-current-file-unless-excluded",
       name: t("commands.putFirstLineInTitleUnlessExcluded"),
@@ -140,10 +125,6 @@ export class CommandRegistrar {
    * Register command: Put first line in title in all notes
    */
   private registerRenameAllFilesCommand(): void {
-    if (!this.settings.core.commandPaletteVisibility.renameAllFiles) {
-      return;
-    }
-
     this.plugin.addCommand({
       id: "rename-all-files",
       name: t("commands.putFirstLineInTitleAllNotes"),
@@ -159,10 +140,6 @@ export class CommandRegistrar {
    * Register command: Add safe internal link
    */
   private registerSafeInternalLinkCommand(): void {
-    if (!this.settings.core.commandVisibility.addSafeInternalLink) {
-      return;
-    }
-
     this.plugin.addCommand({
       id: "add-safe-internal-link",
       name: t("commands.addSafeInternalLink"),
@@ -177,10 +154,6 @@ export class CommandRegistrar {
    * Register command: Add safe internal link with selection as caption
    */
   private registerSafeInternalLinkWithCaptionCommand(): void {
-    if (!this.settings.core.commandVisibility.addSafeInternalLinkWithCaption) {
-      return;
-    }
-
     this.plugin.addCommand({
       id: "add-safe-internal-link-with-caption",
       name: t("commands.addSafeInternalLinkWithCaption"),
@@ -195,13 +168,6 @@ export class CommandRegistrar {
    * Register command: Add internal link with caption and custom target
    */
   private registerInternalLinkWithCaptionAndCustomTargetCommand(): void {
-    if (
-      !this.settings.core.commandVisibility
-        .addInternalLinkWithCaptionAndCustomTarget
-    ) {
-      return;
-    }
-
     this.plugin.addCommand({
       id: "add-internal-link-with-caption-and-custom-target",
       name: t("commands.addInternalLinkWithCaptionAndCustomTarget"),
@@ -216,10 +182,6 @@ export class CommandRegistrar {
    * Register command: Toggle automatic renaming
    */
   private registerToggleAutomaticRenamingCommand(): void {
-    if (!this.settings.core.commandPaletteVisibility.toggleAutomaticRenaming) {
-      return;
-    }
-
     this.plugin.addCommand({
       id: "toggle-automatic-renaming",
       name: t("commands.toggleAutomaticRenaming"),
@@ -325,10 +287,6 @@ export class CommandRegistrar {
    * Uses checkCallback to only show when disable property doesn't exist
    */
   private registerDisableRenamingCommand(): void {
-    if (!this.settings.core.commandPaletteVisibility.disableRenaming) {
-      return;
-    }
-
     this.plugin.addCommand({
       id: "disable-renaming-for-note",
       name: t("commands.disableRenamingForNote"),
@@ -352,7 +310,9 @@ export class CommandRegistrar {
         }
 
         // Execute command
-        void this.plugin.disableRenamingForNote();
+        this.plugin.disableRenamingForNote().catch((error) => {
+          console.error("Failed to disable renaming:", error);
+        });
         return true;
       },
     });
@@ -363,10 +323,6 @@ export class CommandRegistrar {
    * Uses checkCallback to only show when disable property exists
    */
   private registerEnableRenamingCommand(): void {
-    if (!this.settings.core.commandPaletteVisibility.enableRenaming) {
-      return;
-    }
-
     this.plugin.addCommand({
       id: "enable-renaming-for-note",
       name: t("commands.enableRenamingForNote"),
@@ -390,7 +346,9 @@ export class CommandRegistrar {
         }
 
         // Execute command
-        void this.plugin.enableRenamingForNote();
+        this.plugin.enableRenamingForNote().catch((error) => {
+          console.error("Failed to enable renaming:", error);
+        });
         return true;
       },
     });
@@ -401,10 +359,6 @@ export class CommandRegistrar {
    * Inserts current filename at cursor position with character reversal
    */
   private registerInsertFilenameCommand(): void {
-    if (!this.settings.core.commandPaletteVisibility.insertFilename) {
-      return;
-    }
-
     this.plugin.addCommand({
       id: "insert-filename",
       name: t("commands.insertFilename"),

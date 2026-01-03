@@ -127,11 +127,13 @@ export class MetadataCache {
 // Mock Workspace class
 export class Workspace {
   activeLeaf: any;
+  activeEditor: any;
   leftSplit: any;
   rightSplit: any;
 
   constructor() {
     this.activeLeaf = null;
+    this.activeEditor = null;
     this.leftSplit = { collapsed: false };
     this.rightSplit = { collapsed: false };
   }
@@ -140,6 +142,7 @@ export class Workspace {
   getActiveViewOfType = vi.fn().mockReturnValue(null);
   getLeaf = vi.fn();
   getLeavesOfType = vi.fn().mockReturnValue([]);
+  getMostRecentLeaf = vi.fn().mockReturnValue(null);
   on = vi.fn();
   off = vi.fn();
   trigger = vi.fn();
@@ -147,6 +150,9 @@ export class Workspace {
   setActiveLeaf = vi.fn();
   iterateAllLeaves = vi.fn();
   iterateRootLeaves = vi.fn();
+  onLayoutReady = vi.fn((callback: () => void) => {
+    callback();
+  });
 }
 
 // Mock App class
@@ -158,6 +164,7 @@ export class App {
   lastEvent: any;
   keymap: any;
   scope: any;
+  commands: any;
 
   constructor() {
     this.vault = new Vault();
@@ -172,6 +179,9 @@ export class App {
     this.scope = {
       register: vi.fn(),
       unregister: vi.fn(),
+    };
+    this.commands = {
+      commands: {},
     };
   }
 

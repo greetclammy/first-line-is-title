@@ -134,7 +134,6 @@ export class PropertiesTab extends SettingsTabBase {
     let stripMarkupToggle: ToggleComponent | undefined;
     let keepEmptyToggle: ToggleComponent | undefined;
     let hideInSidebarToggle: ToggleComponent | undefined;
-    let suppressMergeToggle: ToggleComponent | undefined;
 
     const renderAliasSettings = () => {
       this.updateInteractiveState(
@@ -181,13 +180,6 @@ export class PropertiesTab extends SettingsTabBase {
         hideInSidebarToggle.setValue(
           showActualState
             ? this.plugin.settings.aliases.hideAliasInSidebar
-            : false,
-        );
-      }
-      if (suppressMergeToggle) {
-        suppressMergeToggle.setValue(
-          showActualState
-            ? this.plugin.settings.core.suppressMergeNotifications
             : false,
         );
       }
@@ -546,28 +538,6 @@ export class PropertiesTab extends SettingsTabBase {
       hideInSidebarSetting.settingEl.addClass("flit-display-none");
     }
 
-    new Setting(aliasContainer)
-      .setName(t("settings.alias.hideMergeNotifications.name"))
-      .setDesc(t("settings.alias.hideMergeNotifications.desc"))
-      .addToggle((toggle) => {
-        suppressMergeToggle = toggle;
-        toggle
-          .setValue(
-            this.plugin.settings.core.hasEnabledAliases
-              ? this.plugin.settings.core.suppressMergeNotifications
-              : false,
-          )
-          .onChange(async (value) => {
-            this.plugin.settings.core.suppressMergeNotifications = value;
-            this.plugin.debugLog("suppressMergeNotifications", value);
-            try {
-              await this.plugin.saveSettings();
-            } catch {
-              new Notice(t("settings.errors.saveFailed"));
-            }
-          });
-      });
-
     renderAliasSettings();
 
     if (!Platform.isMobile) {
@@ -576,15 +546,22 @@ export class PropertiesTab extends SettingsTabBase {
         .setHeading();
       limitationsHeading.settingEl.addClass("flit-heading-with-desc");
 
-      const limitationsDesc = this.containerEl.createEl("p", {
+      const limitationsList = this.containerEl.createEl("ul", {
         cls: "setting-item-description flit-margin-top-15 flit-margin-bottom-15",
       });
-      limitationsDesc.appendText(t("settings.alias.limitations.desc.part1"));
-      const hoverEditorLink = limitationsDesc.createEl("a", {
+
+      // Bullet 1: Page preview/Canvas limitation
+      const bullet1 = limitationsList.createEl("li");
+      bullet1.appendText(t("settings.alias.limitations.bullet1.part1"));
+      const hoverEditorLink = bullet1.createEl("a", {
         href: "obsidian://show-plugin?id=obsidian-hover-editor",
       });
       hoverEditorLink.textContent = PLUGIN_HOVER_EDITOR;
-      limitationsDesc.appendText(t("settings.alias.limitations.desc.part2"));
+      bullet1.appendText(t("settings.alias.limitations.bullet1.part2"));
+
+      // Bullet 2: Modified externally notification
+      const bullet2 = limitationsList.createEl("li");
+      bullet2.appendText(t("settings.alias.limitations.bullet2"));
     }
 
     void updateAliasConditionalSettings();

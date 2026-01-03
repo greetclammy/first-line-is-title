@@ -21,6 +21,10 @@ export class FirstLineIsTitleSettings extends PluginSettingTab {
   private previousTabId: string | null = null;
   private abortController: AbortController | null = null;
   private cachedTabRows: HTMLElement[][] = [];
+  private resizeTimeout: ReturnType<typeof setTimeout> | null = null;
+  private isActivatingTab = false;
+  private activationGeneration = 0;
+  private isDisplayed = false;
 
   private get TABS() {
     return {
@@ -75,14 +79,31 @@ export class FirstLineIsTitleSettings extends PluginSettingTab {
   }
 
   display(): void {
-    // Clean up previous listeners before rebuilding
+    this.isDisplayed = true;
+
+    // Increment generation before resetting activation guard to invalidate any in-flight activations
+    this.activationGeneration++;
+    // Reset activation guard - any in-progress activation from previous display()
+    // will check generation counter and abort
+    this.isActivatingTab = false;
+
+    // Clear pending resize timeout to prevent stale DOM access
+    if (this.resizeTimeout) {
+      clearTimeout(this.resizeTimeout);
+      this.resizeTimeout = null;
+    }
+
+    // Clear cached tab rows before abort to prevent stale DOM access
+    this.cachedTabRows = [];
+    // Then abort old listeners
     if (this.abortController) {
       this.abortController.abort();
     }
+    // Then clean DOM
+    this.containerEl.empty();
+    // Then create new controller
     this.abortController = new AbortController();
     const signal = this.abortController.signal;
-
-    this.containerEl.empty();
 
     // Initialize previousTabId to current tab
     this.previousTabId = this.plugin.settings.core.currentSettingsTab;
@@ -104,37 +125,62 @@ export class FirstLineIsTitleSettings extends PluginSettingTab {
       tabEl: HTMLElement,
       tabInfo: (typeof this.TABS)[keyof typeof this.TABS],
     ) => {
-      // If leaving the Exclusions tab, deduplicate
-      if (this.previousTabId === "include-exclude") {
-        const hasChanges = deduplicateExclusions(this.plugin.settings);
-        if (hasChanges) {
-          try {
-            await this.plugin.saveSettings();
-          } catch {
-            new Notice(t("settings.errors.saveFailed"));
+      // Guard against concurrent tab activations
+      if (this.isActivatingTab) return;
+      this.isActivatingTab = true;
+      const currentGeneration = this.activationGeneration;
+
+      try {
+        // Abort if display() was called during this activation
+        if (this.activationGeneration !== currentGeneration) {
+          return;
+        }
+
+        // If leaving the Exclusions tab, deduplicate
+        if (this.previousTabId === "include-exclude") {
+          const hasChanges = deduplicateExclusions(this.plugin.settings);
+          if (hasChanges) {
+            try {
+              await this.plugin.saveSettings();
+            } catch {
+              new Notice(t("settings.errors.saveFailed"));
+            }
+            // Abort if display() was called during saveSettings
+            if (this.activationGeneration !== currentGeneration) {
+              return;
+            }
           }
         }
-      }
 
-      // Remove active class from all tabs
-      for (const child of Array.from(tabBar.children)) {
-        child.removeClass("flit-settings-tab-active");
-        child.setAttribute("aria-selected", "false");
-        child.setAttribute("tabindex", "-1");
-      }
+        // Remove active class from all tabs
+        for (const child of Array.from(tabBar.children)) {
+          child.removeClass("flit-settings-tab-active");
+          child.setAttribute("aria-selected", "false");
+          child.setAttribute("tabindex", "-1");
+        }
 
-      tabEl.addClass("flit-settings-tab-active");
-      tabEl.setAttribute("aria-selected", "true");
-      tabEl.setAttribute("tabindex", "0");
+        tabEl.addClass("flit-settings-tab-active");
+        tabEl.setAttribute("aria-selected", "true");
+        tabEl.setAttribute("tabindex", "0");
 
-      this.previousTabId = tabInfo.id;
-      this.plugin.settings.core.currentSettingsTab = tabInfo.id;
-      try {
-        await this.plugin.saveSettings();
-      } catch {
-        new Notice(t("settings.errors.saveFailed"));
+        this.previousTabId = tabInfo.id;
+        this.plugin.settings.core.currentSettingsTab = tabInfo.id;
+        try {
+          await this.plugin.saveSettings();
+        } catch {
+          new Notice(t("settings.errors.saveFailed"));
+        }
+        // Abort if display() was called during saveSettings
+        if (this.activationGeneration !== currentGeneration) {
+          return;
+        }
+        this.renderTab(tabInfo.id);
+      } finally {
+        // Only reset if this is still the current generation
+        if (this.activationGeneration === currentGeneration) {
+          this.isActivatingTab = false;
+        }
       }
-      void this.renderTab(tabInfo.id);
     };
 
     for (const tabInfo of Object.values(this.TABS)) {
@@ -288,12 +334,19 @@ export class FirstLineIsTitleSettings extends PluginSettingTab {
     });
 
     // Recalculate tab rows on window resize (debounced)
-    let resizeTimeout: ReturnType<typeof setTimeout>;
     window.addEventListener(
       "resize",
       () => {
-        clearTimeout(resizeTimeout);
-        resizeTimeout = setTimeout(() => {
+        if (this.resizeTimeout) {
+          clearTimeout(this.resizeTimeout);
+        }
+        this.resizeTimeout = setTimeout(() => {
+          this.resizeTimeout = null;
+          if (!this.isDisplayed) return;
+          // Verify elements are still attached to DOM
+          if (tabElements.length > 0 && !document.contains(tabElements[0])) {
+            return;
+          }
           this.cachedTabRows = this.computeTabRows(tabElements);
         }, 150);
       },
@@ -304,7 +357,7 @@ export class FirstLineIsTitleSettings extends PluginSettingTab {
       cls: "flit-settings-page",
     });
 
-    void this.renderTab(this.plugin.settings.core.currentSettingsTab);
+    this.renderTab(this.plugin.settings.core.currentSettingsTab);
 
     // Remove focus from active tab to prevent outline on initial display
     setTimeout(() => {
@@ -385,12 +438,24 @@ export class FirstLineIsTitleSettings extends PluginSettingTab {
   }
 
   hide(): void {
+    this.isDisplayed = false;
+
+    // Increment generation to invalidate any in-flight tab activations
+    this.activationGeneration++;
+
     // Clean up event listeners
     if (this.abortController) {
       this.abortController.abort();
       this.abortController = null;
     }
+    // Clean up resize timeout to prevent stale DOM access
+    if (this.resizeTimeout) {
+      clearTimeout(this.resizeTimeout);
+      this.resizeTimeout = null;
+    }
     this.cachedTabRows = [];
+    // Note: Don't reset isActivatingTab here - the finally block in activateTab() handles it
+    // when the async operation completes, even after hide() is called
 
     // If closing settings while on Exclusions tab, deduplicate
     if (this.previousTabId === "include-exclude") {

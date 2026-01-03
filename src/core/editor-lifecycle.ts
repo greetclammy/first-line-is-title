@@ -98,6 +98,17 @@ export class EditorLifecycleManager {
   }
 
   /**
+   * Clear all creation delay timers (for plugin unload)
+   */
+  clearAllCreationDelayTimers(): void {
+    for (const timer of this.creationDelayTimers.values()) {
+      clearTimeout(timer);
+    }
+    this.creationDelayTimers.clear();
+    verboseLog(this.plugin, "Cleared all creation delay timers");
+  }
+
+  /**
    * Initialize the checking system based on settings
    */
   initializeCheckingSystem(): void {

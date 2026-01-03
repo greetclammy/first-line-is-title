@@ -1,0 +1,206 @@
+/**
+ * ARCHIVED: Notification Suppression Feature
+ *
+ * This feature was removed from the plugin because community plugin reviewers objected to
+ * suppressing Obsidian's "modified externally" notifications via DOM manipulation.
+ *
+ * Reviewer objection: https://github.com/obsidianmd/obsidian-releases/pull/7429#issuecomment-3648952677
+ *
+ * The feature worked by using a MutationObserver to detect and hide notification elements
+ * that matched the "modified externally, merging changes automatically" pattern.
+ *
+ * Alternative approach adopted: Instead of suppressing notifications, alias updates now only
+ * occur on file save events (auto-save and manual save) rather than on every keystroke.
+ * This significantly reduces the frequency of "modified externally" notifications.
+ *
+ * To restore this feature, you would need to:
+ * 1. Re-add the code sections below to their respective files
+ * 2. Uncomment the setup/cleanup calls in main.ts
+ * 3. Re-add the setting UI toggle in tab-alias.ts
+ * 4. Re-add localization strings
+ */
+
+// =============================================================================
+// FILE: src/types.ts (add to CoreSettings interface)
+// =============================================================================
+
+/*
+interface CoreSettings {
+  // ... other settings ...
+  suppressMergeNotifications: boolean;
+}
+*/
+
+// =============================================================================
+// FILE: src/constants.ts (add to DEFAULT_SETTINGS.core)
+// =============================================================================
+
+/*
+export const DEFAULT_SETTINGS = {
+  core: {
+    // ... other defaults ...
+    suppressMergeNotifications: false,
+  },
+  // ...
+};
+*/
+
+// =============================================================================
+// FILE: src/core/property-manager.ts (add these methods and property)
+// =============================================================================
+
+/*
+// Add property to class:
+private notificationObserver?: MutationObserver;
+
+// Add method:
+/**
+ * Setup notification suppression for external modification notices
+ *\/
+setupNotificationSuppression(): void {
+  // Create observer to watch for new notification elements
+  this.notificationObserver = new MutationObserver((mutations) => {
+    mutations.forEach((mutation) => {
+      mutation.addedNodes.forEach((node) => {
+        if (node instanceof HTMLElement) {
+          // Look for notice elements
+          const notices = node.classList.contains("notice")
+            ? [node]
+            : node.querySelectorAll(".notice");
+
+          notices.forEach((notice) => {
+            if (notice instanceof HTMLElement) {
+              const noticeText = notice.textContent || "";
+
+              // Check conditions for suppressing external modification notifications
+              const conditions = {
+                hasExternal: noticeText.includes(
+                  "has been modified externally, merging changes automatically",
+                ),
+                hasMd: noticeText.includes(".md"),
+                noUpdated: !noticeText.includes("Updated"),
+                startsQuote: noticeText.trim().charCodeAt(0) === 8220, // Left double quotation mark
+                shortEnough: noticeText.length < 200,
+              };
+
+              // Suppress if all conditions are met AND the setting is enabled
+              if (
+                this.settings.core.suppressMergeNotifications &&
+                conditions.hasExternal &&
+                conditions.hasMd &&
+                conditions.noUpdated &&
+                conditions.startsQuote &&
+                conditions.shortEnough
+              ) {
+                notice.classList.add("flit-display-none");
+                verboseLog(
+                  this.plugin,
+                  `Suppressed external modification notice: ${noticeText.substring(0, 50)}...`,
+                );
+              }
+            }
+          });
+        }
+      });
+    });
+  });
+
+  // Start observing
+  this.notificationObserver.observe(document.body, {
+    childList: true,
+    subtree: true,
+  });
+}
+
+/**
+ * Cleanup notification suppression observer
+ *\/
+cleanupNotificationSuppression(): void {
+  if (this.notificationObserver) {
+    this.notificationObserver.disconnect();
+    this.notificationObserver = undefined;
+  }
+}
+
+/**
+ * Get notification observer (for external access if needed)
+ *\/
+getNotificationObserver(): MutationObserver | undefined {
+  return this.notificationObserver;
+}
+*/
+
+// =============================================================================
+// FILE: main.ts (add these calls)
+// =============================================================================
+
+/*
+// In onload(), after property manager is created:
+this.propertyManager.setupNotificationSuppression();
+
+// In onunload():
+this.propertyManager.cleanupNotificationSuppression();
+*/
+
+// =============================================================================
+// FILE: src/settings/tab-alias.ts (add this setting)
+// =============================================================================
+
+/*
+// Add variable near top of createAliasSettings():
+let suppressMergeToggle: ToggleComponent;
+
+// Add to renderAliasSettings() to sync toggle state:
+if (suppressMergeToggle) {
+  suppressMergeToggle.setValue(
+    showActualState
+      ? this.plugin.settings.core.suppressMergeNotifications
+      : false,
+  );
+}
+
+// Add the setting UI (after hideInSidebarSetting):
+new Setting(aliasContainer)
+  .setName(t("settings.alias.hideMergeNotifications.name"))
+  .setDesc(t("settings.alias.hideMergeNotifications.desc"))
+  .addToggle((toggle) => {
+    suppressMergeToggle = toggle;
+    toggle
+      .setValue(
+        this.plugin.settings.core.hasEnabledAliases
+          ? this.plugin.settings.core.suppressMergeNotifications
+          : false,
+      )
+      .onChange(async (value) => {
+        this.plugin.settings.core.suppressMergeNotifications = value;
+        this.plugin.debugLog("suppressMergeNotifications", value);
+        try {
+          await this.plugin.saveSettings();
+        } catch {
+          new Notice(t("settings.errors.saveFailed"));
+        }
+      });
+  });
+*/
+
+// =============================================================================
+// FILE: locale/en.json (add to settings.alias)
+// =============================================================================
+
+/*
+"hideMergeNotifications": {
+  "name": "Hide merge notifications",
+  "desc": "Suppress notifications about files being modified externally and merged automatically."
+},
+*/
+
+// =============================================================================
+// FILE: locale/ru.json (add to settings.alias)
+// =============================================================================
+
+/*
+"hideMergeNotifications": {
+  "name": "Скрыть уведомления о слиянии",
+  "desc": "Подавить уведомления о файлах, измененных извне и слитых автоматически."
+},
+*/

@@ -86,9 +86,7 @@ export async function readFileContent(
       if (needsFresh) {
         content = await app.vault.read(file);
         // Clear needsFreshRead flag after using it
-        if (plugin.fileStateManager?.needsFreshRead(file.path)) {
-          plugin.fileStateManager.clearNeedsFreshRead(file.path);
-        }
+        plugin.fileStateManager?.clearNeedsFreshRead(file.path);
         if (settings.core.verboseLogging) {
           console.debug(
             `Editor method using fresh read for ${file.path} (${content.length} chars)`,
@@ -181,17 +179,16 @@ function findEditorContent(app: App, file: TFile): string | null {
   }
 
   // If exactly one active popover exists with content, use it
+  // Obsidian only allows one hover popover at a time - opening another closes the first
   // This handles post-rename case where popover's file.path hasn't updated yet
-  // Assumption: single active popover = user's working context when manual command triggered
   if (popoverCount === 1 && singlePopoverContent) {
     return singlePopoverContent;
   }
 
-  // Check active view's editor as fallback
-  // When manual command triggered, user is focused on active editor
-  // Trust active editor content regardless of file path matching
+  // Check active view's editor as fallback - only if file matches
+  // This prevents bulk operations from returning active editor content for all files
   const activeView = app.workspace.getActiveViewOfType(MarkdownView);
-  if (activeView?.editor) {
+  if (activeView?.editor && activeView.file?.path === file.path) {
     const content = activeView.editor.getValue();
     if (content) {
       return content;

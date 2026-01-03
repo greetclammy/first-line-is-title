@@ -176,11 +176,24 @@ export class OtherTab extends SettingsTabBase {
                   accept: ".json",
                 });
 
+                // Cleanup handled by cancel event and browser GC
+                input.addEventListener("cancel", () => {
+                  input.remove();
+                });
+
                 input.onchange = () => {
                   const selectedFile = input.files?.[0];
 
                   if (selectedFile) {
                     const reader = new FileReader();
+                    reader.onerror = () => {
+                      console.error("FileReader error:", reader.error);
+                      new Notice(
+                        t("settings.errors.importFailed") ??
+                          "Failed to read file",
+                      );
+                      input.remove();
+                    };
                     reader.readAsText(selectedFile, "UTF-8");
                     reader.onload = (readerEvent) => {
                       void (async () => {
@@ -192,8 +205,16 @@ export class OtherTab extends SettingsTabBase {
                           } catch {
                             new Notice(t("notifications.invalidImportFile"));
                             console.error(t("notifications.invalidImportFile"));
+                            input.remove();
                             return;
                           }
+                        } else {
+                          new Notice(
+                            t("settings.errors.importFailed") ??
+                              "Invalid file format",
+                          );
+                          input.remove();
+                          return;
                         }
 
                         if (importedJson) {
@@ -202,32 +223,68 @@ export class OtherTab extends SettingsTabBase {
                             DEFAULT_SETTINGS,
                           );
                           for (const setting in this.plugin.settings) {
-                            if (importedJson[setting]) {
-                              // @ts-ignore
-                              newSettings[setting] = importedJson[setting];
+                            if (setting in importedJson) {
+                              const importedValue = importedJson[setting];
+                              const existingValue =
+                                this.plugin.settings[
+                                  setting as keyof typeof this.plugin.settings
+                                ];
+                              // Basic type check to prevent corruption from malformed imports
+                              if (
+                                typeof importedValue === typeof existingValue
+                              ) {
+                                // @ts-ignore
+                                newSettings[setting] = importedValue;
+                              } else {
+                                console.warn(
+                                  `Import: skipping ${setting} due to type mismatch (expected ${typeof existingValue}, got ${typeof importedValue})`,
+                                );
+                              }
                             }
                           }
 
-                          this.plugin.settings = newSettings;
+                          // Deep copy for rollback (reference would be unsafe if settings were modified in-place)
+                          let previousSettings;
                           try {
+                            previousSettings = structuredClone(
+                              this.plugin.settings,
+                            );
+                          } catch {
+                            // Fallback for non-cloneable values (shouldn't happen with settings)
+                            previousSettings = JSON.parse(
+                              JSON.stringify(this.plugin.settings),
+                            );
+                          }
+                          try {
+                            this.plugin.settings = newSettings;
                             await this.plugin.saveSettings();
                           } catch {
+                            // Rollback to previous settings on save failure
+                            this.plugin.settings = previousSettings;
                             new Notice(t("settings.errors.saveFailed"));
+                            input.remove();
+                            return;
                           }
 
                           new Notice(t("notifications.settingsImported"));
 
-                          const settingsTab = (
-                            this.plugin as typeof this.plugin & {
-                              settingsTab?: { display(): void };
+                          // Refresh UI - wrap in try-finally to ensure input cleanup
+                          try {
+                            const settingsTab = (
+                              this.plugin as typeof this.plugin & {
+                                settingsTab?: { display(): void };
+                              }
+                            ).settingsTab;
+                            if (settingsTab && settingsTab.display) {
+                              settingsTab.display();
+                            } else {
+                              this.containerEl.empty();
+                              this.render();
                             }
-                          ).settingsTab;
-                          if (settingsTab && settingsTab.display) {
-                            settingsTab.display();
-                          } else {
-                            this.containerEl.empty();
-                            this.render();
+                          } finally {
+                            input.remove();
                           }
+                          return;
                         }
 
                         input.remove();
@@ -295,27 +352,45 @@ export class OtherTab extends SettingsTabBase {
                   this.plugin.app,
                   this.plugin,
                   async () => {
-                    this.plugin.settings = JSON.parse(
-                      JSON.stringify(DEFAULT_SETTINGS),
-                    );
+                    // Deep copy for rollback (reference would be unsafe if settings were modified in-place)
+                    let previousSettings;
+                    try {
+                      previousSettings = structuredClone(this.plugin.settings);
+                    } catch {
+                      // Fallback for non-cloneable values (shouldn't happen with settings)
+                      previousSettings = JSON.parse(
+                        JSON.stringify(this.plugin.settings),
+                      );
+                    }
+                    let newSettings;
+                    try {
+                      newSettings = structuredClone(DEFAULT_SETTINGS);
+                    } catch {
+                      // Fallback for non-cloneable values (shouldn't happen with settings)
+                      newSettings = JSON.parse(
+                        JSON.stringify(DEFAULT_SETTINGS),
+                      );
+                    }
 
                     const locale = getCurrentLocale();
                     if (locale === "ru") {
-                      this.plugin.settings.safewords.safewords[0].text =
-                        "Задачи";
+                      newSettings.safewords.safewords[0].text = "Задачи";
                     } else {
-                      this.plugin.settings.safewords.safewords[0].text =
-                        "To do";
+                      newSettings.safewords.safewords[0].text = "To do";
                     }
 
-                    this.plugin.settings.core.hasShownFirstTimeNotice = true;
-                    this.plugin.settings.core.lastUsageDate =
+                    newSettings.core.hasShownFirstTimeNotice = true;
+                    newSettings.core.lastUsageDate =
                       this.plugin.getTodayDateString?.() || "";
 
                     try {
+                      this.plugin.settings = newSettings;
                       await this.plugin.saveSettings();
                     } catch {
+                      // Rollback to previous settings on save failure
+                      this.plugin.settings = previousSettings;
                       new Notice(t("settings.errors.saveFailed"));
+                      return;
                     }
 
                     const pluginInitializer = new PluginInitializer(
@@ -498,7 +573,7 @@ export class OtherTab extends SettingsTabBase {
     });
 
     const contentReadContainer = contentReadMethodSetting!.controlEl.createDiv({
-      cls: "flit-content-read-container flit-display-flex flit-gap-10",
+      cls: "flit-display-flex flit-gap-10",
     });
 
     const contentReadRestoreButton = contentReadContainer.createEl("div", {

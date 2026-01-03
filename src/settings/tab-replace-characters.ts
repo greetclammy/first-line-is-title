@@ -11,6 +11,10 @@ import { DEFAULT_SETTINGS } from "../constants";
 import { t, getCurrentLocale } from "../i18n";
 import { CharReplacements } from "../types/char-replacement";
 
+// Module-level constants for tab index values
+const TAB_INDEX_FOCUSABLE = 0;
+const TAB_INDEX_NOT_FOCUSABLE = -1;
+
 interface CharSettingDef {
   key: keyof CharReplacements;
   name: string;
@@ -283,39 +287,27 @@ export class ForbiddenCharsTab extends SettingsTabBase {
 
             // On first enable, turn on all 'All OSes' options
             if (value && !this.plugin.settings.core.hasEnabledForbiddenChars) {
-              const allOSesKeys = [
-                "leftBracket",
-                "rightBracket",
-                "hash",
-                "caret",
-                "pipe",
-                "slash",
-                "colon",
-              ];
+              const allOSesKeys = primaryCharSettings.map((s) => s.key);
               allOSesKeys.forEach((key) => {
                 this.plugin.settings.replaceCharacters.charReplacements[
-                  key as keyof typeof this.plugin.settings.replaceCharacters.charReplacements
+                  key
                 ].enabled = true;
               });
               this.plugin.settings.core.hasEnabledForbiddenChars = true;
 
-              // If OS is Windows or Android, also enable 'Windows/Android' section
+              // If OS is Windows, also enable 'Windows/Android' section
               const currentOS = detectOS();
               if (
                 currentOS === "Windows" &&
                 !this.plugin.settings.core.hasEnabledWindowsAndroid
               ) {
                 this.plugin.settings.replaceCharacters.windowsAndroidEnabled = true;
-                const windowsAndroidKeys = [
-                  "asterisk",
-                  "quote",
-                  "lessThan",
-                  "greaterThan",
-                  "question",
-                ];
+                const windowsAndroidKeys = windowsAndroidChars.map(
+                  (s) => s.key,
+                );
                 windowsAndroidKeys.forEach((key) => {
                   this.plugin.settings.replaceCharacters.charReplacements[
-                    key as keyof typeof this.plugin.settings.replaceCharacters.charReplacements
+                    key
                   ].enabled = true;
                 });
                 this.plugin.settings.core.hasEnabledWindowsAndroid = true;
@@ -337,7 +329,8 @@ export class ForbiddenCharsTab extends SettingsTabBase {
                 windowsAndroidToggleComponent.toggleEl.classList.add(
                   "flit-state-enabled",
                 );
-                windowsAndroidToggleComponent.toggleEl.tabIndex = 0;
+                windowsAndroidToggleComponent.toggleEl.tabIndex =
+                  TAB_INDEX_FOCUSABLE;
                 windowsAndroidToggleComponent.toggleEl.removeAttribute(
                   "aria-disabled",
                 );
@@ -348,7 +341,8 @@ export class ForbiddenCharsTab extends SettingsTabBase {
                 windowsAndroidToggleComponent.toggleEl.classList.add(
                   "flit-state-disabled",
                 );
-                windowsAndroidToggleComponent.toggleEl.tabIndex = -1;
+                windowsAndroidToggleComponent.toggleEl.tabIndex =
+                  TAB_INDEX_NOT_FOCUSABLE;
                 windowsAndroidToggleComponent.toggleEl.setAttribute(
                   "aria-disabled",
                   "true",
@@ -367,7 +361,6 @@ export class ForbiddenCharsTab extends SettingsTabBase {
       cls: "flit-char-settings-container",
     });
 
-    let windowsAndroidTableContainer: HTMLElement;
     let windowsAndroidToggleComponent: ToggleComponent | undefined;
 
     const updateCharacterReplacementUI = () => {
@@ -376,10 +369,10 @@ export class ForbiddenCharsTab extends SettingsTabBase {
         this.plugin.settings.replaceCharacters.enableForbiddenCharReplacements,
       );
       this.updateDisabledRowsAccessibility(charSettingsContainer);
-      const tableContainers = charSettingsContainer.querySelectorAll(
+      const allTableContainers = charSettingsContainer.querySelectorAll(
         ".flit-table-container",
       );
-      tableContainers.forEach((container: HTMLElement) => {
+      allTableContainers.forEach((container: HTMLElement) => {
         if (
           this.plugin.settings.replaceCharacters.enableForbiddenCharReplacements
         ) {
@@ -479,10 +472,11 @@ export class ForbiddenCharsTab extends SettingsTabBase {
       const allOSesNoteEl = charSettingsContainer.createEl("div", {
         cls: "setting-item-description flit-margin-top-15 flit-margin-bottom-15",
       });
+      const locale = getCurrentLocale();
       allOSesNoteEl.appendText(
         t("settings.replaceCharacters.allOSes.note.part1"),
       );
-      if (getCurrentLocale() === "ru") {
+      if (locale === "ru") {
         allOSesNoteEl.appendText(
           "«" + t("settings.replaceCharacters.allOSes.note.trimLeft") + "»",
         );
@@ -494,7 +488,7 @@ export class ForbiddenCharsTab extends SettingsTabBase {
       allOSesNoteEl.appendText(
         t("settings.replaceCharacters.allOSes.note.part2"),
       );
-      if (getCurrentLocale() === "ru") {
+      if (locale === "ru") {
         allOSesNoteEl.appendText(
           "«" + t("settings.replaceCharacters.allOSes.note.trimRight") + "»",
         );
@@ -525,6 +519,7 @@ export class ForbiddenCharsTab extends SettingsTabBase {
       });
 
       this.renderTableHeader(allOSesTableWrapper);
+      // Event listeners are recreated each time the table is rebuilt via charSettingsContainer.empty()
       this.renderCharacterRows({
         wrapper: allOSesTableWrapper,
         chars: primaryCharSettings,
@@ -585,7 +580,7 @@ export class ForbiddenCharsTab extends SettingsTabBase {
               .enableForbiddenCharReplacements
           ) {
             toggle.toggleEl.classList.add("flit-state-disabled");
-            toggle.toggleEl.tabIndex = -1;
+            toggle.toggleEl.tabIndex = TAB_INDEX_NOT_FOCUSABLE;
             toggle.toggleEl.setAttribute("aria-disabled", "true");
           }
         });
@@ -604,12 +599,10 @@ export class ForbiddenCharsTab extends SettingsTabBase {
         return;
       }
 
-      windowsAndroidTableContainer = windowsAndroidGroupContainer.createEl(
-        "div",
-        {
+      const windowsAndroidTableContainer =
+        windowsAndroidGroupContainer.createEl("div", {
           cls: "flit-table-container flit-windows-android-table",
-        },
-      );
+        });
       const windowsAndroidTableWrapper = windowsAndroidTableContainer.createEl(
         "div",
         { cls: "flit-table-wrapper" },
@@ -633,9 +626,9 @@ export class ForbiddenCharsTab extends SettingsTabBase {
         );
       if (windowsAndroidGroup) {
         if (this.plugin.settings.replaceCharacters.windowsAndroidEnabled) {
-          windowsAndroidGroup.show();
+          windowsAndroidGroup.classList.remove("flit-hidden");
         } else {
-          windowsAndroidGroup.hide();
+          windowsAndroidGroup.classList.add("flit-hidden");
         }
       }
     };

@@ -51,47 +51,21 @@ export class WorkspaceIntegration {
   }
 
   /**
-   * Register ribbon icons according to settings
+   * Register ribbon icons
    */
   registerRibbonIcons(): void {
-    // Register ribbon icons in order according to settings
-    // This method is called with a delay to ensure icons are placed last
-
-    // Create array of ribbon actions to add in settings order
-    const ribbonActions: Array<{
-      condition: boolean;
-      icon: string;
-      title: string;
-      callback: () => void | Promise<void>;
-    }> = [
-      {
-        condition: this.settings.core.ribbonVisibility.renameCurrentFile,
-        icon: "file-pen",
-        title: "Put first line in title",
-        callback: () => this.plugin.commandRegistrar.executeRenameCurrentFile(),
+    this.plugin.addRibbonIcon("file-pen", "Put first line in title", () => {
+      void this.plugin.commandRegistrar.executeRenameCurrentFile();
+    });
+    this.plugin.addRibbonIcon(
+      "files",
+      "Put first line in title in all notes",
+      () => {
+        new RenameAllFilesModal(this.app, this.plugin).open();
       },
-      {
-        condition: this.settings.core.ribbonVisibility.renameAllNotes,
-        icon: "files",
-        title: "Put first line in title in all notes",
-        callback: () => {
-          new RenameAllFilesModal(this.app, this.plugin).open();
-        },
-      },
-      {
-        condition: this.settings.core.ribbonVisibility.toggleAutomaticRenaming,
-        icon: "file-cog",
-        title: "Toggle automatic renaming",
-        callback: () =>
-          this.plugin.commandRegistrar.executeToggleAutomaticRenaming(),
-      },
-    ];
-
-    // Add ribbon icons in order, only if enabled
-    ribbonActions.forEach((action) => {
-      if (action.condition) {
-        this.plugin.addRibbonIcon(action.icon, action.title, action.callback);
-      }
+    );
+    this.plugin.addRibbonIcon("file-cog", "Toggle automatic renaming", () => {
+      void this.plugin.commandRegistrar.executeToggleAutomaticRenaming();
     });
   }
 
@@ -227,6 +201,7 @@ export class WorkspaceIntegration {
                     plugin,
                     `CREATE: Skipping - rate limited (${timeSinceLastInsertion}ms since last): ${file.name}`,
                   );
+                  plugin.editorLifecycle.clearCreationDelayTimer(file.path);
                   return;
                 }
 
@@ -258,35 +233,33 @@ export class WorkspaceIntegration {
                   `CREATE: Moving cursor for: ${file.path} (placeCursorAtEnd: ${actions.placeCursorAtEnd})`,
                 );
 
-                requestAnimationFrame(() => {
-                  setTimeout(() => {
-                    // Re-check if file has a view after delays
-                    const leaves = app.workspace.getLeavesOfType("markdown");
-                    let fileHasView = false;
-                    for (const leaf of leaves) {
-                      if (!(leaf.view instanceof MarkdownView)) continue;
-                      if (leaf.view.file?.path === file.path) {
-                        fileHasView = true;
-                        break;
-                      }
+                setTimeout(() => {
+                  // Re-check if file has a view after delay
+                  const leaves = app.workspace.getLeavesOfType("markdown");
+                  let fileHasView = false;
+                  for (const leaf of leaves) {
+                    if (!(leaf.view instanceof MarkdownView)) continue;
+                    if (leaf.view.file?.path === file.path) {
+                      fileHasView = true;
+                      break;
                     }
+                  }
 
-                    if (fileHasView) {
-                      // Use coordinator's explicit placeCursorAtEnd decision
-                      // This respects the decision tree outcomes from Nodes 16-18
-                      void plugin.fileOperations.handleCursorPositioning(
-                        file,
-                        !actions.shouldInsertTitle,
-                        actions.placeCursorAtEnd,
-                      );
-                    } else {
-                      verboseLog(
-                        plugin,
-                        `Skipping cursor positioning - no view found (canvas): ${file.path}`,
-                      );
-                    }
-                  }, 200);
-                });
+                  if (fileHasView) {
+                    // Use coordinator's explicit placeCursorAtEnd decision
+                    // This respects the decision tree outcomes from Nodes 16-18
+                    void plugin.fileOperations.handleCursorPositioning(
+                      file,
+                      !actions.shouldInsertTitle,
+                      actions.placeCursorAtEnd,
+                    );
+                  } else {
+                    verboseLog(
+                      plugin,
+                      `Skipping cursor positioning - no view found (canvas): ${file.path}`,
+                    );
+                  }
+                }, 200);
               }
 
               // Rename file if automatic mode - respects newNoteDelay setting
@@ -384,5 +357,8 @@ export class WorkspaceIntegration {
     if (this.saveCommandPatchCleanup) {
       this.saveCommandPatchCleanup();
     }
+
+    // Clear any pending creation delay timers
+    this.plugin.editorLifecycle?.clearAllCreationDelayTimers?.();
   }
 }

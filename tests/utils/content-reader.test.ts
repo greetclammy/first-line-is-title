@@ -374,10 +374,11 @@ describe("content-reader", () => {
       expect(result).toBe("Fallback content");
     });
 
-    it("should use active view editor as fallback", async () => {
+    it("should use active view editor as fallback when file matches", async () => {
       const activeContent = "Active view content";
       const mockActiveView = new MarkdownView(app);
       mockActiveView.editor.getValue = vi.fn().mockReturnValue(activeContent);
+      mockActiveView.file = file; // Must match the file being read
 
       app.workspace.getLeavesOfType = vi.fn().mockReturnValue([]);
       app.workspace.getActiveViewOfType = vi
@@ -389,6 +390,25 @@ describe("content-reader", () => {
       });
 
       expect(result).toBe(activeContent);
+    });
+
+    it("should not use active view editor when file does not match", async () => {
+      const activeContent = "Active view content";
+      const mockActiveView = new MarkdownView(app);
+      mockActiveView.editor.getValue = vi.fn().mockReturnValue(activeContent);
+      mockActiveView.file = { path: "different/file.md" } as TFile; // Different file
+
+      app.workspace.getLeavesOfType = vi.fn().mockReturnValue([]);
+      app.workspace.getActiveViewOfType = vi
+        .fn()
+        .mockReturnValue(mockActiveView);
+      app.vault.cachedRead = vi.fn().mockResolvedValue("Fallback content");
+
+      const result = await readFileContent(plugin, file, {
+        searchWorkspace: true,
+      });
+
+      expect(result).toBe("Fallback content");
     });
 
     it("should not use active view with empty content", async () => {

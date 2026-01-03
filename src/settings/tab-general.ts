@@ -1,4 +1,10 @@
-import { Setting, SettingGroup, setIcon, Notice } from "obsidian";
+import {
+  Setting,
+  SettingGroup,
+  setIcon,
+  Notice,
+  ToggleComponent,
+} from "obsidian";
 import { SettingsTabBase, FirstLineIsTitlePlugin } from "./settings-base";
 import { RenameAllFilesModal } from "../modals";
 import { t, getCurrentLocale } from "../i18n";
@@ -13,6 +19,8 @@ export class GeneralTab extends SettingsTabBase {
     let renameNotesSetting: Setting;
     let moveCursorSetting: Setting;
     let insertTitleSetting: Setting;
+    let convertCharsSetting: Setting;
+    let convertCharsToggle: ToggleComponent | undefined;
 
     // Sub-settings containers
     let renameOnFocusContainer: HTMLElement;
@@ -279,7 +287,7 @@ export class GeneralTab extends SettingsTabBase {
       );
 
     // Sub-setting: Convert character replacements
-    const convertCharsSetting = new Setting(insertTitleOptionsContainer)
+    convertCharsSetting = new Setting(insertTitleOptionsContainer)
       .setName(t("settings.general.convertReplacementCharactersInTitle.name"))
       .setDesc("");
 
@@ -306,7 +314,8 @@ export class GeneralTab extends SettingsTabBase {
       t("settings.general.convertReplacementCharactersInTitle.desc.part2"),
     );
 
-    convertCharsSetting.addToggle((toggle) =>
+    convertCharsSetting.addToggle((toggle) => {
+      convertCharsToggle = toggle;
       toggle
         .setValue(this.plugin.settings.core.convertReplacementCharactersInTitle)
         .onChange((value) => {
@@ -320,8 +329,8 @@ export class GeneralTab extends SettingsTabBase {
               new Notice(t("settings.errors.saveFailed"));
             }
           })();
-        }),
-    );
+        });
+    });
 
     // Sub-setting: Format as heading
     new Setting(insertTitleOptionsContainer)
@@ -369,5 +378,51 @@ export class GeneralTab extends SettingsTabBase {
 
     // Add text
     button.appendText(t("settings.general.leaveFeedback"));
+
+    // Function to update conditional settings based on other tabs' settings
+    const updateGeneralConditionalSettings = async () => {
+      const forbiddenCharReplacementsEnabled =
+        this.plugin.settings.replaceCharacters.enableForbiddenCharReplacements;
+      convertCharsSetting.components[0].setDisabled(
+        !forbiddenCharReplacementsEnabled,
+      );
+      if (forbiddenCharReplacementsEnabled) {
+        convertCharsSetting.settingEl.classList.remove("flit-row-disabled");
+        if (convertCharsToggle) {
+          convertCharsToggle.toggleEl.tabIndex = 0;
+          convertCharsToggle.toggleEl.removeAttribute("aria-disabled");
+          convertCharsToggle.toggleEl.classList.remove("flit-pointer-none");
+        }
+      } else {
+        convertCharsSetting.settingEl.classList.add("flit-row-disabled");
+        if (convertCharsToggle) {
+          convertCharsToggle.toggleEl.tabIndex = -1;
+          convertCharsToggle.toggleEl.setAttribute("aria-disabled", "true");
+          convertCharsToggle.toggleEl.classList.add("flit-pointer-none");
+        }
+        if (this.plugin.settings.core.convertReplacementCharactersInTitle) {
+          this.plugin.settings.core.convertReplacementCharactersInTitle = false;
+          try {
+            await this.plugin.saveSettings();
+          } catch {
+            new Notice(t("settings.errors.saveFailed"));
+          }
+          (convertCharsSetting.components[0] as ToggleComponent).setValue(
+            false,
+          );
+        }
+      }
+    };
+
+    void updateGeneralConditionalSettings();
+    // Register cross-tab update function on plugin instance
+    // NOTE: This function is called from tab-replace-characters.ts when
+    // enableForbiddenCharReplacements changes. If GeneralTab hasn't been
+    // rendered yet, the optional chaining in the caller prevents errors.
+    (
+      this.plugin as typeof this.plugin & {
+        updateGeneralConditionalSettings?: () => Promise<void>;
+      }
+    ).updateGeneralConditionalSettings = updateGeneralConditionalSettings;
   }
 }

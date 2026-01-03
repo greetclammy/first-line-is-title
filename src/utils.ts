@@ -1,4 +1,10 @@
-import { TFile, App, Platform, ViewWithFileEditor } from "obsidian";
+import {
+  TFile,
+  App,
+  Platform,
+  ViewWithFileEditor,
+  getFrontMatterInfo,
+} from "obsidian";
 import { PluginSettings, OSPreset } from "./types";
 import { t } from "./i18n";
 import { PropertyManager } from "./core/property-manager";
@@ -43,6 +49,31 @@ export function verboseLog(
 
 export function isValidHeading(line: string): boolean {
   return /^#{1,6}\s+.*/.test(line);
+}
+
+/**
+ * Check if only frontmatter changed between two content versions.
+ * Used to detect YAML-only edits and skip unnecessary alias updates.
+ *
+ * @param currentContent - Current file content
+ * @param previousContent - Previous file content to compare against
+ * @returns true if only frontmatter changed (body is identical), false if body changed
+ */
+export function isOnlyFrontmatterChanged(
+  currentContent: string,
+  previousContent: string,
+): boolean {
+  const currentFrontmatterInfo = getFrontMatterInfo(currentContent);
+  const previousFrontmatterInfo = getFrontMatterInfo(previousContent);
+
+  const currentBody = currentContent.substring(
+    currentFrontmatterInfo.contentStart,
+  );
+  const previousBody = previousContent.substring(
+    previousFrontmatterInfo.contentStart,
+  );
+
+  return currentBody === previousBody;
 }
 
 export function detectOS(): OSPreset {
@@ -287,7 +318,10 @@ export function extractTitle(line: string, settings: PluginSettings): string {
   line = line.trim();
 
   // Remove template placeholder if enabled
-  if (settings.markupStripping.stripTemplaterSyntax) {
+  if (
+    settings.markupStripping.enableStripMarkup &&
+    settings.markupStripping.stripTemplaterSyntax
+  ) {
     line = line.replace(/<%\s*tp\.file\.cursor\(\)\s*%>/, "").trim();
     if (line === "<%*") {
       return t("untitled");
@@ -328,11 +362,7 @@ export function extractTitle(line: string, settings: PluginSettings): string {
     }
   }
 
-  if (
-    settings.markupStripping.enableStripMarkup ||
-    settings.markupStripping.stripCommentsEntirely ||
-    settings.markupStripping.omitHtmlTags
-  ) {
+  if (settings.markupStripping.enableStripMarkup) {
     // Helper function to check if any placeholder overlaps with match range
     const checkEscaped = (match: string, offset: number): boolean => {
       if (backslashReplacementEnabled) return false;
@@ -351,10 +381,7 @@ export function extractTitle(line: string, settings: PluginSettings): string {
       // Strip comments entirely: remove everything
       line = line.replace(/%%.*?%%/g, "");
       line = line.replace(/<!--.*?-->/g, "");
-    } else if (
-      settings.markupStripping.enableStripMarkup &&
-      settings.markupStripping.stripMarkupSettings.comments
-    ) {
+    } else if (settings.markupStripping.stripMarkupSettings.comments) {
       // Strip markup but keep content: remove markers only
       line = line.replace(/%%(.+?)%%/g, (match, content, offset) => {
         return checkEscaped(match, offset) ? match : content;
@@ -365,10 +392,7 @@ export function extractTitle(line: string, settings: PluginSettings): string {
     }
 
     // Strip bold markup
-    if (
-      settings.markupStripping.enableStripMarkup &&
-      settings.markupStripping.stripMarkupSettings.bold
-    ) {
+    if (settings.markupStripping.stripMarkupSettings.bold) {
       line = line.replace(/\*\*(.*?)\*\*/g, (match, content, offset) => {
         return checkEscaped(match, offset) ? match : content;
       });
@@ -378,10 +402,7 @@ export function extractTitle(line: string, settings: PluginSettings): string {
     }
 
     // Strip italic markup
-    if (
-      settings.markupStripping.enableStripMarkup &&
-      settings.markupStripping.stripMarkupSettings.italic
-    ) {
+    if (settings.markupStripping.stripMarkupSettings.italic) {
       line = line.replace(/\*([^*]*?)\*/g, (match, content, offset) => {
         return checkEscaped(match, offset) ? match : content;
       });
@@ -391,30 +412,21 @@ export function extractTitle(line: string, settings: PluginSettings): string {
     }
 
     // Strip strikethrough markup
-    if (
-      settings.markupStripping.enableStripMarkup &&
-      settings.markupStripping.stripMarkupSettings.strikethrough
-    ) {
+    if (settings.markupStripping.stripMarkupSettings.strikethrough) {
       line = line.replace(/~~(.*?)~~/g, (match, content, offset) => {
         return checkEscaped(match, offset) ? match : content;
       });
     }
 
     // Strip highlight markup
-    if (
-      settings.markupStripping.enableStripMarkup &&
-      settings.markupStripping.stripMarkupSettings.highlight
-    ) {
+    if (settings.markupStripping.stripMarkupSettings.highlight) {
       line = line.replace(/==(.*?)==/g, (match, content, offset) => {
         return checkEscaped(match, offset) ? match : content;
       });
     }
 
     // Strip code block markup (must run before code markup stripping)
-    if (
-      settings.markupStripping.enableStripMarkup &&
-      settings.markupStripping.stripMarkupSettings.codeBlocks
-    ) {
+    if (settings.markupStripping.stripMarkupSettings.codeBlocks) {
       // Check if only ``` (empty code block) - return Untitled
       // Don't use multiline flag - we want to match entire string, not just first line
       if (/^\s*```\s*$/.test(line)) {
@@ -445,10 +457,7 @@ export function extractTitle(line: string, settings: PluginSettings): string {
     }
 
     // Strip code markup
-    if (
-      settings.markupStripping.enableStripMarkup &&
-      settings.markupStripping.stripMarkupSettings.code
-    ) {
+    if (settings.markupStripping.stripMarkupSettings.code) {
       line = line.replace(/`(.*?)`/g, (match, content, offset) => {
         return checkEscaped(match, offset) ? match : content;
       });
@@ -467,10 +476,7 @@ export function extractTitle(line: string, settings: PluginSettings): string {
 
     // Strip callout markup (check before quote to avoid conflicts)
     // Uses callback to explicitly handle empty content case
-    if (
-      settings.markupStripping.enableStripMarkup &&
-      settings.markupStripping.stripMarkupSettings.callouts
-    ) {
+    if (settings.markupStripping.stripMarkupSettings.callouts) {
       line = line.replace(
         /^>\s*\[![^\]]+\][-+]?(?:\s+(.*))?$/,
         (_, content) => content ?? "",
@@ -478,10 +484,7 @@ export function extractTitle(line: string, settings: PluginSettings): string {
     }
 
     // Strip quote markup
-    if (
-      settings.markupStripping.enableStripMarkup &&
-      settings.markupStripping.stripMarkupSettings.quote
-    ) {
+    if (settings.markupStripping.stripMarkupSettings.quote) {
       line = line.replace(/^>\s*(.*)$/, "$1");
     }
 
@@ -510,8 +513,7 @@ export function extractTitle(line: string, settings: PluginSettings): string {
     }
 
     if (
-      (settings.markupStripping.enableStripMarkup &&
-        settings.markupStripping.stripMarkupSettings.htmlTags) ||
+      settings.markupStripping.stripMarkupSettings.htmlTags ||
       settings.markupStripping.omitHtmlTags
     ) {
       let previousLine = "";
@@ -525,10 +527,7 @@ export function extractTitle(line: string, settings: PluginSettings): string {
     }
 
     // Strip footnote markup
-    if (
-      settings.markupStripping.enableStripMarkup &&
-      settings.markupStripping.stripMarkupSettings.footnotes
-    ) {
+    if (settings.markupStripping.stripMarkupSettings.footnotes) {
       // Strip [^1] style footnotes (but not if followed by colon)
       line = line.replace(/\[\^[^\]]+\](?!:)/g, "");
       // Strip ^[note] style footnotes (but not if followed by colon)
@@ -536,19 +535,29 @@ export function extractTitle(line: string, settings: PluginSettings): string {
     }
   }
 
-  // Handle embedded image links (remove ! before [[]])
-  const embedLinkRegex = /!\[\[(.*?)\]\]/g;
-  line = line.replace(embedLinkRegex, "[[$1]]");
+  // Handle embedded wikilink images (remove ! before [[]])
+  if (
+    settings.markupStripping.enableStripMarkup &&
+    settings.markupStripping.stripMarkupSettings.wikilinks
+  ) {
+    const embedLinkRegex = /!\[\[(.*?)\]\]/g;
+    line = line.replace(embedLinkRegex, "[[$1]]");
+  }
 
   // Handle regular embedded image links
-  const regularEmbedRegex = /!\[(.*?)\]\((.*?)\)/g;
-  line = line.replace(regularEmbedRegex, (_match, caption) => caption);
+  if (
+    settings.markupStripping.enableStripMarkup &&
+    settings.markupStripping.stripMarkupSettings.markdownLinks
+  ) {
+    const regularEmbedRegex = /!\[(.*?)\]\((.*?)\)/g;
+    line = line.replace(regularEmbedRegex, (_match, caption) => caption);
+  }
 
   // Handle headers - only if the original line was a valid heading and strip heading markup is enabled
   if (
     isHeading &&
-    (!settings.markupStripping.enableStripMarkup ||
-      settings.markupStripping.stripMarkupSettings.headings)
+    settings.markupStripping.enableStripMarkup &&
+    settings.markupStripping.stripMarkupSettings.headings
   ) {
     const headerArr: string[] = [
       "# ",
@@ -568,7 +577,7 @@ export function extractTitle(line: string, settings: PluginSettings): string {
 
   // Handle wikilinks (only if strip wikilink markup is enabled)
   if (
-    !settings.markupStripping.enableStripMarkup ||
+    settings.markupStripping.enableStripMarkup &&
     settings.markupStripping.stripMarkupSettings.wikilinks
   ) {
     while (line.includes("[[") && line.includes("]]")) {
@@ -599,7 +608,7 @@ export function extractTitle(line: string, settings: PluginSettings): string {
 
   // Handle regular Markdown links (only if strip markdown link markup is enabled)
   if (
-    !settings.markupStripping.enableStripMarkup ||
+    settings.markupStripping.enableStripMarkup &&
     settings.markupStripping.stripMarkupSettings.markdownLinks
   ) {
     const markdownLinkRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
@@ -665,6 +674,7 @@ export function findTitleSourceLine(
 
     // Check for table - use "Table" as title if stripTableMarkup is enabled
     if (
+      settings.markupStripping.enableStripMarkup &&
       settings.markupStripping.stripTableMarkup &&
       trimmedLine.includes("|")
     ) {
@@ -696,6 +706,7 @@ export function findTitleSourceLine(
 
     // Check for math block delimiter - skip $$ lines to find content after
     if (
+      settings.markupStripping.enableStripMarkup &&
       settings.markupStripping.stripMathBlockMarkup &&
       trimmedLine.startsWith("$$")
     ) {
@@ -707,6 +718,7 @@ export function findTitleSourceLine(
 
     // Check for HR - skip if enabled
     if (
+      settings.markupStripping.enableStripMarkup &&
       settings.markupStripping.stripHorizontalRuleMarkup &&
       hrPattern.test(line)
     ) {
@@ -720,6 +732,7 @@ export function findTitleSourceLine(
     if (trimmedLine.startsWith("```")) {
       // Handle mermaid diagrams
       if (
+        settings.markupStripping.enableStripMarkup &&
         settings.markupStripping.detectDiagrams &&
         trimmedLine === "```mermaid"
       ) {
@@ -732,7 +745,7 @@ export function findTitleSourceLine(
         return t("diagram");
       }
 
-      // Handle card links
+      // Handle card links (independent of enableStripMarkup)
       const cardLinkMatch = trimmedLine.match(/^```(embed|cardlink)$/);
       if (settings.markupStripping.grabTitleFromCardLink && cardLinkMatch) {
         const maxLinesToCheck = 20;
@@ -771,11 +784,13 @@ export function findTitleSourceLine(
         return t("untitled");
       }
 
-      // Regular code fence - skip
-      if (plugin) {
-        verboseLog(plugin, `Code fence detected, skipping line`);
+      // Regular code fence - skip only if strip markup enabled
+      if (settings.markupStripping.enableStripMarkup) {
+        if (plugin) {
+          verboseLog(plugin, `Code fence detected, skipping line`);
+        }
+        continue;
       }
-      continue;
     }
 
     // This is a valid content line

@@ -24,8 +24,6 @@ export const DEFAULT_SETTINGS: PluginSettings = {
     // UI visibility
     enableContextMenus: true,
     enableVaultSearchContextMenu: true,
-    enableCommandPalette: true,
-    enableRibbon: true,
     commandVisibility: {
       folderPutFirstLineInTitle: true,
       folderExclude: true,
@@ -36,28 +34,11 @@ export const DEFAULT_SETTINGS: PluginSettings = {
       tagPutFirstLineInTitle: true,
       tagExclude: true,
       tagStopExcluding: true,
-      addSafeInternalLink: true,
-      addSafeInternalLinkWithCaption: true,
-      addInternalLinkWithCaptionAndCustomTarget: true,
     },
     vaultSearchContextMenuVisibility: {
       putFirstLineInTitle: true,
       disable: true,
       enable: true,
-    },
-    commandPaletteVisibility: {
-      renameCurrentFileUnlessExcluded: true,
-      renameCurrentFile: true,
-      renameAllFiles: true,
-      disableRenaming: true,
-      enableRenaming: true,
-      toggleAutomaticRenaming: true,
-      insertFilename: true,
-    },
-    ribbonVisibility: {
-      renameCurrentFile: true,
-      renameAllNotes: false,
-      toggleAutomaticRenaming: false,
     },
 
     // Context menu command groups
@@ -74,7 +55,6 @@ export const DEFAULT_SETTINGS: PluginSettings = {
     hasSetPropertyType: false,
     lastUsageDate: "",
     currentSettingsTab: "general",
-    suppressMergeNotifications: false,
     hasEnabledForbiddenChars: false,
     hasEnabledWindowsAndroid: false,
     hasEnabledCustomReplacements: false,
@@ -267,7 +247,6 @@ export const DEFAULT_SETTINGS: PluginSettings = {
       htmlTags: true,
     },
     stripMarkupInAlias: false,
-    omitComments: false,
     omitHtmlTags: false,
     stripCommentsEntirely: true,
     stripTemplaterSyntax: true,

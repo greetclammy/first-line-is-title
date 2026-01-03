@@ -195,7 +195,7 @@ export class CustomReplacementsTab extends SettingsTabBase {
       if (existingAddButton) existingAddButton.remove();
 
       const tableContainer = customReplacementsContainer.createEl("div", {
-        cls: "flit-table-container flit-custom-table-container",
+        cls: "flit-table-container",
       });
       const tableWrapper = tableContainer.createEl("div", {
         cls: "flit-table-wrapper",

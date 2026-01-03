@@ -1,10 +1,4 @@
-import {
-  TFile,
-  Editor,
-  Notice,
-  getFrontMatterInfo,
-  MarkdownView,
-} from "obsidian";
+import { TFile, Editor, Notice, MarkdownView } from "obsidian";
 import { TitleRegionCache } from "../types";
 import { TIMING, LIMITS } from "../constants/timing";
 import {
@@ -17,6 +11,7 @@ import {
   isValidHeading,
   findTitleSourceLine,
   processForbiddenChars,
+  isOnlyFrontmatterChanged,
 } from "../utils";
 import { t } from "../i18n";
 import { RateLimiter } from "./rate-limiter";
@@ -52,6 +47,51 @@ export class RenameEngine {
     return this.globalRateLimiter.checkGlobalLimit();
   }
 
+  /**
+   * Update alias for a file with coordination to prevent concurrent updates.
+   * Used by manual commands to ensure alias stays in sync with filename.
+   * Coordinates with event-handler-manager's pendingAliasUpdates to prevent double-processing.
+   *
+   * @param file - The file to update alias for
+   * @param isManualCommand - Whether this is a manual command (determines if we should update)
+   * @returns true if alias was updated, false if skipped
+   */
+  private async updateAliasWithCoordination(
+    file: TFile,
+    isManualCommand: boolean,
+  ): Promise<boolean> {
+    // Only update for manual commands when aliases are enabled
+    if (!isManualCommand || !this.plugin.settings.aliases.enableAliases) {
+      return false;
+    }
+
+    // Check if event handler already has an update in progress
+    if (this.plugin.eventHandlerManager?.isAliasUpdatePending(file.path)) {
+      verboseLog(
+        this.plugin,
+        `Skipping alias update - event handler already processing: ${file.path}`,
+      );
+      return false;
+    }
+
+    // Mark as in-progress to prevent event handlers from double-processing
+    this.plugin.eventHandlerManager?.markAliasUpdatePending(file.path);
+
+    try {
+      const aliasResult = await this.plugin.aliasManager.updateAliasIfNeeded(
+        file,
+        undefined,
+      );
+      this.plugin.fileStateManager.setLastAliasUpdateStatus(
+        file.path,
+        aliasResult,
+      );
+      return aliasResult;
+    } finally {
+      this.plugin.eventHandlerManager?.clearAliasUpdatePending(file.path);
+    }
+  }
+
   async processEditorChangeOptimal(editor: Editor, file: TFile): Promise<void> {
     this.plugin.trackUsage();
     const startTime = Date.now();
@@ -83,19 +123,7 @@ export class RenameEngine {
         file.path,
       );
       if (previousContent) {
-        const currentFrontmatterInfo = getFrontMatterInfo(currentContent);
-        const previousFrontmatterInfo = getFrontMatterInfo(previousContent);
-
-        const currentContentAfterFrontmatter = currentContent.substring(
-          currentFrontmatterInfo.contentStart,
-        );
-        const previousContentAfterFrontmatter = previousContent.substring(
-          previousFrontmatterInfo.contentStart,
-        );
-
-        if (
-          currentContentAfterFrontmatter === previousContentAfterFrontmatter
-        ) {
+        if (isOnlyFrontmatterChanged(currentContent, previousContent)) {
           if (this.plugin.settings.core.verboseLogging) {
             console.debug(`Skipping - only frontmatter edited: ${file.path}`);
           }
@@ -108,17 +136,8 @@ export class RenameEngine {
       } else {
         // First editor event - compare editor vs disk to detect actual edits
         const diskContent = await this.plugin.app.vault.read(file);
-        const currentFrontmatterInfo = getFrontMatterInfo(currentContent);
-        const diskFrontmatterInfo = getFrontMatterInfo(diskContent);
 
-        const currentContentAfterFrontmatter = currentContent.substring(
-          currentFrontmatterInfo.contentStart,
-        );
-        const diskContentAfterFrontmatter = diskContent.substring(
-          diskFrontmatterInfo.contentStart,
-        );
-
-        if (currentContentAfterFrontmatter === diskContentAfterFrontmatter) {
+        if (isOnlyFrontmatterChanged(currentContent, diskContent)) {
           // No body edits (or YAML-only edit) - skip processing
           if (this.plugin.settings.core.verboseLogging) {
             console.debug(
@@ -705,9 +724,6 @@ export class RenameEngine {
       cacheManager?.setContent(file.path, content);
     }
 
-    // Preserve original content with frontmatter for alias manager
-    const originalContentWithFrontmatter = content;
-
     // Use the stripped content for processing
     content = contentWithoutFrontmatter;
 
@@ -994,21 +1010,9 @@ export class RenameEngine {
         this.plugin,
         `No rename needed for ${file.path} - already has correct name`,
       );
-      /* TEST: disabled for save-only alias updates
-      if (this.plugin.settings.aliases.enableAliases) {
-        const aliasUpdateSucceeded =
-          await this.plugin.aliasManager.updateAliasIfNeeded(
-            file,
-            originalContentWithFrontmatter,
-            undefined,
-            editor,
-          );
-        this.plugin.fileStateManager.setLastAliasUpdateStatus(
-          file.path,
-          aliasUpdateSucceeded,
-        );
-      }
-      */
+      // For manual commands, update alias even when no rename needed
+      await this.updateAliasWithCoordination(file, showNotices);
+
       if (showNotices && !isBatchOperation) {
         const finalFileName =
           newPath.replace(/\.md$/, "").split("/").pop() || newTitle;
@@ -1073,21 +1077,9 @@ export class RenameEngine {
             this.plugin,
             `No rename needed for ${file.path} - already has correct name with counter`,
           );
-          /* TEST: disabled for save-only alias updates
-          if (this.plugin.settings.aliases.enableAliases) {
-            const aliasUpdateSucceeded =
-              await this.plugin.aliasManager.updateAliasIfNeeded(
-                file,
-                originalContentWithFrontmatter,
-                newTitle,
-                editor,
-              );
-            this.plugin.fileStateManager.setLastAliasUpdateStatus(
-              file.path,
-              aliasUpdateSucceeded,
-            );
-          }
-          */
+          // For manual commands, update alias even when no rename needed
+          await this.updateAliasWithCoordination(file, showNotices);
+
           if (showNotices && !isBatchOperation) {
             // Extract actual final filename from newPath (includes counter)
             const finalFileName =
@@ -1162,21 +1154,6 @@ export class RenameEngine {
     if (noDelay) {
       cacheManager?.reservePath(newPath);
     }
-    /* TEST: disabled for save-only alias updates
-    if (this.plugin.settings.aliases.enableAliases) {
-      const aliasUpdateSucceeded =
-        await this.plugin.aliasManager.updateAliasIfNeeded(
-          file,
-          originalContentWithFrontmatter,
-          newTitle,
-          editor,
-        );
-      this.plugin.fileStateManager.setLastAliasUpdateStatus(
-        file.path,
-        aliasUpdateSucceeded,
-      );
-    }
-    */
 
     try {
       const oldPath = file.path;
@@ -1207,6 +1184,10 @@ export class RenameEngine {
       }
       this.updateTitleRegionCacheKey(oldPath, newPath);
       cacheManager?.notifyFileRenamed(oldPath, newPath);
+
+      // For manual commands, update alias after successful rename
+      await this.updateAliasWithCoordination(file, showNotices);
+
       if (showNotices && !isBatchOperation) {
         // Extract actual final filename from newPath (includes counter if added)
         const finalFileName =

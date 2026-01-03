@@ -41,15 +41,6 @@ export type FileReadMethod = "Editor" | "Cache" | "File";
 
 export type PropertyHidingOption = "never" | "always" | "when_empty";
 
-export interface ExclusionOverrides {
-  ignoreFolder?: boolean;
-  ignoreTag?: boolean;
-  ignoreProperty?: boolean;
-}
-
-/**
- * Core plugin behavior settings
- */
 /**
  * Core plugin settings (General + Other tabs)
  */
@@ -76,8 +67,6 @@ export interface CoreSettings {
   // UI visibility
   enableContextMenus: boolean;
   enableVaultSearchContextMenu: boolean;
-  enableCommandPalette: boolean;
-  enableRibbon: boolean;
   commandVisibility: {
     folderPutFirstLineInTitle: boolean;
     folderExclude: boolean;
@@ -88,28 +77,11 @@ export interface CoreSettings {
     tagPutFirstLineInTitle: boolean;
     tagExclude: boolean;
     tagStopExcluding: boolean;
-    addSafeInternalLink: boolean;
-    addSafeInternalLinkWithCaption: boolean;
-    addInternalLinkWithCaptionAndCustomTarget: boolean;
   };
   vaultSearchContextMenuVisibility: {
     putFirstLineInTitle: boolean;
     disable: boolean;
     enable: boolean;
-  };
-  commandPaletteVisibility: {
-    renameCurrentFileUnlessExcluded: boolean;
-    renameCurrentFile: boolean;
-    renameAllFiles: boolean;
-    disableRenaming: boolean;
-    enableRenaming: boolean;
-    toggleAutomaticRenaming: boolean;
-    insertFilename: boolean;
-  };
-  ribbonVisibility: {
-    renameCurrentFile: boolean;
-    renameAllNotes: boolean;
-    toggleAutomaticRenaming: boolean;
   };
 
   // Context menu command groups
@@ -126,7 +98,6 @@ export interface CoreSettings {
   hasSetPropertyType: boolean;
   lastUsageDate: string;
   currentSettingsTab: string;
-  suppressMergeNotifications: boolean;
   hasEnabledForbiddenChars: boolean;
   hasEnabledWindowsAndroid: boolean;
   hasEnabledCustomReplacements: boolean;
@@ -231,7 +202,6 @@ export interface MarkupStrippingSettings {
     htmlTags: boolean;
   };
   stripMarkupInAlias: boolean;
-  omitComments: boolean;
   omitHtmlTags: boolean;
   stripCommentsEntirely: boolean;
   stripTemplaterSyntax: boolean;

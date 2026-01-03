@@ -1,13 +1,6 @@
-import {
-  Menu,
-  TFile,
-  TFolder,
-  MarkdownView,
-  EventRef,
-  getFrontMatterInfo,
-} from "obsidian";
+import { Menu, TFile, TFolder, MarkdownView, EventRef } from "obsidian";
 import FirstLineIsTitlePlugin from "../../main";
-import { verboseLog } from "../utils";
+import { verboseLog, isOnlyFrontmatterChanged } from "../utils";
 import { tp } from "../i18n";
 import { RenameModal, DisableEnableModal } from "../modals";
 import { around } from "monkey-around";
@@ -31,9 +24,35 @@ interface WorkspaceWithSearchEvents {
  */
 export class EventHandlerManager {
   private plugin: FirstLineIsTitlePlugin;
+  /** Tracks files with alias updates in progress to prevent concurrent updates */
+  private pendingAliasUpdates: Set<string> = new Set();
 
   constructor(plugin: FirstLineIsTitlePlugin) {
     this.plugin = plugin;
+  }
+
+  /**
+   * Check if alias update is in progress for a file.
+   * Used by rename-engine to coordinate with event handlers.
+   */
+  isAliasUpdatePending(path: string): boolean {
+    return this.pendingAliasUpdates.has(path);
+  }
+
+  /**
+   * Mark alias update as in progress for a file.
+   * Used by rename-engine to coordinate with event handlers.
+   */
+  markAliasUpdatePending(path: string): void {
+    this.pendingAliasUpdates.add(path);
+  }
+
+  /**
+   * Clear alias update in progress flag for a file.
+   * Used by rename-engine to coordinate with event handlers.
+   */
+  clearAliasUpdatePending(path: string): void {
+    this.pendingAliasUpdates.delete(path);
   }
 
   /**
@@ -416,6 +435,10 @@ export class EventHandlerManager {
           if (this.plugin.cacheManager) {
             this.plugin.cacheManager.notifyFileRenamed(oldPath, file.path);
           }
+
+          // Clean up pendingAliasUpdates for old path (state moved to new path)
+          this.pendingAliasUpdates.delete(oldPath);
+
           verboseLog(
             this.plugin,
             `File renamed, updated cache: ${oldPath} -> ${file.path}`,
@@ -431,6 +454,8 @@ export class EventHandlerManager {
           this.plugin.cacheManager?.notifyFileDeleted(file.path);
           this.plugin.editorLifecycle.clearCreationDelayTimer(file.path);
           this.plugin.fileStateManager?.notifyFileDeleted(file.path);
+          // Clean up pendingAliasUpdates to prevent memory leak and blocking
+          this.pendingAliasUpdates.delete(file.path);
         }
       }),
     );
@@ -471,71 +496,74 @@ export class EventHandlerManager {
         }
 
         // Update aliases if enabled (respects manual/automatic mode)
+        // Note: Alias updates happen on save events only (not every keystroke) to reduce
+        // "modified externally" notifications from processFrontMatter writes.
         if (
           this.plugin.settings.aliases.enableAliases &&
           this.plugin.settings.core.renameNotes === "automatically"
         ) {
-          console.debug(
-            `[TEST] vault.on('modify') alias check for: ${file.path}`,
-          );
-          // Check if only frontmatter changed - skip alias update to preserve YAML formatting
-          const currentContent = await this.plugin.app.vault.read(file);
-          const previousContent =
-            this.plugin.fileStateManager.getLastEditorContent(file.path);
-          console.debug(`[TEST] previousContent exists: ${!!previousContent}`);
-
-          if (previousContent) {
-            const currentFrontmatterInfo = getFrontMatterInfo(currentContent);
-            const previousFrontmatterInfo = getFrontMatterInfo(previousContent);
-
-            const currentContentAfterFrontmatter = currentContent.substring(
-              currentFrontmatterInfo.contentStart,
-            );
-            const previousContentAfterFrontmatter = previousContent.substring(
-              previousFrontmatterInfo.contentStart,
-            );
-
-            // Only skip if body unchanged AND last alias update succeeded
-            // If last update was skipped (e.g., popover/canvas), retry now
-            const lastUpdateSucceeded =
-              this.plugin.fileStateManager.getLastAliasUpdateStatus(file.path);
-            const bodyUnchanged =
-              currentContentAfterFrontmatter ===
-              previousContentAfterFrontmatter;
-            console.debug(
-              `[TEST] bodyUnchanged: ${bodyUnchanged}, lastUpdateSucceeded: ${lastUpdateSucceeded}`,
-            );
-            if (bodyUnchanged && lastUpdateSucceeded) {
-              console.debug(
-                `[TEST] SKIPPING - body unchanged + last succeeded`,
-              );
-              // Don't update lastEditorContent here - let the editor handler do it
-              return;
-            }
-          } else {
-            // No previous state - cannot determine if edit is YAML-only
-            // Skip to prevent processing files on first open with no actual edits
-            // If user made edits, editor-change handler will have set previousContent
-            console.debug(`[TEST] SKIPPING - no previous state`);
-            return;
-          }
-
           // Skip if file has pending metadata update from processFrontMatter
           if (this.plugin.pendingMetadataUpdates.has(file.path)) {
-            console.debug(`[TEST] SKIPPING - pending metadata write`);
             return;
           }
 
-          console.debug(`[TEST] PROCEEDING with alias update`);
-          const aliasUpdateSucceeded =
-            await this.plugin.aliasManager.updateAliasIfNeeded(
-              file,
+          // Skip if alias update already in progress for this file
+          if (this.pendingAliasUpdates.has(file.path)) {
+            return;
+          }
+
+          // Mark as in-progress BEFORE any async operation to prevent race
+          // between modify and metadata-changed handlers
+          this.pendingAliasUpdates.add(file.path);
+          try {
+            let currentContent: string;
+            try {
+              currentContent = await this.plugin.app.vault.read(file);
+            } catch {
+              // File was deleted or inaccessible - clean up and return
+              this.pendingAliasUpdates.delete(file.path);
+              return;
+            }
+
+            // Skip if only frontmatter changed (user manually editing YAML)
+            // Use lastSavedContent - represents content from PREVIOUS save, not current editor buffer
+            const previousContent =
+              this.plugin.fileStateManager.getLastSavedContent(file.path);
+            if (
+              previousContent &&
+              !this.plugin.fileStateManager.isSavedContentStale(file.path) &&
+              isOnlyFrontmatterChanged(currentContent, previousContent)
+            ) {
+              verboseLog(
+                this.plugin,
+                `Skipping modify-alias update - only frontmatter edited: ${file.path}`,
+              );
+              // Still update lastSavedContent even when skipping
+              this.plugin.fileStateManager.setLastSavedContent(
+                file.path,
+                currentContent,
+              );
+              return;
+            }
+
+            const aliasUpdateSucceeded =
+              await this.plugin.aliasManager.updateAliasIfNeeded(
+                file,
+                currentContent,
+              );
+            this.plugin.fileStateManager.setLastAliasUpdateStatus(
+              file.path,
+              aliasUpdateSucceeded,
+            );
+
+            // Update lastSavedContent after processing
+            this.plugin.fileStateManager.setLastSavedContent(
+              file.path,
               currentContent,
             );
-          this.plugin.fileStateManager.setLastAliasUpdateStatus(
-            file.path,
-            aliasUpdateSucceeded,
-          );
+          } finally {
+            this.pendingAliasUpdates.delete(file.path);
+          }
         }
       }),
     );
@@ -560,71 +588,91 @@ export class EventHandlerManager {
           return;
         }
 
-        // Check if only frontmatter changed - skip alias update to preserve YAML formatting
-        const currentContent = await this.plugin.app.vault.read(file);
-        const previousContent =
-          this.plugin.fileStateManager.getLastEditorContent(file.path);
-
-        if (previousContent) {
-          const currentFrontmatterInfo = getFrontMatterInfo(currentContent);
-          const previousFrontmatterInfo = getFrontMatterInfo(previousContent);
-
-          const currentContentAfterFrontmatter = currentContent.substring(
-            currentFrontmatterInfo.contentStart,
-          );
-          const previousContentAfterFrontmatter = previousContent.substring(
-            previousFrontmatterInfo.contentStart,
-          );
-
-          // Only skip if body unchanged AND last alias update succeeded
-          // If last update was skipped (e.g., popover/canvas), retry now
-          const lastUpdateSucceeded =
-            this.plugin.fileStateManager.getLastAliasUpdateStatus(file.path);
-          if (
-            currentContentAfterFrontmatter ===
-              previousContentAfterFrontmatter &&
-            lastUpdateSucceeded
-          ) {
-            if (this.plugin.settings.core.verboseLogging) {
-              console.debug(
-                `Skipping metadata-alias update - only frontmatter edited: ${file.path}`,
-              );
-            }
-            // Don't update lastEditorContent here - let the editor handler do it
-            return;
-          }
-        } else {
-          // No previous state - cannot determine if edit is YAML-only
-          // Skip to prevent processing files on first open with no actual edits
-          // If user made edits, editor-change handler will have set previousContent
-          if (this.plugin.settings.core.verboseLogging) {
-            console.debug(
-              `Skipping metadata-alias update - no previous state to compare: ${file.path}`,
-            );
-          }
-          return;
-        }
-
-        // Skip if file has pending metadata update from processFrontMatter
-        // Clear from Set since metadata cache has now processed the update
+        // Clear pending metadata flag FIRST - before any other checks that might return early
+        // This ensures the flag is cleared when metadataCache processes our processFrontMatter write
         if (this.plugin.pendingMetadataUpdates.has(file.path)) {
           this.plugin.pendingMetadataUpdates.delete(file.path);
           verboseLog(
             this.plugin,
-            `Skipping alias update - cleared pending metadata write: ${file.path}`,
+            `Cleared pending metadata write flag: ${file.path}`,
           );
+          // Don't return - continue to check if alias update is needed
+        }
+
+        // Skip if alias update already in progress for this file
+        if (this.pendingAliasUpdates.has(file.path)) {
           return;
         }
 
-        const aliasUpdateSucceeded =
-          await this.plugin.aliasManager.updateAliasIfNeeded(
-            file,
+        // Mark as in-progress BEFORE any async operation to prevent race
+        // between modify and metadata-changed handlers
+        this.pendingAliasUpdates.add(file.path);
+        try {
+          // Check if only frontmatter changed - skip alias update to preserve YAML formatting
+          let currentContent: string;
+          try {
+            currentContent = await this.plugin.app.vault.read(file);
+          } catch {
+            // File was deleted or inaccessible - clean up and return
+            this.pendingAliasUpdates.delete(file.path);
+            return;
+          }
+
+          // Use lastSavedContent - represents content from PREVIOUS save, not current editor buffer
+          const previousContent =
+            this.plugin.fileStateManager.getLastSavedContent(file.path);
+
+          // Check for stale content comparison - skip if previous content is too old
+          const contentIsStale =
+            this.plugin.fileStateManager.isSavedContentStale(file.path);
+
+          if (previousContent && !contentIsStale) {
+            // Only skip if body unchanged AND last alias update succeeded AND status not stale
+            // If last update was skipped (e.g., popover/canvas), retry now
+            const lastUpdateSucceeded =
+              this.plugin.fileStateManager.getLastAliasUpdateStatus(file.path);
+            const statusIsStale =
+              this.plugin.fileStateManager.isAliasStatusStale(file.path);
+            if (
+              isOnlyFrontmatterChanged(currentContent, previousContent) &&
+              lastUpdateSucceeded &&
+              !statusIsStale
+            ) {
+              if (this.plugin.settings.core.verboseLogging) {
+                console.debug(
+                  `Skipping metadata-alias update - only frontmatter edited: ${file.path}`,
+                );
+              }
+              // Still update lastSavedContent even when skipping
+              this.plugin.fileStateManager.setLastSavedContent(
+                file.path,
+                currentContent,
+              );
+              return;
+            }
+          }
+          // If no previousContent, this is first save we're tracking
+          // Proceed with alias update since we can't determine if YAML-only edit
+          // If contentIsStale, proceed with alias update (don't rely on stale comparison)
+
+          const aliasUpdateSucceeded =
+            await this.plugin.aliasManager.updateAliasIfNeeded(
+              file,
+              currentContent,
+            );
+          this.plugin.fileStateManager.setLastAliasUpdateStatus(
+            file.path,
+            aliasUpdateSucceeded,
+          );
+
+          // Update lastSavedContent after processing
+          this.plugin.fileStateManager.setLastSavedContent(
+            file.path,
             currentContent,
           );
-        this.plugin.fileStateManager.setLastAliasUpdateStatus(
-          file.path,
-          aliasUpdateSucceeded,
-        );
+        } finally {
+          this.pendingAliasUpdates.delete(file.path);
+        }
       }),
     );
   }

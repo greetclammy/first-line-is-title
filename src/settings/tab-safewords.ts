@@ -78,7 +78,7 @@ export class SafewordsTab extends SettingsTabBase {
       if (existingAddButton) existingAddButton.remove();
 
       const tableContainer = safewordsContainer.createEl("div", {
-        cls: "flit-table-container flit-safeword-table-container",
+        cls: "flit-table-container",
       });
       const tableWrapper = tableContainer.createEl("div", {
         cls: "flit-table-wrapper",
