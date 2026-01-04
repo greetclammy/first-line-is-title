@@ -76,6 +76,15 @@ Note: to get updates for _First Line is Title_, you will have to check for and i
 | <img src=".github/icons/link.svg" width="15" height="15" style="pointer-events:none"> Add internal link with caption and custom target | Create internal link with selected text in caption. Set link path manually. |
 | <img src=".github/icons/clipboard-type.svg" width="15" height="15" style="pointer-events:none"> Insert file name at cursor position | Insert current file name at cursor position. Convert forbidden character replacements back to their original forms, as set in *Replace characters*. |
 
+### File, folder, tag and vault search context menu
+
+| Command | Description |
+|---------|-------------|
+| <img src=".github/icons/file-pen.svg" width="15" height="15" style="pointer-events:none"> Put first line in title | Rename selected note(s). |
+| <img src=".github/icons/folder-pen.svg" width="15" height="15" style="pointer-events:none"> Put first line in title in folder | Rename all notes in selected folder(s). |
+| <img src=".github/icons/square-x.svg" width="15" height="15" style="pointer-events:none"> Disable renaming | Exclude selected note(s), folder(s) or tag from renaming. |
+| <img src=".github/icons/square-check.svg" width="15" height="15" style="pointer-events:none"> Enable renaming | Stop excluding selected note(s), folder(s) or tag from renaming. |
+
 ## Support
 
 - Please [open an issue](https://github.com/greetclammy/first-line-is-title/issues) if you run into any problems. 
