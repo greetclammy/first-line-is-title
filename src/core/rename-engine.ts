@@ -78,9 +78,25 @@ export class RenameEngine {
     this.plugin.eventHandlerManager?.markAliasUpdatePending(file.path);
 
     try {
+      // Get editor if active view matches the file being updated
+      const activeView =
+        this.plugin.app.workspace.getActiveViewOfType(MarkdownView);
+      const editor = activeView?.file === file ? activeView.editor : undefined;
+
+      verboseLog(
+        this.plugin,
+        `// EDITOR_LOOKUP (manual): activeView=${!!activeView}, activeView.file=${activeView?.file?.path ?? "none"}, target=${file.path}, match=${activeView?.file === file}`,
+      );
+      verboseLog(
+        this.plugin,
+        `// EDITOR_PASS (manual): Passing editor=${editor ? "defined" : "undefined"} to updateAliasIfNeeded`,
+      );
+
       const aliasResult = await this.plugin.aliasManager.updateAliasIfNeeded(
         file,
         undefined,
+        undefined,
+        editor,
       );
       this.plugin.fileStateManager.setLastAliasUpdateStatus(
         file.path,

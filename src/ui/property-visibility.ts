@@ -138,15 +138,34 @@ export class PropertyVisibility {
               }
             }
           } else {
-            // There are other properties - just hide this individual property
+            // There are other properties - hide this individual property
             property.addClass("flit-property-hidden");
             property.removeClass("flit-property-visible");
-            // Ensure properties section remains visible since there are other properties
-            metadataProperties.removeClass("flit-container-hidden");
-            metadataProperties.addClass("flit-container-visible");
-            if (metadataContainer) {
-              metadataContainer.removeClass("flit-container-hidden");
-              metadataContainer.addClass("flit-container-visible");
+
+            // Check if ALL properties are now hidden
+            const visibleProperties = metadataProperties.querySelectorAll(
+              ".metadata-property[data-property-key]:not(.flit-property-hidden)",
+            );
+
+            if (visibleProperties.length === 0) {
+              // All properties hidden - hide the entire container
+              if (isInSidebar) {
+                metadataProperties.addClass("flit-container-hidden");
+                metadataProperties.removeClass("flit-container-visible");
+              } else {
+                if (metadataContainer) {
+                  metadataContainer.addClass("flit-container-hidden");
+                  metadataContainer.removeClass("flit-container-visible");
+                }
+              }
+            } else {
+              // Some properties still visible - ensure container visible
+              metadataProperties.removeClass("flit-container-hidden");
+              metadataProperties.addClass("flit-container-visible");
+              if (metadataContainer) {
+                metadataContainer.removeClass("flit-container-hidden");
+                metadataContainer.addClass("flit-container-visible");
+              }
             }
           }
         } else {

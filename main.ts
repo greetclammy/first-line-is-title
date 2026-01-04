@@ -104,7 +104,7 @@ export default class FirstLineIsTitle extends Plugin {
   }
 
   // Track files with pending metadata cache updates (for alias manager sync)
-  pendingMetadataUpdates: Set<string> = new Set();
+  pendingMetadataUpdates: Set<TFile> = new Set();
 
   isTagWranglerEnabled(): boolean {
     return this.app.plugins.enabledPlugins.has("tag-wrangler");

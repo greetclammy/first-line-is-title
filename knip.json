@@ -1,0 +1,8 @@
+{
+  "$schema": "https://unpkg.com/knip@5/schema.json",
+  "entry": ["main.ts"],
+  "project": ["src/**/*.ts", "tests/**/*.ts"],
+  "ignoreDependencies": ["@typescript-eslint/eslint-plugin"],
+  "ignore": ["src/utils.ts", "src/types.ts"],
+  "ignoreExportsUsedInFile": true
+}

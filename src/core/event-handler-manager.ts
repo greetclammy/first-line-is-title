@@ -503,7 +503,12 @@ export class EventHandlerManager {
           this.plugin.settings.core.renameNotes === "automatically"
         ) {
           // Skip if file has pending metadata update from processFrontMatter
-          if (this.plugin.pendingMetadataUpdates.has(file.path)) {
+          const hasPending = this.plugin.pendingMetadataUpdates.has(file);
+          verboseLog(
+            this.plugin,
+            `// PENDING_META_CHECK (modify): Checking ${file.path} in pendingMetadataUpdates → ${hasPending}`,
+          );
+          if (hasPending) {
             return;
           }
 
@@ -546,10 +551,27 @@ export class EventHandlerManager {
               return;
             }
 
+            // Get editor if active view matches the file being updated
+            const activeView =
+              this.plugin.app.workspace.getActiveViewOfType(MarkdownView);
+            const editor =
+              activeView?.file === file ? activeView.editor : undefined;
+
+            verboseLog(
+              this.plugin,
+              `// EDITOR_LOOKUP (modify): activeView=${!!activeView}, activeView.file=${activeView?.file?.path ?? "none"}, target=${file.path}, match=${activeView?.file === file}`,
+            );
+            verboseLog(
+              this.plugin,
+              `// EDITOR_PASS (modify): Passing editor=${editor ? "defined" : "undefined"} to updateAliasIfNeeded`,
+            );
+
             const aliasUpdateSucceeded =
               await this.plugin.aliasManager.updateAliasIfNeeded(
                 file,
                 currentContent,
+                undefined,
+                editor,
               );
             this.plugin.fileStateManager.setLastAliasUpdateStatus(
               file.path,
@@ -590,11 +612,11 @@ export class EventHandlerManager {
 
         // Clear pending metadata flag FIRST - before any other checks that might return early
         // This ensures the flag is cleared when metadataCache processes our processFrontMatter write
-        if (this.plugin.pendingMetadataUpdates.has(file.path)) {
-          this.plugin.pendingMetadataUpdates.delete(file.path);
+        if (this.plugin.pendingMetadataUpdates.has(file)) {
+          this.plugin.pendingMetadataUpdates.delete(file);
           verboseLog(
             this.plugin,
-            `Cleared pending metadata write flag: ${file.path}`,
+            `// PENDING_META_CLEAR: Clearing ${file.path} from pendingMetadataUpdates (set size: ${this.plugin.pendingMetadataUpdates.size})`,
           );
           // Don't return - continue to check if alias update is needed
         }
@@ -655,10 +677,27 @@ export class EventHandlerManager {
           // Proceed with alias update since we can't determine if YAML-only edit
           // If contentIsStale, proceed with alias update (don't rely on stale comparison)
 
+          // Get editor if active view matches the file being updated
+          const activeView =
+            this.plugin.app.workspace.getActiveViewOfType(MarkdownView);
+          const editor =
+            activeView?.file === file ? activeView.editor : undefined;
+
+          verboseLog(
+            this.plugin,
+            `// EDITOR_LOOKUP (metadata): activeView=${!!activeView}, activeView.file=${activeView?.file?.path ?? "none"}, target=${file.path}, match=${activeView?.file === file}`,
+          );
+          verboseLog(
+            this.plugin,
+            `// EDITOR_PASS (metadata): Passing editor=${editor ? "defined" : "undefined"} to updateAliasIfNeeded`,
+          );
+
           const aliasUpdateSucceeded =
             await this.plugin.aliasManager.updateAliasIfNeeded(
               file,
               currentContent,
+              undefined,
+              editor,
             );
           this.plugin.fileStateManager.setLastAliasUpdateStatus(
             file.path,

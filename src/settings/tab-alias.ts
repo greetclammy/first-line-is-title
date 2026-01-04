@@ -473,6 +473,23 @@ export class PropertiesTab extends SettingsTabBase {
       });
 
     new Setting(aliasContainer)
+      .setName(t("settings.alias.placeAliasLast.name"))
+      .setDesc(t("settings.alias.placeAliasLast.desc"))
+      .addToggle((toggle) =>
+        toggle
+          .setValue(this.plugin.settings.aliases.placeAliasLast)
+          .onChange(async (value) => {
+            this.plugin.settings.aliases.placeAliasLast = value;
+            this.plugin.debugLog("placeAliasLast", value);
+            try {
+              await this.plugin.saveSettings();
+            } catch {
+              new Notice(t("settings.errors.saveFailed"));
+            }
+          }),
+      );
+
+    new Setting(aliasContainer)
       .setName(t("settings.alias.hideProperty.name"))
       .setDesc(t("settings.alias.hideProperty.desc"))
       .addDropdown((dropdown) =>

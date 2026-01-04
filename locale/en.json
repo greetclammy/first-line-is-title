@@ -385,6 +385,10 @@
         "name": "Keep empty alias property",
         "desc": "When the plugin removes the first line alias and no other aliases remain, keep the empty property rather than delete it."
       },
+      "placeAliasLast": {
+        "name": "Place last in list",
+        "desc": "Place alias last in list-type property."
+      },
       "hideProperty": {
         "name": "Hide alias property",
         "desc": "Hide the alias property in Reading view and Live Preview. Will always remain visible in Source view.",

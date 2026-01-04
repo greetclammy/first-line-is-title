@@ -268,6 +268,7 @@ export const DEFAULT_SETTINGS: PluginSettings = {
     hideAliasProperty: "never" as const,
     hideAliasInSidebar: false,
     keepEmptyAliasProperty: true,
+    placeAliasLast: true,
   },
 };
 

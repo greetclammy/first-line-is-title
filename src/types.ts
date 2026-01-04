@@ -227,6 +227,7 @@ export interface AliasSettings {
   hideAliasProperty: PropertyHidingOption;
   hideAliasInSidebar: boolean;
   keepEmptyAliasProperty: boolean;
+  placeAliasLast: boolean;
 }
 
 /**

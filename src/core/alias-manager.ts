@@ -17,6 +17,15 @@ import { t } from "../i18n";
 import { readFileContent } from "../utils/content-reader";
 import FirstLineIsTitle from "../../main";
 
+const ZWSP = "\u200B";
+
+/** Check if alias is plugin-managed (exactly wrapped by ZWSP markers) */
+function isPluginAlias(alias: unknown): boolean {
+  return (
+    typeof alias === "string" && alias.startsWith(ZWSP) && alias.endsWith(ZWSP)
+  );
+}
+
 export class AliasManager {
   constructor(private plugin: FirstLineIsTitle) {}
 
@@ -48,6 +57,7 @@ export class AliasManager {
     providedContent?: string,
     targetTitle?: string,
     editor?: Editor,
+    isBatchOperation = false,
   ): Promise<boolean> {
     // Track plugin usage
     this.plugin.trackUsage();
@@ -190,18 +200,22 @@ export class AliasManager {
         !processedLineMatchesFilename;
 
       if (!shouldHaveAlias) {
+        verboseLog(
+          this.plugin,
+          `Removing plugin aliases - first line matches filename: "${processedTitleSource}" = "${titleToCompare}"`,
+        );
         await this.removePluginAliasesFromFile(file);
         return false;
       }
 
       const aliasPropertyKeys = this.getAliasPropertyKeys();
-      const zwspMarker = "\u200B"; // Zero-width space marker
       const expectedAlias = this.settings.markupStripping.stripMarkupInAlias
         ? extractTitle(titleSourceLine, this.settings)
         : titleSourceLine;
-      const expectedAliasWithMarker = zwspMarker + expectedAlias + zwspMarker;
+      const expectedAliasWithMarker = ZWSP + expectedAlias + ZWSP;
 
       let allPropertiesHaveCorrectAlias = true;
+      let aliasNeedsRepositioning = false;
       for (const aliasPropertyKey of aliasPropertyKeys) {
         let existingAliases: string[] = [];
         if (frontmatter && frontmatter[aliasPropertyKey]) {
@@ -221,9 +235,21 @@ export class AliasManager {
           allPropertiesHaveCorrectAlias = false;
           break;
         }
+
+        // Check if alias needs repositioning (placeAliasLast ON but not last)
+        if (
+          this.settings.aliases.placeAliasLast &&
+          existingAliases.length > 1
+        ) {
+          const lastAlias = existingAliases[existingAliases.length - 1];
+          const isPluginAliasLast = isPluginAlias(lastAlias);
+          if (!isPluginAliasLast) {
+            aliasNeedsRepositioning = true;
+          }
+        }
       }
 
-      if (allPropertiesHaveCorrectAlias) {
+      if (allPropertiesHaveCorrectAlias && !aliasNeedsRepositioning) {
         verboseLog(
           this.plugin,
           `File ${file.path} already has correct alias in all properties`,
@@ -244,6 +270,8 @@ export class AliasManager {
           titleSourceLine,
           titleToCompare,
           content,
+          editor,
+          isBatchOperation,
         );
         return true;
       } catch (error) {
@@ -261,6 +289,8 @@ export class AliasManager {
     originalFirstNonEmptyLine: string,
     newTitle: string,
     content: string,
+    editor?: Editor,
+    isBatchOperation = false,
   ): Promise<void> {
     try {
       // Validate file exists and get fresh reference from vault.
@@ -398,7 +428,7 @@ export class AliasManager {
       }
 
       // Mark alias with ZWSP for identification
-      const markedAlias = "\u200B" + aliasToAdd + "\u200B";
+      const markedAlias = ZWSP + aliasToAdd + ZWSP;
       const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
       if (activeView && activeView.file === file) {
         await activeView.save();
@@ -440,8 +470,9 @@ export class AliasManager {
             }
           },
         );
+
         // Mark file as having pending metadata cache update
-        this.plugin.pendingMetadataUpdates.add(currentFileForFrontmatter.path);
+        this.plugin.pendingMetadataUpdates.add(currentFileForFrontmatter);
         verboseLog(
           this.plugin,
           `Created frontmatter and added alias \`${aliasToAdd}\` to ${currentFileForFrontmatter.path}`,
@@ -461,7 +492,32 @@ export class AliasManager {
         return;
       }
 
-      // File has frontmatter - update aliases
+      // Try editor-based update first (avoids disk write and "modified externally" notification)
+      // Skip for batch operations - most files won't have editor open
+      // Skip when placeAliasLast is ON - need processFrontMatter to reorder
+      if (
+        !isBatchOperation &&
+        !this.settings.aliases.placeAliasLast &&
+        (await this.tryEditorBasedAliasUpdate(
+          currentFileForUpdate,
+          aliasToAdd,
+          editor,
+        ))
+      ) {
+        verboseLog(
+          this.plugin,
+          `TRY_EDITOR_UPDATE: used editor path for ${currentFileForUpdate.path}`,
+        );
+        return;
+      }
+      if (!isBatchOperation) {
+        verboseLog(
+          this.plugin,
+          `TRY_EDITOR_UPDATE: falling back to processFrontMatter for ${currentFileForUpdate.path}`,
+        );
+      }
+
+      // File has frontmatter - update aliases via processFrontMatter
       const aliasPropertyKeys = this.getAliasPropertyKeys();
       await this.app.fileManager.processFrontMatter(
         currentFileForUpdate,
@@ -470,7 +526,6 @@ export class AliasManager {
           for (const aliasPropertyKey of aliasPropertyKeys) {
             // Check if property is 'aliases' - if yes, use current behavior
             if (aliasPropertyKey === "aliases") {
-              // Current behavior: add value on its own line as the last line
               let existingAliases: string[] = [];
               if (frontmatter[aliasPropertyKey]) {
                 if (Array.isArray(frontmatter[aliasPropertyKey])) {
@@ -480,33 +535,39 @@ export class AliasManager {
                 }
               }
 
-              // Remove any existing plugin aliases (marked with ZWSP) and empty strings
-              existingAliases = existingAliases.filter(
-                (alias) =>
-                  !(
-                    typeof alias === "string" &&
-                    alias.startsWith("\u200B") &&
-                    alias.endsWith("\u200B")
-                  ) && alias !== "",
+              // Find existing plugin alias index (ZWSP-wrapped)
+              const existingPluginIndex = existingAliases.findIndex((alias) =>
+                isPluginAlias(alias),
+              );
+
+              // Remove plugin aliases and empty strings
+              const userAliases = existingAliases.filter(
+                (alias) => !isPluginAlias(alias) && alias !== "",
               );
 
               // Check if this exact alias already exists (unmarked)
-              if (!existingAliases.includes(aliasToAdd)) {
-                // Add the new marked alias
-                existingAliases.push(markedAlias);
-                frontmatter[aliasPropertyKey] = existingAliases;
+              if (!userAliases.includes(aliasToAdd)) {
+                if (existingPluginIndex === -1) {
+                  // No existing plugin alias - always add at end
+                  userAliases.push(markedAlias);
+                } else if (this.settings.aliases.placeAliasLast) {
+                  // Has existing plugin alias, placeAliasLast ON - move to end
+                  userAliases.push(markedAlias);
+                } else {
+                  // Has existing plugin alias, placeAliasLast OFF - keep original position
+                  userAliases.splice(existingPluginIndex, 0, markedAlias);
+                }
+                frontmatter[aliasPropertyKey] = userAliases;
               } else {
-                // If only non-plugin aliases remain, update with them
-                if (existingAliases.length === 0) {
+                // Alias already exists unmarked - just keep user aliases
+                if (userAliases.length === 0) {
                   if (this.settings.aliases.keepEmptyAliasProperty) {
-                    // Keep empty property as null
                     frontmatter[aliasPropertyKey] = null;
                   } else {
-                    // Delete empty property
                     delete frontmatter[aliasPropertyKey];
                   }
                 } else {
-                  frontmatter[aliasPropertyKey] = existingAliases;
+                  frontmatter[aliasPropertyKey] = userAliases;
                 }
               }
             } else {
@@ -525,7 +586,7 @@ export class AliasManager {
                 // Property doesn't exist or has no value - insert inline
                 frontmatter[aliasPropertyKey] = markedAlias;
               } else {
-                // Property has existing values - check if they're FLIT-added or user-added
+                // Property has existing values
                 let existingValues: string[] = [];
                 if (Array.isArray(frontmatter[aliasPropertyKey])) {
                   existingValues = [...frontmatter[aliasPropertyKey]];
@@ -533,14 +594,14 @@ export class AliasManager {
                   existingValues = [frontmatter[aliasPropertyKey]];
                 }
 
-                // Remove plugin values (marked with ZWSP) and empty strings
+                // Find existing plugin value index (ZWSP-wrapped)
+                const existingPluginIndex = existingValues.findIndex((value) =>
+                  isPluginAlias(value),
+                );
+
+                // Remove plugin values and empty strings
                 const userValues = existingValues.filter(
-                  (value) =>
-                    !(
-                      typeof value === "string" &&
-                      value.startsWith("\u200B") &&
-                      value.endsWith("\u200B")
-                    ) && value !== "",
+                  (value) => !isPluginAlias(value) && value !== "",
                 );
 
                 // Check if this exact value already exists (unmarked)
@@ -549,18 +610,25 @@ export class AliasManager {
                     // No user values, just our value - insert inline
                     frontmatter[aliasPropertyKey] = markedAlias;
                   } else {
-                    // Has user values - add as new line in array
-                    userValues.push(markedAlias);
+                    // Has user values - add plugin value
+                    if (existingPluginIndex === -1) {
+                      // No existing plugin value - always add at end
+                      userValues.push(markedAlias);
+                    } else if (this.settings.aliases.placeAliasLast) {
+                      // Has existing plugin value, placeAliasLast ON - move to end
+                      userValues.push(markedAlias);
+                    } else {
+                      // Has existing plugin value, placeAliasLast OFF - keep position
+                      userValues.splice(existingPluginIndex, 0, markedAlias);
+                    }
                     frontmatter[aliasPropertyKey] = userValues;
                   }
                 } else {
                   // Value already exists, just restore user values
                   if (userValues.length === 0) {
                     if (this.settings.aliases.keepEmptyAliasProperty) {
-                      // Keep empty property as null
                       frontmatter[aliasPropertyKey] = null;
                     } else {
-                      // Delete empty property
                       delete frontmatter[aliasPropertyKey];
                     }
                   } else if (userValues.length === 1) {
@@ -576,7 +644,7 @@ export class AliasManager {
       );
 
       // Mark file as having pending metadata cache update
-      this.plugin.pendingMetadataUpdates.add(currentFileForUpdate.path);
+      this.plugin.pendingMetadataUpdates.add(currentFileForUpdate);
       verboseLog(
         this.plugin,
         `Updated alias \`${aliasToAdd}\` in ${currentFileForUpdate.path}`,
@@ -655,12 +723,7 @@ export class AliasManager {
 
               // Filter out plugin values (marked with ZWSP) and empty strings
               const filteredValues = existingValues.filter(
-                (value) =>
-                  !(
-                    typeof value === "string" &&
-                    value.startsWith("\u200B") &&
-                    value.endsWith("\u200B")
-                  ) && value !== "",
+                (value) => !isPluginAlias(value) && value !== "",
               );
 
               // Update or remove the property based on remaining values
@@ -688,7 +751,7 @@ export class AliasManager {
       );
 
       // Mark file as having pending metadata cache update
-      this.plugin.pendingMetadataUpdates.add(currentFileForRemoval.path);
+      this.plugin.pendingMetadataUpdates.add(currentFileForRemoval);
       verboseLog(
         this.plugin,
         `Removed plugin aliases from ${currentFileForRemoval.path}`,
@@ -801,5 +864,204 @@ export class AliasManager {
 
     // Editor matches active view = main workspace editor
     return false;
+  }
+
+  /**
+   * Get active editor for a specific file (if currently active)
+   */
+  private getActiveEditorForFile(file: TFile): Editor | undefined {
+    const view = this.app.workspace.getActiveViewOfType(MarkdownView);
+    return view?.file === file ? view.editor : undefined;
+  }
+
+  /**
+   * Try to update alias via editor.replaceRange() instead of processFrontMatter.
+   * This avoids disk write and "modified externally" notifications.
+   * @returns true if update succeeded via editor, false if processFrontMatter needed
+   */
+  private async tryEditorBasedAliasUpdate(
+    file: TFile,
+    newAlias: string,
+    editor?: Editor,
+  ): Promise<boolean> {
+    // Step 1: Get editor
+    const activeEditor = editor ?? this.getActiveEditorForFile(file);
+    if (!activeEditor) {
+      verboseLog(
+        this.plugin,
+        `TRY_EDITOR_UPDATE [1]: FAIL - no editor available for ${file.path}`,
+      );
+      return false;
+    }
+    verboseLog(
+      this.plugin,
+      `TRY_EDITOR_UPDATE [1]: file=${file.path}, editor=defined`,
+    );
+
+    // Step 2: Get editor content
+    const content = activeEditor.getValue();
+    verboseLog(
+      this.plugin,
+      `TRY_EDITOR_UPDATE [2]: content length=${content.length}`,
+    );
+
+    // Step 3: Check frontmatter exists
+    const fmInfo = getFrontMatterInfo(content);
+    if (!fmInfo.exists) {
+      verboseLog(this.plugin, `TRY_EDITOR_UPDATE [3]: FAIL - no frontmatter`);
+      return false;
+    }
+    verboseLog(
+      this.plugin,
+      `TRY_EDITOR_UPDATE [3]: frontmatter exists, contentStart=${fmInfo.contentStart}`,
+    );
+
+    // Step 4: Extract frontmatter section
+    const frontmatterText = content.substring(0, fmInfo.contentStart);
+    verboseLog(
+      this.plugin,
+      `TRY_EDITOR_UPDATE [4]: frontmatter length=${frontmatterText.length}`,
+    );
+
+    // Step 5: Get alias property keys
+    const aliasKeys = this.getAliasPropertyKeys();
+    verboseLog(
+      this.plugin,
+      `TRY_EDITOR_UPDATE [5]: alias keys=${aliasKeys.join(",")}`,
+    );
+
+    // Step 6: For each property, find ZWSP value by parsing frontmatter directly
+    // Using parseYaml instead of cache avoids timing issues with cache updates
+    let frontmatter: Record<string, unknown> | null = null;
+    try {
+      frontmatter = parseYaml(fmInfo.frontmatter);
+    } catch {
+      verboseLog(
+        this.plugin,
+        `TRY_EDITOR_UPDATE [6]: FAIL - could not parse frontmatter YAML`,
+      );
+      return false;
+    }
+
+    const positions: Array<{
+      key: string;
+      oldValue: string;
+      arrayIndex?: number;
+    }> = [];
+    let anyMissing = false;
+
+    for (const key of aliasKeys) {
+      const propValue = frontmatter?.[key];
+      verboseLog(
+        this.plugin,
+        `TRY_EDITOR_UPDATE [6]: checking key=${key}, type=${typeof propValue}`,
+      );
+
+      if (propValue === undefined) {
+        verboseLog(this.plugin, `TRY_EDITOR_UPDATE [6]: key=${key} MISSING`);
+        anyMissing = true;
+        continue;
+      }
+
+      if (Array.isArray(propValue)) {
+        // Search from end for ZWSP-wrapped value
+        let found = false;
+        for (let i = propValue.length - 1; i >= 0; i--) {
+          const val = propValue[i];
+          if (isPluginAlias(val)) {
+            verboseLog(
+              this.plugin,
+              `TRY_EDITOR_UPDATE [6]: key=${key} FOUND at index=${i}`,
+            );
+            positions.push({ key, oldValue: val, arrayIndex: i });
+            found = true;
+            break;
+          }
+        }
+        if (!found) {
+          verboseLog(
+            this.plugin,
+            `TRY_EDITOR_UPDATE [6]: key=${key} array has no ZWSP value`,
+          );
+          anyMissing = true;
+        }
+      } else if (typeof propValue === "string") {
+        if (isPluginAlias(propValue)) {
+          verboseLog(
+            this.plugin,
+            `TRY_EDITOR_UPDATE [6]: key=${key} FOUND string value`,
+          );
+          positions.push({ key, oldValue: propValue });
+        } else {
+          verboseLog(
+            this.plugin,
+            `TRY_EDITOR_UPDATE [6]: key=${key} string not ZWSP-wrapped`,
+          );
+          anyMissing = true;
+        }
+      } else {
+        // null or other non-array, non-string value
+        verboseLog(
+          this.plugin,
+          `TRY_EDITOR_UPDATE [6]: key=${key} has null/invalid value`,
+        );
+        anyMissing = true;
+      }
+    }
+
+    // Step 7: Check if any missing
+    if (anyMissing) {
+      verboseLog(
+        this.plugin,
+        `TRY_EDITOR_UPDATE [7]: FAIL - some properties missing ZWSP value`,
+      );
+      return false;
+    }
+    verboseLog(
+      this.plugin,
+      `TRY_EDITOR_UPDATE [7]: all ${positions.length} properties have ZWSP values`,
+    );
+
+    // Step 8: Replace ZWSP values line-by-line
+    const newMarkedAlias = `${ZWSP}${newAlias}${ZWSP}`;
+    const oldValue = positions[0].oldValue; // All positions have same ZWSP-wrapped value
+    const fmLines = frontmatterText.split("\n");
+    let replacedCount = 0;
+
+    for (let lineNum = 0; lineNum < fmLines.length; lineNum++) {
+      const line = fmLines[lineNum];
+      const ch = line.lastIndexOf(oldValue); // Rightmost occurrence on line
+      if (ch !== -1) {
+        verboseLog(
+          this.plugin,
+          `TRY_EDITOR_UPDATE [8]: replacing at line=${lineNum} ch=${ch}`,
+        );
+        activeEditor.replaceRange(
+          newMarkedAlias,
+          { line: lineNum, ch },
+          { line: lineNum, ch: ch + oldValue.length },
+        );
+        replacedCount++;
+      }
+    }
+
+    if (replacedCount !== positions.length) {
+      verboseLog(
+        this.plugin,
+        `TRY_EDITOR_UPDATE [8]: FAIL - expected ${positions.length} replacements, got ${replacedCount}`,
+      );
+      return false;
+    }
+
+    // Step 9: Force sync and verify
+    if (!activeEditor.getValue().includes(newMarkedAlias)) {
+      verboseLog(
+        this.plugin,
+        `TRY_EDITOR_UPDATE [9]: FAIL - change not persisted`,
+      );
+      return false;
+    }
+    verboseLog(this.plugin, `TRY_EDITOR_UPDATE [9]: SUCCESS`);
+    return true;
   }
 }
