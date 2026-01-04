@@ -4,6 +4,7 @@ import { verboseLog } from "../utils";
 import { RenameAllFilesModal } from "../modals";
 import FirstLineIsTitle from "../../main";
 import { FileCreationCoordinator } from "./file-creation-coordinator";
+import { t } from "../i18n";
 
 /**
  * WorkspaceIntegration
@@ -54,19 +55,27 @@ export class WorkspaceIntegration {
    * Register ribbon icons
    */
   registerRibbonIcons(): void {
-    this.plugin.addRibbonIcon("file-pen", "Put first line in title", () => {
-      void this.plugin.commandRegistrar.executeRenameCurrentFile();
-    });
+    this.plugin.addRibbonIcon(
+      "file-pen",
+      t("commands.putFirstLineInTitle"),
+      () => {
+        void this.plugin.commandRegistrar.executeRenameCurrentFile();
+      },
+    );
     this.plugin.addRibbonIcon(
       "files",
-      "Put first line in title in all notes",
+      t("commands.putFirstLineInTitleAllNotes"),
       () => {
         new RenameAllFilesModal(this.app, this.plugin).open();
       },
     );
-    this.plugin.addRibbonIcon("file-cog", "Toggle automatic renaming", () => {
-      void this.plugin.commandRegistrar.executeToggleAutomaticRenaming();
-    });
+    this.plugin.addRibbonIcon(
+      "file-cog",
+      t("commands.toggleAutomaticRenaming"),
+      () => {
+        void this.plugin.commandRegistrar.executeToggleAutomaticRenaming();
+      },
+    );
   }
 
   /**
