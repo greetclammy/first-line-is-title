@@ -31,19 +31,16 @@ Automatically set the first line as note title, just like in Apple Notes! Forget
 
 ## Install
 
-Untill _First Line is Title_ is [made availiable](https://github.com/obsidianmd/obsidian-releases/pull/7429) in the plugin directory, follow the steps below to install it.
-
-### BRAT (recommended)
+Until _First Line is Title_ is [made available](https://github.com/obsidianmd/obsidian-releases/pull/8400) in the plugin directory, follow the steps below to install it:
 
 1. Download and enable the community plugin [BRAT](https://obsidian.md/plugins?id=obsidian42-brat).
-2. Open _BRAT_ settings.
-3. Press _Add Beta Plugin_.
-4. Paste https://github.com/greetclammy/first-line-is-title in the text field.
-5. Select _Latest version_.
-6. Check _Enable after installing the plugin_.
-7. Press _Add Plugin_.
+2. Run _Add a beta plugin for testing_ in Command palette.
+3. Paste https://github.com/greetclammy/first-line-is-title in the text field.
+4. Select _Latest version_.
+5. Check _Enable after installing the plugin_.
+6. Press _Add Plugin_.
 
-### Install manually
+<details><summary>Install manually</summary>
 
 Note: to get updates for _First Line is Title_, you will have to check for and install them manually.
 
@@ -52,7 +49,34 @@ Note: to get updates for _First Line is Title_, you will have to check for and i
 3. Reload plugins or app.
 4. Enable _First Line is Title_ in Obsidian settings > Community plugins > Installed plugins.
 
+</details>
+
+## Commands
+
+### Ribbon
+
+| Command | Description |
+|---------|-------------|
+| Put first line in title | Rename active note, even if in excluded folder or with excluded tag or property. |
+| Put first line in title in all notes | Rename all notes in vault except if in excluded folder or with excluded tag or property. |
+| Toggle automatic renaming | Toggle the *Rename notes* setting between *Automatically* and *Manually*. |
+
+### Command palette
+
+| Command | Description |
+|---------|-------------|
+| Put first line in title | Rename active note, even if in excluded folder or with excluded tag or property. |
+| Put first line in title (unless excluded) | Rename active note except if in excluded folder or with excluded tag or property. |
+| Put first line in title in all notes | Rename all notes in vault except if in excluded folder or with excluded tag or property. |
+| Toggle automatic renaming | Toggle the *Rename notes* setting between *Automatically* and *Manually*. |
+| Disable renaming for note | Exclude active note from renaming. |
+| Enable renaming for note | Stop excluding active note from renaming. |
+| Add safe internal link | Create internal link with forbidden characters handled as set in *Replace characters*. |
+| Add safe internal link with caption | Create internal link with forbidden characters handled as set in *Replace characters*, and with original text in caption. |
+| Add internal link with caption and custom target | Create internal link with selected text in caption. Set link path manually. |
+| Insert file name at cursor position | Insert current file name at cursor position. Convert forbidden character replacements back to their original forms, as set in *Replace characters*. |
+
 ## Support
 
-- Please [open an issue](https://github.com/greetclammy/dynamic-views/issues) if you run into any problems. 
+- Please [open an issue](https://github.com/greetclammy/first-line-is-title/issues) if you run into any problems. 
 - Feature requests considered but not prioritized; further development focused on stability. PRs welcome.
