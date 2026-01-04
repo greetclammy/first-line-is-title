@@ -33,10 +33,10 @@
 
 ## Установка
 
-Пока _First Line is Title_ не [появился](https://github.com/obsidianmd/obsidian-releases/pull/8400) в каталоге плагинов, следуйте инструкциям ниже.
+Пока _First Line is Title_ не [появился](https://github.com/obsidianmd/obsidian-releases/pull/8400) в каталоге плагинов, для установки следуйте инструкциям ниже:
 
 1. Скачайте и включите сторонний плагин [BRAT](https://obsidian.md/plugins?id=obsidian42-brat).
-2. Откройте _Добавить бета-плагин для тестирования_ в палитре команд.
+2. Выберите _Добавить бета-плагин для тестирования_ в палитре команд.
 3. Вставьте https://github.com/greetclammy/first-line-is-title в текстовое поле.
 4. Выберите _Latest version_.
 5. Отметьте _Enable after installing the plugin_.
