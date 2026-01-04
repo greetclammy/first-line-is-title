@@ -57,33 +57,32 @@ Note: to get updates for _First Line is Title_, you will have to check for and i
 
 | Command | Description |
 |---------|-------------|
-| <img src=".github/icons/file-pen.svg" width="15" height="15" style="pointer-events:none"> Put first line in title | Rename active note, even if in excluded folder or with excluded tag or property. |
-| <img src=".github/icons/files.svg" width="15" height="15" style="pointer-events:none"> Put first line in title in all notes | Rename all notes in vault except if in excluded folder or with excluded tag or property. |
-| <img src=".github/icons/file-cog.svg" width="15" height="15" style="pointer-events:none"> Toggle automatic renaming | Toggle the *Rename notes* setting between *Automatically* and *Manually*. |
+| <a href="#ribbon"><img src=".github/icons/file-pen.svg" width="15" height="15"></a> Put first line in title | Rename active note, even if in excluded folder or with excluded tag or property. |
+| <a href="#ribbon"><img src=".github/icons/files.svg" width="15" height="15"></a> Put first line in title in all notes | Rename all notes in vault except if in excluded folder or with excluded tag or property. |
+| <a href="#ribbon"><img src=".github/icons/file-cog.svg" width="15" height="15"></a> Toggle automatic renaming | Toggle the *Rename notes* setting between *Automatically* and *Manually*. |
 
 ### Command palette
 
 | Command | Description |
 |---------|-------------|
-| <img src=".github/icons/file-pen.svg" width="15" height="15" style="pointer-events:none"> Put first line in title | Rename active note, even if in excluded folder or with excluded tag or property. |
-| <img src=".github/icons/file-pen.svg" width="15" height="15" style="pointer-events:none"> Put first line in title (unless excluded) | Rename active note except if in excluded folder or with excluded tag or property. |
-| <img src=".github/icons/file-stack.svg" width="15" height="15" style="pointer-events:none"> Put first line in title in all notes | Rename all notes in vault except if in excluded folder or with excluded tag or property. |
-| <img src=".github/icons/file-cog.svg" width="15" height="15" style="pointer-events:none"> Toggle automatic renaming | Toggle the *Rename notes* setting between *Automatically* and *Manually*. |
-| <img src=".github/icons/square-x.svg" width="15" height="15" style="pointer-events:none"> Disable renaming for note | Exclude active note from renaming. |
-| <img src=".github/icons/square-check.svg" width="15" height="15" style="pointer-events:none"> Enable renaming for note | Stop excluding active note from renaming. |
-| <img src=".github/icons/link.svg" width="15" height="15" style="pointer-events:none"> Add safe internal link | Create internal link with forbidden characters handled as set in *Replace characters*. |
-| <img src=".github/icons/link.svg" width="15" height="15" style="pointer-events:none"> Add safe internal link with caption | Create internal link with forbidden characters handled as set in *Replace characters*, and with original text in caption. |
-| <img src=".github/icons/link.svg" width="15" height="15" style="pointer-events:none"> Add internal link with caption and custom target | Create internal link with selected text in caption. Set link path manually. |
-| <img src=".github/icons/clipboard-type.svg" width="15" height="15" style="pointer-events:none"> Insert file name at cursor position | Insert current file name at cursor position. Convert forbidden character replacements back to their original forms, as set in *Replace characters*. |
+| <a href="#command-palette"><img src=".github/icons/file-pen.svg" width="15" height="15"></a> Put first line in title | Rename active note, even if in excluded folder or with excluded tag or property. |
+| <a href="#command-palette"><img src=".github/icons/file-pen.svg" width="15" height="15"></a> Put first line in title (unless excluded) | Rename active note except if in excluded folder or with excluded tag or property. |
+| <a href="#command-palette"><img src=".github/icons/file-stack.svg" width="15" height="15"></a> Put first line in title in all notes | Rename all notes in vault except if in excluded folder or with excluded tag or property. |
+| <a href="#command-palette"><img src=".github/icons/file-cog.svg" width="15" height="15"></a> Toggle automatic renaming | Toggle the *Rename notes* setting between *Automatically* and *Manually*. |
+| <a href="#command-palette"><img src=".github/icons/square-x.svg" width="15" height="15"></a> Disable renaming for note | Exclude active note from renaming. |
+| <a href="#command-palette"><img src=".github/icons/square-check.svg" width="15" height="15"></a> Enable renaming for note | Stop excluding active note from renaming. |
+| <a href="#command-palette"><img src=".github/icons/link.svg" width="15" height="15"></a> Add safe internal link | Create internal link with forbidden characters handled as set in *Replace characters*. |
+| <a href="#command-palette"><img src=".github/icons/link.svg" width="15" height="15"></a> Add safe internal link with caption | Create internal link with forbidden characters handled as set in *Replace characters*, and with original text in caption. |
+| <a href="#command-palette"><img src=".github/icons/link.svg" width="15" height="15"></a> Add internal link with caption and custom target | Create internal link with selected text in caption. Set link path manually. |
+| <a href="#command-palette"><img src=".github/icons/clipboard-type.svg" width="15" height="15"></a> Insert file name at cursor position | Insert current file name at cursor position. Convert forbidden character replacements back to their original forms, as set in *Replace characters*. |
 
 ### File, folder, tag and vault search context menu
 
 | Command | Description |
 |---------|-------------|
-| <img src=".github/icons/file-pen.svg" width="15" height="15" style="pointer-events:none"> Put first line in title | Rename selected note(s). |
-| <img src=".github/icons/folder-pen.svg" width="15" height="15" style="pointer-events:none"> Put first line in title in folder | Rename all notes in selected folder(s). |
-| <img src=".github/icons/square-x.svg" width="15" height="15" style="pointer-events:none"> Disable renaming | Exclude selected note(s), folder(s) or tag from renaming. |
-| <img src=".github/icons/square-check.svg" width="15" height="15" style="pointer-events:none"> Enable renaming | Stop excluding selected note(s), folder(s) or tag from renaming. |
+| <a href="#file-folder-tag-and-vault-search-context-menu"><img src=".github/icons/file-pen.svg" width="15" height="15"></a> Put first line in title | Rename selected note(s). |
+| <a href="#file-folder-tag-and-vault-search-context-menu"><img src=".github/icons/square-x.svg" width="15" height="15"></a> Disable renaming | Exclude selected note(s), folder(s) or tag from renaming. |
+| <a href="#file-folder-tag-and-vault-search-context-menu"><img src=".github/icons/square-check.svg" width="15" height="15"></a> Enable renaming | Stop excluding selected note(s), folder(s) or tag from renaming. |
 
 ## Support
 
